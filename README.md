@@ -1,2 +1,1 @@
 # oaap-spec
-OAAP Spec
