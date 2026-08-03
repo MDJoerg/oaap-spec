@@ -21,7 +21,14 @@ happened and never see credentials.
   gateway from that — apps never configure the gateway directly.
 - **Identity propagation**: the gateway passes the verified identity and
   roles to apps via trusted headers or tokens (mechanism to be resolved
-  with `oaap.core.identity`).
+  with `oaap.core.identity`). **Anti-spoofing guarantee**: identity
+  headers arriving from clients are stripped/overwritten on every
+  route, including `public` ones — apps can trust their presence.
+- **Route semantics**: declared paths are prefix matches, longest
+  declared prefix wins; requests under no declared route are rejected
+  at the gateway. The original `Host` header is preserved;
+  `X-Forwarded-Proto`/`X-Forwarded-For` are set. Additional ports an
+  app opens are never published.
 - **Topology** (RFC-0003): the gateway runs on the controller and also
   publishes apps that run on worker nodes; a worker whose controller is
   down is not reachable through the gateway.
