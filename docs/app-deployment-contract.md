@@ -153,6 +153,11 @@ their users and offer their own export path.
 - Migrations run automatically on startup (covered by startup grace).
 - Mobile-friendly UI — field use on tablets is the norm, flaky
   connectivity included.
+- If your app uses secure-context browser APIs (`crypto.subtle`,
+  clipboard, service workers, WebAuthn): degrade gracefully and say why
+  when they are unavailable. During gateway-less test deployments, test
+  via `http://localhost` (SSH port forward), never via `http://<ip>` —
+  plain HTTP over an IP disables these APIs.
 
 ## German summary / Deutsche Zusammenfassung
 

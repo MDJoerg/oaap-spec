@@ -122,5 +122,9 @@ rewriting is explicitly rejected.
    ports stay stable across reinstalls of the same instance.
 2. LAN TLS: self-signed platform CA with device enrollment vs. plain
    HTTP in trusted LAN vs. ACME via public name even for LAN hosts —
-   decide with the gateway spec.
+   decide with the gateway spec. Weighty data point from the first
+   probe deployment: browsers restrict secure-context APIs
+   (`crypto.subtle`, clipboard, service workers, WebAuthn) to
+   HTTPS/localhost — plain-HTTP LAN operation silently breaks apps
+   using them. This pushes strongly toward TLS even in the LAN profile.
 3. Name of the private zone (`*.oaap.intern`? configurable?).
