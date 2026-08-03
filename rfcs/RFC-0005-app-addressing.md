@@ -1,6 +1,6 @@
 # RFC-0005: App Addressing and Entry Points
 
-- **Status:** Draft
+- **Status:** Accepted (2026-08-03)
 - **Date:** 2026-08-03
 - **Authors:** Claude (proposal), Jörg (review & decision)
 - **Depends on:** RFC-0002 (gateway), RFC-0004 (app manifest)
@@ -81,7 +81,7 @@ rewriting is explicitly rejected.
   TLS; `https://bdt.example.com`. The natural mode for internet
   deployments (shared services, partner portal).
 - **LAN with platform DNS**: the platform can serve DNS for a private
-  zone (e.g. `*.oaap.intern`). Two delivery paths:
+  zone (`*.oaap.internal`, see resolved question 3). Two delivery paths:
   - **WireGuard clients** (field tablets): the WireGuard profile pushes
     the platform as DNS server — per-app hostnames work automatically
     for exactly the user group that needs remote access. No router
@@ -116,15 +116,22 @@ rewriting is explicitly rejected.
   profile; LAN TLS story is an open question below).
 - Inter-app communication (server-side; not user-facing addressing).
 
-## Open questions
+## Resolved questions (decided 2026-08-03)
 
-1. Default port range for level 1 (proposal: 8100–8199) and whether
-   ports stay stable across reinstalls of the same instance.
-2. LAN TLS: self-signed platform CA with device enrollment vs. plain
-   HTTP in trusted LAN vs. ACME via public name even for LAN hosts —
-   decide with the gateway spec. Weighty data point from the first
-   probe deployment: browsers restrict secure-context APIs
-   (`crypto.subtle`, clipboard, service workers, WebAuthn) to
-   HTTPS/localhost — plain-HTTP LAN operation silently breaks apps
-   using them. This pushes strongly toward TLS even in the LAN profile.
-3. Name of the private zone (`*.oaap.intern`? configurable?).
+1. **Port range**: default 8100–8199, sufficient for typical
+   installations; configurable as an expert option. Port assignments
+   are persisted so an instance keeps its port (details in the
+   `oaap.apps.runtime` spec).
+2. **LAN TLS**: HTTPS is the default **also in the LAN**, with
+   certificates issued by a platform-own CA — the secure-context
+   finding (browsers restrict `crypto.subtle`, clipboard, service
+   workers, WebAuthn to HTTPS/localhost) makes plain HTTP a silent
+   app-breaker. A per-app fallback to HTTP remains available as an
+   **expert option** in the app's configuration. Distribution of the
+   platform CA to client devices (trust enrollment) is defined in the
+   `oaap.core.gateway` spec.
+3. **Private zone**: `*.oaap.internal` (expert-configurable).
+   `.internal` is reserved by ICANN for private networks. `.local` was
+   rejected: it is reserved for mDNS (RFC 6762) — standard-conforming
+   resolvers send `.local` queries via multicast only and would never
+   ask the platform's DNS server.
