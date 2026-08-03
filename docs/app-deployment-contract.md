@@ -27,8 +27,9 @@ Your repository MUST contain:
    platform, so it must build on both amd64 and arm64 — avoid
    architecture-specific base images and binaries)
 
-A JSON Schema for the manifest will be published alongside the runtime
-spec so manifests can be validated in CI.
+The manifest's JSON Schema is published at
+[`schema/oaap-app.schema.json`](../schema/oaap-app.schema.json) —
+validate `oaap-app.yaml` against it in CI before deploying.
 
 ## The manifest (`oaap-app.yaml`)
 
