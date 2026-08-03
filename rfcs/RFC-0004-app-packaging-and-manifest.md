@@ -1,6 +1,6 @@
 # RFC-0004: App Packaging — Neutral Manifest and App Types
 
-- **Status:** Draft
+- **Status:** Accepted (2026-08-03)
 - **Date:** 2026-08-03
 - **Authors:** Claude (proposal), Jörg (review & decision)
 - **Depends on:** RFC-0001 (capability model), RFC-0002 (security-first
@@ -97,11 +97,19 @@ security and backups regardless of app origin.
 - App updates and rollback (belongs with the update capability).
 - Inter-app APIs and eventing.
 
+## Resolved questions
+
+1. **Manifest format** (decided 2026-08-03): YAML. Schema versioning
+   details follow in the `oaap.apps.runtime` capability spec.
+2. **Compose compatibility** (decided 2026-08-03): OAAP will provide a
+   **converter** that imports an existing docker-compose stack and
+   generates a `wrapped` manifest from it — the easy on-ramp for
+   bringing third-party installations into the platform. The converter
+   is tooling, not part of the manifest schema; details in the
+   `oaap.apps.runtime` capability spec.
+
 ## Open questions
 
-1. Manifest format details and schema versioning (YAML assumed).
-2. Trust: signing of manifests and images, especially for `wrapped`
+1. Trust: signing of manifests and images, especially for `wrapped`
    apps with third-party images.
-3. Resource limits/quotas per app on small hardware.
-4. How much compose compatibility `wrapped` should offer (import
-   existing compose files vs. re-declare).
+2. Resource limits/quotas per app on small hardware.

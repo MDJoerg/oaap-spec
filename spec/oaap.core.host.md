@@ -8,10 +8,12 @@
 
 ## 1. Purpose
 
-`oaap.core.host` takes a **prepared operating environment** — a provider
-prerequisite, e.g. Debian stable with a container runtime for the
-reference implementation — to a **running OAAP platform** and hands over
-to the web portal for all further setup. Onboarding MUST be as simple as
+`oaap.core.host` takes a **prepared operating environment** to a
+**running OAAP platform** and hands over to the web portal for all
+further setup. The hard prerequisite is only a supported Linux with
+administrative access (provider-defined, e.g. Debian stable for the
+reference); the container runtime is either already present or — with
+explicit consent — installed by the installer itself. Onboarding MUST be as simple as
 consumer NAS or router setup: run one installer, open one URL, create the
 first admin. The capability also provides the minimal node-local baseline
 (health status, version) that every node of a platform carries.
@@ -35,19 +37,28 @@ human-readable message. `bootstrap` is the default mode.
 
 A conformant installer MUST perform these steps in order:
 
-1. **Preflight** — verify the operating environment: OS baseline
+1. **Runtime provisioning (optional)** — if the container runtime is
+   missing, the installer SHOULD offer to install it (interactive
+   confirmation or an explicit configuration flag; never silently).
+   Without consent, the missing runtime is a preflight failure. This
+   keeps the effective prerequisite down to "supported Linux with
+   administrative access". Which runtimes can be provisioned is
+   provider-defined (reference: Docker Engine; Podman is a candidate,
+   see ADR-0004).
+2. **Preflight** — verify the operating environment: OS baseline
    present, container runtime available, sufficient resources (providers
    MUST document their minimums), required ports free. On failure:
    report all problems in human-readable form and terminate **without
-   changing the system**.
-2. **Install core** — install and start the core capabilities
+   changing the system** (a runtime installed in step 1 with consent
+   remains — it is an explicitly requested change).
+3. **Install core** — install and start the core capabilities
    `oaap.core.gateway`, `oaap.core.identity`, `oaap.core.portal`. These
    ship with the installer; they are never fetched from an app store
    (bootstrap problem — the store itself needs the core).
-3. **Generate secrets** — all platform secrets are generated locally and
+4. **Generate secrets** — all platform secrets are generated locally and
    randomly, unique per installation. There are **no default
    credentials** of any kind.
-4. **Hand over** — print the setup URL together with a **one-time setup
+5. **Hand over** — print the setup URL together with a **one-time setup
    token** to the console. The portal's first-run wizard requires this
    token and creates the first admin user; until that user exists the
    platform serves nothing else (RFC-0002).
@@ -143,6 +154,10 @@ Everything else is configured in the portal after setup.
 10. **Token recovery**: before the first admin exists, `oaap setup-token`
     prints the valid setup URL and token; after setup is completed it
     refuses with a clear message.
+11. **Runtime provisioning**: on a supported Linux without a container
+    runtime, the installer offers to install one; with consent the
+    subsequent bootstrap succeeds, without consent preflight fails and
+    the system is unchanged.
 
 ## 6. Dependencies
 
