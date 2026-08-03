@@ -1,6 +1,6 @@
 # RFC-0001: The OAAP Capability Model
 
-- **Status:** Draft
+- **Status:** Accepted (2026-08-03)
 - **Date:** 2026-08-03
 - **Authors:** Claude (proposal), Jörg (review & decision)
 

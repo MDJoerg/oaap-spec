@@ -1,6 +1,6 @@
 # RFC-0002: Security-First Access Model (Identity, Gateway, Roles)
 
-- **Status:** Draft
+- **Status:** Accepted (2026-08-03) — open questions delegated to the capability specs
 - **Date:** 2026-08-03
 - **Authors:** Claude (proposal), Jörg (review & decision)
 - **Depends on:** RFC-0001 (capability model)

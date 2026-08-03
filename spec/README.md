@@ -1,0 +1,17 @@
+# Capability Specifications
+
+Capability specs follow the format defined in
+[RFC-0001](../rfcs/RFC-0001-capability-model.md): Purpose, Interface,
+Configuration, Security requirements, Conformance tests, Dependencies,
+Maturity. Files are named after the capability ID.
+
+Specs marked **outline** contain only Purpose and an interface sketch;
+they exist so that neighboring specs can reference stable interfaces
+before the full specification is written.
+
+## Index
+
+- [oaap.core.host](oaap.core.host.md) — platform installer & node baseline (draft)
+- [oaap.core.portal](oaap.core.portal.md) — web portal (outline)
+- [oaap.core.identity](oaap.core.identity.md) — identity & roles (outline)
+- [oaap.core.gateway](oaap.core.gateway.md) — HTTP gateway (outline)

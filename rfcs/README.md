@@ -5,5 +5,6 @@ never deleted; superseded RFCs get status `Superseded by RFC-XXXX`.
 
 ## Index
 
-- [RFC-0001](RFC-0001-capability-model.md) — The OAAP Capability Model (Draft)
-- [RFC-0002](RFC-0002-security-first-access-model.md) — Security-First Access Model: Identity, Gateway, Roles (Draft)
+- [RFC-0001](RFC-0001-capability-model.md) — The OAAP Capability Model (Accepted)
+- [RFC-0002](RFC-0002-security-first-access-model.md) — Security-First Access Model: Identity, Gateway, Roles (Accepted)
+- [RFC-0003](RFC-0003-platform-topology.md) — Platform Topology: Controller and Worker Nodes (Accepted)
