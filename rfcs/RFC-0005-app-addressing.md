@@ -50,6 +50,11 @@ rewriting is explicitly rejected.
   therefore secondary to reachability.
 - Every entry point, on every level, passes through the gateway with
   identical authentication (RFC-0002 — default deny on all listeners).
+  Concretely: additional ports (level 1) are **listeners of the gateway
+  itself**, not of app containers — apps remain attached only to the
+  internal network and are never directly reachable. Session check,
+  role check against the manifest's routes, header stripping, and all
+  contract guarantees apply identically on every listener.
 
 ### Level 1 — Port per app instance (universal baseline)
 

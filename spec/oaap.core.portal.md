@@ -20,8 +20,15 @@ settings, scoped by the standard roles (RFC-0002).
 - **Administration areas** (0.1 scope): user & role management, app
   overview, platform health of the whole landscape (RFC-0003), basic
   settings.
-- **App integration**: installed apps appear in the portal as entry
-  points; apps are opened through the gateway, not embedded.
+- **Launchpad**: installed apps appear as tiles with icon/image,
+  description, and grouping — maintained in the portal by `keyuser`/
+  `admin`. Tiles are **role-filtered**: users only see apps their roles
+  permit (the portal knows identity and the manifests' route roles).
+  App URLs on the tiles are platform-generated per RFC-0005; apps are
+  opened through the gateway, not embedded.
+- **Appearance**: the launchpad's look (tiles, groups, texts, branding)
+  is operator-configurable. Later stage: multiple parallel designs,
+  assignable per user or group (backlog).
 - The portal itself is an app-like consumer of platform capabilities:
   it talks to `oaap.core.identity` for user management and is published
   through `oaap.core.gateway` like any app.
