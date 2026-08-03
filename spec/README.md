@@ -15,3 +15,4 @@ before the full specification is written.
 - [oaap.core.portal](oaap.core.portal.md) — web portal (outline)
 - [oaap.core.identity](oaap.core.identity.md) — identity & roles (outline)
 - [oaap.core.gateway](oaap.core.gateway.md) — HTTP gateway (outline)
+- [oaap.apps.runtime](oaap.apps.runtime.md) — app runtime: install, instances, contract delivery (draft)
