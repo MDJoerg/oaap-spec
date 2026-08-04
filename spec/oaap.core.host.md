@@ -1,7 +1,7 @@
 # oaap.core.host — Platform Installer & Node Baseline
 
 - **ID:** `oaap.core.host`
-- **Version:** 0.1.0
+- **Version:** 0.2.0
 - **Maturity:** draft
 - **Based on:** RFC-0001 (initial capability set), RFC-0002 (bootstrap
   security), RFC-0003 (installer modes, node health)
@@ -28,10 +28,14 @@ Per RFC-0003 the installer has three modes:
 | ------------- | --------------------------------------------------- | ------------- |
 | `bootstrap`   | Create a new platform on this machine (controller)  | specified     |
 | `join`        | Attach this machine to a platform as a worker       | reserved      |
-| `remote join` | Controller provisions a worker over SSH, from the portal | reserved |
+| `remote join` | Controller provisions a worker over SSH (portal)    | reserved      |
+| `prepare`     | Server readiness only (see 2.2 step 2), re-runnable | specified 0.2 |
 
 An installer MUST reject reserved/unknown modes with a clear,
-human-readable message. `bootstrap` is the default mode.
+human-readable message. `bootstrap` is the default mode. `prepare` is
+not an RFC-0003 topology mode but a local convenience: it runs only the
+server-readiness step, MAY be repeated anytime, and MUST NOT touch an
+existing platform installation.
 
 ### 2.2 Bootstrap flow
 
@@ -45,20 +49,48 @@ A conformant installer MUST perform these steps in order:
    administrative access". Which runtimes can be provisioned is
    provider-defined (reference: Docker Engine; Podman is a candidate,
    see ADR-0004).
-2. **Preflight** — verify the operating environment: OS baseline
+2. **Server readiness (optional, each change with explicit consent)** —
+   a platform node must behave like a server, but consumer hardware and
+   default OS installs often do not. The installer SHOULD detect and,
+   with consent (interactive confirmation or an explicit configuration
+   flag; never silently), fix at least:
+   - **Keep-awake:** the machine must never suspend, hibernate, or
+     sleep on lid close / power key (typical mini-PC and laptop
+     defaults). Reference: mask the systemd sleep targets and override
+     the logind lid/key handling.
+   - **Stable network address:** if the primary interface is on DHCP,
+     the address can change with the next lease — breaking bookmarks,
+     WireGuard peers, and app URLs. The installer SHOULD offer to make
+     the **current** address permanent (recommended default) or to use
+     a **different, user-chosen** address in the same subnet. A
+     different address MUST be refused if it is the gateway, the
+     network, or the broadcast address, or if it answers on the network
+     (best-effort probe; a silent machine may still own an address —
+     say so). A changed address MUST NOT be activated live — it becomes
+     active at the next boot and the installer says so clearly (a live
+     switch would cut remote sessions, and a wrongly chosen address
+     would strand the machine). The installer MUST keep a backup of the
+     previous network configuration and document the rollback. Keeping
+     the current address MUST NOT interrupt connectivity.
+
+   Both fixes are host-level settings: they survive `oaap uninstall`
+   and are NOT reverted by it (documented behavior). They are also
+   available standalone and repeatable via the `prepare` mode, e.g. for
+   machines installed before this capability version.
+3. **Preflight** — verify the operating environment: OS baseline
    present, container runtime available, sufficient resources (providers
    MUST document their minimums), required ports free. On failure:
    report all problems in human-readable form and terminate **without
    changing the system** (a runtime installed in step 1 with consent
    remains — it is an explicitly requested change).
-3. **Install core** — install and start the core capabilities
+4. **Install core** — install and start the core capabilities
    `oaap.core.gateway`, `oaap.core.identity`, `oaap.core.portal`. These
    ship with the installer; they are never fetched from an app store
    (bootstrap problem — the store itself needs the core).
-4. **Generate secrets** — all platform secrets are generated locally and
+5. **Generate secrets** — all platform secrets are generated locally and
    randomly, unique per installation. There are **no default
    credentials** of any kind.
-5. **Hand over** — print the setup URL together with a **one-time setup
+6. **Hand over** — print the setup URL together with a **one-time setup
    token** to the console. The portal's first-run wizard requires this
    token and creates the first admin user; until that user exists the
    platform serves nothing else (RFC-0002).
@@ -110,6 +142,9 @@ Configurable at install time (sensible defaults for everything):
 - HTTP/HTTPS ports of the gateway (default 80/443)
 - Data directory for all platform state (provider-defined default)
 - Hostname/IP used in the printed setup URL
+- Server-readiness consent for non-interactive runs (provider-defined
+  flags; reference: `OAAP_SERVER_MODE=1|0` for keep-awake,
+  `OAAP_STATIC_IP=current|<address>|skip` for the stable address)
 
 Everything else is configured in the portal after setup.
 
@@ -158,6 +193,24 @@ Everything else is configured in the portal after setup.
     runtime, the installer offers to install one; with consent the
     subsequent bootstrap succeeds, without consent preflight fails and
     the system is unchanged.
+12. **Keep-awake**: on a system with sleep/suspend enabled, the
+    installer offers the keep-awake fix; with consent, suspend and
+    hibernate are inhibited (reference: sleep targets masked, lid/key
+    handling overridden) and the setting survives a reboot; without
+    consent the system is unchanged.
+13. **Stable address**: on a DHCP-configured system, the installer
+    offers to make the current address permanent or to set a chosen
+    free address; with consent the address is statically configured and
+    survives reboot and DHCP-lease changes; choosing the current
+    address does not interrupt existing connections; the gateway,
+    network, and broadcast addresses and an address that answers on the
+    network are refused; a changed address is activated only at the
+    next boot; without consent the system is unchanged. A backup of the
+    previous network configuration exists and the rollback is
+    documented.
+14. **Prepare mode**: `prepare` runs only the server-readiness step,
+    also on a machine with an existing platform installation, which it
+    leaves untouched; running it twice is harmless (idempotent).
 
 ## 6. Dependencies
 
