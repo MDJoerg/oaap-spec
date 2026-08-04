@@ -69,9 +69,13 @@ A conformant installer MUST perform these steps in order:
      say so). A changed address MUST NOT be activated live — it becomes
      active at the next boot and the installer says so clearly (a live
      switch would cut remote sessions, and a wrongly chosen address
-     would strand the machine). The installer MUST keep a backup of the
-     previous network configuration and document the rollback. Keeping
-     the current address MUST NOT interrupt connectivity.
+     would strand the machine). Name resolution MUST keep working after
+     the switch: the DHCP-provided resolvers are carried over into the
+     static configuration (on ifupdown systems nobody maintains
+     `/etc/resolv.conf` afterwards — Debian's dhcpcd even empties it at
+     boot). The installer MUST keep a backup of the previous network
+     configuration and document the rollback. Keeping the current
+     address MUST NOT interrupt connectivity.
 
    - **Admin access:** default OS installs may lack a privilege-
      escalation path for the regular user (e.g. a Debian netinstall
