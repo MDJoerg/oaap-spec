@@ -73,7 +73,16 @@ A conformant installer MUST perform these steps in order:
      previous network configuration and document the rollback. Keeping
      the current address MUST NOT interrupt connectivity.
 
-   Both fixes are host-level settings: they survive `oaap uninstall`
+   - **Admin access:** default OS installs may lack a privilege-
+     escalation path for the regular user (e.g. a Debian netinstall
+     with a root password ships without `sudo`). When running as root,
+     the installer SHOULD offer to establish it (reference: install
+     `sudo`, add the invoking or repository-owning user to the sudo
+     group). When running as non-root **without** such a path, the
+     installer MUST print actionable guidance (e.g. the exact `su`
+     command) instead of a bare "must run as root".
+
+   All fixes are host-level settings: they survive `oaap uninstall`
    and are NOT reverted by it (documented behavior). They are also
    available standalone and repeatable via the `prepare` mode, e.g. for
    machines installed before this capability version.
@@ -211,6 +220,11 @@ Everything else is configured in the portal after setup.
 14. **Prepare mode**: `prepare` runs only the server-readiness step,
     also on a machine with an existing platform installation, which it
     leaves untouched; running it twice is harmless (idempotent).
+15. **Admin access**: on a system without a privilege-escalation path
+    for the regular user, a root run offers to establish it (with
+    consent the user's `sudo` works after re-login; without consent
+    the system is unchanged), and a non-root run prints actionable
+    guidance instead of failing bare.
 
 ## 6. Dependencies
 
