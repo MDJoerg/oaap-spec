@@ -1,4 +1,4 @@
-# OAAP App Deployment Contract (draft v0.2)
+# OAAP App Deployment Contract (draft v0.3)
 
 **Audience:** developers and AI coding agents (Codex, Claude Code, …)
 building an app that will be deployed on an OAAP platform.
@@ -7,6 +7,9 @@ by the `oaap.apps.runtime` capability spec. Expect small changes.
 **Changelog:** v0.2 (2026-08-03) incorporates feedback from the first
 real app integration (BDT): platform guarantees section, secrets,
 startup grace, route semantics, redeploy and backup-scope rules.
+v0.3 (2026-08-04) adds the recommended pattern for app-internal users
+and roles, from the second real app integration (a CRM with its own
+role/permission model).
 
 Give this document to your coding agent as a working instruction:
 "Make the app deployable on OAAP according to this contract."
@@ -147,6 +150,43 @@ client (e.g. browser IndexedDB/localStorage) is outside the platform's
 reach — apps holding primary data client-side SHOULD make that clear to
 their users and offer their own export path.
 
+## App-internal users and roles (recommended pattern)
+
+Many business apps need their own user records and a finer role or
+permission model than OAAP's five standard roles — that is expected and
+welcome. The seam between both worlds follows one principle:
+
+> **The platform decides who someone is and whether they may enter the
+> app. The app decides who they are *inside* the app.**
+
+Concretely (SHOULD):
+
+1. **Admission is the manifest's job.** The route roles decide who
+   reaches the app at all; the gateway enforces them. Inside the app,
+   authorize against your own model.
+2. **First contact creates an app user — the OAAP role is only a
+   starting hint.** When a yet-unknown `X-OAAP-User` arrives, create
+   your own user record for it. Either derive an initial business role
+   from `X-OAAP-Roles`, or — for sensitive apps — create the account as
+   **pending/unassigned** with minimal permissions and show a "please
+   contact your administrator" page. Give app administrators an
+   approval view where new logins are assigned a business role **or
+   linked to an existing master-data record** (an employee usually
+   exists in the app before their first login — link, don't duplicate).
+3. **After the first assignment, the app owns the role.** Never
+   re-derive the business role from `X-OAAP-Roles` on later requests —
+   a continuous sync silently overwrites what app administrators
+   configured. You don't need it for security either: a user
+   deactivated on the platform is blocked at the gateway and never
+   reaches the app again.
+
+Additional guidance: `X-OAAP-User` (the username) is the stable join
+key — store it on your user record; treat display names as changeable.
+Do not seed real persons as hard-wired login users; seed them as
+master data without a login and link on first contact. A platform
+service for centrally managed app roles may come later as an opt-in
+capability; this pattern works without any platform support.
+
 ## Recommendations (SHOULD)
 
 - Keep it to one service unless there is a real reason for more.
@@ -173,4 +213,11 @@ Schlüssel für eigene Verschlüsselung, das nie in Backups landet), loggt
 nach stdout, bietet einen Health-Endpunkt mit Startup-Schonfrist und
 muss mehrfach-instanzfähig sowie offline-fähig sein. Routen sind
 Präfix-Matches (längster gewinnt), nicht deklarierte Pfade blockt das
-Gateway, zusätzliche Ports werden nie veröffentlicht.
+Gateway, zusätzliche Ports werden nie veröffentlicht. Eigene
+App-Benutzer und Fachrollen sind ausdrücklich vorgesehen: Die Plattform
+entscheidet, *wer* jemand ist und ob er die App betreten darf; die App
+entscheidet, wer er *in der App* ist. Die OAAP-Rolle dient nur als
+Startvorschlag bei der Erstanlage (oder der Benutzer startet
+„unzugeordnet" und wird von der App-Verwaltung freigegeben und mit
+vorhandenen Stammdaten verknüpft) — danach gehört die Fachrolle der
+App und wird nie wieder automatisch überschrieben.
