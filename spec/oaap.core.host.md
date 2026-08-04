@@ -24,18 +24,21 @@ first admin. The capability also provides the minimal node-local baseline
 
 Per RFC-0003 the installer has three modes:
 
-| Mode          | Meaning                                             | Status in 0.1 |
-| ------------- | --------------------------------------------------- | ------------- |
-| `bootstrap`   | Create a new platform on this machine (controller)  | specified     |
-| `join`        | Attach this machine to a platform as a worker       | reserved      |
-| `remote join` | Controller provisions a worker over SSH (portal)    | reserved      |
-| `prepare`     | Server readiness only (see 2.2 step 2), re-runnable | specified 0.2 |
+| Mode          | Meaning                                             | Status in 0.1         |
+| ------------- | --------------------------------------------------- | --------------------- |
+| `bootstrap`   | Create a new platform on this machine (controller)  | specified             |
+| `join`        | Attach this machine to a platform as a worker       | reserved              |
+| `remote join` | Controller provisions a worker over SSH (portal)    | reserved              |
+| `prepare`     | Server readiness only (see 2.2 step 2), re-runnable | specified 0.2         |
+| `restore`     | Recreate a platform from a platform backup          | in `oaap.data.backup` |
 
 An installer MUST reject reserved/unknown modes with a clear,
 human-readable message. `bootstrap` is the default mode. `prepare` is
 not an RFC-0003 topology mode but a local convenience: it runs only the
 server-readiness step, MAY be repeated anytime, and MUST NOT touch an
-existing platform installation.
+existing platform installation. `restore` behaves like `bootstrap`
+seeded from a platform backup; its rules and tests live in
+`oaap.data.backup` §2.3.
 
 ### 2.2 Bootstrap flow
 

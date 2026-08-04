@@ -11,8 +11,9 @@ before the full specification is written.
 
 ## Index
 
-- [oaap.core.host](oaap.core.host.md) — platform installer & node baseline (draft)
-- [oaap.core.portal](oaap.core.portal.md) — web portal (outline)
-- [oaap.core.identity](oaap.core.identity.md) — identity & roles (outline)
+- [oaap.core.host](oaap.core.host.md) — platform installer & node baseline (draft, v0.2)
+- [oaap.core.portal](oaap.core.portal.md) — web portal (draft, v0.2)
+- [oaap.core.identity](oaap.core.identity.md) — identity & roles (draft, v0.2)
 - [oaap.core.gateway](oaap.core.gateway.md) — HTTP gateway (outline)
-- [oaap.apps.runtime](oaap.apps.runtime.md) — app runtime: install, instances, contract delivery (draft)
+- [oaap.apps.runtime](oaap.apps.runtime.md) — app runtime: install, instances, contract delivery, remote deployment (draft, v0.2)
+- [oaap.data.backup](oaap.data.backup.md) — platform backup, restore & relocation (draft, v0.1)

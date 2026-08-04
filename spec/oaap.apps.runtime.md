@@ -1,8 +1,8 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.1.0
-- **Maturity:** draft
+- **Version:** 0.2.0
+- **Maturity:** draft (0.2 adds remote deployment via deploy tokens)
 - **Based on:** RFC-0001 (capability model), RFC-0002 (roles/gateway),
   RFC-0003 (placement), RFC-0004 (manifest/app types), RFC-0005
   (addressing); platform side of the App Deployment Contract
@@ -70,11 +70,45 @@ For every instance, the runtime delivers the contract guarantees:
 5. App containers attach only to internal networks — no container port
    is ever published directly; every entry point is a gateway listener.
 
-### 2.5 Portal integration
+### 2.5 Remote deployment (deploy tokens)
+
+Purpose: close the development loop for a project's AI coding agent —
+push to the project repository, trigger a deployment, test the running
+result immediately, without a platform administrator in the loop. This
+is the smallest working core of the Studio idea.
+
+- Every instance installed from a remote source records its **package
+  source** (e.g. git URL, path, ref). Remote deployment always means
+  "fetch the recorded source again" — a deploy request can never
+  supply a different source or upload a package.
+- An administrator MAY create a **deploy token** for a **test-channel
+  instance**: an opaque random secret bound to exactly one instance,
+  shown once at creation, revocable at any time. The platform stores
+  only a digest of the token. Tokens for production-channel instances
+  MUST NOT exist; moving an instance to `production` invalidates its
+  tokens.
+- The platform exposes a **deploy hook**: an HTTP endpoint per
+  instance, reachable through the gateway on the platform's entry
+  points, authorized **solely** by the instance's deploy token (bearer
+  credential — no session, no identity headers). On success the
+  platform fetches the source fresh, redeploys the instance
+  (same-version redeploy is test-channel semantics per 2.3), and
+  responds with the outcome and the instance's entry URL.
+- Every remote deployment MUST be **audited**: time, instance, source
+  revision, outcome — visible to administrators in the portal.
+- Failed token attempts MUST be throttled like login attempts, and
+  responses MUST NOT reveal whether an instance name exists.
+
+The production path is unchanged and deliberately excluded: promoting
+to production remains a human action with a version bump.
+
+### 2.6 Portal integration
 
 Install/configure/instance management happens in the portal (`admin`;
 app configuration also `keyuser` per RFC-0002). Each instance appears
-as a role-filtered launchpad tile (portal spec).
+as a role-filtered launchpad tile (portal spec). Deploy tokens are
+created and revoked by administrators in the portal (instance object
+page), and the deploy audit trail is visible there.
 
 ## 3. Configuration
 
@@ -94,6 +128,10 @@ as a role-filtered launchpad tile (portal spec).
   platform security must not depend on app quality (RFC-0002).
 - Manifest-declared roles are the only path to route authorization;
   apps cannot widen their own exposure at runtime.
+- Deploy tokens are stored only as digests, are bound to exactly one
+  test instance, and authorize exactly one action: redeploy that
+  instance from its recorded source. They grant no login, no API
+  access, and no influence on routes, roles, or configuration.
 
 ## 5. Conformance tests (described)
 
@@ -121,6 +159,21 @@ as a role-filtered launchpad tile (portal spec).
     message; the system is unchanged.
 11. **Removal**: removing an instance removes containers, routes, and
     tile; storage is kept or purged as chosen.
+12. **Deploy hook happy path**: after a new commit in the recorded
+    source, a POST with a valid deploy token redeploys the test
+    instance; the new state is served through its entry point and an
+    audit entry (time, revision, outcome) exists.
+13. **Token required**: a missing or wrong token is rejected without
+    any side effect; repeated failures are throttled; the response for
+    a wrong token and a nonexistent instance is indistinguishable.
+14. **Production protection**: creating a deploy token for a
+    production instance is refused; moving a test instance with a
+    token to production invalidates the token, and the hook refuses
+    afterwards.
+15. **Revocation**: a revoked token is refused immediately.
+16. **Source pinning**: a deploy request cannot change the source —
+    the redeploy uses the recorded package source even if the request
+    carries a different one.
 
 ## 6. Dependencies
 
@@ -131,4 +184,6 @@ as a role-filtered launchpad tile (portal spec).
 
 `draft` — first implementation target: run the two real pilot apps
 (montage-doku as `native` production+test, BDT as `native` test) through
-tests 1–11 on the reference platform.
+tests 1–11 on the reference platform. 0.2 target: tests 12–16 with the
+pilot CRM's test instance and its AI coding agent as the first real
+remote deployer.
