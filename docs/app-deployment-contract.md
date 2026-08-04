@@ -1,4 +1,4 @@
-# OAAP App Deployment Contract (draft v0.3)
+# OAAP App Deployment Contract (draft v0.4)
 
 **Audience:** developers and AI coding agents (Codex, Claude Code, …)
 building an app that will be deployed on an OAAP platform.
@@ -9,7 +9,9 @@ real app integration (BDT): platform guarantees section, secrets,
 startup grace, route semantics, redeploy and backup-scope rules.
 v0.3 (2026-08-04) adds the recommended pattern for app-internal users
 and roles, from the second real app integration (a CRM with its own
-role/permission model).
+role/permission model). v0.4 (2026-08-04) adds the project mailbox
+(AI collaboration convention) and the deploy-hook workflow for test
+deployments.
 
 Give this document to your coding agent as a working instruction:
 "Make the app deployable on OAAP according to this contract."
@@ -187,6 +189,30 @@ master data without a login and link on first contact. A platform
 service for centrally managed app roles may come later as an opt-in
 capability; this pattern works without any platform support.
 
+## Working with the platform side
+
+Two mechanisms connect your project to the platform team and its AI —
+both live in or next to your repository, not in chat sessions:
+
+1. **The project mailbox (`collab/`).** The repository carries the
+   correspondence between the AIs (and humans) involved: letters in
+   `collab/letters/`, reports (test results, review feedback) in
+   `collab/reports/`. The rules — **pull first at every session start**,
+   letters are immutable (answer with a new letter, `re:` header),
+   commit and push a letter immediately, write so the humans can read
+   along — are defined in [ai-collaboration.md](ai-collaboration.md).
+   Your human will not remind you to check the mailbox; that is your
+   job.
+2. **The deploy hook (test channel).** Your briefing hands you a hook
+   URL and a bearer token for your app's **test instance**. After
+   pushing a deployable state: `POST <hook-url>` with
+   `Authorization: Bearer <token>` — the platform pulls your
+   repository fresh, redeploys the test instance, and answers with the
+   outcome and the URL to test at (HTTP 202 means still building —
+   poll `GET <hook-url>/status`). The token deploys **only** this test
+   instance and nothing else; production deployments remain a human
+   action with a version bump.
+
 ## Recommendations (SHOULD)
 
 - Keep it to one service unless there is a real reason for more.
@@ -220,4 +246,10 @@ entscheidet, wer er *in der App* ist. Die OAAP-Rolle dient nur als
 Startvorschlag bei der Erstanlage (oder der Benutzer startet
 „unzugeordnet" und wird von der App-Verwaltung freigegeben und mit
 vorhandenen Stammdaten verknüpft) — danach gehört die Fachrolle der
-App und wird nie wieder automatisch überschrieben.
+App und wird nie wieder automatisch überschrieben. Die Zusammenarbeit
+mit der Plattformseite läuft über das Projekt-Repo: der
+**KI-Postkasten** (`collab/` — Briefe und Berichte, immer erst `pull`,
+Briefe unveränderlich, sofort pushen) und der **Deploy-Hook** (nach dem
+Push per Bearer-Token die eigene Test-Instanz ausrollen und sofort
+unter Realbedingungen testen; Produktivsetzung bleibt Menschensache mit
+Versions-Bump).

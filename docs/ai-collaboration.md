@@ -1,6 +1,6 @@
 # AI Collaboration in App Projects — Mailbox Convention
 
-- **Status:** draft 0.1 (2026-08-04)
+- **Status:** accepted 0.1 (2026-08-04, approved by Jörg)
 - **Applies to:** every app project with a shared git repository and at
   least one AI coding agent; complements the App Deployment Contract
   (becomes part of it once accepted) and every project briefing.
@@ -21,7 +21,7 @@ loop.
 
 The project repository gets a top-level `collab/` directory:
 
-```
+```text
 collab/
   letters/   one file per letter, never edited after sending
   reports/   test results, review findings, deployment feedback
