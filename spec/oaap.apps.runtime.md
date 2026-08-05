@@ -1,8 +1,9 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.0
-- **Maturity:** draft (0.2 adds remote deployment via deploy tokens)
+- **Version:** 0.2.1
+- **Maturity:** draft (0.2 adds remote deployment via deploy tokens;
+  0.2.1 adds the one-click store install in 2.6 with test 17)
 - **Based on:** RFC-0001 (capability model), RFC-0002 (roles/gateway),
   RFC-0003 (placement), RFC-0004 (manifest/app types), RFC-0005
   (addressing); platform side of the App Deployment Contract
@@ -110,6 +111,27 @@ as a role-filtered launchpad tile (portal spec). Deploy tokens are
 created and revoked by administrators in the portal (instance object
 page), and the deploy audit trail is visible there.
 
+**One-click store install.** An administrator MAY install an app
+directly from the portal's store page. The trust model mirrors 2.5
+("a request can never supply a source"):
+
+- The portal request names **only the app id** (and the store source
+  it was seen in). It carries no package source, no manifest, no
+  version — nothing installable.
+- The privileged host side resolves the app id **against the
+  platform's configured store sources** (the same list the store page
+  reads) and installs from what *that* lookup returns. An app id that
+  no configured source lists is refused. A compromised portal can
+  therefore at worst install apps the administrator already chose to
+  trust by configuring their source.
+- One-click installs land on the **production channel** (installing
+  from the store means using the app); test instances for development
+  remain a deliberate choice (CLI/briefing). Re-clicking an installed
+  app follows the redeploy semantics of 2.3 — same version on
+  production is refused, a newer listed version updates.
+- Every one-click install is **audited** like a remote deployment
+  (time, app, source, outcome) and visible to administrators.
+
 ## 3. Configuration
 
 - Level-1 port range (default 8100–8199, expert-configurable;
@@ -174,6 +196,11 @@ page), and the deploy audit trail is visible there.
 16. **Source pinning**: a deploy request cannot change the source —
     the redeploy uses the recorded package source even if the request
     carries a different one.
+17. **Store-install resolution**: a one-click install for an app id
+    that no configured store source lists is refused with no side
+    effect; for a listed app, the installed source equals what the
+    host-side lookup of the configured sources returned — a request
+    carrying a divergent source has no influence (2.6).
 
 ## 6. Dependencies
 
