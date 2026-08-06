@@ -2,7 +2,8 @@
 
 - **ID:** `oaap.core.updates`
 - **Version:** 0.1.0
-- **Maturity:** draft — for Jörg's review
+- **Maturity:** draft — accepted by Jörg 2026-08-06 (CLI trigger
+  implemented and validated on real hardware)
 - **Based on:** RFC-0001 (capability model); program decision 2026-08-03
   ("one update engine per node, three triggers"); git-based delivery
   (program backlog); trust principle of `oaap.apps.runtime` 2.5
