@@ -75,7 +75,7 @@
         "required": ["key", "label"],
         "additionalProperties": false,
         "properties": {
-          "key": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]*$" },
+          "key": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]*$" },
           "label": { "type": "string" },
           "default": { "type": "string" },
           "secret": { "type": "boolean" }
