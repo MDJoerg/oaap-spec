@@ -1,10 +1,11 @@
 # oaap.core.host — Platform Installer & Node Baseline
 
 - **ID:** `oaap.core.host`
-- **Version:** 0.2.0
-- **Maturity:** draft
+- **Version:** 0.2.1
+- **Maturity:** draft (0.2.1 adds the `oaap user` rescue commands, 2.3)
 - **Based on:** RFC-0001 (initial capability set), RFC-0002 (bootstrap
-  security), RFC-0003 (installer modes, node health)
+  security), RFC-0003 (installer modes, node health), RFC-0008
+  (server_admin)
 
 ## 1. Purpose
 
@@ -144,6 +145,18 @@ Every node provides a local command-line entry point (reference name:
   service partners, and recovery when the portal is unavailable).
   Until that capability exists, implementations MUST reject the
   command with a clear message.
+- `oaap user list` / `oaap user password <username> [password]`
+  (RFC-0008) — a rescue path for exactly the scenario `oaap
+  setup-token` already covers for the very first login: the portal
+  (or the operator's session) is unusable and there is no other way
+  back in. `list` prints every account's roles, groups and active
+  state (never a password hash); `password` sets a new password for
+  one account (prompted, hidden input, if not given as an argument)
+  and signs out that account's existing sessions, same as a
+  self-service password change. Requires local administrator
+  privileges — root already implies full control of the user store
+  (a file on disk), so this adds no new trust boundary, only a safer,
+  audited-by-being-explicit path than editing the file by hand.
 
 ### 2.4 Handover contract
 
@@ -232,6 +245,13 @@ Everything else is configured in the portal after setup.
     consent the user's `sudo` works after re-login; without consent
     the system is unchanged), and a non-root run prints actionable
     guidance instead of failing bare.
+16. **User rescue**: `oaap user list` shows every account's username,
+    roles, groups and active state and never a password hash;
+    `oaap user password <username> <newpw>` changes only that
+    account's password and signs out its existing sessions (its next
+    request, even mid-session, is rejected); a nonexistent username is
+    refused with a clear message and no side effect; running without
+    root is refused.
 
 ## 6. Dependencies
 
@@ -243,3 +263,16 @@ MUST be part of every provider's installer distribution.
 
 `draft` — becomes `beta` once the reference implementation passes the
 described conformance tests end-to-end.
+
+## German summary / Deutsche Zusammenfassung (`oaap user`, v0.2.1)
+
+**Neuer Rettungsweg (2.3):** `oaap user list` zeigt alle Benutzer samt
+Rollen/Gruppen/Status direkt aus der Datei — kein Portal-Login nötig.
+`oaap user password <benutzer> [passwort]` setzt ein neues Passwort
+(ohne Angabe: versteckte Eingabeaufforderung) und meldet bestehende
+Sitzungen dieses Benutzers automatisch ab. Beides erfordert root — wer
+root auf der Maschine hat, hat ohnehin volle Kontrolle über die
+Benutzerdatei; der Befehl macht den sicheren Weg nur bequemer als
+Handbearbeitung der Datei. Anlass: Jörg hat sich auf `oaap-bernd`
+ausgesperrt (falscher Benutzername probiert) — mit `oaap user list`
+wäre das sofort sichtbar gewesen.
