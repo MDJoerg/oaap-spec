@@ -85,7 +85,12 @@ health:
    the verified identity in the headers `X-OAAP-User` and
    `X-OAAP-Roles` (comma-separated; standard roles: `admin`, `keyuser`,
    `user`, `guest`, `partner`). Authorize inside the app based on these
-   headers — never render a login form.
+   headers — never render a login form. A caller's roles may also
+   include `server_admin` (RFC-0008) if they hold it — it is forwarded
+   like any other role, but it is a **platform-only** authority (server
+   administration, not app administration) and apps MUST NOT treat it
+   as implying anything about their own app-level permissions; a
+   manifest's routes never declare it as a required role.
 2. **HTTP only, one port per service.** No TLS in the app — the
    gateway terminates it. Listen on the port declared in the manifest,
    on `0.0.0.0`. Additional listeners the app opens are **never

@@ -1,9 +1,11 @@
 # oaap.core.updates — Platform Updates
 
 - **ID:** `oaap.core.updates`
-- **Version:** 0.1.0
+- **Version:** 0.1.1
 - **Maturity:** draft — accepted by Jörg 2026-08-06 (CLI trigger
-  implemented and validated on real hardware)
+  implemented and validated on real hardware); 0.1.1 (2026-08-07)
+  updates the reserved portal-trigger role to `server_admin` per
+  RFC-0008
 - **Based on:** RFC-0001 (capability model); program decision 2026-08-03
   ("one update engine per node, three triggers"); git-based delivery
   (program backlog); trust principle of `oaap.apps.runtime` 2.5
@@ -79,8 +81,9 @@ triggers; 0.1 implements the CLI, the others are reserved:
 ## 4. Security requirements
 
 - The update trigger is privileged: CLI requires root; the future
-  portal trigger requires the `admin` role and runs through the
-  host-task channel, never as the web process.
+  portal trigger requires the `server_admin` role (RFC-0008 — updating
+  the platform is server administration, not app-facing) and runs
+  through the host-task channel, never as the web process.
 - **Source pinning:** no trigger can inject a source, ref, or payload;
   the engine only ever pulls the recorded source (same principle as
   deploy tokens: requests carry intent, never content).

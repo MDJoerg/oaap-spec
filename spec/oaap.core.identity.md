@@ -1,13 +1,14 @@
 # oaap.core.identity — Identity & Roles
 
 - **ID:** `oaap.core.identity`
-- **Version:** 0.2.0
+- **Version:** 0.3.0
 - **Maturity:** draft
-- **Based on:** RFC-0001, RFC-0002
+- **Based on:** RFC-0001, RFC-0002, RFC-0007, RFC-0008
 - **Scope of this version:** built-in minimal identity provider with
   user management. External identity providers (Keycloak, LDAP, OIDC)
   are out of scope and must be able to replace this provider later
-  without changing the gateway contract.
+  without changing the gateway contract. 0.3.0 adds the `server_admin`
+  role (RFC-0008) and free-form visibility groups (RFC-0007).
 
 ## 1. Purpose
 
@@ -26,13 +27,24 @@ their own business roles.
 
 ### 2.1 Standard roles
 
-The standard roles from RFC-0002 exist on every installation and are
-not user-definable in this version:
+The standard roles from RFC-0002 and RFC-0008 exist on every
+installation and are not user-definable in this version:
 
-`admin`, `keyuser`, `user`, `guest`, `partner`, `public`
+`server_admin`, `admin`, `keyuser`, `user`, `guest`, `partner`, `public`
 
 `public` is a route marker (no authentication), never a role held by a
-user account. A user account holds **one or more** of the other five.
+user account. A user account holds **one or more** of the other six.
+
+`server_admin` (RFC-0008) is full platform administration authority —
+users, groups, edge/external routing, backup, store, and the
+visibility-group bypass (2.6). It is **never** forwarded to apps as
+something app-specific to interpret; it exists only for platform/
+CLI/portal gates. `admin` keeps its pre-0.3.0 meaning unchanged: an
+app-facing role, forwarded to apps via `X-OAAP-Roles` exactly as
+before, carrying no platform authority by itself. The two are granted
+independently — a user can hold `admin` (full administrative function
+inside one app) without holding `server_admin` (control of the OAAP
+server itself), and vice versa.
 
 ### 2.2 User model
 
@@ -42,7 +54,8 @@ Each user account has at least:
 | -------------- | ------------------------------------------------------------------------------- |
 | `username`     | unique, immutable after creation, `[a-z0-9][a-z0-9._-]*`, 2–40 chars, lowercase |
 | `display_name` | optional free text; portal UX only — apps receive the `username`                |
-| `roles`        | non-empty subset of {admin, keyuser, user, guest, partner}                      |
+| `roles`        | non-empty subset of {server_admin, admin, keyuser, user, guest, partner}        |
+| `groups`       | free-form visibility tags (RFC-0007), default empty — see 2.6                   |
 | `active`       | boolean; inactive users cannot sign in and existing sessions stop verifying     |
 | password       | stored only as a salted hash; minimum length 8                                  |
 
@@ -57,23 +70,37 @@ Each user account has at least:
   redirect to the login page (browser flows) or 401/403.
 - Verify accepts an optional role restriction (`?roles=a,b`); the
   session must hold at least one of the listed roles (route-level
-  authorization, spec `oaap.apps.runtime` 2.4).
+  authorization, spec `oaap.apps.runtime` 2.4). No bypass exists for
+  this check — `server_admin` does not automatically satisfy a role
+  restriction it is not itself listed in (RFC-0008: it carries no
+  implied app-facing role).
+- Verify accepts an optional group restriction (`?groups=a,b`,
+  RFC-0007) — an ADDITIONAL check alongside roles: the session must
+  hold at least one of the listed groups, **unless** it holds
+  `server_admin`, which bypasses the group check unconditionally
+  (2.6). Absent, this parameter changes nothing (today's behavior).
 - **Fresh state per request:** verify MUST evaluate the *current* user
-  store on every call. Deactivating a user or changing their roles
-  takes effect on their next request — waiting for re-login is not
-  acceptable. (Sessions may cache the username, never the roles.)
+  store on every call. Deactivating a user or changing their roles or
+  groups takes effect on their next request — waiting for re-login is
+  not acceptable. (Sessions may cache the username, never the roles or
+  groups.)
 
 ### 2.4 User management
 
-- Managing users is restricted to sessions holding the `admin` role.
-  The portal provides the UI; identity provides the operations.
+- Managing users is restricted to sessions holding the `server_admin`
+  role (RFC-0008 — this operates on the server itself). The portal
+  provides the UI; identity provides the operations.
 - Operations: **list** users (never exposing password hashes),
-  **create** (username, initial password, roles, display name),
-  **update** (roles, display name, active flag — not the username),
-  **set password** (admin sets a new password for any user).
-- **Last-admin protection:** an operation that would leave the
-  platform without at least one *active* user holding `admin` MUST be
-  rejected.
+  **create** (username, initial password, roles, groups, display
+  name), **update** (roles, groups, display name, active flag — not
+  the username), **set password** (server_admin sets a new password
+  for any user).
+- **Last-server_admin protection:** an operation that would leave the
+  platform without at least one *active* user holding `server_admin`
+  MUST be rejected (losing the last one would lock everyone out of
+  user, edge, external-route and store management). There is no
+  equivalent protection for `admin` any more — it is an ordinary
+  app-facing role.
 - **Self-service password change:** every signed-in user can change
   their own password by providing the current one. No other
   self-service exists in this version.
@@ -83,10 +110,40 @@ Each user account has at least:
 
 ### 2.5 Bootstrap
 
-The first admin is created via the portal's first-run wizard, protected
+The first user is created via the portal's first-run wizard, protected
 by the one-time setup token (see `oaap.core.host` 2.2). Until setup is
-completed, no other request is served. The first admin receives the
-roles `admin` and `keyuser`.
+completed, no other request is served. The first user receives the
+roles `server_admin`, `admin` and `keyuser` (RFC-0008: the common
+single-operator install needs no further role setup — this user can
+both administer the platform and use every app's own admin functions,
+and can designate further server admins).
+
+**Upgrade migration (RFC-0008, one-time):** on the first start after
+adding `server_admin`, every existing user holding `admin` also
+receives `server_admin`, so nobody presently trusted with the server
+loses access when the two roles split apart. Recorded by a flag so it
+runs exactly once; after this point the two roles are granted
+independently.
+
+### 2.6 Visibility groups (RFC-0007)
+
+- `groups` is a free-form list of short tags on a user record — no
+  group registry, no rename/delete workflow; a group exists the moment
+  any user carries the tag (deliberately simple, matching the
+  `oaap.apps.runtime` `visibility` field on app instances, spec 2.7).
+- Validation mirrors usernames: lowercase `[a-z0-9][a-z0-9._-]*`, max
+  40 characters, deduplicated.
+- Checked by `/verify`'s optional `?groups=` parameter (2.3) —
+  identity does not know about app instances or their visibility
+  setting; the gateway config generator supplies the group list to
+  check per route, exactly as it already does for roles.
+- `server_admin` bypasses every group restriction unconditionally
+  (2.1) — the platform administrator sees and reaches every instance
+  regardless of visibility.
+- No `X-OAAP-Groups` header exists or is planned — groups are a
+  platform-level visibility switch, not part of the App Deployment
+  Contract. An app that wants group-aware behavior has no API for that
+  in this version.
 
 ## 3. Configuration
 
@@ -102,32 +159,47 @@ roles `admin` and `keyuser`.
    reference uses werkzeug's scrypt-based default). Plaintext passwords
    never touch disk or logs.
 2. Session cookies are HttpOnly and SameSite=Lax at minimum.
-3. Management operations are only reachable through an
-   admin-authenticated surface; the identity-internal API is never
-   exposed through the gateway.
+3. Management operations are only reachable through a
+   server_admin-authenticated surface; the identity-internal API is
+   never exposed through the gateway.
 4. Failed logins return a generic error (no username enumeration).
-5. Role changes and deactivation act on the next request (see 2.3).
+5. Role, group and deactivation changes act on the next request (see 2.3).
 6. Anti-spoofing is the gateway's duty (deployment contract guarantee
    1); identity supports it by being the only source of the trusted
    headers.
+7. `server_admin` is never forwarded to apps as anything they should
+   treat specially — it is a platform gate only (2.1). Granting it only
+   to another `server_admin` (never to a user holding merely `admin`)
+   is enforced structurally: the management surface itself requires
+   `server_admin` to reach at all (requirement 3).
 
 ## 5. Conformance tests (described)
 
-1. **Create and sign in** — admin creates user `verwaltung` with role
-   `keyuser`; that user can sign in and reaches a `keyuser` route.
+1. **Create and sign in** — server_admin creates user `verwaltung` with
+   role `keyuser`; that user can sign in and reaches a `keyuser` route.
 2. **Role enforcement** — a route restricted to `keyuser,admin` returns
    403 for a session holding only `user`.
 3. **Fresh roles** — changing a signed-in user's roles is reflected in
    the trusted headers of their very next request (no re-login).
 4. **Immediate deactivation** — deactivating a signed-in user causes
    their next request to be rejected/redirected to login.
-5. **Last-admin protection** — removing `admin` from (or deactivating)
-   the only active admin is rejected.
+5. **Last-server_admin protection** — removing `server_admin` from (or
+   deactivating) the only active server_admin is rejected; removing
+   plain `admin` from the last admin is NOT rejected (it carries no
+   platform protection).
 6. **Self-service password** — a user can change their own password
    with the correct current password; a wrong current password is
    rejected; the new password works, the old one no longer does.
 7. **No hash exposure** — the user list operation never contains
    password hashes.
+8. **Group bypass** — a route restricted to `?groups=finanzen` returns
+   403 for a session with neither `finanzen` in its groups nor
+   `server_admin` in its roles; a session with `server_admin` (but not
+   `finanzen`) still passes.
+9. **admin/server_admin independence** — a user holding only `admin`
+   cannot reach `/users`, `/store`, `/instances` or `/health`; a user
+   holding only `server_admin` (not `admin`) can manage users but does
+   not automatically gain any app's own admin-level function.
 
 ## 6. Dependencies
 
@@ -135,8 +207,33 @@ None (foundation; the gateway depends on identity, not vice versa).
 
 ## 7. Maturity
 
-`draft` — v0.2.0 adds user management to the v0.1 outline. Open points
-for later versions: external identity providers (Keycloak/LDAP/OIDC),
-2FA (required by the internet hardening profile), forced password
-change on first login, user deletion/GDPR semantics, per-app service
-accounts.
+`draft` — v0.2.0 added user management to the v0.1 outline; v0.3.0
+adds the `server_admin` role (RFC-0008) and visibility groups
+(RFC-0007). Open points for later versions: external identity
+providers (Keycloak/LDAP/OIDC), 2FA (required by the internet
+hardening profile), forced password change on first login, user
+deletion/GDPR semantics, per-app service accounts, `tenant_admin`
+(future — explicitly out of scope for RFC-0008, see multi-tenancy in
+the capability backlog), managed group objects (RFC-0007 kept groups
+free-form deliberately; revisit if renaming-safety or a full overview
+of groups in use becomes a real need).
+
+## German summary / Deutsche Zusammenfassung (server_admin & Sichtbarkeitsgruppen, v0.3.0)
+
+**server_admin (RFC-0008):** Neue Rolle für die echte
+Server-Verwaltung (Benutzer, Gruppen, Edge/externe Routen, Backup,
+Store) — nie an Apps weitergereicht. `admin` bleibt unverändert die
+App-Rolle ohne Server-Wirkung; beide werden unabhängig vergeben. Der
+Ersteinrichtungs-Benutzer bekommt beide Rollen. Bestehende
+Installationen: alle heutigen `admin`-Träger bekommen beim Update
+einmalig zusätzlich `server_admin` — niemand verliert Zugriff. Nur
+`server_admin` darf weitere `server_admin` vergeben (strukturell
+erzwungen, da die Benutzerverwaltung selbst `server_admin` erfordert).
+Der Schutz „mindestens ein aktiver Administrator bleibt" gilt jetzt
+für `server_admin`, nicht mehr für `admin`.
+
+**Sichtbarkeitsgruppen (RFC-0007):** Freie Stichworte je Benutzer
+(`groups`), keine Gruppen-Verwaltung — eine Gruppe existiert, sobald
+irgendein Benutzer sie trägt. `/verify` prüft optional `?groups=...`
+zusätzlich zu den Rollen; `server_admin` sieht immer alles. Kein neuer
+Header an Apps — der Deployment Contract bleibt unverändert.

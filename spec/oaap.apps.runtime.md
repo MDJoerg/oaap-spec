@@ -1,12 +1,15 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.1
+- **Version:** 0.2.2
 - **Maturity:** draft (0.2 adds remote deployment via deploy tokens;
-  0.2.1 adds the one-click store install in 2.6 with test 17)
+  0.2.1 adds the one-click store install in 2.6 with test 17; 0.2.2
+  adds instance visibility in 2.7 and moves platform-level portal
+  operations from `admin` to `server_admin`, per RFC-0007/RFC-0008)
 - **Based on:** RFC-0001 (capability model), RFC-0002 (roles/gateway),
   RFC-0003 (placement), RFC-0004 (manifest/app types), RFC-0005
-  (addressing); platform side of the App Deployment Contract
+  (addressing), RFC-0007 (visibility groups), RFC-0008 (server_admin);
+  platform side of the App Deployment Contract
   (`docs/app-deployment-contract.md`)
 
 ## 1. Purpose
@@ -105,13 +108,16 @@ to production remains a human action with a version bump.
 
 ### 2.6 Portal integration
 
-Install/configure/instance management happens in the portal (`admin`;
-app configuration also `keyuser` per RFC-0002). Each instance appears
-as a role-filtered launchpad tile (portal spec). Deploy tokens are
-created and revoked by administrators in the portal (instance object
-page), and the deploy audit trail is visible there.
+Install/instance management and the store happen in the portal,
+restricted to `server_admin` (RFC-0008 — this operates on the
+platform itself, not on one app's own data); app **configuration**
+(an installed instance's own settings) stays `admin`/`keyuser` per
+RFC-0002, unchanged. Each instance appears as a role- and
+group-filtered launchpad tile (portal spec, RFC-0007). Deploy tokens
+are created and revoked by server_admins in the portal (instance
+object page), and the deploy audit trail is visible there.
 
-**One-click store install.** An administrator MAY install an app
+**One-click store install.** A server_admin MAY install an app
 directly from the portal's store page. The trust model mirrors 2.5
 ("a request can never supply a source"):
 
@@ -122,7 +128,7 @@ directly from the portal's store page. The trust model mirrors 2.5
   platform's configured store sources** (the same list the store page
   reads) and installs from what *that* lookup returns. An app id that
   no configured source lists is refused. A compromised portal can
-  therefore at worst install apps the administrator already chose to
+  therefore at worst install apps the server_admin already chose to
   trust by configuring their source.
 - One-click installs land on the **production channel** (installing
   from the store means using the app); test instances for development
@@ -130,7 +136,34 @@ directly from the portal's store page. The trust model mirrors 2.5
   app follows the redeploy semantics of 2.3 — same version on
   production is refused, a newer listed version updates.
 - Every one-click install is **audited** like a remote deployment
-  (time, app, source, outcome) and visible to administrators.
+  (time, app, source, outcome) and visible to server_admins.
+
+### 2.7 Visibility (RFC-0007)
+
+Every registry instance carries an optional `visibility` setting,
+alongside — never inside — the manifest-derived `roles`:
+
+- **`{}` (default, "all")**: unchanged behavior — role check only.
+- **`{"groups": [g1, g2, ...]}`**: an ADDITIONAL restriction, checked
+  by the gateway/identity alongside the role check (both must pass;
+  `oaap.core.identity` 2.6, `oaap.core.gateway` "Visibility groups").
+  This is an **operator decision made after installation**, per
+  instance — never in the app's distributed manifest (a store package
+  does not know an operator's teams).
+- Set via `sudo oaap app visibility <instance> all` /
+  `sudo oaap app visibility <instance> groups g1,g2,...` — updates the
+  registry, regenerates that instance's Caddy site(s) (LAN and, if
+  registered, external subdomain — the same generator function serves
+  both), and reloads the gateway. Same mechanics as `oaap external
+  set`/`oaap edge add`.
+- The portal offers the same control on `/instances` (list report +
+  object page, server_admin only) — since its registry mount is
+  read-only, the change is queued through the same host-side worker
+  that already applies store installs (2.6), not written directly.
+- Visibility **survives reinstall/redeploy** of the same named
+  instance (like the port assignment in 2.3) — a redeploy must not
+  silently reopen a group-restricted instance.
+- `server_admin` bypasses every visibility restriction (RFC-0008).
 
 ## 3. Configuration
 
@@ -201,6 +234,14 @@ directly from the portal's store page. The trust model mirrors 2.5
     effect; for a listed app, the installed source equals what the
     host-side lookup of the configured sources returned — a request
     carrying a divergent source has no influence (2.6).
+18. **Visibility group restriction (2.7)**: an instance set to
+    `groups: [finanzen]` is unreachable and its tile hidden for a user
+    with the right role but not in `finanzen`; a `server_admin` reaches
+    and sees it regardless. Setting visibility back to `all` restores
+    the previous (role-only) behavior for everyone.
+19. **Visibility survives redeploy**: an instance's visibility setting
+    is unchanged after a redeploy that keeps the same instance name
+    (2.3, 2.7) — a redeploy must not silently reopen it.
 
 ## 6. Dependencies
 
@@ -214,3 +255,17 @@ directly from the portal's store page. The trust model mirrors 2.5
 tests 1–11 on the reference platform. 0.2 target: tests 12–16 with the
 pilot CRM's test instance and its AI coding agent as the first real
 remote deployer.
+
+## German summary / Deutsche Zusammenfassung (2.6/2.7, v0.2.2)
+
+**Portal-Verwaltung jetzt server_admin:** Install-/Instanzverwaltung
+und der Store erfordern jetzt `server_admin` statt `admin`
+(RFC-0008) — die App-eigene Konfiguration bleibt `admin`/`keyuser`
+wie bisher.
+
+**Sichtbarkeit (2.7, RFC-0007):** Jede installierte Instanz kann eine
+zusätzliche Gruppen-Einschränkung tragen (`sudo oaap app visibility
+<instanz> groups buero,finanzen` bzw. `all` für zurücksetzen) —
+neben, nicht anstelle der Rollen aus dem Manifest. Übersteht einen
+Redeploy derselben Instanz. `server_admin` sieht immer alles. Im
+Portal auf einer neuen Seite „Instanzen" ebenfalls einstellbar.

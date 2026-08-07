@@ -1,10 +1,11 @@
 # oaap.core.gateway — HTTP Gateway (outline)
 
 - **ID:** `oaap.core.gateway`
-- **Version:** 0.2.0
+- **Version:** 0.2.1
 - **Maturity:** draft (outline — full specification to follow;
-  §Edge routing added 2026-08-07 per RFC-0006)
-- **Based on:** RFC-0001, RFC-0002, RFC-0003, RFC-0006
+  §Edge routing added 2026-08-07 per RFC-0006; visibility groups
+  parameter added 2026-08-07 per RFC-0007)
+- **Based on:** RFC-0001, RFC-0002, RFC-0003, RFC-0006, RFC-0007, RFC-0008
 
 ## Purpose
 
@@ -25,6 +26,14 @@ happened and never see credentials.
   with `oaap.core.identity`). **Anti-spoofing guarantee**: identity
   headers arriving from clients are stripped/overwritten on every
   route, including `public` ones — apps can trust their presence.
+- **Visibility groups** (RFC-0007): an installed instance may carry an
+  additional `visibility` restriction (`oaap.apps.runtime` 2.7,
+  operator-set, never in the app manifest). When set, every non-public
+  route's forward-auth call for that instance gains a `groups=`
+  parameter alongside `roles=`, checked by `oaap.core.identity` 2.3/2.6
+  — `server_admin` bypasses it unconditionally (RFC-0008). No new
+  header is forwarded to apps; the App Deployment Contract is
+  unaffected.
 - **Route semantics**: declared paths are prefix matches, longest
   declared prefix wins; requests under no declared route are rejected
   at the gateway. The original `Host` header is preserved;
@@ -109,7 +118,12 @@ full specification; RFC-0006 resolved question 3 records the decision.
 
 `draft`
 
-## German summary / Deutsche Zusammenfassung (Edge-Abschnitt)
+## German summary / Deutsche Zusammenfassung (Edge-Abschnitt + Sichtbarkeitsgruppen)
+
+**Sichtbarkeitsgruppen (RFC-0007):** Ist für eine Instanz eine
+Gruppen-Einschränkung gesetzt, hängt das Gateway an jede
+Rollenprüfung zusätzlich `groups=...` an — geprüft von Identity,
+`server_admin` sieht immer alles. Kein neuer Header an Apps.
 
 Ein Knoten mit dem öffentlichen Eingang (Portfreigabe) kann Anfragen
 für die Hostnamen **anderer** Plattformen an deren Adresse
