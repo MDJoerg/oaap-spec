@@ -1,6 +1,6 @@
 # RFC-0008: `server_admin` — Separating Platform Administration from App-Facing `admin`
 
-- **Status:** Draft (2026-08-07) — proposal, awaiting Jörg's decision on open questions
+- **Status:** Accepted (2026-08-07)
 - **Date:** 2026-08-07
 - **Authors:** Jörg (problem & proposal), Claude (write-up)
 - **Depends on:** RFC-0002 (roles, gateway enforcement)
@@ -114,18 +114,20 @@ authority now.
 
 - `tenant_admin` / multi-tenancy (existing RFC candidate, unchanged).
 - Any UI for delegating *which* server admin can grant `server_admin`
-  to whom beyond "any `server_admin` can" (Open question 1).
+  to whom beyond "any `server_admin` can" (decided, see below).
 
-## Open questions (for the decision)
+## Resolved questions (decided by Jörg, 2026-08-07)
 
-1. **Who can grant `server_admin`?** Proposed: only an existing
-   `server_admin` (self-governing, matches Jörg's framing "kann selbst
-   weitere Personen bestimmen"). Alternative: `admin` could also grant
-   it. Recommendation: restrict to `server_admin` — granting server
-   control is itself a server-administration act.
-2. **Exact inventory of CLI commands/portal pages to re-gate** — needs
+1. **Who can grant `server_admin`?** Decided: only an existing
+   `server_admin` may grant `server_admin` to someone else. `admin`
+   cannot — granting server control is itself a server-administration
+   act, kept strictly self-governing.
+
+## Remaining open items (mechanical, not design decisions)
+
+1. **Exact inventory of CLI commands/portal pages to re-gate** — needs
    a pass over `appctl.py` and the portal before implementation.
-   Mechanical, not a design question; done as part of implementation.
+   Done as part of implementation.
 
 ## Deutsche Zusammenfassung
 
@@ -150,5 +152,5 @@ Multi-Tenancy-RFC).
 **Für RFC-0007 heißt das:** Der Sichtbarkeits-Bypass gehört
 `server_admin`, nicht `admin` — wird dort direkt übernommen.
 
-**Zu entscheiden:** Darf nur `server_admin` weitere `server_admin`
-vergeben (empfohlen), oder auch `admin`?
+**Entschieden (Jörg, 2026-08-07):** Nur `server_admin` darf weitere
+`server_admin` anlegen — `admin` nicht. **RFC-0008 abgenommen.**

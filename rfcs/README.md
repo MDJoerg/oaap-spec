@@ -12,4 +12,4 @@ never deleted; superseded RFCs get status `Superseded by RFC-XXXX`.
 - [RFC-0005](RFC-0005-app-addressing.md) — App Addressing and Entry Points (Accepted)
 - [RFC-0006](RFC-0006-shared-internet-entry-edge-node.md) — Shared Internet Entry: the Edge Node (Accepted)
 - [RFC-0007](RFC-0007-app-visibility-groups.md) — App Visibility Groups (Draft)
-- [RFC-0008](RFC-0008-server-admin-role.md) — `server_admin`: Separating Platform Administration from App-Facing `admin` (Draft)
+- [RFC-0008](RFC-0008-server-admin-role.md) — `server_admin`: Separating Platform Administration from App-Facing `admin` (Accepted)
