@@ -1,6 +1,6 @@
 # RFC-0006: Shared Internet Entry — the Edge Node
 
-- **Status:** Draft (2026-08-07) — proposal, awaiting Jörg's decision
+- **Status:** Accepted (2026-08-07)
 - **Date:** 2026-08-07
 - **Authors:** Claude (proposal), Jörg (question & decision)
 - **Depends on:** RFC-0002 (gateway, default deny), RFC-0003 (topology),
@@ -191,21 +191,28 @@ points, or their data.
 - Load balancing, failover, or multiple edges for one name.
 - Non-HTTP protocols (MQTT and friends) — same open gap as elsewhere.
 
-## Open questions (for the decision)
+## Resolved questions (decided by Jörg, 2026-08-07)
 
-1. **Trust arrangement with the customer.** Is the edge intended only
-   for platforms of the same owner, or also for a customer's platform
-   while it is co-located? The latter needs a written agreement, since
-   the edge can read the traffic. Note the pilot platform is planned to
-   move to the customer's own uplink anyway — the edge may be a
-   transitional arrangement there.
-2. **Re-encryption edge → backend:** recommended (as proposed) or
-   mandatory from the start? Mandatory is cleaner but ties this RFC to
-   the platform CA being implemented first.
-3. **Behaviour when a backend is down:** a plain gateway error, or an
-   OAAP-styled page naming the platform that is unreachable?
-4. **Who may configure the routing table** — edge admin only (proposed),
-   or does a backend need to confirm being routed to?
+1. **Trust arrangement:** Yes — the edge also serves a co-located
+   customer platform, and the local hop edge → backend may run
+   unencrypted. The agreement with the customer (the edge can read the
+   traffic) is made personally by the operator; for the pilot this is a
+   transitional arrangement until the platform moves to the customer's
+   own uplink.
+2. **Re-encryption edge → backend:** built **later as an option**, once
+   the prerequisites (platform CA, RFC-0005) exist. This RFC does not
+   wait for it.
+3. **Backend-down page: configurable, with templates.** Sometimes it is
+   better to reveal little — the range goes from a plain text notice
+   over an OAAP-styled page (which has marketing value and may carry
+   links to OAAP) up to an individually designed page. The same page
+   mechanism is also wanted for **deliberately taking routes offline**
+   (maintenance, or "pulling the virtual cable" on suspected
+   intrusion) — that broader capability is recorded at program level
+   and will get its own spec treatment; the gateway spec must design
+   the unavailability page so both cases share it.
+4. **Routing table:** owned by the edge administrator alone (the
+   server's owner — edge-admin role). Backends do not confirm.
 
 ## Deutsche Zusammenfassung
 
@@ -244,8 +251,14 @@ soll künftig **selbst merken und melden**, wenn der Name auf eine alte
 IP-Adresse zeigt — genau das ist unbemerkt passiert und hat den
 Deploy-Kanal der Pilot-Plattform stillgelegt.
 
-**Zu entscheiden (Fragen 1–4 oben):** Gilt der Edge auch für fremde
-Plattformen (und mit welcher Absprache)? Muss die Strecke Edge→Ziel
-verschlüsselt sein oder ist das eine Empfehlung? Was sieht ein Besucher,
-wenn die Zielplattform aus ist? Und darf allein der Edge-Administrator
-die Weiterleitungstabelle pflegen?
+**Entschieden (Jörg, 2026-08-07):** (1) Der Edge darf auch die
+Kundenplattform bedienen; lokal darf die Strecke unverschlüsselt sein,
+die Absprache mit Bernd übernimmt Jörg persönlich. (2) Verschlüsselung
+Edge→Ziel kommt **später als Option**, wenn die Voraussetzungen
+(Plattform-CA) da sind. (3) Die „Plattform nicht erreichbar"-Seite wird
+**konfigurierbar mit Vorlagen** — von reinem Text (nicht zu viel
+preisgeben) über eine OAAP-Seite mit Werbecharakter bis individuell
+gestaltbar; derselbe Mechanismus soll auch fürs **bewusste Vom-Netz-
+Nehmen** von Routen dienen (Wartung, „virtuelles Kabel ziehen" bei
+Einbruchsverdacht — als eigenes Thema im Programm vermerkt). (4) Die
+Weiterleitungstabelle gehört allein dem Edge-Administrator.
