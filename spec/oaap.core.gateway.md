@@ -52,6 +52,16 @@ the name. Only the entry is shared; the platforms stay autonomous.
   routed names (it is the only node that can answer ACME challenges).
   HTTP requests for routed names are redirected to HTTPS at the edge;
   ACME challenges are excepted.
+- **Subdomain certificates are obtained on demand.** The edge cannot
+  know the backend's app instance names, and wildcard certificates
+  require a DNS challenge the platform does not assume. Certificates
+  for names below a routed hostname are therefore obtained at
+  handshake time, gated by a platform approval endpoint that permits
+  only names equal to or below a configured edge route. *Known
+  hardening gap:* any subdomain of a routed host is approvable, so a
+  hostile client could drive certificate issuance into the CA's rate
+  limit for that domain; a future increment lets the edge verify the
+  concrete instance names against the backend.
 - Forwarding preserves the original `Host` header unchanged and sets
   `X-Forwarded-Proto`/`X-Forwarded-For` (contract guarantee 2 holds
   through the chain).
