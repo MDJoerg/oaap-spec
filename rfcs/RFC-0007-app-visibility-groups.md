@@ -3,7 +3,7 @@
 - **Status:** Draft (2026-08-07) — proposal, awaiting Jörg's decision
 - **Date:** 2026-08-07
 - **Authors:** Claude (proposal), Jörg (question & decision)
-- **Depends on:** RFC-0002 (roles, gateway enforcement), RFC-0004 (manifest), RFC-0005 (addressing)
+- **Depends on:** RFC-0002 (roles, gateway enforcement), RFC-0004 (manifest), RFC-0005 (addressing), RFC-0008 (`server_admin` — resolves Open question 1)
 
 ## Summary
 
@@ -86,10 +86,14 @@ Every installed app instance gains a `visibility` setting:
 - **`groups: [string]`** — an *additional* requirement, checked
   alongside the existing role check (both must pass): the caller needs
   at least one role the instance's routes declare **and** at least one
-  group listed here. `admin` bypasses this exactly as it already
-  bypasses the role-based tile filter (RFC-0002's role table: admin
-  has "full platform administration" — restricting an admin's own
-  reach to apps they manage would work against that).
+  group listed here. `server_admin` (RFC-0008) bypasses this
+  unconditionally — the true platform-administration authority sees
+  every instance regardless of visibility. `admin` alone does **not**
+  bypass it: `admin` is an app-facing role (forwarded to apps as
+  their own administrator) and, per RFC-0008, carries no platform
+  authority by itself — a user can legitimately hold `admin` inside
+  one app under test without seeing every group-restricted instance
+  on the platform.
 
 This lives in the **registry**, alongside the existing `roles` field
 derived from the manifest — not in the manifest itself (constraint 3).
@@ -120,9 +124,9 @@ uri /verify?roles=user,keyuser&groups=buero,finanzen
 `/verify` (oaap.core.identity) checks it the same way it checks roles
 today — fresh from the user store on every call, never trusted from
 the session (spec 2.3's existing principle, unchanged): the caller
-needs at least one of the listed groups, unless `admin` in their roles.
-No `groups` parameter present (the common case) = no change to
-existing behavior.
+needs at least one of the listed groups, unless `server_admin` is
+among their roles (RFC-0008). No `groups` parameter present (the
+common case) = no change to existing behavior.
 
 ### Portal launchpad
 
@@ -173,12 +177,15 @@ agree — never one without the other.
 
 ## Open questions (for the decision)
 
-1. **Admin bypass** — proposed: `admin` always sees and reaches every
-   instance regardless of `visibility`, matching today's role-based
-   tile bypass. Alternative: even admin must be in the group, keeping
-   an admin's own dashboard uncluttered. Recommendation: keep the
-   bypass (an admin who's locked out of an app they need to support
-   is a worse failure mode than a slightly busy launchpad).
+1. **Admin bypass — RESOLVED (2026-08-07, Jörg) via RFC-0008.**
+   `admin` alone does not bypass `visibility`: it stays an app-facing
+   role, forwarded to apps as before, carrying no platform authority
+   (Jörg's reasoning: handing someone `admin` to fully exercise an
+   app under test must not also make them a platform administrator).
+   The bypass belongs to the new `server_admin` role instead (RFC-0008)
+   — the initial installation user holds both `server_admin` and
+   `admin` and can designate further server admins. See RFC-0008 for
+   the full role split and migration.
 2. **Free-form tags vs. managed group objects** — proposed: free-form
    strings, no registry (constraint 4, simplicity). Revisit if this
    turns out to need renaming-safety or an overview of all groups in
@@ -205,7 +212,10 @@ App-Instanz** (nicht im App-Manifest — das ist eine Entscheidung des
 Betreibers, nicht des App-Entwicklers). Die Gruppenprüfung kommt
 **zusätzlich** zur bestehenden Rollenprüfung dazu und wird — genau wie
 Rollen heute — **vom Gateway wirklich durchgesetzt**, nicht nur im
-Portal versteckt. `admin` sieht wie bisher immer alles.
+Portal versteckt. Den Bypass hat **`server_admin`** (neue Rolle, siehe
+RFC-0008) — `admin` allein bleibt eine reine App-Rolle ohne
+Plattform-Wirkung, entschieden von Jörg am 7.8., weil App-Admin-Rechte
+zum Testen sonst automatisch Serverherrschaft bedeutet hätten.
 
 **Bewusst einfach gehalten:** Keine Gruppen-Verwaltung, kein
 Umbenennen/Löschen — eine Gruppe existiert, sobald irgendein Benutzer
@@ -219,7 +229,7 @@ sudo oaap app visibility <instanz> groups buero,finanzen
 sudo oaap app visibility <instanz> all       # zurück zum Normalzustand
 ```
 
-**Zu entscheiden:** admin-Bypass beibehalten (empfohlen)? Freie
-Stichworte reichen erstmal, oder gleich eine Gruppen-Verwaltung? Erst
-CLI+Spec, Portal-Seite als schneller Nachzügler (empfohlen, wie bei
-`external`/`edge`)?
+**Zu entscheiden:** Freie Stichworte reichen erstmal, oder gleich eine
+Gruppen-Verwaltung? Erst CLI+Spec, Portal-Seite als schneller
+Nachzügler (empfohlen, wie bei `external`/`edge`)? (Die Bypass-Frage
+ist entschieden — siehe RFC-0008.)
