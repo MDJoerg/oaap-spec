@@ -10,3 +10,4 @@ never deleted; superseded RFCs get status `Superseded by RFC-XXXX`.
 - [RFC-0003](RFC-0003-platform-topology.md) — Platform Topology: Controller and Worker Nodes (Accepted)
 - [RFC-0004](RFC-0004-app-packaging-and-manifest.md) — App Packaging: Neutral Manifest and App Types (Accepted)
 - [RFC-0005](RFC-0005-app-addressing.md) — App Addressing and Entry Points (Accepted)
+- [RFC-0006](RFC-0006-shared-internet-entry-edge-node.md) — Shared Internet Entry: the Edge Node (Draft)
