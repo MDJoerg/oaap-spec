@@ -1,6 +1,6 @@
 # RFC-0007: App Visibility Groups
 
-- **Status:** Draft (2026-08-07) — proposal, awaiting Jörg's decision
+- **Status:** Accepted (2026-08-07)
 - **Date:** 2026-08-07
 - **Authors:** Claude (proposal), Jörg (question & decision)
 - **Depends on:** RFC-0002 (roles, gateway enforcement), RFC-0004 (manifest), RFC-0005 (addressing), RFC-0008 (`server_admin` — resolves Open question 1)
@@ -117,7 +117,7 @@ Studio/Store).
 The generated Caddy `forward_auth` call gains an optional `groups`
 query parameter, exactly parallel to the existing `roles` one:
 
-```
+```caddyfile
 uri /verify?roles=user,keyuser&groups=buero,finanzen
 ```
 
@@ -175,26 +175,27 @@ agree — never one without the other.
 - Per-user (not per-group) instance restriction — a group of one person
   already covers this without inventing a second mechanism.
 
-## Open questions (for the decision)
+## Resolved questions (decided by Jörg, 2026-08-07)
 
-1. **Admin bypass — RESOLVED (2026-08-07, Jörg) via RFC-0008.**
-   `admin` alone does not bypass `visibility`: it stays an app-facing
-   role, forwarded to apps as before, carrying no platform authority
-   (Jörg's reasoning: handing someone `admin` to fully exercise an
-   app under test must not also make them a platform administrator).
-   The bypass belongs to the new `server_admin` role instead (RFC-0008)
-   — the initial installation user holds both `server_admin` and
-   `admin` and can designate further server admins. See RFC-0008 for
-   the full role split and migration.
-2. **Free-form tags vs. managed group objects** — proposed: free-form
-   strings, no registry (constraint 4, simplicity). Revisit if this
-   turns out to need renaming-safety or an overview of all groups in
-   use once there are many.
-3. **Portal UI now or CLI-only first increment** — the CLI alone
-   delivers the real capability (gateway enforcement, tile filtering);
-   the admin page is convenience on top. Recommendation: ship CLI +
-   spec first, add the portal page as a fast follow once the shape is
-   proven — same sequencing as `external`/`edge`.
+1. **Admin bypass — resolved via RFC-0008.** `admin` alone does not
+   bypass `visibility`: it stays an app-facing role, forwarded to apps
+   as before, carrying no platform authority (Jörg's reasoning: handing
+   someone `admin` to fully exercise an app under test must not also
+   make them a platform administrator). The bypass belongs to the new
+   `server_admin` role instead (RFC-0008) — the initial installation
+   user holds both `server_admin` and `admin` and can designate further
+   server admins. See RFC-0008 for the full role split and migration.
+2. **Free-form tags vs. managed group objects — free-form tags.** No
+   group registry, no rename/delete workflow (constraint 4, simplicity,
+   as originally proposed). Revisit later only if real use shows a
+   concrete need for renaming-safety or a full overview of groups in
+   use.
+3. **Portal UI now or CLI-only first increment — both, together.**
+   Jörg mainly simulates the end user and avoids the CLI day-to-day, so
+   a CLI-only increment would not actually be usable by him. CLI and
+   portal UI (user object page groups field, app-instance visibility
+   control) ship in the same implementation pass rather than
+   sequentially.
 
 ## Deutsche Zusammenfassung
 
@@ -229,7 +230,8 @@ sudo oaap app visibility <instanz> groups buero,finanzen
 sudo oaap app visibility <instanz> all       # zurück zum Normalzustand
 ```
 
-**Zu entscheiden:** Freie Stichworte reichen erstmal, oder gleich eine
-Gruppen-Verwaltung? Erst CLI+Spec, Portal-Seite als schneller
-Nachzügler (empfohlen, wie bei `external`/`edge`)? (Die Bypass-Frage
-ist entschieden — siehe RFC-0008.)
+**Entschieden (Jörg, 2026-08-07):** Freie Stichworte, keine
+Gruppen-Verwaltung. CLI **und** Portal-Seite kommen zusammen, nicht
+nacheinander — Jörg simuliert überwiegend den Anwender und meidet die
+CLI, ein CLI-only-Zwischenschritt wäre für ihn nicht nutzbar.
+**RFC-0007 abgenommen.**
