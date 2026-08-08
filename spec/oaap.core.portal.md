@@ -1,9 +1,10 @@
 # oaap.core.portal — Web Portal
 
 - **ID:** `oaap.core.portal`
-- **Version:** 0.3.4
+- **Version:** 0.3.5
 - **Maturity:** draft
-- **Based on:** RFC-0001, RFC-0002, RFC-0003, RFC-0005, RFC-0007, RFC-0008
+- **Based on:** RFC-0001, RFC-0002, RFC-0003, RFC-0005, RFC-0007,
+  RFC-0008, RFC-0009, RFC-0010, RFC-0011
 
 ## 1. Purpose
 
@@ -28,6 +29,15 @@ object page / dialog page), no external resources at runtime
 Reachable only while no user exists, protected by the one-time setup
 token (`oaap.core.host` 2.2); creates the first admin via identity's
 bootstrap operation and is permanently disabled afterwards.
+
+The wizard MAY additionally ask **what the node is for** and record the
+node's profiles (`oaap.core.host` 2.5, RFC-0011). This is the only
+place where the portal writes a profile, and the write MUST be
+authorised by the same setup token and refused once the first admin
+exists — the privileged side, not the portal, checks both. A profile
+the wizard cannot apply MUST NOT be silently dropped: the wizard says
+so and does not create the admin, so the operator can simply send the
+form again.
 
 ### 2.2 Launchpad
 
@@ -127,6 +137,15 @@ Two rules for the token, both security-relevant:
    carry the value in a URL, and the gateway logs full request URIs
    including their query string.
 
+**Creating an instance** appears in the list report **only on a node
+whose profile allows it** (`oaap.core.host` 2.5, `oaap.apps.runtime`
+2.6): a dialog page choosing either an app from the configured store
+sources or a Git URL that no list carries yet, plus an optional
+instance name. The page states why it exists — the node's profile — so
+the difference between two nodes is never a mystery. A hidden button is
+not the protection: the privileged side refuses the same request on a
+node without the profile.
+
 Finally, **removing an instance** — the only destructive control in the
 portal. It therefore differs from every other card:
 
@@ -145,9 +164,11 @@ portal. It therefore differs from every other card:
 - Visible for roles `server_admin` and `partner` (service-partner
   scenario) — moved from `admin` in v0.3.0 (RFC-0008: this is
   server-internal information, not app-facing).
-- **Node values**: platform version, uptime, CPU load, memory,
-  free disk of the platform data filesystem (with a warning threshold
-  matching the installer's minimum free space).
+- **Node values**: platform version, the node's **profiles**
+  (`oaap.core.host` 2.5 — a node that behaves differently from its
+  neighbour must say so, including where to change it), uptime, CPU
+  load, memory, free disk of the platform data filesystem (with a
+  warning threshold matching the installer's minimum free space).
 - **Core services**: liveness of identity and portal plus a
   **full-chain check** through the gateway (gateway → identity),
   so a broken proxy path is visible even when every container runs.
@@ -224,6 +245,14 @@ configuration is a later stage (2.2).
     and gateway) without requiring `oaap update`.
 11. **Instance visibility authorization**: without `server_admin`,
     `/instances` routes return 403 and the navigation hides the entry.
+12. **Create is profile-bound**: on a node without the `dev` profile,
+    the create entry point is absent AND the route returns 403; after
+    the profile is set on the machine, the page appears and creates a
+    test instance; the health page shows the profile in both states.
+13. **Wizard profile question**: ticking the node-profile box records
+    the profile, and the same request without a valid setup token
+    records nothing; after the first admin exists, a repeated request
+    changes no profile.
 
 ## 6. Dependencies
 
@@ -296,3 +325,24 @@ Adressen vollständig.
 anders gebaut: Der Instanzname muss **eingetippt** werden, „Daten
 behalten" ist vorausgewählt, und die Serverseite prüft den eingetippten
 Namen ein zweites Mal gegen die Instanz, die sie gerade abräumen soll.
+
+## Deutsche Zusammenfassung (v0.3.5)
+
+**Anlegen im Portal — aber nur dort, wo es hingehört.** Auf einem
+Knoten mit Profil `dev` (RFC-0011) steht in der Instanzen-Liste jetzt
+„Test-Instanz anlegen": entweder eine App aus den eingerichteten
+Store-Quellen oder ein Git-Repository, das noch in keiner Liste steht.
+Auf jedem anderen Knoten fehlt der Knopf — und die Adresse antwortet
+dort auch dann mit einer Absage, wenn man sie direkt aufruft. Der
+fehlende Knopf ist nie der Schutz, sondern nur die Höflichkeit.
+
+**Die Gesundheitsseite nennt das Profil.** Damit erklärt sich ein
+Knoten selbst, statt sich still anders zu verhalten als seine
+Nachbarmaschine — inklusive Hinweis, wo man es ändert.
+
+**Der Einrichtungsassistent fragt einmal, wofür der Knoten da ist.**
+Das ist die einzige Stelle, an der das Portal ein Profil schreibt;
+autorisiert durch das Setup-Token, und danach nie wieder. Kann der
+Assistent das Profil nicht setzen, legt er auch keinen Administrator an
+und sagt es — halb eingerichtet wäre schlimmer als noch einmal
+abschicken.

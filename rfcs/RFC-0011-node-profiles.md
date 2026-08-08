@@ -173,6 +173,23 @@ second. Worth its own RFC; this one stays out of its way.
    instance *address* of RFC-0009 travels, for the mirrored reason: it
    belongs to the app.
 
+## Implementation note (2026-08-08, added while building it)
+
+The proposal above says profiles are `server_admin`-maintained but not
+**where**. Building it surfaced that this is not a detail: if the
+portal could set a profile, a compromised portal would simply grant
+itself `dev` — and `dev` exists precisely to make the portal more
+powerful. The per-node decision would then be a per-node decision in
+name only.
+
+Therefore, and now normative in `oaap.core.host` 2.5: profiles are
+changed **on the machine** (`oaap node add-profile`), with exactly one
+exception — the first-run wizard, which this RFC already wanted. That
+exception is safe for a different reason than the rule: whoever holds
+the setup token is about to become the platform's first administrator
+anyway. The privileged side verifies the token itself and refuses once
+an admin exists, so the exception cannot outlive the first run.
+
 ## Deutsche Zusammenfassung
 
 **Die Idee ist Deine eigene vom 6.8.** („Knoten-Typen/-Profile steuern
@@ -244,3 +261,17 @@ wirklich braucht). Deine Formulierung deutet auf das Zweite.
    `dev`-Backup, eingespielt auf einer Produktivmaschine, darf dort
    keine Entwicklerrechte mitbringen. Die **Adresse** aus RFC-0009 wird
    spiegelbildlich behandelt und wandert mit — sie gehört zur App.
+
+**Nachtrag aus der Umsetzung (08.08.):** Der RFC sagt „gepflegt vom
+`server_admin`", aber nicht *wo*. Beim Bauen zeigte sich, dass das
+keine Nebensache ist: Könnte das Portal ein Profil setzen, gäbe sich
+ein kompromittiertes Portal einfach selbst `dev` — und `dev` ist genau
+dazu da, dem Portal mehr zu erlauben. Die Entscheidung je Knoten wäre
+dann nur noch dem Namen nach eine. Deshalb jetzt verbindlich: Profile
+werden **auf der Maschine** gesetzt (`sudo oaap node add-profile`), mit
+genau der einen Ausnahme, die dieser RFC ohnehin wollte — dem
+Einrichtungsassistenten. Die ist aus einem anderen Grund unbedenklich:
+Wer das Setup-Token hat, wird gerade ohnehin der erste Administrator
+dieser Plattform. Die Serverseite prüft das Token selbst und lehnt ab,
+sobald ein Administrator existiert — die Ausnahme überlebt den ersten
+Start also nicht.

@@ -1,10 +1,14 @@
 # oaap.data.backup — Platform Backup & Restore
 
 - **ID:** `oaap.data.backup`
-- **Version:** 0.1.0
-- **Maturity:** draft
+- **Version:** 0.1.1
+- **Maturity:** draft (0.1.1 draws the line between what belongs to the
+  **service** and travels — an instance's own address, RFC-0009 — and
+  what belongs to the **machine** and stays behind: node profiles,
+  RFC-0011)
 - **Based on:** RFC-0001 (capability model), RFC-0003 (node topology —
-  0.1 covers a single-node platform), App Deployment Contract (storage
+  0.1 covers a single-node platform), RFC-0009 (instance address),
+  RFC-0011 (node profiles), App Deployment Contract (storage
   guarantee "included in platform backup"), `oaap.core.host` (installer
   `restore` mode), `oaap.apps.runtime` (instance registry and package
   sources)
@@ -47,7 +51,9 @@ contained instances). It MUST contain:
 It MUST NOT contain container images (they are rebuilt or pulled from
 the recorded package sources on restore) and SHOULD NOT contain caches,
 logs, or ephemeral protection state (e.g. login-throttling counters —
-a restored platform starts those fresh). TLS/ACME material MAY be
+a restored platform starts those fresh). It MUST NOT contain the
+node's **profiles** (`oaap.core.host` 2.5) as restorable state; the
+manifest SHOULD record them as information (see 2.3). TLS/ACME material MAY be
 included; it is re-obtainable, and after a relocation the certificates
 are re-issued anyway.
 
@@ -96,6 +102,23 @@ Rules:
   that depends on them (sessions, signed values) keeps working. The
   contract guarantee that this secret never appears in *app storage*
   is unaffected — the platform backup carries it in the registry part.
+
+**What belongs to the service travels; what belongs to the machine does
+not.** The line is drawn once, and both sides are stated out loud
+rather than left to be discovered:
+
+- An instance's **own public hostname** (RFC-0009) is part of the
+  instance and MUST be restored with it — clients address the app, not
+  the box it happens to run on. Since that name still resolves to the
+  old machine right after a relocation, the restore MUST say so per
+  affected instance; pointing DNS at the new machine is the operator's
+  next step, exactly as for the node's external hostname above.
+- The node's **profiles** (RFC-0011) describe the machine and MUST NOT
+  be restored: a workbench backup restored onto a production box must
+  not bring developer powers along. The restore MUST NOT do this
+  silently — it names the profiles the backup came with and how to set
+  them again, so an operator restoring a workbench is not left
+  wondering why the portal refuses to create instances.
 
 ### 2.4 Relocation procedure
 
@@ -154,6 +177,13 @@ The documented Umzug flow, built from the two operations above:
    old machine no longer answers. (Pilot proof: Bernd's real move to
    his own hardware.)
 
+6. **Service travels, machine stays:** a backup taken from a node with
+   a profile and an instance carrying its own public hostname, restored
+   elsewhere, yields an instance that still has its hostname (with the
+   restore saying that DNS still points at the old machine) and a node
+   with **no** profile (with the restore naming what it dropped and how
+   to set it again).
+
 ## 6. Dependencies
 
 `oaap.core.host` (installer modes, prepare), `oaap.apps.runtime`
@@ -164,3 +194,21 @@ are restored as part of the flow, not from the backup.
 
 `draft` — becomes `beta` once tests 1–4 pass on the reference platform
 (VM-to-VM round trip); test 5 is proven by the first real relocation.
+
+## Deutsche Zusammenfassung (v0.1.1)
+
+**Eine Linie, zweimal angewandt:** Was zum *Dienst* gehört, zieht mit
+um. Was zur *Maschine* gehört, bleibt zurück.
+
+- Die **eigene Adresse einer Instanz** (RFC-0009) gehört zur App und
+  wandert deshalb mit — Kunden sprechen die Anwendung an, nicht den
+  Kasten, auf dem sie zufällig läuft. Direkt nach einem Umzug zeigt
+  dieser Name aber noch auf die alte Maschine; die Wiederherstellung
+  sagt das jetzt für jede betroffene Instanz ausdrücklich, statt es
+  einen später beim Aufrufen entdecken zu lassen.
+- Das **Knoten-Profil** (RFC-0011) beschreibt die Maschine und wandert
+  deshalb **nicht** mit: Ein Werkbank-Backup, eingespielt auf einer
+  Produktivmaschine, darf dort keine Entwicklerrechte mitbringen. Auch
+  das passiert nicht stillschweigend — die Wiederherstellung nennt das
+  Profil, das im Backup stand, und den Befehl, es bewusst wieder zu
+  setzen.

@@ -1,11 +1,13 @@
 # oaap.core.host — Platform Installer & Node Baseline
 
 - **ID:** `oaap.core.host`
-- **Version:** 0.2.1
-- **Maturity:** draft (0.2.1 adds the `oaap user` rescue commands, 2.3)
+- **Version:** 0.3.0
+- **Maturity:** draft (0.2.1 adds the `oaap user` rescue commands, 2.3;
+  0.3.0 adds **node profiles** — what a node is for — in 2.5, with the
+  wizard question in 2.2 and `oaap node` in 2.3)
 - **Based on:** RFC-0001 (initial capability set), RFC-0002 (bootstrap
   security), RFC-0003 (installer modes, node health), RFC-0008
-  (server_admin)
+  (server_admin), RFC-0011 (node profiles)
 
 ## 1. Purpose
 
@@ -110,7 +112,10 @@ A conformant installer MUST perform these steps in order:
 6. **Hand over** — print the setup URL together with a **one-time setup
    token** to the console. The portal's first-run wizard requires this
    token and creates the first admin user; until that user exists the
-   platform serves nothing else (RFC-0002).
+   platform serves nothing else (RFC-0002). The wizard MAY additionally
+   ask **what the node is for** (2.5) — the natural moment for a
+   question that describes the machine. It MUST be optional and MUST
+   default to "nothing special".
 
 Running `bootstrap` on a machine that already hosts a platform MUST NOT
 destroy or reconfigure anything; the installer terminates with a clear
@@ -122,10 +127,17 @@ Every node provides a local command-line entry point (reference name:
 `oaap`; providers MAY rename but MUST provide equivalents):
 
 - `oaap status` — one-screen health summary of **this node**: core
-  services up/down, disk space, platform version, and (on workers, later)
-  connection state to the controller. Intended for technicians and
-  service partners; end users consume health through the portal, which
-  is responsible for whole-landscape health (RFC-0003).
+  services up/down, disk space, platform version, the node's profiles
+  (2.5), and (on workers, later) connection state to the controller.
+  Intended for technicians and service partners; end users consume
+  health through the portal, which is responsible for whole-landscape
+  health (RFC-0003).
+- `oaap node show` / `oaap node add-profile <p>` /
+  `oaap node remove-profile <p>` (RFC-0011) — read and change what this
+  node is for (2.5). `show` is a pure display and MAY run unprivileged;
+  changes MUST require local administrator privileges. Adding a profile
+  that widens what the platform may do SHOULD state the trade in the
+  same breath.
 - `oaap version` — platform version of this node.
 - `oaap setup-token` — print the setup URL and one-time setup token
   again, for finishing an interrupted installation (e.g. over SSH when
@@ -163,6 +175,43 @@ Every node provides a local command-line entry point (reference name:
 After successful bootstrap, **all** further administration happens in
 the portal. The installer performs no post-setup configuration and is
 not needed again until a `join` or reinstall.
+
+### 2.5 Node profiles (RFC-0011)
+
+A node carries a set of **profiles** describing what it is for. The set
+is part of the node's own state, **empty by default**, and a node with
+no profile MUST behave exactly as a node that knows nothing about
+profiles — including after an update.
+
+- **Only profiles that have an effect exist.** An implementation MUST
+  reject an unknown profile name rather than store it, and MUST ignore
+  an unknown name that reaches its state file by other means. A profile
+  that can be set and does nothing is a silent misconfiguration.
+- **Profiles are not authorization.** They gate *platform behaviour*,
+  never a person's access to anything; who may do what stays a question
+  of roles and groups (RFC-0002/0007/0008). They are also not the
+  topology (RFC-0003): a worker can be a development node, so can a
+  controller.
+- **Visible, not hidden state.** `oaap status` and the portal's health
+  page MUST state the node's profiles, so a node that behaves
+  differently from its neighbour explains itself.
+- **Set on the machine.** Profiles MUST be changeable only through the
+  node's own command line (local administrator = `server_admin`,
+  RFC-0008) — with exactly one exception, the first-run wizard (2.2),
+  which is authorised by the setup token and MUST be refused once the
+  first admin exists. The reason is structural: a profile that the
+  portal could grant itself would not be a per-node decision at all,
+  and `dev` below deliberately makes the portal more powerful.
+
+**Defined profile in 0.3: `dev`** — this node is a workbench. Its
+effects live in `oaap.apps.runtime` 2.6 and are exhaustive: the portal
+may create test instances, and it may install from a package source
+that no configured store source lists. Everything else is unchanged.
+Implementations MUST NOT attach further behaviour to `dev` without
+specifying it.
+
+**Restore** (`oaap.data.backup` 2.3): profiles describe the machine,
+not the service, and are therefore **not** restored from a backup.
 
 ## 3. Configuration
 
@@ -253,6 +302,15 @@ Everything else is configured in the portal after setup.
     refused with a clear message and no side effect; running without
     root is refused.
 
+17. **Node profiles** (RFC-0011): a fresh node reports no profile and
+    behaves as before; `oaap node add-profile dev` is reflected by
+    `oaap status`, the portal's health page, and the behaviour in
+    `oaap.apps.runtime` 2.6; `remove-profile` reverts all of it; an
+    unknown profile name is refused with the list of available ones,
+    and an unknown name written into the node's state file by hand has
+    no effect; changing profiles without root is refused; after the
+    first admin exists, no portal request can change them.
+
 ## 6. Dependencies
 
 None — `oaap.core.host` is the foundation. It **bootstraps**
@@ -276,3 +334,32 @@ Benutzerdatei; der Befehl macht den sicheren Weg nur bequemer als
 Handbearbeitung der Datei. Anlass: Jörg hat sich auf `oaap-bernd`
 ausgesperrt (falscher Benutzername probiert) — mit `oaap user list`
 wäre das sofort sichtbar gewesen.
+
+## Deutsche Zusammenfassung (Knoten-Profile, v0.3.0)
+
+**Ein Knoten sagt jetzt, wofür er da ist (2.5, RFC-0011).** Er trägt
+null oder mehr **Profile**; ohne Profil verhält er sich exakt wie
+bisher — auch nach einem Update. Sichtbar sind sie in `oaap status` und
+auf der Gesundheitsseite, damit niemand rätseln muss, warum eine
+Maschine sich anders verhält als ihre Nachbarin.
+
+**Gesetzt wird auf der Maschine**, mit `sudo oaap node add-profile dev`
+(anzeigen: `oaap node show`). Genau eine Ausnahme: Der
+Einrichtungsassistent fragt beim allerersten Start danach — der
+natürliche Moment, und autorisiert durch das Setup-Token. Danach kann
+kein Portal-Aufruf mehr etwas daran ändern.
+
+**Warum diese Härte?** Weil das Profil `dev` das Portal absichtlich
+mächtiger macht (es darf dann aus jeder genannten Git-Quelle
+installieren). Ein Profil, das sich das Portal selbst geben könnte,
+wäre keine Entscheidung je Knoten, sondern nur eine umständliche
+Schreibweise für „gilt überall". Deshalb: Maschine oder Assistent,
+sonst nichts.
+
+**Es gibt nur Profile, die etwas bewirken.** Ein unbekannter Name wird
+abgelehnt statt gespeichert — und einer, der von Hand in die Datei
+gerät, bleibt wirkungslos. Ein Profil, das man setzen kann und das
+nichts tut, wäre eine stille Fehlkonfiguration.
+
+**Beim Wiederherstellen** aus einem Backup werden Profile **nicht**
+übernommen: Sie beschreiben die Maschine, nicht den Dienst.

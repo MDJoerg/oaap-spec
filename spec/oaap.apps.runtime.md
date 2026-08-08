@@ -1,7 +1,7 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.3
+- **Version:** 0.2.4
 - **Maturity:** draft (0.2 adds remote deployment via deploy tokens;
   0.2.1 adds the one-click store install in 2.6 with test 17; 0.2.2
   adds instance visibility in 2.7 and moves platform-level portal
@@ -9,10 +9,13 @@
   0.2.3 spells out instance **configuration** in 2.8 — promised since
   2.3/2.4.3 but never described in interface terms, and missing from
   the reference implementation until it blocked a real production
-  rollout)
+  rollout; 0.2.4 answers the open question in 2.6 — instances MAY be
+  created from the portal, on a node whose profile says it is a
+  workbench, per RFC-0011)
 - **Based on:** RFC-0001 (capability model), RFC-0002 (roles/gateway),
   RFC-0003 (placement), RFC-0004 (manifest/app types), RFC-0005
-  (addressing), RFC-0007 (visibility groups), RFC-0008 (server_admin);
+  (addressing), RFC-0007 (visibility groups), RFC-0008 (server_admin),
+  RFC-0011 (node profiles);
   platform side of the App Deployment Contract
   (`docs/app-deployment-contract.md`)
 
@@ -136,11 +139,40 @@ directly from the portal's store page. The trust model mirrors 2.5
   trust by configuring their source.
 - One-click installs land on the **production channel** (installing
   from the store means using the app); test instances for development
-  remain a deliberate choice (CLI/briefing). Re-clicking an installed
-  app follows the redeploy semantics of 2.3 — same version on
-  production is refused, a newer listed version updates.
+  remain a deliberate choice (CLI, or the portal on a development
+  node — see below). Re-clicking an installed app follows the redeploy
+  semantics of 2.3 — same version on production is refused, a newer
+  listed version updates.
 - Every one-click install is **audited** like a remote deployment
   (time, app, source, outcome) and visible to server_admins.
+
+**Creating instances from the portal — only on a `dev` node.** The rule
+above ("a request can never supply a source") is what makes a
+compromised portal survivable, and it is kept for every ordinary node.
+On a node whose profile says it is a workbench (`oaap.core.host` 2.5,
+RFC-0011), a server_admin MAY additionally create instances from the
+portal:
+
+- **Test channel only.** Portal-created instances land on the test
+  channel; the production path stays the one-click store install. This
+  is the same reasoning as 2.5: creating a test instance is a
+  development act, and the profile is what says that development
+  happens here.
+- **The package source MAY be named by the request** — the case a
+  brand-new app repository is always in, before any store list carries
+  it. The host MUST still refuse anything that is not a remote Git
+  source (no local paths — that would let the portal build an image
+  from arbitrary files on the machine, a different power altogether).
+- The host side MUST re-check the profile itself. The portal deciding
+  it is allowed would make the profile a portal setting.
+- **What is given up must be stated, not buried:** on a `dev` node, a
+  compromised portal can install code the operator never chose to
+  trust. That is a reasonable trade on a workbench and a bad one on a
+  machine holding customer data — hence per node, not globally.
+- Creating an instance is **audited** like every other deployment.
+
+An implementation without node profiles behaves exactly as before: no
+node has `dev`, so the portal creates nothing.
 
 ### 2.7 Visibility (RFC-0007)
 
@@ -293,6 +325,20 @@ files the operator must edit", rule 4), so the runtime must offer it:
     instance keeps every operator-set value instead of restoring the
     manifest default.
 
+23. **Portal-created instance needs the profile (2.6, RFC-0011)**: on a
+    node without `dev`, every portal request to create an instance is
+    refused — including one that reaches the host side directly, not
+    only the hidden button. After `oaap node add-profile dev`, the same
+    request creates a **test**-channel instance; the created instance
+    can receive a deploy token (2.5) and appears in the audit trail.
+    Removing the profile makes the path refuse again, while instances
+    already created keep running.
+24. **Named sources stay Git and stay remote**: on a `dev` node, a
+    create request naming a local directory or a non-Git source is
+    refused with no side effect; a request naming a Git URL that no
+    store source lists succeeds — the difference to test 17 is exactly
+    the profile.
+
 ## 6. Dependencies
 
 `oaap.core.host`, `oaap.core.gateway`, `oaap.core.identity`,
@@ -360,3 +406,32 @@ Die Regeln dahinter, in Kurzform:
   Vorgabewerte füllen nur noch leere Schlüssel.
 - Protokolliert wird, *wer wann welchen Schlüssel* geändert hat —
   **nie der Wert**.
+
+## Deutsche Zusammenfassung (2.6, v0.2.4)
+
+**Die offene Frage aus 2.6 ist beantwortet.** Bisher galt überall:
+Instanzen anlegen geht nur auf der Kommandozeile, weil eine
+Test-Instanz eine Entwicklungshandlung ist. Die Begründung war richtig,
+die Regel aber global — und auf einer Maschine, die *zum Entwickeln*
+dasteht, damit falsch. Deine Idee mit den Knoten-Profilen (RFC-0011)
+verortet sie statt sie zu lockern: Auf einem Knoten mit Profil `dev`
+darf das Portal Instanzen anlegen, überall sonst bleibt alles wie
+gehabt.
+
+Zwei Grenzen bleiben auch dort:
+
+- **Nur Test-Kanal.** Produktiv installiert weiterhin der Store mit
+  einem Klick — dort nennt die Anfrage nur eine App-Kennung und der
+  Server sucht die Quelle selbst.
+- **Nur echte Git-Quellen.** Ein lokaler Pfad wird abgelehnt: „installiere
+  aus dem Repository, das ich Dir nenne" ist etwas anderes als „baue
+  mir ein Image aus irgendwelchen Dateien auf dieser Maschine".
+
+**Was Du dafür aufgibst, offen gesagt:** Auf einem `dev`-Knoten kann
+ein kompromittiertes Portal Code installieren, dem Du nie zugestimmt
+hast. Auf der Werkbank ist das ein guter Tausch, auf einer Maschine mit
+Kundendaten ein schlechter. Deshalb ist es eine Entscheidung je Knoten.
+
+**Geprüft wird auf dem Server, nicht im Portal.** Der fehlende Knopf
+ist nur die Oberfläche; die Entscheidung fällt dort, wo auch der
+Installationsvorgang läuft. Sonst wäre das Profil eine Portal-Einstellung.
