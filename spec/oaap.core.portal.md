@@ -1,7 +1,7 @@
 # oaap.core.portal — Web Portal
 
 - **ID:** `oaap.core.portal`
-- **Version:** 0.3.5
+- **Version:** 0.3.6
 - **Maturity:** draft
 - **Based on:** RFC-0001, RFC-0002, RFC-0003, RFC-0005, RFC-0007,
   RFC-0008, RFC-0009, RFC-0010, RFC-0011
@@ -176,6 +176,31 @@ portal. It therefore differs from every other card:
   checked over the internal network (`oaap.apps.runtime` provides
   service port and health path in the registry). Instances registered
   before that data existed show "unknown" with a remediation hint.
+- **Published names** (RFC-0009 decision 2): for every name this node
+  hands out — its external hostname and every instance's own hostname —
+  whether that name still resolves to this node's public address. A
+  name pointing elsewhere is the DuckDNS failure mode: the node is off
+  the internet and nothing says so. Rules, because this is the one
+  place the platform talks to a third party:
+  - It runs **only when the node actually publishes a name**. A
+    LAN-only platform makes no outside request at all, and the
+    installer's offline promise stands.
+  - The page MUST name **which** outside service was asked and what it
+    answered. A silent call to a third party would be telemetry by
+    another name.
+  - The result MAY be cached; the page states when it was last checked.
+  - **Behind an edge node** (RFC-0006) the published names resolve to
+    the *edge's* public address, which this node cannot determine. The
+    implementation MUST then report only whether the names resolve at
+    all, and say why it can say no more — a guess would be worse than
+    an honest "unknown".
+- **Braked requests** (RFC-0010 decision 2): per instance with a
+  `public` route, how often the volume brake rejected a request in the
+  last 24 hours. Without this a `429` leaves nothing but a line in an
+  access log nobody reads. The count MUST be complete across all worker
+  processes of the throttling service — a number that silently omits
+  what another worker holds is worse than none. The page repeats that
+  this is a volume brake, not access control.
 - Whole-landscape health (controller + workers, RFC-0003) is a later
   stage of this section; node-local values come first.
 
@@ -253,6 +278,16 @@ configuration is a later stage (2.2).
     the profile, and the same request without a valid setup token
     records nothing; after the first admin exists, a repeated request
     changes no profile.
+14. **Published names**: a node with no published name shows no such
+    section and makes **no outside request**; with a published name,
+    a name resolving to this node's public address reads "points
+    here", one resolving elsewhere is flagged, and one that does not
+    resolve is flagged differently; behind an edge node the section
+    reports resolution only and states why.
+15. **Braked requests**: after the brake has rejected N requests for an
+    instance, the health page reports exactly N — including requests
+    braked by a different worker process of the throttling service; an
+    instance without a `public` route never appears.
 
 ## 6. Dependencies
 
@@ -346,3 +381,32 @@ autorisiert durch das Setup-Token, und danach nie wieder. Kann der
 Assistent das Profil nicht setzen, legt er auch keinen Administrator an
 und sagt es — halb eingerichtet wäre schlimmer als noch einmal
 abschicken.
+
+## Deutsche Zusammenfassung (v0.3.6)
+
+Zwei neue Abschnitte auf der Gesundheitsseite, beide aus Deinen
+Abnahmen vom 8.8.
+
+**„Veröffentlichte Namen" (RFC-0009).** Für jeden Namen, den dieser
+Knoten nach außen gibt — seinen eigenen und den jeder Instanz mit
+eigener Adresse — steht dort, ob er noch hierher zeigt. Das ist der
+DuckDNS-Fall: Der Knoten war tagelang nicht erreichbar und nichts hat
+es gesagt.
+
+Der Preis ist benannt statt versteckt: Um zu vergleichen, muss der
+Knoten **eine fremde Stelle nach seiner eigenen öffentlichen Adresse
+fragen**. Deshalb drei Regeln — es passiert **nur, wenn der Knoten
+überhaupt einen Namen veröffentlicht** (ein reiner LAN-Knoten fragt
+niemanden), die Seite **nennt den Dienst**, den sie gefragt hat, und
+sie sagt, wann zuletzt geprüft wurde. Hinter einem Edge-Knoten zeigen
+die Namen auf dessen öffentliche Adresse, die von hier aus nicht
+feststellbar ist; dann steht dort nur, ob die Namen auflösen — und
+warum nicht mehr gesagt werden kann.
+
+**„Gebremste Anfragen" (RFC-0010).** Je Instanz mit öffentlicher Route:
+wie oft die Mengenbremse in den letzten 24 Stunden abgewiesen hat.
+Sonst hinterlässt ein 429 nur eine Zeile in einem Log, das niemand
+liest. Die Zahl **muss über alle Worker-Prozesse vollständig sein** —
+eine, die stillschweigend unterschlägt, was ein anderer Worker gezählt
+hat, ist schlimmer als gar keine. Die Warnschwelle bleibt wie
+entschieden zurückgestellt, bis der Zähler Erfahrungswerte liefert.

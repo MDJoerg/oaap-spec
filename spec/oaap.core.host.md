@@ -1,10 +1,12 @@
 # oaap.core.host — Platform Installer & Node Baseline
 
 - **ID:** `oaap.core.host`
-- **Version:** 0.3.0
+- **Version:** 0.3.1
 - **Maturity:** draft (0.2.1 adds the `oaap user` rescue commands, 2.3;
   0.3.0 adds **node profiles** — what a node is for — in 2.5, with the
-  wizard question in 2.2 and `oaap node` in 2.3)
+  wizard question in 2.2 and `oaap node` in 2.3; 0.3.1 adds **wireless
+  resilience** to the readiness step in 2.2, after a headless node lost
+  its network for 38 hours over one failed handshake)
 - **Based on:** RFC-0001 (initial capability set), RFC-0002 (bootstrap
   security), RFC-0003 (installer modes, node health), RFC-0008
   (server_admin), RFC-0011 (node profiles)
@@ -83,6 +85,29 @@ A conformant installer MUST perform these steps in order:
      configuration and document the rollback. Keeping the current
      address MUST NOT interrupt connectivity.
 
+   - **Wireless resilience:** on a node whose primary interface is
+     wireless, a **single failed association must not take the node off
+     the network permanently**. Reference incident: inside a mesh
+     network the 4-way handshake fails occasionally; the connection
+     manager reads that as a wrong passphrase, asks for credentials,
+     receives no answer on a machine without a screen, and stops
+     retrying for good — one node was offline for 38 hours while the
+     machine itself kept running. The installer SHOULD therefore offer
+     to (a) remove the retry limit and (b) install a periodic check
+     that restores the connection when the default gateway stops
+     answering. This treats the symptom, not the cause (access points
+     and connection manager disagreeing), and the node's own
+     documentation SHOULD say so. Two constraints:
+     - The check MUST NOT be installed when its own precondition does
+       not hold — if the gateway does not answer a probe *now*, a
+       probe-based watchdog would reconnect forever. Refuse and say why.
+     - It MUST be reversible and its rollback documented, like every
+       other readiness fix.
+
+     Nodes of this platform are headless by design (workshop
+     appliances, on-site IoT gateways). Nobody is standing next to them
+     to retype a passphrase, which is what makes this a platform
+     concern rather than a user's networking problem.
    - **Admin access:** default OS installs may lack a privilege-
      escalation path for the regular user (e.g. a Debian netinstall
      with a root password ships without `sudo`). When running as root,
@@ -222,7 +247,8 @@ Configurable at install time (sensible defaults for everything):
 - Hostname/IP used in the printed setup URL
 - Server-readiness consent for non-interactive runs (provider-defined
   flags; reference: `OAAP_SERVER_MODE=1|0` for keep-awake,
-  `OAAP_STATIC_IP=current|<address>|skip` for the stable address)
+  `OAAP_STATIC_IP=current|<address>|skip` for the stable address,
+  `OAAP_WLAN_WATCHDOG=1|0` for wireless resilience)
 
 Everything else is configured in the portal after setup.
 
@@ -302,7 +328,14 @@ Everything else is configured in the portal after setup.
     refused with a clear message and no side effect; running without
     root is refused.
 
-17. **Node profiles** (RFC-0011): a fresh node reports no profile and
+17. **Wireless resilience**: on a wireless node the installer offers the
+    resilience fix; with consent the retry limit is gone and the
+    periodic check is active and survives a reboot; a simulated
+    connection loss is recovered without anyone touching the machine;
+    with a gateway that does not answer probes the step refuses and
+    explains why; on a wired node the step does nothing; the rollback
+    restores the previous behaviour.
+18. **Node profiles** (RFC-0011): a fresh node reports no profile and
     behaves as before; `oaap node add-profile dev` is reflected by
     `oaap status`, the portal's health page, and the behaviour in
     `oaap.apps.runtime` 2.6; `remove-profile` reverts all of it; an
@@ -363,3 +396,32 @@ nichts tut, wäre eine stille Fehlkonfiguration.
 
 **Beim Wiederherstellen** aus einem Backup werden Profile **nicht**
 übernommen: Sie beschreiben die Maschine, nicht den Dienst.
+
+## Deutsche Zusammenfassung (WLAN-Absicherung, v0.3.1)
+
+**Ein misslungener Handshake darf einen Knoten nicht dauerhaft
+aussperren.** Der Anlass ist der Raspberry Pi vom 7./8.8.: Beim Wechsel
+zwischen den Funkzellen eines Mesh-Netzes scheitert der Handshake
+gelegentlich, NetworkManager hält das für ein falsches Passwort, fragt
+nach Zugangsdaten — und bekommt auf einer Maschine ohne Bildschirm
+keine Antwort. Nach zwei Minuten gibt er endgültig auf und versucht es
+**nie wieder**. Einmal 38 Stunden offline, bei laufender Maschine.
+
+Der Installer bietet auf WLAN-Knoten jetzt zwei Handgriffe an
+(nachfragen, nicht stillschweigend; `OAAP_WLAN_WATCHDOG=1` für
+unbeaufsichtigte Installationen): die Wiederholungsgrenze aufheben und
+einen Zwei-Minuten-Wächter einrichten, der das Standard-Gateway prüft
+und die Verbindung sonst zurückholt.
+
+**Zwei Ehrlichkeiten dazu**, beide in der Spec verankert:
+
+- Das behandelt das **Symptom**, nicht die Ursache (Zugangspunkte und
+  NetworkManager sind sich uneinig). Der Knoten sagt das auch so.
+- Der Wächter wird **nicht** eingerichtet, wenn das Gateway schon bei
+  der Installation keine Pings beantwortet — sonst würde er in einer
+  Endlosschleife alle zwei Minuten neu verbinden. Dann lieber gar
+  nichts, mit Begründung.
+
+Warum das überhaupt Plattformsache ist: Unsere Knoten sind dem Zielbild
+nach **kopflose Geräte** — Werkstattrechner, IoT-Gateway am Standort.
+Dort steht niemand, der ein Passwort nachreicht.
