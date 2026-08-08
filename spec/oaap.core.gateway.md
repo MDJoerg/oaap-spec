@@ -1,13 +1,14 @@
 # oaap.core.gateway — HTTP Gateway (outline)
 
 - **ID:** `oaap.core.gateway`
-- **Version:** 0.2.2
+- **Version:** 0.2.3
 - **Maturity:** draft (outline — full specification to follow;
   §Edge routing added 2026-08-07 per RFC-0006; visibility groups
   parameter added 2026-08-07 per RFC-0007; per-instance public
-  hostnames added 2026-08-08 per RFC-0009)
+  hostnames added 2026-08-08 per RFC-0009; public-route throttling and
+  the WebSocket forward-auth fix added 2026-08-08 per RFC-0010)
 - **Based on:** RFC-0001, RFC-0002, RFC-0003, RFC-0006, RFC-0007,
-  RFC-0008, RFC-0009
+  RFC-0008, RFC-0009, RFC-0010
 
 ## Purpose
 
@@ -140,6 +141,40 @@ additional site for that instance:
 DNS and port forwarding for the name are the operator's responsibility
 (RFC-0006's division of labour, unchanged).
 
+## Public-route throttling (RFC-0010)
+
+A `public` route receives no authentication — that is its definition.
+The gateway therefore applies the one control it still can: a limit on
+**requests per client address per instance**, checked before the app is
+reached.
+
+- On by default (reference default: 300 requests per 60 s), adjustable
+  per instance and switchable off by `server_admin`.
+- **One budget per instance**, shared by every entry point it has (LAN
+  listener, node subdomain, own hostname) — a limit that can be
+  bypassed by changing entry point is not a limit.
+- The **gateway determines the client address**: the TCP peer in direct
+  mode, the address vouched for by the edge in behind-edge mode. A
+  client-supplied `X-Forwarded-For` is never used, and the edge
+  overwrites that header with the peer it sees, so the chain cannot be
+  seeded by the client.
+- Checked **once per request**, so streaming responses and WebSocket
+  connections pay it at setup only (guarantee 7 unaffected).
+- Exceeding it yields `429` with `Retry-After`; the app is not reached.
+- It is a **volume brake, not authentication**: per-address limits do
+  not stop a distributed key-guessing attack, and the count is
+  approximate (see RFC-0010 for the full list of what it does not
+  promise). Apps on public routes remain responsible for their own
+  credential lockout.
+
+**Forward-auth and protocol upgrades.** The authentication subrequest
+is a plain `GET`; the original request's hop-by-hop headers
+(`Connection`, `Upgrade`) MUST NOT be forwarded to it. Passing them on
+makes a WSGI auth service answer `400`, which forward-auth returns to
+the client — breaking every WebSocket handshake before the app is
+reached. This applies to every forward-auth call: platform apex, app
+routes and the throttle check alike.
+
 ## Dependencies
 
 `oaap.core.identity`
@@ -188,3 +223,20 @@ Endlosschleife — dieselbe Regel wie bei Knotennamen seit RFC-0006).
 Die alte Adresse bleibt gültig, damit Clients in Ruhe umziehen können.
 Namenskonflikte werden abgelehnt statt stillschweigend aufgelöst.
 DNS-Eintrag und Portfreigabe bleiben Sache des Betreibers.
+
+## Deutsche Zusammenfassung (Drosselung öffentlicher Routen, v0.2.3)
+
+**Neu (RFC-0010):** Öffentliche Routen bekommen eine Bremse — Anfragen
+pro Client-Adresse und Instanz, standardmäßig an, je Instanz
+einstellbar. Ein Budget gilt für alle Zugänge einer Instanz zusammen,
+sonst ließe es sich durch Wechseln des Zugangs umgehen. Wer der Client
+ist, entscheidet das Gateway (direkter Peer bzw. die vom Edge
+bezeugte Adresse), nie ein vom Client geschickter Header. Geprüft wird
+einmal pro Anfrage, Streams und WebSockets zahlen also nur beim
+Verbindungsaufbau. Wichtig und ausdrücklich festgehalten: Das ist eine
+**Mengenbremse, keine Zugangskontrolle** — Details in RFC-0010.
+
+**Behobener Fehler:** Die Anmeldeprüfung (`forward_auth`) darf die
+Upgrade-Header einer Anfrage nicht mitbekommen. Tat sie es, antwortete
+der Identity-Dienst mit 400 und **jeder WebSocket-Verbindungsaufbau
+scheiterte** — auf allen authentifizierten Routen, seit es sie gibt.
