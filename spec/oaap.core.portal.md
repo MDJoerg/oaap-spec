@@ -1,7 +1,7 @@
 # oaap.core.portal — Web Portal
 
 - **ID:** `oaap.core.portal`
-- **Version:** 0.3.2
+- **Version:** 0.3.3
 - **Maturity:** draft
 - **Based on:** RFC-0001, RFC-0002, RFC-0003, RFC-0005, RFC-0007, RFC-0008
 
@@ -98,6 +98,34 @@ what is stored. Saving goes through the same worker (it has to
 recreate the container) and reports the outcome on the page. Also
 `server_admin` only: these values steer the platform's own instance
 and routinely contain credentials.
+
+The object page carries the remaining per-instance operations as
+further cards, so an operator never has to reach for the CLI to put an
+app into service:
+
+- **Own public hostname** (`oaap.apps.runtime` / RFC-0009), with the
+  automatic node address shown alongside so the difference is visible.
+- **Public-route throttling** (RFC-0010) — shown **only** when the app
+  actually declares a `public` route, because on every other instance
+  the setting would have no effect and would only mislead. The card
+  states plainly that it is a volume brake and not a credential
+  control.
+- **Deploy token** (`oaap.apps.runtime` 2.5) — shown only for test
+  instances, since production instances never carry one. The page
+  reports whether a token exists and when it was issued, never its
+  value.
+
+Two rules for the token, both security-relevant:
+
+1. The **portal generates** the token and hands the host side only its
+   digest. The readable value therefore never reaches the filesystem —
+   not the queue, not the token store. This grants the portal no new
+   power: a deploy token authorizes exactly the redeploy the portal can
+   already trigger.
+2. The token is rendered **in the response to the creating request**,
+   deliberately not via Post/Redirect/Get. A redirect would have to
+   carry the value in a URL, and the gateway logs full request URIs
+   including their query string.
 
 ### 2.5 Health
 
@@ -236,3 +264,17 @@ weitergeleitet werden. Jetzt wird die umgekehrte Frage gestellt: Sieht
 der Name nach einer LAN-Adresse aus (IP oder einteiliger Name)? Nur
 dann Port-Adressen, sonst öffentliche — bevorzugt die eigene Adresse
 der Instanz.
+
+## Deutsche Zusammenfassung (v0.3.3)
+
+**Die Instanz-Objektseite ist jetzt der Ort, an dem eine App in Betrieb
+genommen wird** — ohne Kommandozeile: eigene öffentliche Adresse,
+Drosselung öffentlicher Routen (nur sichtbar, wenn die App überhaupt
+eine öffentliche Route hat) und **Deploy-Token** für Test-Instanzen.
+
+Zwei Regeln beim Token sind wichtig: Das Portal **erzeugt** das Token
+selbst und gibt der Serverseite nur dessen Prüfsumme — der lesbare Wert
+landet damit nirgends auf der Platte. Und er wird **direkt in der
+Antwort** angezeigt, bewusst nicht über eine Weiterleitung: Die müsste
+den Wert in eine Adresse schreiben, und das Gateway protokolliert
+Adressen vollständig.
