@@ -1,11 +1,15 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.2
+- **Version:** 0.2.3
 - **Maturity:** draft (0.2 adds remote deployment via deploy tokens;
   0.2.1 adds the one-click store install in 2.6 with test 17; 0.2.2
   adds instance visibility in 2.7 and moves platform-level portal
-  operations from `admin` to `server_admin`, per RFC-0007/RFC-0008)
+  operations from `admin` to `server_admin`, per RFC-0007/RFC-0008;
+  0.2.3 spells out instance **configuration** in 2.8 — promised since
+  2.3/2.4.3 but never described in interface terms, and missing from
+  the reference implementation until it blocked a real production
+  rollout)
 - **Based on:** RFC-0001 (capability model), RFC-0002 (roles/gateway),
   RFC-0003 (placement), RFC-0004 (manifest/app types), RFC-0005
   (addressing), RFC-0007 (visibility groups), RFC-0008 (server_admin);
@@ -165,6 +169,40 @@ alongside — never inside — the manifest-derived `roles`:
   silently reopen a group-restricted instance.
 - `server_admin` bypasses every visibility restriction (RFC-0008).
 
+### 2.8 Instance configuration
+
+An instance's config values (2.3) are **operator-owned and editable for
+the life of the instance** — install time is not the only chance to set
+them. The deployment contract promises apps exactly this ("no config
+files the operator must edit", rule 4), so the runtime must offer it:
+
+- **Only declared keys.** The editable set is the manifest's `config`
+  block of the installed version. Neither CLI nor portal can introduce
+  an environment variable the app never declared, and `OAAP_APP_SECRET`
+  is platform-owned — never listed, never settable.
+- **Secrets are write-only.** A `secret: true` value is never rendered
+  back into a page or printed by the CLI; the portal shows only whether
+  it is set. Submitting an empty secret field means "keep the stored
+  value" — clearing one is an explicit `unset`.
+- **A change takes effect immediately.** Config reaches apps as
+  environment variables, which container runtimes bake in at start —
+  the runtime therefore **recreates the container** rather than
+  restarting it. Storage, entry point, port, version, visibility and
+  deploy token are untouched; the app is briefly unavailable.
+- **No version bump, on either channel.** Configuring is not deploying:
+  the production-channel rule "same version is refused" (2.3) governs
+  *code*, not settings. An operator must be able to fix a wrong or
+  missing value on a production instance without inventing a release.
+- **Operator values outrank manifest defaults.** A redeploy — including
+  one triggered by a deploy token — keeps what the operator set; a
+  default only fills a key that has no value yet.
+- **`server_admin` only**, in CLI and portal alike (RFC-0008): config
+  values steer the platform's own instance and routinely contain
+  credentials. This does not touch an app's *own* in-app settings,
+  which stay `admin`/`keyuser` (2.6).
+- **Auditable without leaking.** Every change is recorded with
+  instance, key name, actor and time — values never appear in any log.
+
 ## 3. Configuration
 
 - Level-1 port range (default 8100–8199, expert-configurable;
@@ -242,6 +280,18 @@ alongside — never inside — the manifest-derived `roles`:
 19. **Visibility survives redeploy**: an instance's visibility setting
     is unchanged after a redeploy that keeps the same instance name
     (2.3, 2.7) — a redeploy must not silently reopen it.
+20. **Configure a production instance (2.8)**: a `secret: true` key
+    left empty at install can be set afterwards on a **production**
+    instance without a version bump; the running app receives the new
+    value, and its storage and entry point are unchanged.
+21. **Declared keys only**: setting an undeclared key or
+    `OAAP_APP_SECRET` is refused with no side effect, through the CLI
+    and through the portal.
+22. **Secrets stay write-only, operator values stay put**: a secret
+    value appears in no page, CLI output or log; an empty secret field
+    leaves the stored value intact; and a redeploy of the same
+    instance keeps every operator-set value instead of restoring the
+    manifest default.
 
 ## 6. Dependencies
 
@@ -269,3 +319,44 @@ zusätzliche Gruppen-Einschränkung tragen (`sudo oaap app visibility
 neben, nicht anstelle der Rollen aus dem Manifest. Übersteht einen
 Redeploy derselben Instanz. `server_admin` sieht immer alles. Im
 Portal auf einer neuen Seite „Instanzen" ebenfalls einstellbar.
+
+## Deutsche Zusammenfassung (2.8, v0.2.3)
+
+**Konfigurationswerte lassen sich jetzt nachträglich setzen** — das
+fehlte bisher komplett und ist bei der Produktivsetzung von bdt-hub
+aufgefallen: Eine App deklariert einen Schlüssel als vertraulich ohne
+Vorgabewert, die Instanz startet also mit leerem Wert, und danach gab
+es keinen vorgesehenen Weg mehr, ihn zu füllen. Auf dem Produktiv-Kanal
+war es sogar ausweglos, weil dort eine Neuinstallation derselben
+Version bewusst abgelehnt wird.
+
+Neu:
+
+```sh
+sudo oaap app config list <instanz>              # Schlüssel, Geheimnisse maskiert
+sudo oaap app config set <instanz> <key> [wert]  # ohne Wert: versteckte Eingabe
+sudo oaap app config unset <instanz> <key>       # zurück auf den Manifest-Vorgabewert
+```
+
+Im Portal steht dasselbe auf der Objektseite einer Instanz
+(„Instanzen" → Instanz auswählen), nur für `server_admin`.
+
+Die Regeln dahinter, in Kurzform:
+
+- Nur **deklarierte** Schlüssel sind änderbar — was die App nicht in
+  ihrem Manifest anmeldet, kann auch niemand in ihren Container
+  schleusen. `OAAP_APP_SECRET` gehört der Plattform und bleibt außen vor.
+- **Geheimnisse werden nie zurückgezeigt** — weder im Portal noch auf
+  der Kommandozeile noch im Protokoll. Ein leer gelassenes Feld heißt
+  „behalten", nicht „löschen".
+- Nach dem Speichern wird der **Container neu erzeugt** (ein bloßer
+  Neustart würde die alten Werte behalten — Umgebungsvariablen werden
+  beim Start fest eingebrannt). Kurze Nichtverfügbarkeit, aber Daten,
+  Adresse und Version bleiben unverändert.
+- **Kein Versions-Bump nötig**, auch nicht auf Produktiv: Konfigurieren
+  ist kein Deployment. Der Versionszwang schützt den *Code*, nicht die
+  Einstellungen.
+- Was der Betreiber gesetzt hat, **überlebt jeden Redeploy** —
+  Vorgabewerte füllen nur noch leere Schlüssel.
+- Protokolliert wird, *wer wann welchen Schlüssel* geändert hat —
+  **nie der Wert**.

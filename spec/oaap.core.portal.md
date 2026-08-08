@@ -1,7 +1,7 @@
 # oaap.core.portal — Web Portal
 
 - **ID:** `oaap.core.portal`
-- **Version:** 0.3.0
+- **Version:** 0.3.1
 - **Maturity:** draft
 - **Based on:** RFC-0001, RFC-0002, RFC-0003, RFC-0005, RFC-0007, RFC-0008
 
@@ -79,6 +79,15 @@ current visibility) navigating to an object page per instance (radio
 registry mount is read-only, saves are queued to the same host-side
 worker that already applies one-click store installs (2.6) — the
 portal never writes the registry or gateway config directly.
+
+The same object page also carries the instance's **configuration**
+(`oaap.apps.runtime` 2.8): one field per key the app's manifest
+declares, `secret: true` entries masked — shown as "set" or "not set",
+never prefilled with the stored value, and an empty submission keeps
+what is stored. Saving goes through the same worker (it has to
+recreate the container) and reports the outcome on the page. Also
+`server_admin` only: these values steer the platform's own instance
+and routinely contain credentials.
 
 ### 2.5 Health
 
@@ -196,3 +205,13 @@ Ein-Klick-Installation über den Host-Worker, nie direkt.
 Sonderstatus mehr (die alte, nur im Portal wirksame
 „admin sieht alles"-Ausnahme entfiel — sie konnte eine Kachel zeigen,
 die beim Klick trotzdem 403 lieferte).
+
+## Deutsche Zusammenfassung (v0.3.1)
+
+**Konfiguration auf der Instanz-Objektseite (2.4):** Dieselbe Seite
+zeigt jetzt zusätzlich die Konfigurationswerte, die die App in ihrem
+Manifest anmeldet. Vertrauliche Werte werden nie zurückgezeigt — das
+Feld meldet nur „gesetzt" oder „noch nicht gesetzt", und wer es leer
+lässt, behält den gespeicherten Wert. Gespeichert wird über denselben
+Host-Worker wie die Sichtbarkeit, weil dafür der App-Container neu
+erzeugt werden muss. Nur für `server_admin`.
