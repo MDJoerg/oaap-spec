@@ -1,11 +1,13 @@
 # oaap.core.gateway — HTTP Gateway (outline)
 
 - **ID:** `oaap.core.gateway`
-- **Version:** 0.2.1
+- **Version:** 0.2.2
 - **Maturity:** draft (outline — full specification to follow;
   §Edge routing added 2026-08-07 per RFC-0006; visibility groups
-  parameter added 2026-08-07 per RFC-0007)
-- **Based on:** RFC-0001, RFC-0002, RFC-0003, RFC-0006, RFC-0007, RFC-0008
+  parameter added 2026-08-07 per RFC-0007; per-instance public
+  hostnames added 2026-08-08 per RFC-0009)
+- **Based on:** RFC-0001, RFC-0002, RFC-0003, RFC-0006, RFC-0007,
+  RFC-0008, RFC-0009
 
 ## Purpose
 
@@ -110,6 +112,34 @@ page; the same mechanism will serve deliberately-offline routes
 an OAAP-branded page to custom content. Details are deferred to the
 full specification; RFC-0006 resolved question 3 records the decision.
 
+## Per-instance public hostnames (RFC-0009)
+
+Besides the automatic `<instance>.<external hostname>` subdomains
+above, a single app instance MAY register a public hostname **of its
+own** — one that does not derive from the node's name and therefore
+survives the app moving to another node. The gateway serves it as an
+additional site for that instance:
+
+1. built from the **same** route/role/group block as every other entry
+   point of that instance — default deny, reserved `/auth/*`,
+   anti-spoofing and visibility groups apply unchanged. Its own
+   address grants an app nothing extra;
+2. in **direct** mode: a TLS site with ACME plus an explicit
+   HTTP→HTTPS redirect;
+3. in **behind-edge** mode: plain HTTP, no ACME, no redirect, and only
+   from the edge address — points 1–4 of the backend-side rules above
+   apply verbatim, for the same reasons;
+4. **additive** — the automatic node subdomain keeps working, so
+   clients can migrate gradually;
+5. **collision-refusing**: a name is rejected if it is or lies under
+   the node's own external hostname, if an edge route on this node
+   covers it, or if another instance already holds it; symmetrically,
+   an edge route that would capture a local instance's hostname is
+   rejected. The gateway never silently resolves such a conflict.
+
+DNS and port forwarding for the name are the operator's responsibility
+(RFC-0006's division of labour, unchanged).
+
 ## Dependencies
 
 `oaap.core.identity`
@@ -140,3 +170,21 @@ hinter dem Edge verwirft das eigene Gateway die Identitäts-Header und
 setzt sie nach eigener Anmeldung neu. Die konfigurierbare
 „Nicht erreichbar"-Seite (auch für bewusst offline genommene Routen)
 ist reserviert und wird in der Vollspezifikation ausgearbeitet.
+
+## Deutsche Zusammenfassung (eigene Adressen je Instanz, v0.2.2)
+
+**Neu (RFC-0009):** Eine App-Instanz kann einen **eigenen öffentlichen
+Namen** bekommen — zusätzlich zur automatischen Adresse
+`<instanz>.<knotenname>`. Hintergrund ist bdt-hub: Dessen Adresse wird
+in ausgelieferte Clients eingebaut, und die dürfen nicht am Namen der
+Maschine hängen, auf der die App zufällig gestartet ist.
+
+Wichtig: Es ist **dieselbe** Absicherung wie bei jeder anderen Adresse
+derselben App — Rollen, Sichtbarkeitsgruppen, default deny und die
+reservierte Anmelde-Route gelten unverändert. Direkt am Internet gibt
+es ein normales Zertifikat plus HTTP→HTTPS-Umleitung; hinter einem Edge
+Klartext-HTTP ohne Umleitung und nur vom Edge annehmbar (sonst
+Endlosschleife — dieselbe Regel wie bei Knotennamen seit RFC-0006).
+Die alte Adresse bleibt gültig, damit Clients in Ruhe umziehen können.
+Namenskonflikte werden abgelehnt statt stillschweigend aufgelöst.
+DNS-Eintrag und Portfreigabe bleiben Sache des Betreibers.
