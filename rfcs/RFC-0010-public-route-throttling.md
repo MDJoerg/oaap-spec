@@ -1,6 +1,6 @@
 # RFC-0010: A Brake on Public Routes
 
-- **Status:** Proposed (2026-08-08)
+- **Status:** Accepted (2026-08-08)
 - **Date:** 2026-08-08
 - **Authors:** Claude (analysis & proposal), Jörg (decision on direction)
 - **Depends on:** RFC-0002 (default deny, gateway enforcement)
@@ -105,21 +105,22 @@ authenticated routes, where the redirect proves the check now runs).
 Recorded here because this RFC's testing is what found it; the fix
 belongs to `oaap.core.gateway` regardless of this proposal's fate.
 
-## Open questions
+## Decisions (Jörg, 2026-08-08)
 
-1. **Is the default of 300/60 right for the platform?** It is generous
-   on purpose (a wrong default that blocks real users is worse than a
-   loose one), but a hub with many clients behind one NAT may still hit
-   it. Alternative: no default limit, opt in per instance — safer for
-   availability, worse for security.
-2. **Should a throttled client be visible?** Today a `429` leaves an
-   entry in the gateway access log and nothing else. A counter on the
-   health page ("N requests throttled in the last hour") would make
-   abuse noticeable instead of silent. Proposed as a follow-up.
-3. **Should the limit ever be per route rather than per instance?** A
-   Git clone and an API call have very different costs. Deliberately
-   left out for now — one number per instance is understandable, and
-   understandable limits are the ones that get set correctly.
+1. **The default stays 300 requests per 60 seconds.** Generous on
+   purpose: a default that locks out real users is worse than a loose
+   one, and the limit is adjustable per instance at any time.
+2. **Throttling becomes visible on the health page** — a per-instance
+   count of requests braked in the recent past. Without it a `429`
+   leaves only a line in an access log that nobody reads, and abuse
+   stays invisible until somebody goes looking. A *warning* threshold
+   on top was considered and deferred: it needs a threshold that does
+   not cry wolf, and the counter can be watched first to find one.
+3. **One number per instance now; per-route limits are a later
+   stage** — noted, not built. A Git clone and an API call do cost very
+   different amounts, so the need is real; it is deferred because more
+   knobs mean more ways to set them wrong, and one number is the one
+   people will actually get right.
 
 ## Deutsche Zusammenfassung
 
@@ -173,11 +174,17 @@ ausdrücklich verlässt. Ist behoben und geprüft (aus 400 wurde 101 bzw.
 303). Ohne diesen Fund wäre bdt-hub produktiv gegangen und hätte nicht
 funktioniert.
 
-**Drei offene Fragen an Dich:**
+**Entschieden (Jörg, 2026-08-08) — RFC-0010 abgenommen:**
 
-1. Ist **300 Anfragen pro Minute** als Standard richtig — oder lieber
-   gar kein Standardlimit und nur bewusst je Instanz einschalten?
-2. Soll die Gesundheitsseite zeigen, **wie oft gebremst wurde**? Sonst
-   merkt niemand, dass jemand klopft.
-3. Reicht **eine Zahl je Instanz**, oder braucht es später
-   unterschiedliche Grenzen je Route (Git-Klon vs. API-Aufruf)?
+1. **300 Anfragen pro Minute bleiben der Standard.** Bewusst großzügig:
+   Ein zu enger Standardwert, der echte Nutzer aussperrt, ist schlimmer
+   als ein lockerer — und je Instanz ist er jederzeit anpassbar.
+2. **Die Gesundheitsseite zeigt künftig, wie oft gebremst wurde** (je
+   Instanz). Sonst merkt niemand, dass jemand klopft. Eine zusätzliche
+   Warnung bei anhaltender Drosselung ist vorgemerkt, aber
+   zurückgestellt — dafür braucht es erst eine Schwelle, die nicht
+   ständig fälschlich anschlägt; der Zähler liefert die Erfahrung dafür.
+3. **Vorerst eine Zahl je Instanz**, Grenzen je Route sind als spätere
+   Ausbaustufe **vorgemerkt** (Jörgs Entscheidung). Der Bedarf ist real
+   — ein Git-Klon kostet etwas anderes als ein API-Aufruf —, aber mehr
+   Stellschrauben heißt auch mehr Gelegenheiten, sie falsch zu setzen.

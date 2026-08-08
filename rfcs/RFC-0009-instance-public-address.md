@@ -1,6 +1,6 @@
 # RFC-0009: A Public Address That Belongs to the App, Not to the Machine
 
-- **Status:** Proposed (2026-08-08)
+- **Status:** Accepted (2026-08-08)
 - **Date:** 2026-08-08
 - **Authors:** Claude (analysis & proposal), Jörg (decision on direction)
 - **Depends on:** RFC-0005 (app addressing), RFC-0006 (edge node)
@@ -108,24 +108,25 @@ sudo oaap app address remove <instance>
   its own, a CNAME onto the node's dynamic name — all work, and the
   trade-offs are the operator's.
 
-## Open questions
+## Decisions (Jörg, 2026-08-08)
 
-1. **Should the instance's own name replace the node subdomain rather
-   than complement it?** Keeping both is friendlier for migration but
-   means a production app stays reachable under a second, less
-   controlled name (which the on-demand TLS gap above already covers
-   loosely). Option: a later `--exclusive` flag that stops generating
-   the node subdomain for that instance.
-2. **Should the platform warn when a published name stops resolving to
-   this node?** RFC-0006 already asked for exactly that for node names
-   after the DuckDNS incident. An instance address has the same failure
-   mode, with worse consequences (installed clients, not a bookmark).
-   Proposal: fold it into that same check rather than inventing a
-   second one.
-3. **Does an instance address belong in a backup's restore path?** On
-   restore to a different machine the recorded name will not resolve
-   there yet. Proposal: restore it but report it clearly, the same way
-   `oaap.data.backup` already reports the external hostname.
+1. **The own name always complements, never replaces.** Both addresses
+   stay valid; no `--exclusive` switch. Migration and verification
+   before publishing outweigh the fact that the app also stays
+   reachable under the less controlled node subdomain.
+2. **Yes, the platform reports a stale name.** The health check
+   compares, at intervals, whether every published name still resolves
+   to this node's public address — accepting that the node has to ask
+   an outside service for its own public address to do so. The DuckDNS
+   incident (a node silently off the internet for days) is what this
+   is for, and with client-embedded addresses the consequence is worse.
+   Implementation belongs with `oaap.core.portal`'s health section.
+3. **On restore, the address travels and is reported clearly.** It
+   belongs to the app — clients point at it and it must survive a move
+   — but the DNS record has to be repointed by hand, so the restore
+   must say so plainly. (The node *profile* of RFC-0011 is treated the
+   opposite way, and for the opposite reason: it belongs to the
+   machine.)
 
 ## Deutsche Zusammenfassung
 
@@ -169,16 +170,19 @@ sudo oaap app address show bdt-hub
 sudo oaap app address remove bdt-hub
 ```
 
-**Drei offene Fragen an Jörg:**
+**Entschieden (Jörg, 2026-08-08) — RFC-0009 abgenommen:**
 
-1. Soll der eigene Name die Knoten-Adresse **ersetzen** können (heute:
-   beide gleichzeitig, gut für den Umstieg)?
-2. Soll die Plattform **melden, wenn ein veröffentlichter Name nicht
-   mehr auf diesen Knoten zeigt**? (Genau das war der DuckDNS-Vorfall —
-   bei eingebauten Client-Adressen wäre es schlimmer.)
-3. Wie soll sich eine Wiederherstellung auf einer **anderen Maschine**
-   verhalten — Name mitnehmen und deutlich melden (Vorschlag) oder
-   verwerfen?
+1. Der eigene Name kommt **immer zusätzlich**, er ersetzt die
+   Knoten-Adresse nicht. Kein Abschalter.
+2. Die Plattform **meldet, wenn ein veröffentlichter Name nicht mehr
+   auf sie zeigt** — als Teil der Gesundheitsprüfung. Dafür muss der
+   Knoten regelmäßig nach seiner eigenen öffentlichen Adresse fragen;
+   das ist der Preis, und er ist es wert: Genau dieser Fall lief beim
+   DuckDNS-Vorfall tagelang unbemerkt.
+3. Bei einer Wiederherstellung auf einer anderen Maschine **wandert die
+   Adresse mit** und wird deutlich gemeldet (der DNS-Eintrag muss ja
+   von Hand nachgezogen werden). Sie gehört zur App. Das Knotenprofil
+   aus RFC-0011 wird umgekehrt behandelt — es gehört zur Maschine.
 
 **Welchen Namen** bdt-hub bekommt, entscheidest Du — eine eigene
 DuckDNS-Adresse, ein Name unter einer Deiner Domains (z. B.

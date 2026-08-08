@@ -1,6 +1,6 @@
 # RFC-0011: Node Profiles — What a Node Is For
 
-- **Status:** Proposed (2026-08-08)
+- **Status:** Accepted (2026-08-08)
 - **Date:** 2026-08-08
 - **Authors:** Jörg (idea and direction), Claude (write-up)
 - **Depends on:** RFC-0001 (capability model), RFC-0003 (topology),
@@ -147,27 +147,31 @@ which of two different things is meant:
 Jörg's wording ("OAAP instances that are managed") points at the
 second. Worth its own RFC; this one stays out of its way.
 
-## Open questions
+## Decisions (Jörg, 2026-08-08)
 
-1. **Are `dev` and `test` two profiles or one?** The proposal above uses
-   only `dev`. A separate `test` profile is only worth having if we can
-   name a behaviour that differs between them — otherwise it is two
-   words for one thing, and the second will be set inconsistently.
-2. **Which profiles do we actually name now?** My suggestion: start with
-   `dev` alone, and add others only when a concrete behaviour needs
-   them. The 2026-08-06 list (central, worker, hoster, edge, IoT
-   gateway) describes *topology and placement* more than behaviour;
-   much of it may belong to RFC-0003 rather than here.
-3. **Should the profile influence updates?** A `dev` node could take
-   updates earlier than production nodes — a natural staging path, and
-   the fleet already has the right shape for it (oaap-test as the
-   proving ground). Attractive, but it is a second mechanism next to
-   `oaap.core.updates`; worth deciding deliberately rather than
-   drifting into it.
-4. **Where does the profile live in a backup/restore?** Restoring a
-   production backup onto a workbench should probably not silently
-   bring `dev` along — or should it? (Compare the same question for
-   instance addresses in RFC-0009.)
+1. **One profile, `dev`**, with both effects (portal-created test
+   instances *and* installing from an unlisted source). A separate
+   `test` profile was considered — it would have allowed test instances
+   from trusted store sources only, fitting a staging machine — and
+   dropped: two words nobody can reliably tell apart get set
+   inconsistently. It can be added later, once a behaviour genuinely
+   differs.
+2. **Only profiles that have an effect today get named.** No profile
+   exists that can be set and does nothing; the fleet types from the
+   2026-08-06 idea log (central, worker, hoster, edge, IoT gateway) are
+   *not* introduced here — they describe topology and placement and
+   belong with RFC-0003. Free-form profile tags (the RFC-0007 approach)
+   were considered and rejected for the same reason: a typo would
+   produce a silently ineffective profile.
+3. **Profiles do not influence updates.** That belongs to
+   `oaap.core.updates`. Letting `dev` nodes update first would codify
+   how the fleet is already run by hand, but it would put two
+   mechanisms on one question and be awkward to separate later.
+4. **On restore to a different machine the profile is dropped.** It
+   describes the machine, not the service — a `dev` backup restored
+   onto a production box must not bring developer powers along. The
+   instance *address* of RFC-0009 travels, for the mirrored reason: it
+   belongs to the app.
 
 ## Deutsche Zusammenfassung
 
@@ -217,9 +221,26 @@ eine Plattform, die **ihre eigene bleibt** und trotzdem fernverwaltet
 wird (das ist neu — und das ist es, was das Service-Szenario mit Bernd
 wirklich braucht). Deine Formulierung deutet auf das Zweite.
 
-**Vier offene Fragen an Dich** stehen oben; die wichtigste ist die
-erste: Sind `dev` und `test` zwei Profile oder eins? Ich würde mit
-`dev` allein anfangen und ein zweites erst hinzunehmen, wenn wir ein
-Verhalten benennen können, das sich wirklich unterscheidet — sonst
-werden es zwei Wörter für dieselbe Sache, und das zweite wird uneinheitlich
-gesetzt.
+**Entschieden (Jörg, 2026-08-08) — RFC-0011 abgenommen:**
+
+1. **Ein Profil: `dev`**, mit beiden Wirkungen. Eine Aufteilung in
+   `test` (nur Test-Instanzen, aber weiterhin nur aus vertrauenswürdigen
+   Quellen) und `dev` (zusätzlich freie Quellen) war die Alternative —
+   verworfen, weil zwei Begriffe, die man kaum auseinanderhält, in der
+   Praxis uneinheitlich gesetzt werden. Nachrüstbar, sobald sich ein
+   Verhalten wirklich unterscheidet.
+2. **Nur Profile, die heute etwas bewirken.** Kein Profil, das man
+   setzen kann und das nichts tut. Die Flottentypen vom 6.8. (zentral,
+   worker, hoster, edge, IoT-Gateway) kommen hier ausdrücklich **nicht**
+   hinein — sie beschreiben Topologie und Platzierung und gehören zu
+   RFC-0003. Freie Stichworte wie bei den Sichtbarkeitsgruppen wurden
+   ebenfalls erwogen und verworfen: Ein Tippfehler ergäbe ein still
+   wirkungsloses Profil.
+3. **Profile beeinflussen Updates nicht.** Das bleibt Sache von
+   `oaap.core.updates` — zwei Mechanismen für dieselbe Frage würden
+   sich überlagern.
+4. **Bei einer Wiederherstellung auf einer anderen Maschine wird das
+   Profil verworfen.** Es beschreibt die Maschine, nicht den Dienst: Ein
+   `dev`-Backup, eingespielt auf einer Produktivmaschine, darf dort
+   keine Entwicklerrechte mitbringen. Die **Adresse** aus RFC-0009 wird
+   spiegelbildlich behandelt und wandert mit — sie gehört zur App.
