@@ -1,7 +1,7 @@
 # oaap.core.portal — Web Portal
 
 - **ID:** `oaap.core.portal`
-- **Version:** 0.3.3
+- **Version:** 0.3.4
 - **Maturity:** draft
 - **Based on:** RFC-0001, RFC-0002, RFC-0003, RFC-0005, RFC-0007, RFC-0008
 
@@ -126,6 +126,19 @@ Two rules for the token, both security-relevant:
    deliberately not via Post/Redirect/Get. A redirect would have to
    carry the value in a URL, and the gateway logs full request URIs
    including their query string.
+
+Finally, **removing an instance** — the only destructive control in the
+portal. It therefore differs from every other card:
+
+- the operator must **type the instance name** to confirm, so no single
+  click can destroy anything;
+- keeping the storage is the **preselected** option, deleting it is a
+  separate, explicit choice;
+- the host side re-checks the typed name against the instance it is
+  about to remove, so a misdirected or replayed request cannot take
+  down a different app than the one on screen;
+- afterwards the caller lands on the list, since the page they came
+  from no longer exists.
 
 ### 2.5 Health
 
@@ -268,7 +281,7 @@ der Instanz.
 ## Deutsche Zusammenfassung (v0.3.3)
 
 **Die Instanz-Objektseite ist jetzt der Ort, an dem eine App in Betrieb
-genommen wird** — ohne Kommandozeile: eigene öffentliche Adresse,
+genommen und wieder abgeräumt wird** — ohne Kommandozeile: eigene öffentliche Adresse,
 Drosselung öffentlicher Routen (nur sichtbar, wenn die App überhaupt
 eine öffentliche Route hat) und **Deploy-Token** für Test-Instanzen.
 
@@ -278,3 +291,8 @@ landet damit nirgends auf der Platte. Und er wird **direkt in der
 Antwort** angezeigt, bewusst nicht über eine Weiterleitung: Die müsste
 den Wert in eine Adresse schreiben, und das Gateway protokolliert
 Adressen vollständig.
+
+**Entfernen** ist der einzige zerstörerische Handgriff und deshalb
+anders gebaut: Der Instanzname muss **eingetippt** werden, „Daten
+behalten" ist vorausgewählt, und die Serverseite prüft den eingetippten
+Namen ein zweites Mal gegen die Instanz, die sie gerade abräumen soll.
