@@ -1,7 +1,7 @@
 # oaap.core.portal — Web Portal
 
 - **ID:** `oaap.core.portal`
-- **Version:** 0.3.1
+- **Version:** 0.3.2
 - **Maturity:** draft
 - **Based on:** RFC-0001, RFC-0002, RFC-0003, RFC-0005, RFC-0007, RFC-0008
 
@@ -33,8 +33,18 @@ bootstrap operation and is permanently disabled afterwards.
 
 - Installed app instances appear as tiles with name, description,
   version, and channel badge; the tile links to the instance's
-  platform-generated URL (RFC-0005 level 1: gateway listener port).
-  Apps open through the gateway, never embedded.
+  platform-generated URL. Apps open through the gateway, never embedded.
+- **Tile targets depend on where the caller is, not on which name they
+  used.** LAN listener ports (RFC-0005 level 1) are reachable only from
+  inside; from outside just the platform's HTTP(S) ports are forwarded.
+  The portal therefore offers port URLs only when the request host is
+  itself a LAN address (an IP literal or a single-label/`.local`-style
+  name) and public URLs otherwise — an instance's own hostname
+  (RFC-0009) when it has one, else its subdomain of the node. Deciding
+  this by "does the host equal the node's external name" is wrong: a
+  platform can be entered under any public name that resolves to it,
+  and every such visitor would get LAN links that are dead from
+  outside.
 - Tiles are **role- and group-filtered** (RFC-0007): a user sees an
   instance only if (a) their roles intersect the instance's route
   roles, AND (b) — when the instance carries a visibility restriction
@@ -215,3 +225,14 @@ Feld meldet nur „gesetzt" oder „noch nicht gesetzt", und wer es leer
 lässt, behält den gespeicherten Wert. Gespeichert wird über denselben
 Host-Worker wie die Sichtbarkeit, weil dafür der App-Container neu
 erzeugt werden muss. Nur für `server_admin`.
+
+**Kachel-Ziele (2.2), Fehlerbehebung:** Das Portal entschied bisher
+anhand von „ist der aufgerufene Name genau der externe Knotenname?",
+ob eine Kachel auf die öffentliche Adresse oder auf den LAN-Port
+zeigt. Wer die Plattform unter irgendeinem anderen öffentlichen Namen
+betrat (eigene Instanz-Adresse nach RFC-0009, ein CNAME des
+Betreibers), bekam LAN-Port-Adressen — von außen tot, weil nur 80/443
+weitergeleitet werden. Jetzt wird die umgekehrte Frage gestellt: Sieht
+der Name nach einer LAN-Adresse aus (IP oder einteiliger Name)? Nur
+dann Port-Adressen, sonst öffentliche — bevorzugt die eigene Adresse
+der Instanz.
