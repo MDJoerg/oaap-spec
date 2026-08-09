@@ -1,7 +1,7 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.4
+- **Version:** 0.2.5
 - **Maturity:** draft (0.2 adds remote deployment via deploy tokens;
   0.2.1 adds the one-click store install in 2.6 with test 17; 0.2.2
   adds instance visibility in 2.7 and moves platform-level portal
@@ -11,11 +11,18 @@
   the reference implementation until it blocked a real production
   rollout; 0.2.4 answers the open question in 2.6 — instances MAY be
   created from the portal, on a node whose profile says it is a
-  workbench, per RFC-0011)
+  workbench, per RFC-0011; 0.2.5 works RFC-0012 in — manifest version
+  handling in 2.2 (strict schema, tolerant node, `must_understand`),
+  resolution by trust class in 2.6, and store sources as objects that
+  survive a move in the new 2.9. Both old rules were traps: the
+  manifest version was an equality check, so the first manifest 0.2
+  would have been rejected by every node in the field, and an app id
+  resolved to the first configured source, which made a foreign list a
+  takeover path)
 - **Based on:** RFC-0001 (capability model), RFC-0002 (roles/gateway),
   RFC-0003 (placement), RFC-0004 (manifest/app types), RFC-0005
   (addressing), RFC-0007 (visibility groups), RFC-0008 (server_admin),
-  RFC-0011 (node profiles);
+  RFC-0011 (node profiles), RFC-0012 (store sources and list format);
   platform side of the App Deployment Contract
   (`docs/app-deployment-contract.md`)
 
@@ -42,6 +49,20 @@ the core never comes from a store (RFC-0001).
 - Validate `oaap-app.yaml` against the published JSON Schema (part of
   this capability; CI-usable). Invalid manifests are rejected with
   human-readable errors before anything is changed.
+- **Version handling is asymmetric on purpose** (RFC-0012 §8.2). The
+  schema is an authoring tool and MUST stay strict — unknown fields are
+  a typo where they are written. A **node** MUST read tolerantly:
+  `oaap_manifest` is `MAJOR.MINOR`; a node accepts every manifest whose
+  MAJOR it implements, ignores fields it does not know, and refuses only
+  a foreign MAJOR. A higher MINOR is reported, not rejected. Without
+  this rule, every extension of the manifest format would be a flag day
+  for every node already in the field.
+- **`must_understand`** is the exception that makes the rule above safe:
+  a manifest MAY name features a reader has to understand to install the
+  app correctly. A node that does not implement one of them MUST refuse
+  **that app**, with a message naming the feature — rather than install
+  something half-understood. Only features whose omission breaks the
+  install belong here; optional additions do not.
 - `native`: build images **on the target node** (build on device).
   `image`/`wrapped`: pull the referenced images.
 - The **compose converter** (RFC-0004) imports an existing
@@ -128,15 +149,29 @@ object page), and the deploy audit trail is visible there.
 directly from the portal's store page. The trust model mirrors 2.5
 ("a request can never supply a source"):
 
-- The portal request names **only the app id** (and the store source
-  it was seen in). It carries no package source, no manifest, no
-  version — nothing installable.
+- The portal request names **only the app id and the source it was
+  seen in**. It carries no package source, no manifest, no version —
+  nothing installable.
 - The privileged host side resolves the app id **against the
   platform's configured store sources** (the same list the store page
   reads) and installs from what *that* lookup returns. An app id that
-  no configured source lists is refused. A compromised portal can
-  therefore at worst install apps the server_admin already chose to
-  trust by configuring their source.
+  no configured source lists is refused, and so is a source id that is
+  not configured. A compromised portal can therefore at worst install
+  apps the server_admin already chose to trust by configuring their
+  source, and can only *choose among* those sources — never add one.
+- **When several sources list the same app id, the highest trust class
+  wins**; configured order decides only within one class (RFC-0012 §3).
+  Resolving by order alone made a foreign list a takeover path: claim a
+  known id, sit above the real list, collect the one-click install.
+- **An installed instance records the source it came from**, and a
+  later resolution for that instance prefers it as long as that source
+  still lists the app. Changing an instance's source stays possible and
+  becomes a deliberate, reported act instead of a silent one.
+- **Installing from an `unverified` source MUST take an explicit
+  confirmation**, and the confirmation MUST reach the deploy log: who
+  accepted which source, when, for which app. This is a brake against
+  inattention, not a security boundary — what protects against a
+  compromised portal is the resolution rule above.
 - One-click installs land on the **production channel** (installing
   from the store means using the app); test instances for development
   remain a deliberate choice (CLI, or the portal on a development
@@ -234,6 +269,41 @@ files the operator must edit", rule 4), so the runtime must offer it:
   which stay `admin`/`keyuser` (2.6).
 - **Auditable without leaking.** Every change is recorded with
   instance, key name, actor and time — values never appear in any log.
+
+### 2.9 Store sources (RFC-0012 §2/§4)
+
+A **store source** is a list of apps a node may install from. It is a
+node-level fact, maintained by `server_admin`, and it is an **object**,
+not a URL with a label:
+
+- **`id`** — stable identity, never the URL. Everything else refers to
+  it: the resolution rule of 2.6, the installed instance, the log
+  record. Renaming or moving a list MUST NOT change its id.
+- **`url`**, **`name`**, **`origin`** (who publishes it, shown to the
+  user verbatim), **`enabled`**.
+- **`trust`** — `platform` ("von uns", what the installation shipped) ·
+  `verified` ("geprüft", curated by us or a selected partner) ·
+  `unverified` ("muss bestätigt werden", anything else). An operator
+  MAY set `verified` and `unverified`; `platform` is reserved for
+  shipped sources, so that "von uns" means the same thing on every
+  node. Finer distinctions belong in `origin` as text, not in more
+  classes.
+- Sources the installation ships additionally carry **`shipped`** and
+  **`shipped_url`** — the URL as delivered.
+
+**Shipped sources MUST survive a move.** An update reconciles them: for
+each shipped id, if the node's stored URL still equals its
+`shipped_url`, both follow the new URL; if they differ, the operator
+edited it and the entry is left alone and the difference **reported**.
+`enabled`, `name` and `trust` set by the operator are never
+overwritten, and a removed shipped source stays removed — the removal
+is remembered by id. Without this, the day one of our lists moves every
+node in the field strands, visibly only as an empty store.
+
+**Migration is a one-time act, not a rule.** A node upgrading from the
+old `{url, name}` form derives id and trust class **once**, from the URL
+prefix, and writes the result down. A trust class recomputed from the
+URL on every lookup would silently change when a repository is renamed.
 
 ## 3. Configuration
 
@@ -339,6 +409,28 @@ files the operator must edit", rule 4), so the runtime must offer it:
     store source lists succeeds — the difference to test 17 is exactly
     the profile.
 
+25. **Trust beats order (2.6)**: with an `unverified` source configured
+    **first** and claiming an app id that a `platform` source also
+    lists, the one-click install installs the platform source's package.
+    Disabling the platform source makes the same click resolve to the
+    other one — after a confirmation.
+26. **A request cannot introduce a source (2.6)**: an install request
+    naming a source id that is not configured is refused with no side
+    effect, exactly like an app id no source lists.
+27. **Confirmation is required and recorded (2.6)**: installing from an
+    `unverified` source without a confirmation is refused; with it, the
+    install succeeds and the deploy log names the source, its trust
+    class, the app, and who confirmed.
+28. **A shipped source survives a move (2.9)**: after the shipped URL
+    of a source changes, an update carries the node's entry along and
+    says so — unless the operator had edited that URL, in which case the
+    entry is left alone and the difference is reported. A shipped source
+    the operator removed is **not** re-added by the update.
+29. **Manifest version tolerance (2.2)**: a manifest with a higher MINOR
+    installs, with a note, and a field the node does not know is
+    ignored; a foreign MAJOR is refused; a manifest declaring an
+    unknown `must_understand` feature is refused with the feature named.
+
 ## 6. Dependencies
 
 `oaap.core.host`, `oaap.core.gateway`, `oaap.core.identity`,
@@ -435,3 +527,46 @@ Kundendaten ein schlechter. Deshalb ist es eine Entscheidung je Knoten.
 **Geprüft wird auf dem Server, nicht im Portal.** Der fehlende Knopf
 ist nur die Oberfläche; die Entscheidung fällt dort, wo auch der
 Installationsvorgang läuft. Sonst wäre das Profil eine Portal-Einstellung.
+
+## Deutsche Zusammenfassung (2.2/2.6/2.9, v0.2.5)
+
+Diese Fassung arbeitet RFC-0012 in die Spezifikation ein. Drei Dinge,
+und alle drei waren vorher stillschweigende Fallen.
+
+**Die Manifest-Version wird nicht mehr auf Gleichheit geprüft (2.2).**
+Bisher musste im Manifest exakt `0.1` stehen. An dem Tag, an dem wir
+`0.2` veröffentlichen, hätten alle Knoten im Feld solche Apps
+abgelehnt — nicht „das neue Feld ignoriert", sondern „Manifest
+ungültig". Jetzt gilt: Ein Knoten liest jede Version, deren **erste
+Ziffer** er kennt, meldet eine neuere zweite Ziffer und ignoriert, was
+er nicht kennt. Streng bleibt das **Schema** — dort soll ein Tippfehler
+auffallen. Die Ausnahme heißt `must_understand`: Ein Manifest darf
+sagen, welche Eigenschaften ein Leser verstanden haben muss; wer eine
+davon nicht kennt, lehnt **diese App** mit klarer Meldung ab, statt
+etwas halb Verstandenes zu installieren.
+
+**Bei gleicher App-Kennung gewinnt jetzt das Vertrauen, nicht die
+Reihenfolge (2.6).** Bisher gewann die zuerst eingetragene Quelle. Das
+war ein Übernahmeweg: bekannte Kennung beanspruchen, weiter oben stehen,
+Ein-Klick-Installation kassieren. Dazu zwei Ergänzungen: Das Portal
+schickt künftig **Quelle und Kennung** — es darf unter den Quellen
+wählen, die Du eingetragen hast, aber keine eigene mitbringen —, und
+eine installierte Instanz **merkt sich ihre Quelle**, damit sie später
+nicht stillschweigend aus einer anderen Liste bedient wird. Aus einer
+ungeprüften Quelle zu installieren, kostet eine **Bestätigung**, und die
+steht danach im Protokoll: wer hat wann welche Quelle für welche App
+akzeptiert.
+
+**Eine Quelle ist ein Objekt und übersteht einen Umzug (2.9).** Sie hat
+eine feste Kennung (nie die URL), einen Namen, eine Herkunft im
+Klartext, an/aus und eine Vertrauensklasse: „von uns" / „geprüft" /
+„muss bestätigt werden". „Von uns" bleibt dem vorbehalten, was die
+Installation mitbringt — sonst hieße es auf jedem Knoten etwas anderes.
+Mitgelieferte Quellen tragen zusätzlich die ausgelieferte URL; beim
+Update gleicht der Knoten ab: unangetastete URL zieht mit, geänderte
+bleibt stehen und der Unterschied wird gemeldet, entfernt bleibt
+entfernt. **Das musste vor dem Repo-Umzug existieren, nicht danach** —
+sonst strandet jeder bestehende Knoten, sichtbar nur an einem leeren
+Store. Bestehende Knoten bekommen Kennung und Klasse **einmalig** aus
+dem URL-Präfix; eine bei jeder Auflösung neu berechnete Klasse würde
+sich beim nächsten Repo-Namen still ändern.

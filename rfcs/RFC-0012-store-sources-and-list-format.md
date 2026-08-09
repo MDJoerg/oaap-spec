@@ -772,23 +772,39 @@ Reserved but explicitly *not* proposed for now, per your own framing:
 
 ## Build order that follows from this
 
-1. **Schema `oaap-store-0.2.json`** next to `oaap-app.schema.json` —
+1. ✅ **Schema `oaap-store-0.2.json`** next to `oaap-app.schema.json` —
    B1, and the thing everything else is measured against.
-2. **Manifest version tolerance** (§8 decision 1) — small, and it must
+   *(2026-08-09, `oaap-spec/schema/oaap-store.schema.json`.)*
+2. ✅ **Manifest version tolerance** (§8 decision 1) — small, and it must
    land before anything publishes a `0.2` manifest.
-3. **Source objects and migration** (§2, §4) — B2/B4, the part with a
+   *(2026-08-09, runtime spec 2.2, `appctl.read_manifest_version`,
+   `must_understand` implemented as an empty feature set.)*
+3. ✅ **Source objects and migration** (§2, §4) — B2/B4, the part with a
    deadline: it has to exist before our repository moves.
-4. **Resolution by trust, source id in the install request,
+   *(2026-08-09, runtime spec 2.9, `oaap store` gains `enable`,
+   `disable`, `trust`, `reconcile`; `oaap update` reconciles.)*
+4. ✅ **Resolution by trust, source id in the install request,
    confirmation logging** (§3) — B3.
+   *(2026-08-09, runtime spec 2.6 with conformance tests 25–29.)*
 5. **Store page and object page** (§6) — where the format becomes
-   visible.
+   visible. *Not started.* The portal's store page carries the trust
+   class and the confirmation since step 4, but it still groups by
+   source and shows none of the `0.2` presentation fields.
 6. **Sources in the portal** (§7) — closes step 4 of
-   `portal-statt-cli.md`.
+   `portal-statt-cli.md`. *Not started;* sources are still CLI-only.
 7. **`app_class` and the launchpad tile** — the only item that changes
    behaviour for already-installed apps; deserves its own careful pass.
+   *Not started.*
 
 Sets (§8.5) and everything reserved in §8.3 are deliberately not in
 this list.
+
+**What steps 2–4 deliberately did not touch.** Nothing publishes a
+`0.2` manifest or a `0.2` list yet; the tolerance exists so that the
+first one does not strand the fleet. `MANIFEST_FEATURES` is empty on
+purpose — a `must_understand` entry only becomes accepted when the
+feature it names is actually implemented, which is the whole point of
+the mechanism.
 
 ## Deutsche Zusammenfassung
 

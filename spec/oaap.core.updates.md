@@ -1,13 +1,15 @@
 # oaap.core.updates — Platform Updates
 
 - **ID:** `oaap.core.updates`
-- **Version:** 0.1.1
+- **Version:** 0.1.2
 - **Maturity:** draft — accepted by Jörg 2026-08-06 (CLI trigger
   implemented and validated on real hardware); 0.1.1 (2026-08-07)
   updates the reserved portal-trigger role to `server_admin` per
-  RFC-0008
+  RFC-0008; 0.1.2 (2026-08-09) adds the reconcile step for shipped
+  store sources, per RFC-0012 §4
 - **Based on:** RFC-0001 (capability model); program decision 2026-08-03
-  ("one update engine per node, three triggers"); git-based delivery
+  ("one update engine per node, three triggers"); git-based delivery;
+  RFC-0012 §4 (shipped sources survive a move)
   (program backlog); trust principle of `oaap.apps.runtime` 2.5
   ("a request can never supply a source")
 
@@ -62,6 +64,14 @@ triggers; 0.1 implements the CLI, the others are reserved:
   services report healthy. The applied revision is recorded.
 - **No-op guarantee:** when the node is already at the available
   revision, the engine reports that and changes nothing.
+- **An update reconciles the node's shipped store sources**
+  (`oaap.apps.runtime` 2.9, RFC-0012 §4) and reports what it did. This
+  is the one piece of node *state* an update touches, and it exists for
+  a specific failure: a source used to be written once, at installation,
+  and never looked at again, so the day one of our lists moved, every
+  node in the field stranded — visibly only as an empty store. What the
+  operator changed is never overwritten; the difference is reported
+  instead.
 - **Failure behaviour:** if the image build fails, the previously
   running containers keep running (build before switch); the engine
   reports the failure and leaves the system on the old version.

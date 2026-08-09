@@ -36,6 +36,14 @@ The manifest's JSON Schema is published at
 [`schema/oaap-app.schema.json`](../schema/oaap-app.schema.json) —
 validate `oaap-app.yaml` against it in CI before deploying.
 
+**The schema is stricter than a node, on purpose** (RFC-0012 §8.2). It
+rejects unknown fields, because in CI an unknown field is a typo and you
+want to hear about it. A node in the field reads tolerantly instead: it
+accepts any `oaap_manifest` whose MAJOR it implements, ignores what it
+does not know, and refuses only a foreign MAJOR. So keep validating
+against the newest schema — but do not expect a node to reject what the
+schema rejects, and do not rely on that as a safety net.
+
 ## The manifest (`oaap-app.yaml`)
 
 Example for a typical single-service web app:

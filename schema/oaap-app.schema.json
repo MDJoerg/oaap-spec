@@ -2,11 +2,20 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://oaap.org/schema/oaap-app-0.1.json",
   "title": "OAAP app manifest (oaap-app.yaml), manifest version 0.1",
+  "$comment": "This schema is an AUTHORING tool: it rejects unknown fields so a typo is caught where it is made. A node in the field reads more tolerantly (RFC-0012 §8.2) — it accepts a higher minor version and ignores what it does not know, because otherwise every extension of the format would be a flag day for the whole fleet. Strict schema, tolerant runtime. The newest schema always validates every manifest version still readable, so a later oaap-app-0.2.json lists both.",
   "type": "object",
   "required": ["oaap_manifest", "app", "services", "routes", "health"],
   "additionalProperties": false,
   "properties": {
-    "oaap_manifest": { "const": "0.1" },
+    "oaap_manifest": {
+      "enum": ["0.1"],
+      "$comment": "MAJOR.MINOR. A new MINOR only adds; a new MAJOR is the only thing a node may refuse (RFC-0012 §8.2). Deliberately not the semver 0.x reading, where the minor would carry breaking changes."
+    },
+    "must_understand": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+      "$comment": "RFC-0012 §8.2 rule 2: features a reader MUST understand to handle this manifest correctly. A reader missing one refuses this app with a clear message instead of installing something half-understood — the exception that makes 'ignore what you do not know' safe. Only use it where ignoring the feature would produce a broken install; optional additions do not belong here."
+    },
     "app": {
       "type": "object",
       "required": ["id", "name", "version", "type"],
