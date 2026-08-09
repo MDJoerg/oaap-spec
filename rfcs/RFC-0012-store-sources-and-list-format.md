@@ -1,6 +1,8 @@
 # RFC-0012: Store Sources and List Format
 
-- **Status:** Proposed (2026-08-09)
+- **Status:** Proposed (2026-08-09) — the six questions of the first
+  draft are decided (Jörg, 2026-08-09); the list format has grown
+  substantially since, and the new questions at the end are open
 - **Date:** 2026-08-09
 - **Authors:** Jörg (requirements and direction), Claude (write-up)
 - **Depends on:** RFC-0004 (app packaging), RFC-0008 (`server_admin`),
@@ -55,6 +57,11 @@ gets a schema next to `oaap-app.schema.json`. Today's lists declare
 accepting `0.1` (every field below is optional except the ones `0.1`
 already required).
 
+The shape below is what a user expects from a store — title, picture,
+what it is for, who it is for, how far along it is, where to read more
+(Jörg, 2026-08-09) — and it is at the same time the input mask of the
+Store Editor that will write these lists.
+
 ```jsonc
 {
   "store": "0.2",
@@ -64,37 +71,199 @@ already required).
   "publisher": "MDJoerg",            // shown verbatim as the origin
   "apps": [
     {
+      // --- identity: generated from the manifest (§1.3) ---
       "id": "uptime-kuma",
       "name": "Uptime Kuma",
-      "description": "…",
-      "type": "wrapped",             // RFC-0004
+      "type": "wrapped",             // RFC-0004: how it is packaged
       "version": "1.23.0",
+      "released": "2026-07-14",      // date of THIS version, see below
       "package": { "git": "…", "path": "apps/uptime-kuma", "ref": "v1.23.0" },
+      "profiles": ["dev"],           // RFC-0011: which nodes it is meant for
+      "roles": ["user", "keyuser"],  // derived from the manifest's routes
+
+      // --- classification: editorial, all filterable (§1.2) ---
+      "categories": ["monitoring", "iot"],   // controlled, several allowed
+      "app_class": "frontend",       // frontend | service | data
+      "audience": ["operator"],      // everyone | operator | developer | expert
+      "maturity": "beta",            // alpha | beta | preview | stable
+      "status": "active",            // active | deprecated | archived
+      "tags": ["uptime", "alerting"],// free text, for search — not a filter
+
+      // --- presentation: editorial ---
+      "summary": "Überwacht Dienste und meldet Ausfälle.",  // one line
+      "description": "…",            // long text, may be Markdown
+      "icon": "icons/uptime-kuma.svg",       // relative to the list, see below
+      "screenshots": [
+        { "src": "shots/uptime-kuma-1.png", "caption": "Übersicht" }
+      ],
+      "links": [                     // typed link list instead of fixed fields
+        { "rel": "homepage", "url": "https://…" },
+        { "rel": "docs",     "url": "https://…" },
+        { "rel": "demo",     "url": "https://…" },
+        { "rel": "changelog","url": "https://…" }
+      ],
       "license": "MIT",
-      "homepage": "…",
-      "category": "monitoring",      // controlled vocabulary, see Q5
-      "keywords": ["uptime", "alerting"],
-      "maturity": "beta",            // alpha | beta | preview | stable | expert-only
-      "profiles": ["dev"],           // RFC-0011: what the app is meant for
-      "icon": "…"
+
+      // --- optional second, less stable version of the SAME app ---
+      "preview": {
+        "version": "2.0.0-rc1",
+        "released": "2026-08-01",
+        "package": { "git": "…", "path": "…", "ref": "v2.0.0-rc1" }
+      }
     }
   ]
 }
 ```
 
-Three notes on fields that are not cosmetic:
+#### 1.1 Six notes on fields that are not cosmetic
 
 - **`package.ref`** already exists in the reader but nothing pushes
   anybody to set it. An entry without a ref installs whatever the
   default branch says *at that moment*. That is not a packaging detail;
   it is the difference between "install version 1.23.0" and "install
   whatever this repository contains today". See §5.
-- **`maturity`** is Jörg's requirement, with `expert-only` decided as a
-  **hint with confirmation, not a gate** (2026-08-08), consistent with
-  RFC-0011: the author describes, the operator decides.
 - **`profiles`** is RFC-0011's "apps may state which profiles they
-  expect". The store filters and warns; it never refuses. This is where
-  that RFC said the mechanism would land.
+  expect" (Studio: `dev`). The store filters and warns; it never
+  refuses. This is where that RFC said the mechanism would land.
+- **`released` is what makes "new" possible**, and it is deliberately
+  not a `new` flag. A stored `new` would need somebody to remove it
+  again, so it would be permanently wrong on every unmaintained entry.
+  A date cannot go stale in that way — the badge is computed from it.
+  See §1.2.
+- **`icon` and `screenshots` are paths relative to the list URL**, not
+  arbitrary external URLs. If a store entry could name any image host,
+  every node that opens the store page would make requests to servers
+  nobody chose — announcing the node's existence and address to a third
+  party for the sake of a thumbnail. Relative paths mean exactly one
+  host is contacted: the one the operator already trusted by
+  configuring the source.
+- **`links` replaces a growing set of fixed fields.** `homepage` from
+  `0.1` is read as `{"rel": "homepage"}`. The `rel` vocabulary is
+  controlled (`homepage`, `docs`, `source`, `demo`, `changelog`,
+  `support`, `privacy`, `license`) so the store can label and order
+  them; unknown `rel` values are shown under "Weitere Links" rather
+  than dropped.
+- **`preview` is not the deploy channel.** `oaap.apps.runtime` already
+  has `--channel production|test`, which decides how an *instance* on
+  *this node* may be redeployed. `preview` here says that the publisher
+  offers a second, less stable version of the same app. Keeping them
+  distinct matters because they combine: a preview version installed on
+  the production channel is a perfectly sensible thing to want, and a
+  confusing thing to name twice.
+
+**Why `preview` is a field and not a second entry.** The obvious
+alternative — a separate list entry `uptime-kuma-preview` — would
+reintroduce exactly the ambiguity §3 removes: two entries claiming to
+be the same app, resolved by whichever comes first. One entry per app
+id stays the rule. Installing the preview therefore produces a
+*separate instance* with its own name (`studio-preview`), which the
+platform already supports — instance name and app id have been
+separable since the beginning.
+
+#### 1.2 Four vocabularies, and why they are four and not one
+
+Jörg's list — maturity, target group, category, application class —
+looked at first like one axis with many values. It is four, and
+collapsing them is what makes store filters useless elsewhere.
+
+**`categories` — what the app is about.** Controlled, **several per
+app** (a monitoring tool for IoT devices is both). Starter vocabulary,
+extended by us: `business`, `productivity`, `documents`,
+`communication`, `media`, `monitoring`, `iot`, `automation`, `ai`,
+`development`, `security`, `storage-backup`, `infrastructure`.
+
+**`app_class` — what the app technically is.** This is Jörg's
+observation that we build front-ends today and will ship other things
+tomorrow. Not to be confused with RFC-0004's `type`
+(`native|image|wrapped`), which says *how it is packaged*:
+
+| value      | meaning                                             |
+|------------|-----------------------------------------------------|
+| `frontend` | has a user interface — today's normal case          |
+| `service`  | backend only, used by other software (bdt-hub)      |
+| `data`     | ships a data model or content, no running service   |
+
+This one is more than a filter: **a `service` has no business owning a
+launchpad tile.** Today every instance gets one, which is why a purely
+machine-facing app like bdt-hub appears as a tile that leads to a page
+no human wants. `app_class` is the field that fixes that, and it is
+also checkable — a `frontend` whose manifest exposes no user-facing
+route is an inconsistent entry, and the Store Editor can say so.
+
+Honest limitation: **`data` cannot exist yet.** The manifest schema
+requires at least one service (`services` `minProperties: 1`), so an
+app with nothing running would not validate. The class is worth naming
+now so the vocabulary does not have to break later; making it
+installable is packaging work and belongs to RFC-0004.
+
+**`audience` — who the app is for.** Several allowed:
+`everyone` · `operator` · `developer` · `expert`. This is where
+`expert only` belongs, and moving it here keeps the decision of
+2026-08-08 intact: an app for `expert` is **clearly marked and takes a
+confirmation, but nobody is locked out**. It was an awkward maturity
+value — "expert only" says nothing about how finished something is.
+
+**`maturity` and `status` — two different questions.** Jörg's proposed
+lifecycle (`alpha, beta, preview, new, stable, retired, archived`)
+contains three axes, and separating them is the one change I would ask
+for:
+
+- **`maturity`** = how finished: `alpha` · `beta` · `preview` ·
+  `stable`.
+- **`status`** = whether it is still carried: `active` ·
+  `deprecated` (still installable, no longer recommended) ·
+  `archived` (no longer offered). This has real behaviour attached, not
+  just a badge: archived entries are hidden from the store by default,
+  and an *installed* instance whose entry has become `deprecated` or
+  `archived` is worth reporting on the health page — that is the moment
+  an operator actually needs to know.
+- **`new`** = age, and therefore **computed from `released`**, never
+  stored (see §1.1).
+
+**`tags` — free text, and here that is right.** Decision 5 (controlled
+categories) was about *filters*: a typo produces a filter entry with
+one app behind it. Tags are search aids, not filters — a typo there
+costs one missed search hit and nothing else. Both mechanisms exist on
+purpose; the store filters by `categories` and searches across `tags`,
+`name`, `summary` and `description`.
+
+**On extending controlled vocabularies.** The vocabularies are
+published by us as part of the spec, but a node must not refuse a list
+that uses a value newer than the node. Unknown values are therefore
+**accepted, shown verbatim, and grouped under "Sonstiges"** rather than
+rejected — otherwise every vocabulary extension would strand every
+node that has not updated yet, which is precisely the failure mode B4
+exists to prevent.
+
+#### 1.3 Where each field comes from — the 80 % rule
+
+Jörg: most of this can be pre-filled, and the rest belongs behind an
+"advanced" section. That splits the fields cleanly, and the split is a
+property of the **Store Editor**, not of the format — a list stays one
+flat JSON document anybody can write by hand.
+
+- **Generated** from the manifest and the repository: `id`, `name`,
+  `type`, `version`, `released`, `package` (including `ref` from the
+  tag), `roles` (from the manifest's route roles), `profiles`, `icon`,
+  and a first `description`. The editor fills these and shows them
+  read-only unless "erweiterte Konfiguration" is opened.
+- **Editorial**, the fields a human actually has to think about:
+  `summary`, `categories`, `audience`, `maturity`, `status`,
+  `screenshots`, `links`. Roughly six inputs per app.
+
+The principle behind it, worth stating because it decides future
+questions too: **the manifest is the truth about what the app is; the
+list is the truth about how it is presented and classified.** Where the
+list repeats manifest content, that copy is *generated at publishing
+time* — it must be, because a store page has only the list and cannot
+fetch every manifest. Where an editor overrides a generated value, the
+override is marked, so the next regeneration does not silently undo an
+intentional edit.
+
+The same rule answers `roles`: it is **not** a field somebody
+maintains. Route roles live in the manifest (RFC-0002/0004); the list
+carries a generated copy so the store can say "wer kann das nutzen"
+without cloning the repository.
 
 ### 2. A source becomes an object (B2)
 
@@ -124,11 +293,11 @@ is the whole of B4.
 
 Three classes, as decided (Jörg, 2026-08-08):
 
-| class        | meaning                                              | shown as              |
-|--------------|------------------------------------------------------|-----------------------|
-| `platform`   | shipped and maintained by us                          | „von uns"             |
-| `verified`   | curated by us, or a selected partner                  | „geprüft"             |
-| `unverified` | foreign community, customer-owned, unknown            | „muss bestätigt werden" |
+| class        | meaning                                    | shown as                |
+|--------------|--------------------------------------------|-------------------------|
+| `platform`   | shipped and maintained by us               | „von uns"               |
+| `verified`   | curated by us, or a selected partner       | „geprüft"               |
+| `unverified` | foreign community, customer-owned, unknown | „muss bestätigt werden" |
 
 The finer distinctions travel in `origin` as plain text, not as more
 classes — six levels would demand a judgement call at every new source
@@ -223,11 +392,27 @@ and the fact that somebody had to configure the source at all.
 ### 6. One store page, with filters
 
 The store page shows apps from all enabled sources as one catalogue,
-with the source and its trust class visible on every entry. Filters:
-category, maturity, trust class, source, installed/not installed,
-license, and fit with the node's profiles (RFC-0011). Apps whose
-`profiles` do not match the node are filtered out by default and
-reachable with one click — filtered, not hidden.
+with the source and its trust class visible on every entry.
+
+**Filters:** `categories`, `app_class`, `audience`, `maturity`,
+`status`, trust class, source, license, installed/not installed, and
+fit with the node's profiles (RFC-0011). **Search** additionally covers
+`tags`, `name`, `summary` and `description`.
+
+**Three defaults, each with a reason:**
+
+- Apps whose `profiles` do not match the node are filtered out by
+  default and reachable with one click — filtered, not hidden.
+- `status: archived` is filtered out by default for the same reason.
+- `audience: expert` is **not** filtered out. It is shown, marked, and
+  costs a confirmation at install (decision of 2026-08-08). Hiding it
+  would turn a hint into a gate through the back door.
+
+The list report follows the design guidelines' floorplans: list report
+for the catalogue, object page per app — icon, summary, screenshots,
+long description, version and release date, links, and the classifying
+badges. That object page is the reason the format carries presentation
+fields at all; without it they would be decoration.
 
 ### 7. Sources in the portal (step 4 of `portal-statt-cli.md`)
 
@@ -257,33 +442,71 @@ machine.
   configured sources are installable. It makes the *selection* among
   them explicit.
 
-## Open questions
+## Decisions (Jörg, 2026-08-09)
 
-1. **Which sources ship by default, and which of them disabled?**
-   Today exactly one ships (the community list); the platform list is
-   added by hand per node — which is why Studio was missing on
-   oaap-demo. Proposal: both ship, both enabled, `oaap.platform` first.
-2. **Confirmation for `unverified` sources: per install, or once per
-   source?** Your requirement says before the installation, so: per
-   install. The alternative — acknowledge the source once when adding
-   it — is less noisy but puts the decision at the moment when the
-   least is known about what will be installed from it.
-3. **Unpinned entries from non-`platform` sources: warn, or refuse?**
-   Recommendation: warn now, and revisit once our own lists are fully
-   pinned — refusing today would make most of the existing community
-   list uninstallable.
-4. **May the operator raise a source to `platform`?** Recommendation:
-   no — reserve `platform` for what the installation shipped, and let
-   operators use `verified` for their own lists. It keeps "von uns"
-   meaning one thing on every node.
-5. **Category vocabulary: controlled or free text?** Recommendation:
-   controlled and extended by us, for the same reason profiles are not
-   free tags (RFC-0011 decision 2) — a typo produces a category with
-   one app in it and breaks the filter silently.
-6. **How does the Store Editor publish a list to Git without holding
-   credentials?** Recommendation for the first version: it produces the
-   file and a human commits it — no credentials in the app at all. A
-   push path can follow once there is a reason.
+All six questions of the first draft answered along the recommendation:
+
+1. **Both our lists ship by default, both enabled, `oaap.platform`
+   first.** Fixes the gap that made Studio absent on oaap-demo.
+2. **Confirmation for `unverified` sources happens per installation**,
+   not once per source — the decision belongs to the moment when it is
+   known what is about to be installed.
+3. **Unpinned entries from non-`platform` sources warn, they do not
+   refuse.** Refusing today would make most of the existing community
+   list uninstallable; revisit once our own lists are pinned.
+4. **The operator may not raise a source to `platform`.** That class
+   stays reserved for what the installation shipped, so „von uns" means
+   the same thing on every node; operators use `verified`.
+5. **Controlled category vocabulary**, extended by us — same reasoning
+   as RFC-0011 decision 2. Refined while writing §1.2: unknown values
+   are accepted and grouped under "Sonstiges" rather than rejected, or
+   every vocabulary extension would strand every node that has not
+   updated yet.
+6. **The Store Editor produces the file and a human commits it.** No
+   credentials in the app; a push path can follow when there is a
+   reason.
+
+## Open questions (second round)
+
+The list format grew after the decisions above (Jörg, 2026-08-09).
+Five things are worth one more confirmation before this becomes a
+schema; my recommendation is with each.
+
+1. **Splitting the lifecycle into `maturity` + `status`, with `new`
+   computed.** Your list was `alpha, beta, preview, new, stable,
+   retired, archived`. Recommendation: `maturity`
+   (`alpha|beta|preview|stable`), `status`
+   (`active|deprecated|archived`), and `new` derived from `released`.
+   Reason in §1.2 — a stored `new` is permanently wrong on every entry
+   nobody maintains, and "archived" answers a different question than
+   "beta". `retired` I would fold into `deprecated`; if you want both
+   (retired = no longer developed, still supported / deprecated = do
+   not use for new installations), say so and it stays two values.
+2. **`status` with consequences, or badge only?** Recommendation:
+   consequences — `archived` filtered out of the store by default, and
+   an installed instance whose entry turned `deprecated`/`archived`
+   reported on the health page. That last part is the one that helps
+   somebody who installed an app a year ago; it also means the node
+   re-reads the store list periodically, which it does not do today.
+3. **Screenshots and icons only from the list's own repository.** The
+   alternative (any URL) means every node opening the store page calls
+   servers nobody chose. Recommendation: relative paths only. Say if
+   you want external image URLs allowed anyway — then it should at
+   least be visible in the store which host is being contacted.
+4. **`app_class` decides the launchpad tile.** Recommendation: a
+   `service` gets no tile by default (bdt-hub is the example that
+   exists today), overridable per instance. This is the one item here
+   that changes behaviour for already-installed apps.
+5. **`data` as a class now or later?** It cannot be installed today —
+   the manifest requires at least one service. Recommendation: name the
+   value now so the vocabulary does not break later, and treat "an app
+   without a running service" as packaging work in RFC-0004 when it
+   becomes real.
+
+Not a question, but flagged: **`preview` and the deploy channel
+`production|test` are different things** with confusingly similar
+names. If you have a better word for the publisher's second version
+(„Vorschau-Version"), now is the moment.
 
 ## Deutsche Zusammenfassung
 
@@ -298,11 +521,72 @@ verbindlich — **Listenformat, Quelle, Vertrauensklasse,
 Auflösungsregel** — und benennt das eine, was wir noch nicht lösen.
 
 **1. Listenformat wird spezifiziert** (B1), Version `0.2` mit Schema
-neben dem App-Manifest, die heutigen `0.1`-Listen bleiben lesbar. Neu
-darin: Deine **Kategorie** und Dein **Reifegrad** („alpha", „beta",
-„preview", „stable", „expert only" — Hinweis mit Bestätigung, wie
-entschieden), Herausgeber, Stichworte, Symbol — und die **Profile aus
-RFC-0011**, wo dort versprochen war, dass der Store filtert und warnt.
+neben dem App-Manifest, die heutigen `0.1`-Listen bleiben lesbar. Es
+enthält jetzt das, was man aus einem Store kennt (Deine Ergänzungen vom
+09.08.): Titel, Kurztext und Langtext, Symbol, **Bildergalerie**,
+Release-Datum, **Linkliste** (Doku, Landingpage, Demo, Quellcode,
+Changelog …), **Hashtags**, eine optionale **Vorschau-Version derselben
+App** — und die **Profile aus RFC-0011**, wo versprochen war, dass der
+Store filtert und warnt (Studio → `dev`).
+
+**Dabei habe ich Deine Vorschläge an vier Stellen aufgeteilt statt
+übernommen** — jedes Mal, weil zwei verschiedene Fragen in einem Feld
+steckten:
+
+- **Aus einer Kategorie werden mehrere.** „IoT", „Personal Utils" —
+  und ein Überwachungswerkzeug für IoT-Geräte ist eben beides. Also
+  Mehrfachzuordnung, aus einer festen Liste (wie entschieden).
+- **Kategorie ≠ Hashtag.** Die feste Liste gilt für die **Filter**;
+  Hashtags bleiben **freier Text** für die **Suche**. Das ist kein
+  Widerspruch zu Deiner Entscheidung 5: Ein Tippfehler im Filter
+  erzeugt eine Kategorie mit einer einzigen App, ein Tippfehler im
+  Hashtag kostet einen verpassten Suchtreffer.
+- **Aus Deinem Lebenszyklus werden zwei Felder plus eine Rechnung.**
+  „alpha, beta, preview, stable" ist **Reifegrad**; „retired,
+  archived" ist etwas anderes — nämlich, ob die App noch getragen wird
+  (**Status**); und **„new" ist Alter** und wird deshalb aus dem
+  Release-Datum **berechnet**. Ein gespeichertes „new" müsste jemand
+  wieder wegnehmen — bei jeder ungepflegten Liste bliebe es für immer
+  stehen und wäre für immer falsch.
+- **„Expert only" wandert zur Zielgruppe**, genau wie Du vorgeschlagen
+  hast. Es war als Reifegrad schief (es sagt nichts darüber, wie fertig
+  etwas ist). Die Entscheidung vom 08.08. bleibt dabei unangetastet:
+  deutlich gekennzeichnet, eine Bestätigung bei der Installation,
+  **niemand wird ausgesperrt**.
+
+**Deine Anwendungsklasse ist mehr als ein Filter.** `frontend` /
+`service` / `data` — nicht zu verwechseln mit dem `type` aus RFC-0004
+(`native/image/wrapped`), der sagt, *wie verpackt* wird. Der praktische
+Nutzen zeigt sich sofort an bdt-hub: ein reiner Backend-Dienst bekommt
+heute trotzdem eine Kachel im Launchpad, die zu einer Seite führt, die
+kein Mensch sehen will. Ehrlich dazu: **`data` geht heute noch gar
+nicht** — das Manifest verlangt mindestens einen laufenden Dienst. Ich
+schlage vor, den Wert trotzdem jetzt zu benennen, damit das Vokabular
+später nicht bricht.
+
+**Die 80-%-Regel, die Du genannt hast, ist der eigentliche Bauplan für
+den Store Editor.** Der größere Teil dieser Felder ist gar nicht
+Redaktion, sondern **aus Manifest und Repository ableitbar**: Kennung,
+Name, Typ, Version, Release-Datum, Paket samt Tag, Rollen, Profile,
+Symbol. Die füllt der Editor vor und zeigt sie nur in der
+**erweiterten Konfiguration** — überschreiben geht, wird aber vermerkt,
+damit die nächste Erzeugung eine bewusste Änderung nicht still
+zurücknimmt. Übrig bleiben rund sechs Eingaben, über die man wirklich
+nachdenken muss: Kurztext, Kategorien, Zielgruppe, Reifegrad, Status,
+Bilder, Links.
+
+Dahinter steht eine Linie, die auch künftige Fragen entscheidet: **Das
+Manifest ist die Wahrheit darüber, was die App *ist*; die Liste ist die
+Wahrheit darüber, wie sie *dargestellt und eingeordnet* wird.** Wo die
+Liste Manifest-Inhalte wiederholt, ist das eine beim Veröffentlichen
+erzeugte Kopie — sie muss es sein, denn eine Store-Seite hat nur die
+Liste und kann nicht für jede App das Repository klonen.
+
+**Ein Detail mit Datenschutz-Wirkung:** Symbol und Screenshots sind
+**Pfade in der Liste selbst**, keine beliebigen fremden URLs. Sonst
+würde jeder Knoten, der die Store-Seite öffnet, Server kontaktieren,
+die niemand ausgewählt hat — und dabei seine Existenz und Adresse an
+Dritte melden, für ein Vorschaubild.
 
 **2. Eine Quelle wird ein Objekt** (B2): stabile Kennung, Anzeigename,
 URL, Vertrauensklasse, an/aus, Herkunft im Klartext. Erst damit gibt es
@@ -346,28 +630,42 @@ ich heute nicht verantwortlich aufschreiben kann — deshalb benannt und
 vertagt statt halb gebaut.
 
 **6./7.** Ein zusammenfassender Store über alle Quellen mit Filtern
-(Kategorie, Reifegrad, Vertrauen, Quelle, installiert, Lizenz,
-Knoten-Profil) — und die **Quellenverwaltung im Portal**, womit Schritt
-4 aus `portal-statt-cli.md` fällt.
+(Kategorien, Anwendungsklasse, Zielgruppe, Reifegrad, Status,
+Vertrauen, Quelle, Lizenz, installiert, Knoten-Profil) und einer Suche
+über Hashtags und Texte — Listenbericht plus Objektseite je App, so wie
+die Design-Guidelines es vorsehen. Dazu die **Quellenverwaltung im
+Portal**, womit Schritt 4 aus `portal-statt-cli.md` fällt.
 
-**Sechs Fragen an Dich** (mit meiner Empfehlung, Details oben):
+**Deine sechs Antworten vom 09.08. sind eingearbeitet** (alle entlang
+der Empfehlung, siehe „Decisions"). Eine Präzisierung ist beim
+Schreiben dazugekommen: Ein Knoten darf eine Liste **nicht ablehnen**,
+nur weil sie eine Kategorie nennt, die er noch nicht kennt — unbekannte
+Werte landen unter „Sonstiges". Sonst würde jede Erweiterung des
+Vokabulars genau die Knoten stranden lassen, die noch nicht aktualisiert
+sind — dasselbe Versagen, gegen das B4 antritt.
 
-1. Welche Quellen liefern wir ab Werk, welche deaktiviert? *(Vorschlag:
-   beide unsere Listen, beide aktiv, Plattform-Liste zuerst — heute
-   fehlt die Plattform-Liste ab Werk, deshalb war Studio auf oaap-demo
-   nicht da.)*
-2. Bestätigung bei unbestätigten Quellen: **je Installation** oder
-   einmal je Quelle? *(Deine Anforderung sagt „vor der Installation" —
-   also je Installation.)*
-3. Nicht gepinnte Einträge fremder Listen: **warnen** oder ablehnen?
-   *(Vorschlag: warnen — ablehnen macht die heutige Community-Liste
-   unbenutzbar.)*
-4. Darf der Betreiber eine Quelle auf „von uns" heben? *(Vorschlag:
-   nein — sonst bedeutet „von uns" auf jedem Knoten etwas anderes.)*
-5. Kategorien: feste Liste oder freier Text? *(Vorschlag: feste Liste,
-   von uns erweitert — genau die Begründung wie bei den Profilen: ein
-   Tippfehler erzeugt sonst still eine Kategorie mit einer App.)*
-6. Wie veröffentlicht der Store Editor eine Liste nach Git, ohne
-   Zugangsdaten zu halten? *(Vorschlag für die erste Fassung: Er
-   erzeugt die Datei, ein Mensch committet sie — gar keine Zugangsdaten
-   in der App.)*
+**Fünf Punkte, bei denen ich noch eine Bestätigung brauche** (Details
+unter „Open questions (second round)"):
+
+1. **Lebenszyklus in Reifegrad + Status aufteilen, „new" berechnen** —
+   wie oben begründet. Offen bleibt nur, ob Du „retired" und
+   „deprecated" wirklich getrennt haben willst (nicht mehr
+   weiterentwickelt vs. bitte nicht mehr neu installieren).
+2. **Soll der Status Wirkung haben oder nur ein Abzeichen sein?**
+   Vorschlag: Wirkung — „archived" wird standardmäßig ausgeblendet, und
+   eine **installierte** App, deren Eintrag auf „deprecated"/„archived"
+   springt, erscheint auf der Gesundheitsseite. Genau das hilft dem, der
+   vor einem Jahr installiert hat. Preis: Der Knoten muss die Liste
+   regelmäßig neu lesen, was er heute nicht tut.
+3. **Bilder nur aus dem Repo der Liste** (siehe Datenschutz-Hinweis
+   oben) — oder willst Du fremde Bild-URLs trotzdem erlauben?
+4. **Anwendungsklasse steuert die Launchpad-Kachel:** ein `service`
+   bekommt standardmäßig keine, je Instanz umstellbar. Das ist der
+   einzige Punkt hier, der **bereits installierte Apps** verändert.
+5. **`data` schon jetzt benennen**, obwohl es noch nicht installierbar
+   ist?
+
+Und ein Namenshinweis: **„preview" (zweite Version des Herausgebers)
+und der Deploy-Kanal „production/test" sind verschiedene Dinge** mit
+gefährlich ähnlichen Namen. Falls Dir ein besseres Wort einfällt —
+jetzt ist der Moment.
