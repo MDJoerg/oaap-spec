@@ -1,12 +1,15 @@
 # oaap.core.updates — Platform Updates
 
 - **ID:** `oaap.core.updates`
-- **Version:** 0.1.2
+- **Version:** 0.1.3
 - **Maturity:** draft — accepted by Jörg 2026-08-06 (CLI trigger
   implemented and validated on real hardware); 0.1.1 (2026-08-07)
   updates the reserved portal-trigger role to `server_admin` per
   RFC-0008; 0.1.2 (2026-08-09) adds the reconcile step for shipped
-  store sources, per RFC-0012 §4
+  store sources, per RFC-0012 §4; 0.1.3 (2026-08-09) states where
+  consistency steps must live and when they must run — the engine
+  replaces itself while running, so a step written into it is skipped
+  by the very update that introduces it (found on oaap-demo)
 - **Based on:** RFC-0001 (capability model); program decision 2026-08-03
   ("one update engine per node, three triggers"); git-based delivery;
   RFC-0012 §4 (shipped sources survive a move)
@@ -63,7 +66,28 @@ triggers; 0.1 implements the CLI, the others are reserved:
   service images, restart core services, then verify that the core
   services report healthy. The applied revision is recorded.
 - **No-op guarantee:** when the node is already at the available
-  revision, the engine reports that and changes nothing.
+  revision, the engine installs no code, rebuilds no image and restarts
+  no container, and says so. It does still run the consistency steps
+  below — those are about the node, not about the code.
+- **Consistency steps MUST come from the version being installed, and
+  MUST run on every trigger.** An update engine is the one program that
+  replaces itself while running: everything after the copy step is still
+  the *old* engine. A migration or repair written into the engine is
+  therefore skipped by exactly the update that introduces it — and,
+  because the next run finds nothing to install, skipped forever after.
+  Two rules follow, and both are load-bearing:
+  1. The steps live **outside** the engine, in an artefact the engine
+     invokes **from the installed location** after copying, so the new
+     version's steps run.
+  2. They run **also when nothing is installed** — that, and only that,
+     heals a node that already missed one.
+  Every step MUST be idempotent and silent when there is nothing to do,
+  and a failing step MUST NOT abort the run: it is reported and the
+  update stands. *(Found on oaap-demo, 2026-08-09, which jumped eight
+  versions in one go and received neither the store-source migration nor
+  a unit repair. Both had been written, tested and shipped; the node
+  simply never ran them, and nothing said so — the worst shape a defect
+  can take.)*
 - **An update reconciles the node's shipped store sources**
   (`oaap.apps.runtime` 2.9, RFC-0012 §4) and reports what it did. This
   is the one piece of node *state* an update touches, and it exists for
@@ -109,8 +133,10 @@ triggers; 0.1 implements the CLI, the others are reserved:
 1. **Update happy path:** a node behind the recorded source updates
    with one CLI action; afterwards the new version is visible
    (`oaap status`, login greeting) and all core services are healthy.
-2. **No-op:** running the engine on an up-to-date node reports
-   "up to date" and changes no files, images, or containers.
+2. **No-op:** running the engine on an up-to-date node reports so and
+   installs no code, rebuilds no image and restarts no container. The
+   consistency steps of test 8 still run; on a node that is already
+   consistent they change nothing and say so.
 3. **Apps and data untouched:** app instances keep running through a
    core update; storage, secrets (`OAAP_APP_SECRET`), and the
    registry are byte-identical afterwards.
@@ -123,6 +149,14 @@ triggers; 0.1 implements the CLI, the others are reserved:
 7. **Medium-installed nodes:** a node installed without a git working
    copy acquires one from the recorded URL on first update and passes
    test 1.
+8. **The engine cannot skip its own new steps:** a node several versions
+   behind, whose target version adds a consistency step, has that step
+   applied by the single update — not by a later one. Running the engine
+   again immediately changes nothing further and reports nothing new
+   (idempotence), and a node that missed a step under an older engine
+   has it applied on the next run even though there is no code to
+   install. A step that fails is reported and leaves the update
+   standing.
 
 ## 6. Dependencies
 
@@ -155,3 +189,42 @@ Secrets werden nie angefasst. Stick-Installationen (ohne Git-Kopie)
 klonen beim ersten Update das hinterlegte Repo. Rollback ist in 0.1
 dokumentiert-manuell; signierte Releases und automatische Updates
 kommen, bevor der Zeitplan-Auslöser scharf wird.
+
+## Nachtrag 0.1.3 — das Programm, das sich selbst ersetzt
+
+Ein Update-Programm ist der einzige Fall, in dem ein Programm sich
+austauscht, während es läuft. `sudo oaap update` führt die Fassung aus,
+die beim Tippen des Befehls auf der Platte lag — die **alte**. Alles
+nach dem Kopieren der neuen Dateien ist immer noch der alte Ablauf.
+
+Das hat eine Folge, die niemand von allein sieht: **Ein Reparatur- oder
+Migrationsschritt, den eine neue Fassung ins Update-Programm schreibt,
+wird von genau dem Update übersprungen, das ihn mitbringt.** Und danach
+nie mehr — denn beim nächsten Lauf gibt es nichts zu installieren, und
+das Programm steigt vorher aus.
+
+Auf oaap-demo ist das am 09.08.2026 passiert: Der Knoten sprang von
+0.1.18 auf 0.1.26 und bekam weder den Abgleich der Store-Quellen noch
+die Reparatur der Deploy-Worker-Unit. Beides war geschrieben, geprüft
+und ausgeliefert. Der Knoten hat es nur nie ausgeführt — und **nichts
+hat das gemeldet**. Das ist die unangenehmste Form eines Fehlers: Die
+Arbeit ist getan, der Nachweis sieht gut aus, und im Feld wirkt sie
+trotzdem nicht.
+
+Zwei Regeln, beide tragend:
+
+1. Die Schritte liegen **außerhalb** des Update-Programms und werden
+   **aus dem installierten Verzeichnis** aufgerufen — also aus dem
+   neuen Stand.
+2. Sie laufen **auch dann**, wenn es nichts zu installieren gibt. Nur
+   das heilt einen Knoten, der einen Schritt bereits verpasst hat.
+
+Dazu die Bedingungen, ohne die Regel 2 lästig würde: Jeder Schritt muss
+wiederholbar sein und schweigen, wenn nichts zu tun ist. Und ein
+Schritt, der scheitert, darf den Update-Lauf nicht abbrechen — er wird
+gemeldet, das Update bleibt stehen.
+
+Das „Nichts geändert"-Versprechen bleibt bestehen, aber es meint jetzt
+präzise, was es meinen sollte: kein Code installiert, kein Image gebaut,
+kein Container neu gestartet. Über den Zustand des **Knotens** hat es
+nie eine Aussage gemacht.
