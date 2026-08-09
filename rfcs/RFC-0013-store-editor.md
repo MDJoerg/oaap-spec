@@ -82,7 +82,8 @@ weight:
 
 ### 2. Build order — the checker first
 
-**Increment 1 — read, check, regenerate. Writes nothing.**
+**Increment 1 — read, check, regenerate. Writes nothing. ✅ built
+(0.1.0, 2026-08-09).**
 
 - Load a list from a configured source (or an uploaded file).
 - Validate against `oaap-store.schema.json`; report unknown vocabulary
@@ -96,13 +97,44 @@ weight:
   pointing at a dead repository is worse than an incomplete one.
 - Useful on its own, on day one, for our two existing lists.
 
-**Increment 2 — edit the editorial fields, produce a file.**
+**Increment 2 — edit the editorial fields, produce a file. ✅ built
+(0.2.0, 2026-08-09).**
 
 - One object page per entry, the six editorial fields, everything
   generated shown read-only unless explicitly unlocked (RFC-0012 §1.3:
   an unlocked override is *marked*, so the next regeneration does not
   silently undo an intentional edit).
 - Result is a downloadable list. Still no credentials, still no git.
+
+**Two amendments the build produced**, recorded because both change
+what this section says rather than merely implementing it.
+
+1. **The generated group splits in two.** §1.3 lists eleven generated
+   fields; the manifest can supply five (`name`, `type`, `version`,
+   `app_class`, `roles`). `released`, `profiles`, `icon` and `package`
+   have no source at all — the editor therefore shows them **freely
+   editable**, in a section that names the gap. Rendering them locked
+   would be a falsehood in the interface: there would be nothing they
+   are ever generated *from*. This is the §1.3 finding from increment 1
+   made operational; it still needs deciding in RFC-0012 (fields move
+   into the manifest, or §1.3 calls them editorial).
+2. **Creating and removing entries landed here, not in increment 3.**
+   The wording above is "edit"; but decision 4 already presumes
+   creation ("an entry may be created before its manifest is
+   fetchable"), and the RFC's own motivating case — a list we do not
+   maintain, starting empty — gets an empty file from an editor that
+   can only retext existing entries. Without removal a typo in creation
+   would be unfixable. Both count as **structural** in the change
+   summary, which is the category the volume brake counts.
+
+**Where the working copy lives.** A declared storage mount on the
+instance, holding the edited document, the published document as a
+baseline, and the override marks. The marks are deliberately **not**
+written into the list: a list is a document per
+`oaap-store.schema.json`, and the editor's bookkeeping does not belong
+in it or on other people's nodes — the same reasoning §3 applies to the
+write mode. The cost, stated plainly: opening the same list in a
+different editor installation does not show the marks.
 
 **Increment 3 — write it back to its repository.** The part that needs
 the decisions below.
@@ -384,3 +416,39 @@ Die Schwelle ist je Liste einstellbar. Die Repository-Rückfrage
 unterliegt ihr **nicht**: Ein einziger Eintrag, der sein Repository
 wechselt, genügt — das ist die Form, die ein Versehen und eine
 Übernahme gemeinsam haben.
+
+### Nachtrag 09.08.2026 — Bauschritte 1 und 2 sind gebaut
+
+**Zwei Dinge hat das Bauen am RFC selbst geändert**, beide in §2
+festgehalten.
+
+**Erstens zerfällt die Gruppe „erzeugt" in zwei.** RFC-0012 §1.3 zählt
+elf erzeugte Felder auf; das Manifest kann **fünf** davon liefern
+(`name`, `type`, `version`, `app_class`, `roles`). Für `released`,
+`profiles`, `icon` und `package` gibt es überhaupt keine Quelle. Der
+Editor zeigt sie deshalb **frei bearbeitbar**, in einem Abschnitt, der
+den offenen Punkt benennt. Sie verriegelt darzustellen wäre eine
+Unwahrheit in der Oberfläche: Es gäbe nichts, woraus sie je erzeugt
+würden. Das ist der Befund aus Bauschritt 1, jetzt in sichtbarer Form —
+entschieden werden muss er weiterhin in RFC-0012.
+
+**Zweitens sind Aufnehmen und Entfernen von Einträgen hier gelandet**,
+nicht erst in Bauschritt 3. Entscheidung 4 setzt das Aufnehmen ohnehin
+voraus, und der Anwendungsfall, der diesen RFC begründet — eine Liste,
+die uns nicht gehört und bei null anfängt — bekäme sonst eine leere
+Datei. Ohne Entfernen wäre ein Vertipper beim Aufnehmen nicht zu
+beheben. Beides zählt als **strukturell**, also in der Kategorie, die
+die Mengenbremse mitzählt.
+
+**Wo die Arbeitskopie liegt:** im deklarierten Speicher der Instanz —
+bearbeiteter Stand, veröffentlichter Stand als Vergleich, und die
+Markierungen der Übersteuerungen. Die Markierungen stehen bewusst
+**nicht** in der Liste: Eine Liste ist ein Dokument nach dem Schema,
+die Buchführung des Editors gehört nicht hinein und nicht auf fremde
+Knoten — dieselbe Begründung wie bei der Betriebsart. Der Preis ist
+ehrlich zu nennen: Wer dieselbe Liste in einer anderen Editor-
+Installation öffnet, sieht die Markierungen nicht.
+
+Und eine Regel, die beim Bauen schärfer wurde: **Sobald ein Entwurf
+besteht, prüft der Prüfer ihn** und nicht mehr die Veröffentlichung.
+Sonst wäre der Wächter für genau das blind, was gerade entsteht.
