@@ -1,6 +1,7 @@
 # RFC-0013: The Store Editor — Maintaining a List Without Knowing Git
 
-- **Status:** Draft (2026-08-09)
+- **Status:** Accepted (2026-08-09) — all five open questions decided,
+  see "Decisions"
 - **Date:** 2026-08-09
 - **Authors:** Jörg (idea, direction, and the objection that shaped the
   write modes), Claude (write-up)
@@ -121,11 +122,11 @@ skill of whoever happens to maintain it.
 The right question is **whose machines read this list**, because a
 store list installs software on them.
 
-| Mode | Writes | Who confirms | For |
-|---|---|---|---|
-| `direct` | straight to the default branch | nobody | a list only its own author's nodes read |
-| `review` | to the default branch, after approval | a second user of the same editor | a list a company's own fleet or customers read |
-| `propose` | to a branch, opens a pull request | whoever maintains the repository | a list strangers read |
+| Mode      | Writes                                | Who confirms                     | For                                            |
+|-----------|---------------------------------------|----------------------------------|------------------------------------------------|
+| `direct`  | straight to the default branch        | nobody                           | a list only its own author's nodes read        |
+| `review`  | to the default branch, after approval | a second user of the same editor | a list a company's own fleet or customers read |
+| `propose` | to a branch, opens a pull request     | whoever maintains the repository | a list strangers read                          |
 
 **`review` is the mode worth building carefully.** It is the middle
 ground and it is *not* a git mode: saving creates a proposal, a second
@@ -159,6 +160,13 @@ practice — hand-edited JSON pushed with no checks at all.
 The mode is stored **with the list configuration in the editor**, not
 in the list file: it describes how *this installation* publishes, and
 two people maintaining copies of the same list may legitimately differ.
+
+`direct` mode carries two brakes, decided below: an explicit
+confirmation when an entry's **package repository** changes, and a
+**volume brake** above a per-list threshold — counting editorial and
+structural changes only, never regeneration, and presented as a
+summary of what will change rather than as a yes/no prompt. See
+Decisions 5 for why the shape matters more than the existence.
 
 ### 4. What this RFC does not decide: branches as channels
 
@@ -212,29 +220,67 @@ oaap-demo carries `dev` as of 2026-08-09. Production placement is a
 later decision; nothing in the design assumes it runs next to the lists
 it edits.
 
-## Open questions (for Jörg)
+## Decisions (Jörg, 2026-08-09)
 
-1. **Three modes, or start with two?** Recommendation: specify three,
-   implement `direct` and `review` first. `propose` needs a pull
-   request API per forge (GitHub, Forgejo) and is the only mode whose
-   audience can already use git.
-2. **Who may release in `review` mode?** Recommendation: a distinct
-   role in the app (`keyuser` releases, `user` proposes), so it does not
-   collapse into "whoever can log in". Deliberately the app's own roles
-   (RFC-0002), not `server_admin` — this is editorial work.
-3. **Does the editor manage several lists in one instance?** Recommen-
-   dation: yes — that is what makes the credential question (§5) real,
-   and one instance per list would multiply instances for no benefit.
-4. **May the editor create an entry for an app whose manifest it cannot
-   fetch?** Recommendation: yes, with a standing warning. A list is
-   sometimes written before a repository is public — refusing would push
-   people back to hand-editing, which is the failure mode we are
-   removing.
-5. **Does `direct` mode need a limit?** For example, refusing to publish
-   when more than N entries change at once, or when an entry's `package`
-   repository changes — the two shapes an accident or a takeover takes.
-   Recommendation: yes for the `package` change (confirm it explicitly),
-   no for a bulk limit (regeneration legitimately touches everything).
+All five were decided along the recommendation except the last, where
+Jörg went further. Recorded with the reasoning, because a decision
+without its reason is re-litigated six months later.
+
+1. **Specify three modes, build two.** `direct` and `review` first;
+   `propose` is specified but deferred. It needs a pull request API per
+   forge (GitHub, Forgejo behave differently) and — the deciding point —
+   its audience can already use git, so they have a manual fallback that
+   the other two audiences do not.
+2. **`keyuser` releases in `review` mode, `user` proposes.** The app's
+   own roles (RFC-0002), deliberately **not** `server_admin`: writing an
+   app description is editorial work, and a server administrator is
+   neither the bottleneck we want nor the right judge of a description
+   text. "Anybody but the author" was rejected — in a small company that
+   degenerates into "somebody clicked", and the second signature becomes
+   decoration.
+3. **One instance manages several lists.** We already have two
+   (community, platform apps) and BDT makes three. This is also what
+   makes §5's credential question real rather than hypothetical: one
+   credential per list, added at runtime, is a requirement the current
+   declared-key model cannot meet.
+4. **An entry may be created before its manifest is fetchable**, with a
+   standing warning that the checker repeats on every run. A list is
+   often written before its repository is public; refusing would push
+   people back to hand-editing, which is the practice this app exists
+   to end. A separate "draft" state was rejected as a second concept
+   the format does not have.
+5. **Both brakes in `direct` mode** — the package-repository
+   confirmation *and* a volume brake. Jörg went beyond the
+   recommendation here; the recommendation had been the repository
+   confirmation alone, on the grounds that a prompt which fires on every
+   regeneration gets clicked away and then protects nothing.
+
+   **That objection is answered by design, not by dropping the brake.**
+   Two things make the volume brake meaningful:
+
+   - **Regeneration does not count towards it.** The checker itself
+     produced those values from the manifests, mechanically and
+     verifiably (§2, increment 1). Only *editorial* and *structural*
+     changes count. This removes the case that would have fired the
+     prompt every time.
+   - **The brake is a summary, not a dialogue box.** Above the
+     threshold, publishing shows what will change — entry by entry,
+     field by field — and is confirmed from that page. A summary is
+     read; "Are you sure?" is clicked away. This is the same reason
+     `review` mode shows a readable diff instead of sending people to a
+     forge.
+
+   The threshold is a per-list setting with a sensible default. The
+   package-repository confirmation is **not** subject to it: one entry
+   changing repository is enough, because that is the single shape an
+   accident and a takeover have in common — the id stays, the package
+   moves. It is the attack RFC-0012's trust classes address between
+   lists, appearing here *inside* a list one already trusts.
+
+   Both brakes apply to `direct` mode. In `review` mode a human is
+   already reading the change, so the volume brake would be a second
+   prompt in front of an approval; the repository confirmation stays,
+   surfaced as part of what the reviewer sees.
 
 ## Deutsche Zusammenfassung
 
@@ -309,11 +355,32 @@ entstanden. Sofort erledigt wird nur eines: **aufschreiben, was
 Ein unausgesprochenes Versprechen über Zugangsdaten ist die Sorte, die
 später weh tut.
 
-**Fünf Fragen liegen bei Dir** (jede mit Empfehlung): drei Betriebs-
-arten spezifizieren, aber erst zwei bauen? Wer darf im Vier-Augen-Modus
-freigeben (Vorschlag: eigene App-Rolle, nicht `server_admin` — das ist
-redaktionelle Arbeit)? Mehrere Listen je Instanz? Darf ein Eintrag
-angelegt werden, dessen Manifest noch nicht abrufbar ist? Und braucht
-direktes Schreiben eine Bremse — mein Vorschlag: nur, wenn sich das
-**Paket-Repository** eines Eintrags ändert, denn das ist die Form, die
-ein Versehen und eine Übernahme gemeinsam haben.
+**Alle fünf Fragen sind entschieden (Jörg, 09.08.2026).** Vier
+entlang der Empfehlung: drei Betriebsarten festschreiben, aber erst
+zwei bauen; im Vier-Augen-Modus gibt `keyuser` frei und `user` schlägt
+vor (die eigenen Rollen der App, ausdrücklich **nicht**
+`server_admin` — das ist redaktionelle Arbeit); eine Instanz verwaltet
+mehrere Listen; und ein Eintrag darf entstehen, bevor sein Manifest
+abrufbar ist, mit einer Warnung, die der Prüfer bei jedem Lauf
+wiederholt.
+
+**Bei der fünften ist Jörg weiter gegangen als meine Empfehlung.** Ich
+hatte nur die Rückfrage beim Wechsel des Paket-Repositorys vorgeschlagen
+und von einer Mengenbremse abgeraten, weil eine Nachfrage, die bei jeder
+Neuerzeugung kommt, weggeklickt wird und dann nichts mehr schützt.
+Entschieden ist: **beide Bremsen**. Mein Einwand wird dabei nicht
+übergangen, sondern durch die Bauweise beantwortet — zwei Punkte machen
+den Unterschied. Erstens zählt die **Neuerzeugung nicht mit**: Was der
+Prüfer selbst aus den Manifesten gebildet hat, ist maschinell und
+nachvollziehbar entstanden; gezählt werden nur redaktionelle und
+strukturelle Änderungen. Damit entfällt genau der Fall, der die
+Nachfrage jedes Mal ausgelöst hätte. Zweitens ist die Bremse **eine
+Übersicht, kein Bestätigungsfenster**: Oberhalb der Schwelle zeigt das
+Veröffentlichen, was sich ändert — Eintrag für Eintrag, Feld für Feld —
+und wird von dieser Seite aus bestätigt. Eine Übersicht liest man;
+„Sind Sie sicher?" klickt man weg.
+
+Die Schwelle ist je Liste einstellbar. Die Repository-Rückfrage
+unterliegt ihr **nicht**: Ein einziger Eintrag, der sein Repository
+wechselt, genügt — das ist die Form, die ein Versehen und eine
+Übernahme gemeinsam haben.
