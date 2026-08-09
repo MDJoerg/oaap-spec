@@ -30,11 +30,22 @@ block and works out what that costs.
 
 The Store Editor's manifest-maintenance report (build step 2) exists to
 tell an app's maintainer what their manifest fails to back up. Run
-against our eight apps, almost every line it produces says *"the format
-does not know this field"*. **A report that can only ever ask for two
-fields is itself the finding.** The manifest can carry `class` and a
-short `description`; everything else the catalogue claims has no home
-in the package.
+against both our published lists on 2026-08-09 — nine entries, every
+manifest fetched:
+
+|                                                            | Count                           |
+| ---------------------------------------------------------- | ------------------------------- |
+| Statements the report can ask a maintainer to add          | **7** — all of them `app.class` |
+| Statements the catalogue makes that the format cannot hold | **89**                          |
+
+The 89 break down as `summary` 9, `description` 9, `categories` 9,
+`audience` 9, `tags` 9, `maturity` 9, `status` 9, `links` 9,
+`released` 9, `license` 7, `profiles` 1.
+
+**A report that can only ever ask for one field is itself the
+finding.** The manifest carries `class` and a one-line `description`;
+everything else a reader sees in a catalogue has no home in the
+package.
 
 ### The principle, restated and then moved
 
@@ -215,11 +226,11 @@ that is honest rather than aspirational.
 If this is accepted, §1.3's two groups become three, and the middle one
 is the interesting one:
 
-| Group | Fields | Author |
-|-------|--------|--------|
-| Identity and runtime | `id`, `name`, `type`, `version`, `class`, `roles`, `profiles`, `package` | the manifest (and the repository) |
-| Presentation | `summary`, `description`, `categories`, `audience`, `tags`, `maturity`, `status`, `license`, `links`, `screenshots`, `icon` | the manifest, **overridable with a mark** |
-| Publishing | `released` | the publishing step |
+| Group                | Fields                                                                                                                      | Author                                    |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| Identity and runtime | `id`, `name`, `type`, `version`, `class`, `roles`, `profiles`, `package`                                                    | the manifest (and the repository)         |
+| Presentation         | `summary`, `description`, `categories`, `audience`, `tags`, `maturity`, `status`, `license`, `links`, `screenshots`, `icon` | the manifest, **overridable with a mark** |
+| Publishing           | `released`                                                                                                                  | the publishing step                       |
 
 The "roughly six inputs a human must think about" from §1.3 then drops
 to nearly zero for a well-maintained app — and the Store Editor becomes
@@ -234,9 +245,18 @@ schlägt dafür Manifest **0.3** mit einem eigenen Block `catalog:` vor.
 
 **Warum das nötig ist — der Beleg kommt aus unserem eigenen Katalog.**
 Der Nachpflege-Bericht des Store Editors soll einer App sagen, was ihr
-Manifest nicht belegt. Gegen unsere acht Apps gehalten, sagt fast jede
-Zeile: *„das Format kennt dieses Feld nicht".* **Ein Bericht, der nur
-zwei Felder überhaupt einfordern kann, ist selbst der Befund.**
+Manifest nicht belegt. Gegen beide veröffentlichten Listen gehalten
+(09.08.2026, neun Einträge, jedes Manifest geholt):
+
+- **7 Angaben** kann der Bericht überhaupt einfordern — und **alle
+  sieben sind dasselbe Feld**, `app.class`.
+- **89 Angaben** macht der Katalog, für die es im Format keinen Platz
+  gibt: je neunmal `summary`, `description`, `categories`, `audience`,
+  `tags`, `maturity`, `status`, `links` und `released`, dazu siebenmal
+  `license` und einmal `profiles`.
+
+**Ein Bericht, der genau ein Feld einfordern kann, ist selbst der
+Befund.**
 
 **Das Prinzip verschiebt sich, und die Begründung trägt.** RFC-0012
 §1.3 sagt: Das Manifest ist die Wahrheit darüber, *was* die App ist;

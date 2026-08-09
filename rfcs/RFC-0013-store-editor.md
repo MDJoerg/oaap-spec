@@ -245,6 +245,37 @@ Independently and now: **write down what `secret` means today.**
 Amended into `oaap.apps.runtime` 2.8 with this RFC. An unstated promise
 about credentials is the kind that bites later.
 
+#### 5.1 Amendment 2026-08-09: a private list repository breaks the deferral
+
+Jörg has prepared the BDT list in a **private** repository. That single
+fact invalidates the sequencing above, and it is worth being precise
+about why: this RFC assumed credentials are a *writing* concern, needed
+first in increment 3. They are not. **A private repository needs a
+credential to be read**, so increment 2 — which fetches nothing but
+public raw files today — cannot open that list at all.
+
+Two consequences follow, and neither is a detail.
+
+1. **The credential is needed per list, at read time.** That is exactly
+   the blocker §5 named as "the real one, not encryption": manifest-
+   declared keys are fixed at install, and a second list would mean
+   changing the app's manifest. The requirement §5 said would arrive
+   "evidenced by one real case instead of guessed at" has arrived, one
+   increment earlier than expected.
+2. **Reading and writing may need different credentials**, and
+   conflating them grants more than necessary. A read token for a
+   private list is not a write token for it.
+
+There is also a second, quieter question the private repository raises:
+a list nobody but its author can fetch cannot be a store source on
+anybody else's node either. Whether BDT's list stays private
+permanently or only until it is ready is a decision about the list, not
+about the editor — but the editor must not assume "private" means
+"draft".
+
+The decision this needs is **where a per-list credential lives**, and
+it is open. See "Open — decided next".
+
 ### 6. Where it runs
 
 A `dev` node (RFC-0011) for the test instance, over the Studio path —
@@ -313,6 +344,29 @@ without its reason is re-litigated six months later.
    already reading the change, so the volume brake would be a second
    prompt in front of an approval; the repository confirmation stays,
    surfaced as part of what the reviewer sees.
+
+## Open — decided next
+
+**Where does a per-list credential live?** Needed for increment 2½
+(adding a list) because of §5.1, not increment 3. Three shapes, and
+none of them is obviously right:
+
+|   | Where                                                                         | For it                                                                                                   | Against it                                                                                                                                                           |
+| - | ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A | The instance's env, one declared key per list slot (`STORE_EDITOR_TOKEN_1…3`) | Nothing new to build; `secret: true` already means write-only in the UI; the platform's backup covers it | A fixed number of slots, set in the manifest — the very limit §5 called the blocker. Adding a fourth list means releasing a new app version                          |
+| B | The editor's own storage, next to the working copies                          | One credential per list, added at runtime, which is what the requirement actually is                     | The editor invents its own secret handling. Plain text in the app's data directory is *less* protected than the env file, and it lands in the backup with no marking |
+| C | A platform capability — runtime-added secrets per instance                    | The general answer, and other apps will want it                                                          | A whole capability built for one app's second use case, which is what §5 argued against                                                                              |
+
+*Recommendation: **A now, B never, C when a second app asks.*** Three
+declared slots cover community, platform and BDT with room to spare;
+the limit is visible and honest rather than hidden; and when the fourth
+list appears, that is the evidence for C. B is the tempting one and the
+worst: it duplicates a platform concern inside an app, and it does so
+with weaker protection than the thing it duplicates.
+
+**Read and write credentials are separate fields**, whichever shape
+wins. A read token for a private list must not double as a write token
+for it.
 
 ## Deutsche Zusammenfassung
 
