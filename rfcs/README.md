@@ -17,3 +17,4 @@ never deleted; superseded RFCs get status `Superseded by RFC-XXXX`.
 - [RFC-0010](RFC-0010-public-route-throttling.md) — A Brake on Public Routes (Accepted)
 - [RFC-0011](RFC-0011-node-profiles.md) — Node Profiles: What a Node Is For (Accepted)
 - [RFC-0012](RFC-0012-store-sources-and-list-format.md) — Store Sources and List Format (Accepted)
+- [RFC-0013](RFC-0013-store-editor.md) — The Store Editor: Maintaining a List Without Knowing Git (Draft)

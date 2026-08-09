@@ -1,7 +1,7 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.6
+- **Version:** 0.2.7
 - **Maturity:** draft (0.2 adds remote deployment via deploy tokens;
   0.2.1 adds the one-click store install in 2.6 with test 17; 0.2.2
   adds instance visibility in 2.7 and moves platform-level portal
@@ -21,7 +21,11 @@
   takeover path; 0.2.6 adds the **application class** in the new 2.10 —
   a manifest may say it is a `service`, and a service gets no launchpad
   tile, overridable per instance. Manifest 0.2 and the first field the
-  version tolerance of 2.2 was built for)
+  version tolerance of 2.2 was built for; 0.2.7 spells out in 2.8 what
+  `secret: true` promises and what it does not — exposure through the
+  platform's surfaces, not encryption at rest, and therefore nothing
+  about backups. Nothing changes; an unstated promise about credentials
+  was the risk, per RFC-0013 §5)
 - **Based on:** RFC-0001 (capability model), RFC-0002 (roles/gateway),
   RFC-0003 (placement), RFC-0004 (manifest/app types), RFC-0005
   (addressing), RFC-0007 (visibility groups), RFC-0008 (server_admin),
@@ -276,6 +280,38 @@ files the operator must edit", rule 4), so the runtime must offer it:
   which stay `admin`/`keyuser` (2.6).
 - **Auditable without leaking.** Every change is recorded with
   instance, key name, actor and time — values never appear in any log.
+
+**What `secret: true` promises, and what it does not.** The promise is
+about *exposure through the platform's own surfaces*, and it is worth
+stating outright rather than leaving to inference — an unstated promise
+about credentials is the kind somebody later relies on:
+
+- **It does promise:** the value is never rendered into a page, never
+  printed by the CLI, never written to a log or an audit record, and
+  never returned by any API the portal offers. It reaches the app only
+  as an environment variable. Submitting an empty field keeps the
+  stored value, so a secret cannot be cleared by accident.
+- **It does not promise encryption at rest.** The value is stored as
+  plain text in the instance's own environment file, readable by root
+  and by nothing else (mode 0600). Root already owns the platform, so
+  this weakens nothing that was not already true — but it means
+  "secret" is a UI property, not a cryptographic one.
+- **It therefore does not promise anything about backups.** A platform
+  backup contains every instance's configuration, and so contains every
+  secret. The backup interface says so in as many words
+  (`oaap.data.backup`); a backup file is a credential store and must be
+  guarded like one.
+- **There is no rotation, expiry, or record of last use**, and a value
+  is available to the whole app process rather than to the one purpose
+  it was issued for.
+
+None of this is a defect for the case config was built for — an app's
+own settings on a single-tenant node. It becomes one as soon as an app
+needs credentials for *outbound* work against several targets, because
+the declared-key model gives it a fixed set of keys and no way to add
+one at runtime. RFC-0013 §5 is the first real case; it deliberately
+defers the general answer until that case is built, rather than
+guessing at the shape.
 
 ### 2.9 Store sources (RFC-0012 §2/§4)
 
@@ -678,3 +714,40 @@ Feld nicht kennt, zeigt eine Kachel zu viel. Das ist unschön, aber
 nichts ist kaputt — die App abzulehnen wäre der größere Schaden. Genau
 dafür ist die Versionstoleranz aus 2.2 gebaut, und `app.class` ist ihr
 erster echter Anwendungsfall.
+
+## Deutsche Zusammenfassung (2.8, v0.2.7)
+
+**Was `secret: true` verspricht — und was nicht.** Bisher stand das
+Versprechen nur zwischen den Zeilen. Jetzt steht es da, denn ein
+unausgesprochenes Versprechen über Zugangsdaten ist genau die Sorte,
+auf die sich später jemand verlässt.
+
+**Zugesagt ist:** Der Wert erscheint auf keiner Seite, in keiner
+CLI-Ausgabe, in keinem Protokoll und in keiner Schnittstelle, die das
+Portal anbietet. Er erreicht die App ausschließlich als
+Umgebungsvariable. Ein leer abgeschicktes Feld behält den gespeicherten
+Wert — versehentlich löschen kann man ein Geheimnis also nicht.
+
+**Nicht zugesagt ist Verschlüsselung.** Der Wert liegt im Klartext in
+der Umgebungsdatei der Instanz, lesbar für `root` und sonst niemanden
+(Rechte 0600). Root gehört die Plattform ohnehin, es wird also nichts
+schwächer — aber „geheim" ist eine Eigenschaft der Oberfläche, keine
+kryptografische.
+
+**Und damit ist auch über Backups nichts zugesagt.** Ein Backup enthält
+die Konfiguration aller Instanzen und damit alle Geheimnisse. Die
+Backup-Schnittstelle sagt das ausdrücklich: Die Datei ist wie ein
+Generalschlüssel zu behandeln.
+
+**Es fehlen** Rotation, Ablauf und ein Nachweis der letzten Verwendung;
+außerdem steht ein Wert dem ganzen App-Prozess offen, nicht nur dem
+Zweck, für den er ausgestellt wurde.
+
+Für den Fall, für den die Konfiguration gebaut wurde — die eigenen
+Einstellungen einer App auf einem Einzelknoten —, ist davon nichts ein
+Mangel. Zum Mangel wird es, sobald eine App Zugangsdaten für Arbeit
+**nach außen** gegen mehrere Ziele braucht: Die Schlüssel sind im
+Manifest festgelegt, es gibt also keinen Weg, zur Laufzeit einen
+weiteren hinzuzufügen. Der Store Editor ist der erste echte Fall
+(RFC-0013 §5) — und die allgemeine Antwort wird bewusst so lange
+aufgeschoben, bis dieser Fall gebaut ist, statt sie zu erraten.
