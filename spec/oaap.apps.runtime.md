@@ -1,7 +1,7 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.5
+- **Version:** 0.2.6
 - **Maturity:** draft (0.2 adds remote deployment via deploy tokens;
   0.2.1 adds the one-click store install in 2.6 with test 17; 0.2.2
   adds instance visibility in 2.7 and moves platform-level portal
@@ -18,7 +18,10 @@
   manifest version was an equality check, so the first manifest 0.2
   would have been rejected by every node in the field, and an app id
   resolved to the first configured source, which made a foreign list a
-  takeover path)
+  takeover path; 0.2.6 adds the **application class** in the new 2.10 —
+  a manifest may say it is a `service`, and a service gets no launchpad
+  tile, overridable per instance. Manifest 0.2 and the first field the
+  version tolerance of 2.2 was built for)
 - **Based on:** RFC-0001 (capability model), RFC-0002 (roles/gateway),
   RFC-0003 (placement), RFC-0004 (manifest/app types), RFC-0005
   (addressing), RFC-0007 (visibility groups), RFC-0008 (server_admin),
@@ -63,6 +66,10 @@ the core never comes from a store (RFC-0001).
   **that app**, with a message naming the feature — rather than install
   something half-understood. Only features whose omission breaks the
   install belong here; optional additions do not.
+- **Manifest 0.2** adds one field: `app.class` — see 2.10. It is the
+  first use of the tolerance above, and deliberately a mild one, so
+  that the mechanism is proven by something whose omission costs an
+  untidy launchpad rather than a broken install.
 - `native`: build images **on the target node** (build on device).
   `image`/`wrapped`: pull the referenced images.
 - The **compose converter** (RFC-0004) imports an existing
@@ -305,6 +312,50 @@ old `{url, name}` form derives id and trust class **once**, from the URL
 prefix, and writes the result down. A trust class recomputed from the
 URL on every lookup would silently change when a repository is renamed.
 
+### 2.10 Application class and the launchpad tile (RFC-0012 §1.2)
+
+A manifest MAY declare **`app.class`** — what the app *is*, as opposed
+to `app.type` (2.2), which says how it is *packaged*:
+
+| value      | meaning                                          |
+|------------|--------------------------------------------------|
+| `frontend` | has a user interface — the default when absent   |
+| `service`  | used by other software, not by a person directly |
+
+- **A `service` gets no launchpad tile by default.** Every instance got
+  one until now, which put purely machine-facing apps on the launchpad
+  as tiles leading to a page no human wants.
+- **The node decides from the manifest it installed, never from a store
+  list.** A list is a description; it must not be able to change what a
+  stranger's launchpad shows, and the answer has to survive a source
+  being disabled, removed or unreachable — and exist at all for an app
+  installed straight from Git, which no list mentions. The runtime
+  therefore records the class in the instance registry at install time.
+  The store list carries `app_class` too, generated from the same
+  manifest field (RFC-0012 §1.3), for filtering and labelling.
+- **An unknown value counts as `frontend`.** Same rule as everywhere
+  else in the format (RFC-0012 §8.1), and the safe direction: a tile
+  too many is untidy, a missing tile hides a working app.
+- **`app.class` is not a `must_understand` feature** (2.2). A node that
+  ignores it shows one tile too many — untidy, not broken — and
+  refusing the app instead would be the greater harm.
+- **The operator overrides it per instance**, in the registry alongside
+  — never inside — the manifest-derived class, exactly like visibility
+  (2.7): `auto` (default, follow the class), `on` (always show),
+  `off` (never show). Set via
+  `sudo oaap app tile <instance> auto|on|off`; the portal offers the
+  same control on the instance object page, queued through the
+  host-side worker because its registry mount is read-only.
+- The override **survives reinstall/redeploy** of the same named
+  instance, like the port assignment (2.3) and visibility (2.7). The
+  class itself does not: it is re-read from each installed manifest,
+  because it describes the app and the app may have changed.
+- **A hidden tile is not access control.** It is the same UX-only layer
+  as the role and group filter (portal spec 2.2): the instance keeps
+  its routes, its roles and its URL, and the gateway keeps enforcing
+  them. Hiding an app from a user is what visibility groups (2.7) are
+  for.
+
 ## 3. Configuration
 
 - Level-1 port range (default 8100–8199, expert-configurable;
@@ -430,6 +481,21 @@ URL on every lookup would silently change when a repository is renamed.
     installs, with a note, and a field the node does not know is
     ignored; a foreign MAJOR is refused; a manifest declaring an
     unknown `must_understand` feature is refused with the feature named.
+
+30. **A service gets no tile (2.10)**: an app whose manifest declares
+    `class: service` installs, runs and is reachable at its URL, but
+    appears on no launchpad — including the `server_admin`'s. An app
+    that declares `frontend`, declares an unknown value, or declares
+    nothing at all keeps its tile.
+31. **The override outranks the class, and it survives (2.10)**:
+    `tile on` gives a `service` instance a tile, `tile off` takes one
+    away from a `frontend`, and both are still in force after a
+    redeploy of the same instance name. Setting `auto` returns to
+    whatever the installed manifest says.
+32. **A list cannot move a tile (2.10)**: changing `app_class` in a
+    store source, disabling that source, or removing it changes nothing
+    about the tiles of instances already installed — the decision came
+    from the manifest at install time.
 
 ## 6. Dependencies
 
@@ -570,3 +636,45 @@ sonst strandet jeder bestehende Knoten, sichtbar nur an einem leeren
 Store. Bestehende Knoten bekommen Kennung und Klasse **einmalig** aus
 dem URL-Präfix; eine bei jeder Auflösung neu berechnete Klasse würde
 sich beim nächsten Repo-Namen still ändern.
+
+## Deutsche Zusammenfassung (2.2/2.10, v0.2.6)
+
+**Eine App darf jetzt sagen, dass sie keine Oberfläche hat (2.10).** Im
+Manifest steht dafür `app.class`: `frontend` — hat eine Bedienoberfläche,
+das ist der Normalfall und gilt auch, wenn nichts dasteht — oder
+`service` — wird von anderer Software benutzt, nicht von einem Menschen.
+Das ist etwas anderes als `app.type` (`native`/`image`/`wrapped`): der
+Typ sagt, wie die App **verpackt** ist, die Klasse sagt, was sie **ist**.
+
+**Ein `service` bekommt keine Kachel im Launchpad.** Bisher bekam jede
+Instanz eine, auch eine reine Maschinenschnittstelle wie der bdt-hub —
+die Kachel führte dann auf eine Seite, die kein Mensch sehen will.
+
+**Die Entscheidung fällt am Manifest, nicht an einer Store-Liste.** Das
+ist der wichtige Teil. Die Liste beschreibt eine App; sie darf nicht
+bestimmen, was auf einem fremden Launchpad erscheint. Außerdem muss die
+Antwort auch dann noch stimmen, wenn die Quelle abgeschaltet, entfernt
+oder gerade nicht erreichbar ist — und es muss sie überhaupt geben für
+eine App, die direkt aus Git installiert wurde und in keiner Liste
+steht. Der Knoten merkt sich die Klasse deshalb bei der Installation.
+Die Liste führt `app_class` weiterhin, erzeugt aus demselben
+Manifest-Feld, zum Filtern und Beschriften.
+
+**Du behältst das letzte Wort, je Instanz.** `sudo oaap app tile <name>
+auto|on|off` — `auto` folgt der App, `on` zeigt die Kachel immer, `off`
+nie. Im Portal steht dasselbe auf der Instanzseite. Diese Einstellung
+übersteht ein erneutes Deployment, die Klasse selbst nicht: die wird bei
+jeder Installation neu aus dem Manifest gelesen, denn sie beschreibt die
+App, und die kann sich ändern.
+
+**Eine versteckte Kachel ist keine Zugriffskontrolle.** Sie ist genauso
+reine Anzeige wie der Rollen- und Gruppenfilter: Route, Rollen und URL
+der Instanz bleiben unverändert, und das Gateway prüft weiter wie
+bisher. Wer eine App wirklich vor jemandem verbergen will, nimmt
+Sichtbarkeitsgruppen (2.7).
+
+**Warum das kein `must_understand` ist:** Ein älterer Knoten, der das
+Feld nicht kennt, zeigt eine Kachel zu viel. Das ist unschön, aber
+nichts ist kaputt — die App abzulehnen wäre der größere Schaden. Genau
+dafür ist die Versionstoleranz aus 2.2 gebaut, und `app.class` ist ihr
+erster echter Anwendungsfall.

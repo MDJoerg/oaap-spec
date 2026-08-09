@@ -260,9 +260,10 @@ flat JSON document anybody can write by hand.
 
 - **Generated** from the manifest and the repository: `id`, `name`,
   `type`, `version`, `released`, `package` (including `ref` from the
-  tag), `roles` (from the manifest's route roles), `profiles`, `icon`,
-  and a first `description`. The editor fills these and shows them
-  read-only unless "erweiterte Konfiguration" is opened.
+  tag), `roles` (from the manifest's route roles), `profiles`,
+  `app_class`, `icon`, and a first `description`. The editor fills
+  these and shows them read-only unless "erweiterte Konfiguration" is
+  opened.
 - **Editorial**, the fields a human actually has to think about:
   `summary`, `categories`, `audience`, `maturity`, `status`,
   `screenshots`, `links`. Roughly six inputs per app.
@@ -280,6 +281,29 @@ The same rule answers `roles`: it is **not** a field somebody
 maintains. Route roles live in the manifest (RFC-0002/0004); the list
 carries a generated copy so the store can say "wer kann das nutzen"
 without cloning the repository.
+
+**Addendum, 2026-08-09 (build step 7): `app_class` moved from editorial
+to generated.** I had listed it under §1.2's editorial vocabularies.
+Building the launchpad rule showed that to be wrong, and the same
+principle above says why: the class is the truth about *what the app
+is*, so it belongs in the manifest — a new field `app.class`, manifest
+0.2. Three things follow that a list-only field could not deliver.
+
+- A node must answer "tile or no tile" **offline**, with the source
+  disabled, removed or unreachable — and at all for an app installed
+  straight from Git, which no list mentions.
+- A list must not be able to change what a stranger's launchpad shows.
+  Editorial fields describe; this one has consequences, and consequences
+  belong to whoever built the software, not to whoever catalogued it.
+- Re-reading the class from a list on every render would make it drift:
+  the same instance would gain or lose its tile because somebody else
+  edited a file, with nothing on the node having changed. That is the
+  same failure the trust class avoided in §4.
+
+`app_class` stays in the list, generated at publishing time like
+`roles` — the catalogue has to filter and label without cloning every
+repository. It just stops being the authority. Specified in
+`oaap.apps.runtime` 2.10.
 
 ### 2. A source becomes an object (B2)
 
@@ -794,9 +818,16 @@ Reserved but explicitly *not* proposed for now, per your own framing:
 6. ✅ **Sources in the portal** (§7) — closes step 4 of
    `portal-statt-cli.md`. *(2026-08-09; the CLI keeps working unchanged
    and both paths run the same checks.)*
-7. **`app_class` and the launchpad tile** — the only item that changes
-   behaviour for already-installed apps; deserves its own careful pass.
-   *Not started.*
+7. ✅ **`app_class` and the launchpad tile** — the only item that
+   changes behaviour for already-installed apps; deserved its own
+   careful pass, and got one: the field moved from the list into the
+   **manifest** (§1.3 addendum), because a list must not decide what a
+   stranger's launchpad shows. *(2026-08-09, runtime spec 2.10 with
+   conformance tests 30–32, portal spec 2.2/test 17. Manifest 0.2 —
+   the first real use of the version tolerance from step 1. Behaviour
+   changes for an installed app only when its own manifest says
+   `service` or an operator sets the per-instance override, so no
+   node's launchpad rearranges itself on update alone.)*
 
 Sets (§8.5) and everything reserved in §8.3 are deliberately not in
 this list.

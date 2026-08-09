@@ -1,8 +1,11 @@
 # oaap.core.portal — Web Portal
 
 - **ID:** `oaap.core.portal`
-- **Version:** 0.3.8
-- **Maturity:** draft (0.3.8 adds the deploy worker to the health page,
+- **Version:** 0.3.9
+- **Maturity:** draft (0.3.9 makes the launchpad follow the app class —
+  a background service gets no tile, and a node where that hides
+  something says so rather than showing an empty page; 0.3.8 adds the
+  deploy worker to the health page,
   after a real node accepted portal actions and silently processed
   none of them; 0.3.7 specified the Store as a catalogue with an object
   page and added source management, per RFC-0012 §6/§7 — the last step
@@ -71,6 +74,13 @@ form again.
   could show a tile that then 403'd on click. The filter itself
   remains UX only — the gateway enforces both checks on every request
   regardless of what the portal shows.
+- **Not every instance has a tile.** An app whose manifest declares
+  itself a background `service` gets none by default, and an operator
+  can force a tile on or off per instance
+  (`oaap.apps.runtime` 2.10). Where this leads to instances the caller
+  would otherwise see, a `server_admin` MUST be told that they exist
+  and where to change it — an empty launchpad on a node full of
+  running apps is otherwise indistinguishable from a broken one.
 - The caller's groups are **not** a header (no `X-OAAP-Groups` exists,
   RFC-0007) — the portal looks them up from identity by the verified
   username, same trust boundary as roles.
@@ -361,6 +371,13 @@ configuration is a later stage (2.2).
     manager. Then: a burst of portal actions in immediate succession
     (as fast as a user can click) leaves every one of them applied and
     the worker still running.
+17. **Tiles follow the app class**: an instance of a `service` app
+    appears on no launchpad, including the `server_admin`'s, while the
+    instance page still lists it and states why; switching that
+    instance's tile to `on` makes it appear and back to `auto` makes it
+    disappear again, without `oaap update`. On a node where this hides
+    something, the launchpad tells a `server_admin` how many and where
+    to look.
 
 ## 6. Dependencies
 
@@ -546,3 +563,26 @@ Zustand eines bestimmten Mechanismus — der Portal-Container kann den
 Dienstverwalter des Wirts ohnehin nicht fragen, und die Symptom-Prüfung
 erwischt auch einen Wirt ohne Dienstverwalter oder einen Worker, der bei
 jeder Anfrage abstürzt. Eine Meldung nennt immer einen Weg zurück.
+
+## Nachtrag 0.3.9 — nicht jede Instanz gehört aufs Launchpad
+
+Bisher bekam jede installierte Instanz eine Kachel. Bei einer App ohne
+Bedienoberfläche — einer reinen Maschinenschnittstelle wie dem bdt-hub
+oder Ollama — führt diese Kachel auf eine Seite, die kein Mensch sehen
+will. Künftig entscheidet die **Anwendungsklasse** aus dem App-Manifest
+(`oaap.apps.runtime` 2.10): `service` heißt keine Kachel, `frontend`
+oder gar keine Angabe heißt Kachel wie bisher. Wer es anders will,
+stellt es je Instanz um.
+
+**Der Teil, der leicht übersehen wird:** Ein Launchpad, das nichts
+zeigt, sieht aus wie ein kaputtes Launchpad. Auf einem Knoten, der nur
+Hintergrunddienste betreibt, wäre die Seite künftig leer, und niemand
+könnte sehen, ob die Apps fehlen oder nur die Kacheln. Deshalb sagt das
+Portal einem `server_admin` an dieser Stelle, wie viele Instanzen keine
+Kachel haben und wo er das ändert. Für alle anderen bleibt die Seite
+still — sie sollen nichts vermissen, was sie ohnehin nicht bedienen.
+
+**Verstecken ist keine Zugriffskontrolle**, hier so wenig wie beim
+Rollen- und Gruppenfilter: Die Instanz behält Route, Rollen und URL,
+und das Gateway prüft weiter. Wer eine App wirklich vor jemandem
+verbergen will, nimmt Sichtbarkeitsgruppen (RFC-0007).
