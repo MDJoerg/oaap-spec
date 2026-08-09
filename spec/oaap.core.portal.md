@@ -1,10 +1,12 @@
 # oaap.core.portal — Web Portal
 
 - **ID:** `oaap.core.portal`
-- **Version:** 0.3.7
-- **Maturity:** draft (0.3.7 specifies the Store as a catalogue with an
-  object page and adds source management, per RFC-0012 §6/§7 — the last
-  step of `portal-statt-cli.md`)
+- **Version:** 0.3.8
+- **Maturity:** draft (0.3.8 adds the deploy worker to the health page,
+  after a real node accepted portal actions and silently processed
+  none of them; 0.3.7 specified the Store as a catalogue with an object
+  page and added source management, per RFC-0012 §6/§7 — the last step
+  of `portal-statt-cli.md`)
 - **Based on:** RFC-0001, RFC-0002, RFC-0003, RFC-0005, RFC-0007,
   RFC-0008, RFC-0009, RFC-0010, RFC-0011, RFC-0012
 
@@ -174,6 +176,18 @@ portal. It therefore differs from every other card:
 - **Core services**: liveness of identity and portal plus a
   **full-chain check** through the gateway (gateway → identity),
   so a broken proxy path is visible even when every container runs.
+- **Deploy worker**: whether anything is actually processing the write
+  queue. Every change the portal makes to the node — install, remove,
+  visibility, configuration, deploy tokens, store sources — is queued
+  for a host-side worker, so a worker that has stopped turns the whole
+  portal into a surface that accepts instructions and carries out none
+  of them. The page MUST report this, and it MUST do so from the
+  **symptom** (requests waiting far longer than any of them takes),
+  not from the health of one particular mechanism: the implementation
+  runs in a container and cannot ask the host's service manager, and a
+  symptom-based check catches a stopped worker, a host without a
+  service manager, and a worker that dies on every request alike. An
+  alarm MUST name a way back.
 - **App instances**: per instance, the manifest's health endpoint is
   checked over the internal network (`oaap.apps.runtime` provides
   service port and health path in the registry). Instances registered
@@ -340,6 +354,13 @@ configuration is a later stage (2.2).
     instance, the health page reports exactly N — including requests
     braked by a different worker process of the throttling service; an
     instance without a `public` route never appears.
+16. **Deploy worker visible**: with the queue empty the health page
+    reports the worker as healthy; with the worker stopped and a
+    request queued long enough, the page reports an alarm that names a
+    way back — and it does so **without** asking the host's service
+    manager. Then: a burst of portal actions in immediate succession
+    (as fast as a user can click) leaves every one of them applied and
+    the worker still running.
 
 ## 6. Dependencies
 
@@ -512,3 +533,16 @@ Vertrauen. Dass die Quellenverwaltung überhaupt ins Portal darf —
 anders als das Knoten-Profil, das auf der Maschine blieb — liegt daran,
 dass eine Quelle hinzuzufügen sichtbar und umkehrbar ist und für sich
 genommen nichts installiert.
+
+**Nachtrag 0.3.8 — der Deploy-Worker gehört auf die Gesundheitsseite.**
+Bei der Abnahme auf `oaap-test` (2026-08-09) hat eine schnelle Folge von
+Portal-Aktionen den Warteschlangen-Wächter des Wirts stillgelegt. Der
+Knoten sah danach in jeder Ansicht gesund aus, nahm weiter Anweisungen
+entgegen — und führte keine davon aus. Genau das darf nicht unsichtbar
+sein: Jede Änderung, die das Portal am Knoten vornimmt, läuft über diese
+Warteschlange. Die Seite meldet den Zustand deshalb **am Symptom**
+(Anfragen, die länger warten, als irgendeine von ihnen dauert) statt am
+Zustand eines bestimmten Mechanismus — der Portal-Container kann den
+Dienstverwalter des Wirts ohnehin nicht fragen, und die Symptom-Prüfung
+erwischt auch einen Wirt ohne Dienstverwalter oder einen Worker, der bei
+jeder Anfrage abstürzt. Eine Meldung nennt immer einen Weg zurück.
