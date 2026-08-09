@@ -18,8 +18,17 @@ User Choice · Secure by Default · Portable by Default.
 
 - `rfcs/` — proposals for new or changed specification content (see process below)
 - `spec/` — the normative specification, one document per capability (created as RFCs are accepted)
+- `schema/` — machine-readable schemas for the formats the specification defines
+  - `oaap-app.schema.json` — the app manifest (`oaap-app.yaml`), RFC-0004
+  - `oaap-store.schema.json` — the store list (`oaap-store.json`), RFC-0012
 - `docs/` — supporting, non-normative documentation
 - `adr/` — decisions scoped to this repository
+
+The two schemas differ on purpose in how strict they are. The manifest
+schema rejects unknown fields; the store list schema does not, because a
+node in the field must be able to read a list that is newer than itself
+(RFC-0012 §8.2). Strict checking of store lists belongs in the authoring
+tools, which also warn about unknown vocabulary values.
 
 ## Process
 
@@ -38,7 +47,9 @@ Program-level decisions (vision, priorities, personas) live in the
 
 ## Status
 
-Bootstrap phase. First proposal: [RFC-0001 — Capability Model](rfcs/RFC-0001-capability-model.md) (Draft).
+RFC-0001 to RFC-0012 accepted; see the [RFC index](rfcs/README.md).
+Normative capability specifications exist for host, identity, gateway,
+portal, app runtime, updates and backup.
 
 ## Language
 

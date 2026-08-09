@@ -16,4 +16,4 @@ never deleted; superseded RFCs get status `Superseded by RFC-XXXX`.
 - [RFC-0009](RFC-0009-instance-public-address.md) — A Public Address That Belongs to the App, Not to the Machine (Accepted)
 - [RFC-0010](RFC-0010-public-route-throttling.md) — A Brake on Public Routes (Accepted)
 - [RFC-0011](RFC-0011-node-profiles.md) — Node Profiles: What a Node Is For (Accepted)
-- [RFC-0012](RFC-0012-store-sources-and-list-format.md) — Store Sources and List Format (Proposed)
+- [RFC-0012](RFC-0012-store-sources-and-list-format.md) — Store Sources and List Format (Accepted)

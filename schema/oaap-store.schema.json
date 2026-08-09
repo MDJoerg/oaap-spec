@@ -1,0 +1,217 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://oaap.org/schema/oaap-store-0.2.json",
+  "title": "OAAP store list (oaap-store.json), list format 0.2 (RFC-0012)",
+
+  "$comment": "Deliberately NOT additionalProperties:false, unlike oaap-app.schema.json. RFC-0012 §8.2 rule 1: a reader ignores what it does not know and never refuses because of it — and §8.3 reserves names (depends, provides, consumes, contributes, requires_platform, bundles, annotations, data_models, agents) that lists may already carry before this schema describes them. Strictness therefore lives in the authoring tools: the Store Editor and CI validate against this schema AND warn about unknown keys and unknown vocabulary values. A node in the field only reads.",
+
+  "type": "object",
+  "required": ["store", "name", "apps"],
+  "properties": {
+    "store": {
+      "enum": ["0.1", "0.2"],
+      "$comment": "0.1 lists stay readable; every field added in 0.2 is optional."
+    },
+    "id": {
+      "$ref": "#/$defs/identifier",
+      "$comment": "Stable identity of the list, independent of its URL (RFC-0012 §4). Required for lists we ship, so they survive a move."
+    },
+    "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "description": { "type": "string" },
+    "publisher": {
+      "type": "string",
+      "$comment": "Shown verbatim next to the trust class as the origin (§3)."
+    },
+    "must_understand": { "$ref": "#/$defs/mustUnderstand" },
+
+    "apps": { "type": "array", "items": { "$ref": "#/$defs/app" } },
+    "sets": { "type": "array", "items": { "$ref": "#/$defs/set" } }
+  },
+
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9.-]{1,62}[a-z0-9]$"
+    },
+
+    "appId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$",
+      "$comment": "Same shape as app.id in oaap-app.schema.json — the store resolves by this id (§3)."
+    },
+
+    "semver": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+([-+][0-9A-Za-z.-]+)?$"
+    },
+
+    "date": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+      "$comment": "Release date of this version. The store computes the \"neu\" badge from it — RFC-0012 §1.1 explains why there is no stored 'new' flag."
+    },
+
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "pattern": "^(?!/)(?!.*://)(?!.*\\.\\.).+$",
+      "$comment": "Resolved against the list URL. Absolute URLs are refused on purpose (§1.1): otherwise every node opening the store page would contact hosts nobody chose, announcing its existence and address for the sake of a thumbnail."
+    },
+
+    "mustUnderstand": {
+      "type": "array",
+      "items": { "type": "string" },
+      "$comment": "RFC-0012 §8.2 rule 2. Features a reader must understand to handle this entry correctly. A reader missing one refuses THIS entry with a clear message instead of installing something half-understood. Everything else may safely be ignored."
+    },
+
+    "package": {
+      "type": "object",
+      "required": ["git"],
+      "properties": {
+        "git": { "type": "string", "pattern": "^https://" },
+        "path": { "type": "string" },
+        "ref": {
+          "type": "string",
+          "$comment": "Tag or commit. Without it the install takes whatever the default branch says at that moment (§5). Unpinned entries from non-platform sources are marked in the store; they are not refused (decision 3, 2026-08-09)."
+        }
+      }
+    },
+
+    "variant": {
+      "type": "object",
+      "required": ["version", "package"],
+      "properties": {
+        "version": { "$ref": "#/$defs/semver" },
+        "released": { "$ref": "#/$defs/date" },
+        "package": { "$ref": "#/$defs/package" }
+      }
+    },
+
+    "link": {
+      "type": "object",
+      "required": ["rel", "url"],
+      "properties": {
+        "rel": {
+          "type": "string",
+          "$comment": "Vocabulary: homepage, docs, source, demo, changelog, support, privacy, license. Unknown values are shown under \"Weitere Links\", not dropped (§1.1). 'demo' is a hosted demo to click through — an installable demo is a variant instead."
+        },
+        "url": { "type": "string", "pattern": "^https://" },
+        "label": { "type": "string" }
+      }
+    },
+
+    "screenshot": {
+      "type": "object",
+      "required": ["src"],
+      "properties": {
+        "src": { "$ref": "#/$defs/relativePath" },
+        "caption": { "type": "string", "maxLength": 200 }
+      }
+    },
+
+    "presentation": {
+      "$comment": "Editorial fields shared by apps and sets. RFC-0012 §1.3: the manifest is the truth about what a thing IS, the list about how it is presented and classified.",
+      "properties": {
+        "summary": { "type": "string", "maxLength": 140 },
+        "description": { "type": "string" },
+        "icon": { "$ref": "#/$defs/relativePath" },
+        "screenshots": { "type": "array", "items": { "$ref": "#/$defs/screenshot" } },
+        "links": { "type": "array", "items": { "$ref": "#/$defs/link" } },
+        "categories": {
+          "type": "array",
+          "items": { "type": "string" },
+          "$comment": "Controlled vocabulary, several allowed (§1.2): business, productivity, documents, communication, media, monitoring, iot, automation, ai, development, security, storage-backup, infrastructure. Deliberately NOT an enum — a node must not refuse a list that uses a value newer than the node; unknown values are grouped under \"Sonstiges\" (decision 5, 2026-08-09). Authoring tools warn."
+        },
+        "audience": {
+          "type": "array",
+          "items": { "type": "string" },
+          "$comment": "Vocabulary: everyone, operator, developer, expert. 'expert' is marked and costs a confirmation at install — it is never a lock-out (decision 2026-08-08, relocated here from maturity)."
+        },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" },
+          "$comment": "Free text by the publisher, used for SEARCH only — never for filters (§1.2). Curated remarks about a foreign app are a different mechanism, reserved as 'annotations' (§8.6)."
+        }
+      }
+    },
+
+    "app": {
+      "type": "object",
+      "required": ["id", "name", "version", "package"],
+      "allOf": [{ "$ref": "#/$defs/presentation" }],
+      "properties": {
+        "id": { "$ref": "#/$defs/appId" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "type": {
+          "enum": ["native", "image", "wrapped"],
+          "$comment": "RFC-0004: how it is packaged. Not to be confused with app_class, which says what it is."
+        },
+        "version": { "$ref": "#/$defs/semver" },
+        "released": { "$ref": "#/$defs/date" },
+        "package": { "$ref": "#/$defs/package" },
+        "license": { "type": "string" },
+        "homepage": {
+          "type": "string",
+          "$comment": "Format 0.1. Read as a link with rel 'homepage'; new lists should use links[] instead."
+        },
+
+        "profiles": {
+          "type": "array",
+          "items": { "type": "string" },
+          "$comment": "RFC-0011: which node profiles this app is meant for (Studio: dev). The store filters and warns, it never refuses — the author describes, the operator decides."
+        },
+        "roles": {
+          "type": "array",
+          "items": { "enum": ["admin", "keyuser", "user", "guest", "partner", "public"] },
+          "$comment": "GENERATED from the manifest's route roles at publishing time (§1.3) — not a field anybody maintains. It lets the store answer \"who can use this\" without cloning the repository."
+        },
+
+        "app_class": {
+          "type": "string",
+          "$comment": "Vocabulary: frontend (has a user interface), service (backend only, used by other software). Decides whether an instance gets a launchpad tile. Data models are NOT a value here — they are their own artefact kind (kind: DataModel, §8.5)."
+        },
+        "maturity": {
+          "type": "string",
+          "$comment": "Vocabulary: alpha, beta, preview, stable — how finished it is."
+        },
+        "status": {
+          "type": "string",
+          "$comment": "Vocabulary: active, deprecated (still installable, no longer recommended), archived (no longer offered, hidden by default). Whether it is still carried — a different question from maturity."
+        },
+
+        "variants": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/variant" },
+          "$comment": "Named alternatives of the SAME app, e.g. preview, demo (§1.1). The top-level version/released/package are the 'default' variant. Not the deploy channel production|test — that decides how an instance on THIS node may be redeployed."
+        },
+
+        "must_understand": { "$ref": "#/$defs/mustUnderstand" }
+      }
+    },
+
+    "set": {
+      "$comment": "An app set is a metapackage — RFC-0012 §8.5. It has no version, no package, no manifest and no health check, which is why it is a collection of its own rather than an app entry with empty fields. Installing a set installs its members as ordinary installs, each with its own source, trust class and confirmation; there is no transaction and no rollback. Do not confuse with 'bundles', which select services INSIDE one app.",
+      "type": "object",
+      "required": ["id", "name", "members"],
+      "allOf": [{ "$ref": "#/$defs/presentation" }],
+      "properties": {
+        "id": { "$ref": "#/$defs/appId" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "members": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["id"],
+            "properties": {
+              "id": { "$ref": "#/$defs/appId" },
+              "required": { "type": "boolean", "default": true }
+            }
+          }
+        },
+        "must_understand": { "$ref": "#/$defs/mustUnderstand" }
+      }
+    }
+  }
+}

@@ -1,10 +1,7 @@
 # RFC-0012: Store Sources and List Format
 
-- **Status:** Proposed (2026-08-09) — the six questions of the first
-  draft are decided (Jörg, 2026-08-09); the list format has grown
-  substantially since, §8 reserves ground for what Jörg named next
-  (dependencies, sets, bundles, curation), and the questions at the end
-  are open
+- **Status:** Accepted (2026-08-09) — all fifteen questions decided
+  across three rounds on the same day
 - **Date:** 2026-08-09
 - **Authors:** Jörg (requirements and direction), Claude (write-up)
 - **Depends on:** RFC-0004 (app packaging), RFC-0008 (`server_admin`),
@@ -691,11 +688,15 @@ All six questions of the first draft answered along the recommendation:
    credentials in the app; a push path can follow when there is a
    reason.
 
-## Open questions (second round)
+## Decided, rounds two and three (Jörg, 2026-08-09)
+
+**All nine questions below were answered along the recommendation.**
+They are kept in question form because the reasoning is the record;
+what follows each one is what now holds.
 
 The list format grew after the decisions above (Jörg, 2026-08-09).
-Five things are worth one more confirmation before this becomes a
-schema; my recommendation is with each.
+Five things were worth one more confirmation before this became a
+schema; my recommendation is with each, and each was accepted.
 
 1. **Splitting the lifecycle into `maturity` + `status`, with `new`
    computed.** Your list was `alpha, beta, preview, new, stable,
@@ -730,10 +731,14 @@ schema; my recommendation is with each.
    gets its own collection (`sets` now, `data_models` and `agents`
    reserved) — §8.5.
 
-Not a question, but flagged: **variants (`preview`, `demo`) and the
+Flagged rather than asked: **variants (`preview`, `demo`) and the
 deploy channel `production|test` are different things** with
-confusingly similar names. If you have a better word for the
-publisher's second shape („Vorschau-Version"), now is the moment.
+confusingly similar names. No better word came up, so `variants` it is
+— and the two must be named apart wherever they meet in the UI.
+
+**On decision 1:** `retired` and `deprecated` were offered as possibly
+two values and stay **one** — `deprecated`. Nobody asked for the
+distinction, and an unused enum value only invites inconsistent use.
 
 ### From §8 (extensibility), added 2026-08-09
 
@@ -749,6 +754,12 @@ publisher's second shape („Vorschau-Version"), now is the moment.
 3. **Sets as their own collection, not app entries?** Recommendation:
    own collection — a set has no version, no package and no health
    check, and it resolves differently from an app id.
+   *Asked back and clarified (Jörg): the decisive argument is §8.2
+   rule 1. A node that does not know sets simply never sees a `sets`
+   key. Put the same set inside `apps`, and that node renders it as an
+   app with no version and an install button that fails. Storage and
+   presentation stay separate questions — the store page may still show
+   sets and apps side by side.*
 4. **Do you accept the veto on automatic dependency resolution?**
    Declared, shown, offered — never installed silently. §8.4 has the
    reasoning; the short version is that auto-resolution would walk
@@ -756,8 +767,28 @@ publisher's second shape („Vorschau-Version"), now is the moment.
 
 Reserved but explicitly *not* proposed for now, per your own framing:
 `depends`/`recommends`/`suggests`/`conflicts`/`provides`,
-`requires_platform`, `bundles`, `annotations`. Names taken, semantics
-sketched, nothing built.
+`requires_platform`, `bundles`, `annotations`, `consumes`/`contributes`,
+`data_models`, `agents`. Names taken, semantics sketched, nothing built.
+
+## Build order that follows from this
+
+1. **Schema `oaap-store-0.2.json`** next to `oaap-app.schema.json` —
+   B1, and the thing everything else is measured against.
+2. **Manifest version tolerance** (§8 decision 1) — small, and it must
+   land before anything publishes a `0.2` manifest.
+3. **Source objects and migration** (§2, §4) — B2/B4, the part with a
+   deadline: it has to exist before our repository moves.
+4. **Resolution by trust, source id in the install request,
+   confirmation logging** (§3) — B3.
+5. **Store page and object page** (§6) — where the format becomes
+   visible.
+6. **Sources in the portal** (§7) — closes step 4 of
+   `portal-statt-cli.md`.
+7. **`app_class` and the launchpad tile** — the only item that changes
+   behaviour for already-installed apps; deserves its own careful pass.
+
+Sets (§8.5) and everything reserved in §8.3 are deliberately not in
+this list.
 
 ## Deutsche Zusammenfassung
 
@@ -1062,9 +1093,18 @@ darf sich zwischen Listen unterscheiden, und das ist richtig so. Eine
 Profile, Quellen, Instanz-Konfiguration; niemals ins Manifest, sonst
 macht eine App dem Betreiber Vorschriften.
 
-**Vier neue Fragen** (Details am Ende von „Open questions"): Soll ich
-die Manifest-Versionsprüfung gleich mitreparieren (RFC-0004-Gebiet,
-aber die eine Änderung, die darüber entscheidet, ob Deine späteren
-Ideen ohne Flag-Day ausliefern können)? `must_understand` annehmen?
-Sets als eigene Sammlung? Und nimmst Du das Veto gegen automatische
-Abhängigkeitsauflösung an?
+**Alle vier Fragen entschieden (Jörg, 2026-08-09), entlang der
+Empfehlung:** Die Manifest-Versionsprüfung wird gleich mitrepariert;
+`must_understand` kommt; Sets bekommen eine eigene Sammlung; das Veto
+gegen automatische Abhängigkeitsauflösung ist angenommen. Zur
+Set-Frage kam eine Rückfrage — der ausschlaggebende Grund ist Regel 1
+aus §8.2: Ein Knoten, der Sets nicht kennt, sieht den Schlüssel `sets`
+schlicht nie. Stünde dasselbe Set in `apps`, zeigte derselbe Knoten es
+als App ohne Version mit einem Installieren-Knopf, der scheitert.
+Speicherung und Darstellung bleiben getrennte Fragen: Die Store-Seite
+darf Sets und Apps trotzdem nebeneinander zeigen.
+
+**Damit ist RFC-0012 abgenommen** — fünfzehn Fragen in drei Runden an
+einem Tag. Die Baureihenfolge steht unter „Build order that follows
+from this"; Schritt 1 (das Schema) ist erledigt:
+`schema/oaap-store.schema.json`.
