@@ -345,7 +345,11 @@ without its reason is re-litigated six months later.
    prompt in front of an approval; the repository confirmation stays,
    surfaced as part of what the reviewer sees.
 
-## Open — decided next
+## Decided 2026-08-09: where a per-list credential lives
+
+**Jörg chose A, and read-only for now.** The reasoning below was
+the recommendation; it is recorded because a decision without its
+reason is re-litigated six months later.
 
 **Where does a per-list credential live?** Needed for increment 2½
 (adding a list) because of §5.1, not increment 3. Three shapes, and
@@ -357,16 +361,35 @@ none of them is obviously right:
 | B | The editor's own storage, next to the working copies                          | One credential per list, added at runtime, which is what the requirement actually is                     | The editor invents its own secret handling. Plain text in the app's data directory is *less* protected than the env file, and it lands in the backup with no marking |
 | C | A platform capability — runtime-added secrets per instance                    | The general answer, and other apps will want it                                                          | A whole capability built for one app's second use case, which is what §5 argued against                                                                              |
 
-*Recommendation: **A now, B never, C when a second app asks.*** Three
-declared slots cover community, platform and BDT with room to spare;
-the limit is visible and honest rather than hidden; and when the fourth
-list appears, that is the evidence for C. B is the tempting one and the
-worst: it duplicates a platform concern inside an app, and it does so
-with weaker protection than the thing it duplicates.
+*Recommendation, and Jörg's decision: **A now, B never, C when a second
+app asks.*** Three declared slots cover community, platform and BDT with
+room to spare; the limit is visible and honest rather than hidden; and
+when the fourth list appears, that is the evidence for C. B is the
+tempting one and the worst: it duplicates a platform concern inside an
+app, and it does so with weaker protection than the thing it duplicates.
 
 **Read and write credentials are separate fields**, whichever shape
 wins. A read token for a private list must not double as a write token
-for it.
+for it. **Decided: read-only now** — a write token arrives as its own
+field with increment 3, so that "what was this key used for" stays
+answerable.
+
+Built in 0.3.0 (2026-08-09). Two consequences the build turned up:
+
+- **A private GitHub repository cannot be read through
+  `raw.githubusercontent.com` at all.** That host accepts no token; the
+  Contents API (`api.github.com/repos/…/contents/…` with
+  `Accept: application/vnd.github.raw`) is the only way in. Code written
+  against public repositories works and then returns 404 against a
+  private one, with the same status a genuinely missing file returns —
+  GitHub deliberately does not distinguish them, so that private
+  repositories cannot be enumerated. Asking which forge before building
+  was therefore not a formality.
+- **A token is sent only to the forge it was entered for.** Otherwise a
+  list could, merely by pointing an entry at a foreign repository, cause
+  a credential to be sent there. Where the address form is unknown, the
+  token is **not** attached at all rather than guessed at — a blindly
+  set `Authorization` header hands a secret to a server nobody vetted.
 
 ## Deutsche Zusammenfassung
 
