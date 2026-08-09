@@ -1,10 +1,12 @@
 # oaap.core.portal — Web Portal
 
 - **ID:** `oaap.core.portal`
-- **Version:** 0.3.6
-- **Maturity:** draft
+- **Version:** 0.3.7
+- **Maturity:** draft (0.3.7 specifies the Store as a catalogue with an
+  object page and adds source management, per RFC-0012 §6/§7 — the last
+  step of `portal-statt-cli.md`)
 - **Based on:** RFC-0001, RFC-0002, RFC-0003, RFC-0005, RFC-0007,
-  RFC-0008, RFC-0009, RFC-0010, RFC-0011
+  RFC-0008, RFC-0009, RFC-0010, RFC-0011, RFC-0012
 
 ## 1. Purpose
 
@@ -204,7 +206,57 @@ portal. It therefore differs from every other card:
 - Whole-landscape health (controller + workers, RFC-0003) is a later
   stage of this section; node-local values come first.
 
-### 2.6 Reserved navigation
+### 2.6 Store (RFC-0012 §6/§7)
+
+`server_admin` only. Two floorplans and a third for the sources.
+
+**Catalogue (list report).** All enabled sources are shown as **one**
+catalogue, with the source and its trust class on **every** entry — not
+one block per source. The reason is the resolution rule: when two lists
+carry the same app id, only one of them can be installed
+(`oaap.apps.runtime` 2.6), so showing both would offer a choice the host
+would then overrule. The runners-up are named on the object page
+instead.
+
+- **Filters:** categories, application class, audience, maturity,
+  status, trust class, source, licence, installed or not, and fit with
+  the node's profiles. **Search** additionally covers tags, name,
+  summary and description.
+- **Three defaults, each reversible with one click.** Apps whose
+  `profiles` do not match this node are **filtered, not hidden**; so are
+  `archived` entries. `audience: expert` is **not** filtered — it is
+  shown, marked, and costs a confirmation at install. Hiding it would
+  turn a hint into a gate through the back door.
+- **An unknown vocabulary value MUST NOT be dropped or refused.** It is
+  shown verbatim and sorted under "Sonstiges", or every extension of the
+  vocabulary would strand exactly the nodes that have not updated yet.
+- **Icons and screenshots are loaded only from the list's own
+  location.** An entry naming an absolute URL has that image dropped,
+  not rendered: otherwise every node opening this page would contact
+  hosts nobody chose and announce its existence and address for the sake
+  of a thumbnail (RFC-0012 §1.1).
+
+**Object page per app.** Icon, summary, long description, screenshots,
+version with release date, links, licence, roles, categories, tags — and
+the facts an operator needs before installing: which source it comes
+from and in which class, which other lists also carry it, and whether
+the package is pinned. The install button lives here; a `new` badge is
+**computed** from the release date and never stored.
+
+**Sources (list report).** `server_admin` adds, renames, enables,
+disables, removes a source and sets its trust class. Two rules:
+`platform` is not settable by an operator, and raising a source to
+`verified` MUST say what it costs — apps from it then install without a
+confirmation and outrank unverified sources. Every change goes through
+the privileged host side, which re-checks all of it: the portal's
+registry mount is read-only, and the spool is data, not trust.
+
+Managing sources MAY live in the portal — unlike setting a node profile,
+which stayed on the machine (RFC-0011) — because adding a source is
+visible, reversible, and by itself installs nothing. It grants the
+portal no reach the `server_admin` did not grant.
+
+### 2.7 Reserved navigation
 
 `Einstellungen` (settings), `Store` (app store), `Studio` are reserved
 navigation points (design guidelines section 5); implementations MUST
@@ -410,3 +462,53 @@ liest. Die Zahl **muss über alle Worker-Prozesse vollständig sein** —
 eine, die stillschweigend unterschlägt, was ein anderer Worker gezählt
 hat, ist schlimmer als gar keine. Die Warnschwelle bleibt wie
 entschieden zurückgestellt, bis der Zähler Erfahrungswerte liefert.
+
+## Deutsche Zusammenfassung (2.6 Store, v0.3.7)
+
+Der Store ist jetzt ein **Katalog über alle Quellen** statt einer
+Aneinanderreihung von Listen — mit Quelle und Vertrauensklasse an
+**jedem** Eintrag. Der Grund ist nicht Geschmack: Führen zwei Listen
+dieselbe App-Kennung, kann ohnehin nur eine installiert werden. Beide
+nebeneinander zu zeigen, böte eine Wahl an, die der Server hinterher
+überstimmt. Stattdessen steht auf der Objektseite, welche anderen Listen
+dieselbe App führen.
+
+**Gefiltert wird** nach Kategorie, Art, Zielgruppe, Reifegrad, Status,
+Vertrauen, Quelle, Lizenz, installiert und Knoten-Profil; **gesucht**
+zusätzlich über Hashtags und Texte. Drei Voreinstellungen, jede mit
+einem Klick umkehrbar: Apps, die ein Profil erwarten, das dieser Knoten
+nicht hat, sind **ausgefiltert, nicht versteckt**; archivierte ebenso;
+**„nur für Experten" wird NICHT ausgefiltert** — es wird gekennzeichnet
+und kostet eine Bestätigung. Es zu verstecken hieße, aus einem Hinweis
+durch die Hintertür eine Sperre zu machen.
+
+Zwei Dinge, die leicht übersehen werden und deshalb normativ sind: Ein
+**unbekannter Vokabular-Wert** darf nicht verschwinden und erst recht
+nicht zur Ablehnung führen — er wird unverändert gezeigt und unter
+„Sonstiges" einsortiert, sonst strandet jede Erweiterung genau die
+Knoten, die noch nicht aktualisiert sind. Und **Bilder werden nur aus
+der Liste selbst geladen**: Ein Eintrag mit fremder Bild-URL verliert
+das Bild, statt dass jeder Knoten beim Öffnen der Store-Seite Server
+kontaktiert, die niemand ausgewählt hat.
+
+Die **Objektseite** ist der Grund, warum das Listenformat überhaupt
+Darstellungsfelder trägt — ohne sie wären sie Dekoration. Sie zeigt
+Symbol, Kurz- und Langtext, Bilder, Version mit Release-Datum, Links,
+Lizenz, Rollen, Kategorien, Hashtags und die Fakten vor der
+Installation: aus welcher Quelle, in welcher Klasse, welche anderen
+Listen dieselbe App führen, und ob das Paket festgelegt ist. Das
+„neu"-Abzeichen wird aus dem Release-Datum **berechnet**, nie
+gespeichert.
+
+**Quellenverwaltung im Portal** (damit ist Schritt 4 aus
+`portal-statt-cli.md` erledigt): hinzufügen, umbenennen, an- und
+ausschalten, entfernen, Vertrauensklasse setzen. „Von uns" bleibt dem
+vorbehalten, was die Installation mitbringt; eine Quelle auf „geprüft"
+zu heben, sagt ausdrücklich, was das kostet — von dort wird künftig
+**ohne Bestätigung** installiert. Jede Änderung geht über die
+privilegierte Server-Seite, die alles noch einmal prüft: Das Portal hat
+die Registry nur lesend eingehängt, und der Spool ist Daten, kein
+Vertrauen. Dass die Quellenverwaltung überhaupt ins Portal darf —
+anders als das Knoten-Profil, das auf der Maschine blieb — liegt daran,
+dass eine Quelle hinzuzufügen sichtbar und umkehrbar ist und für sich
+genommen nichts installiert.

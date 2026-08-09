@@ -786,12 +786,14 @@ Reserved but explicitly *not* proposed for now, per your own framing:
 4. ✅ **Resolution by trust, source id in the install request,
    confirmation logging** (§3) — B3.
    *(2026-08-09, runtime spec 2.6 with conformance tests 25–29.)*
-5. **Store page and object page** (§6) — where the format becomes
-   visible. *Not started.* The portal's store page carries the trust
-   class and the confirmation since step 4, but it still groups by
-   source and shows none of the `0.2` presentation fields.
-6. **Sources in the portal** (§7) — closes step 4 of
-   `portal-statt-cli.md`. *Not started;* sources are still CLI-only.
+5. ✅ **Store page and object page** (§6) — where the format becomes
+   visible. *(2026-08-09, portal spec 2.6: one catalogue across all
+   sources with filters and search, plus an object page per app. Both
+   our lists were lifted to format `0.2` in the same step — a catalogue
+   with nothing to show would have proved nothing.)*
+6. ✅ **Sources in the portal** (§7) — closes step 4 of
+   `portal-statt-cli.md`. *(2026-08-09; the CLI keeps working unchanged
+   and both paths run the same checks.)*
 7. **`app_class` and the launchpad tile** — the only item that changes
    behaviour for already-installed apps; deserves its own careful pass.
    *Not started.*
