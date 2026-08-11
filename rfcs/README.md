@@ -19,3 +19,4 @@ never deleted; superseded RFCs get status `Superseded by RFC-XXXX`.
 - [RFC-0012](RFC-0012-store-sources-and-list-format.md) — Store Sources and List Format (Accepted)
 - [RFC-0013](RFC-0013-store-editor.md) — The Store Editor: Maintaining a List Without Knowing Git (Accepted)
 - [RFC-0014](RFC-0014-manifest-owns-the-words.md) — The Manifest Owns the Words (Draft — six open questions)
+- [RFC-0015](RFC-0015-non-http-endpoints.md) — Declared Endpoints: What the Gateway Cannot Carry (Accepted)
