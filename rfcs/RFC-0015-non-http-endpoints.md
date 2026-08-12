@@ -671,13 +671,35 @@ Built and verified on oaap-test; fleet on 0.1.32.
   (303); the wished-for port was honoured; the grant survived a
   redeploy; `deny` closed the port.
 
-**Deferred, and named rather than hidden:** the external reachability
-watchdog of decision Q4 — "does the router forward actually exist" — is
-**not** built. It needs an outside probe service (the DNS watchdog of
-RFC-0009 is the model), and a UDP probe in particular is not something
-to ship unverified. For now the platform *tells the operator which
-forward to create* but does not yet *confirm from outside that it
-works*. This is the one open piece of RFC-0015.
+**Reachability watchdog (decision Q4) — stage 1 built.** The platform now
+checks the granted ports itself, on the health page, as the sibling of
+the RFC-0009 DNS watchdog and sharing its mechanism (cache, TTL, "name
+the outside service", "runs only when there is something to check").
+Stage 1 is a **self-test from the node**: it resolves its own public
+address and tries to reach each granted port there — TCP by connecting,
+**UDP by a STUN binding request** (RFC 5389), which every WebRTC media
+server answers by standard, so the very endpoints UDP carries are the
+ones that can be confirmed. Two honest limits are stated on the page,
+not hidden: a **success is asserted** (it cannot be faked), but a
+**failure is a grey "not confirmed from here", never a red "broken"** —
+a router that does not hairpin makes a working forward look unreachable
+from the inside.
+
+This was **empirically verified on the fleet before shipping**, because
+the danger was a *false green* (a published-but-not-forwarded port read
+as reachable via a local NAT short-circuit): on oaap-test a port that is
+published on the host but not forwarded probes **False** (Linux only
+enters Docker's DNAT chain for locally-addressed packets, and the probe
+targets the *public* address); on oaap-demo, whose 443 is forwarded, the
+node's own public address:443 hairpins back and probes **True**. STUN
+construction was checked against a public STUN server.
+
+**Still deferred as stage 2:** the **outside reflector** — a vantage on
+the internet that connects back — which is the only thing that removes
+the hairpin caveat and confirms reachability for a node whose router does
+not loop back. Stage 1 answers "does the port answer at my public
+address"; stage 2 will answer "does the port answer to a stranger". This
+is the one open piece of RFC-0015.
 
 ## Deutsche Zusammenfassung
 

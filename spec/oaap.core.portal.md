@@ -1,8 +1,13 @@
 # oaap.core.portal — Web Portal
 
 - **ID:** `oaap.core.portal`
-- **Version:** 0.3.9
-- **Maturity:** draft (0.3.9 makes the launchpad follow the app class —
+- **Version:** 0.3.10
+- **Maturity:** draft (0.3.10 adds the direct-port reachability watchdog
+  to the health page — the sibling of the published-names watchdog,
+  RFC-0015 decision Q4: a self-test that confirms a granted port answers
+  at the node's public address, TCP by connecting and UDP by STUN, and
+  reports "not confirmed from here" rather than a false "broken";
+  0.3.9 makes the launchpad follow the app class —
   a background service gets no tile, and a node where that hides
   something says so rather than showing an empty page; 0.3.8 adds the
   deploy worker to the health page,
@@ -220,6 +225,27 @@ portal. It therefore differs from every other card:
     implementation MUST then report only whether the names resolve at
     all, and say why it can say no more — a guess would be worse than
     an honest "unknown".
+- **Direct ports** (RFC-0015 decision Q4): for every granted direct
+  endpoint (`oaap app endpoint allow`), whether the published port is
+  actually reachable at this node's public address. A forgotten router
+  forward is otherwise indistinguishable from a broken app. This is the
+  sibling of *Published names* and shares its mechanism — one asks
+  whether the name still points here, this whether the port still
+  reaches here — and its third-party rules apply unchanged (runs only
+  when a port is granted, names the outside service used for the public
+  address, MAY be cached, states when last checked, reports "unknown"
+  behind an edge). Two limits are stated on the page rather than hidden:
+  - **Stage 1 is a self-test from the node.** A router that does not
+    hairpin (loop a connection to its own public address back inside)
+    makes a working forward look unreachable from here, so a failed
+    probe MUST be reported as a grey "not confirmed from here", never a
+    red "broken". Only a **success** is asserted, because a success
+    cannot be faked. The stage-2 reflector (an outside vantage) removes
+    this caveat and is a later stage.
+  - **UDP** cannot be confirmed by a bare datagram. The check sends a
+    STUN binding request (RFC 5389), which every WebRTC media server
+    answers by standard — a real proof for the very endpoints UDP
+    carries; its absence is the same grey "not confirmed".
 - **Braked requests** (RFC-0010 decision 2): per instance with a
   `public` route, how often the volume brake rejected a request in the
   last 24 hours. Without this a `429` leaves nothing but a line in an
@@ -360,18 +386,26 @@ configuration is a later stage (2.2).
     here", one resolving elsewhere is flagged, and one that does not
     resolve is flagged differently; behind an edge node the section
     reports resolution only and states why.
-15. **Braked requests**: after the brake has rejected N requests for an
+15. **Direct ports**: a node with no granted endpoint shows no such
+    section and makes **no outside request**; with a granted endpoint,
+    a forwarded and hairpinning port reads "reachable", while a port
+    published on the host but not forwarded reads "not confirmed from
+    here" — never "broken" (no false red, and above all no false green
+    for a published-but-not-forwarded port); a granted UDP endpoint is
+    probed by STUN; behind an edge node the section reports "not
+    checkable" and states why.
+16. **Braked requests**: after the brake has rejected N requests for an
     instance, the health page reports exactly N — including requests
     braked by a different worker process of the throttling service; an
     instance without a `public` route never appears.
-16. **Deploy worker visible**: with the queue empty the health page
+17. **Deploy worker visible**: with the queue empty the health page
     reports the worker as healthy; with the worker stopped and a
     request queued long enough, the page reports an alarm that names a
     way back — and it does so **without** asking the host's service
     manager. Then: a burst of portal actions in immediate succession
     (as fast as a user can click) leaves every one of them applied and
     the worker still running.
-17. **Tiles follow the app class**: an instance of a `service` app
+18. **Tiles follow the app class**: an instance of a `service` app
     appears on no launchpad, including the `server_admin`'s, while the
     instance page still lists it and states why; switching that
     instance's tile to `on` makes it appear and back to `auto` makes it
@@ -492,6 +526,25 @@ sie sagt, wann zuletzt geprüft wurde. Hinter einem Edge-Knoten zeigen
 die Namen auf dessen öffentliche Adresse, die von hier aus nicht
 feststellbar ist; dann steht dort nur, ob die Namen auflösen — und
 warum nicht mehr gesagt werden kann.
+
+**„Direkte Ports" (RFC-0015).** Der Zwilling der „Veröffentlichten
+Namen" und teilt sich mit ihnen die Mechanik: Der Namens-Wächter fragt
+„zeigt der Name noch hierher?", dieser fragt „erreicht der Port noch
+hierher?". Für jede freigegebene Direkt-Port-Freigabe steht dort, ob
+der Port an der öffentlichen Adresse dieses Knotens tatsächlich
+antwortet — sonst ist eine vergessene Router-Freigabe von einer kaputten
+App nicht zu unterscheiden. Dieselben Fremdstellen-Regeln gelten (nur
+bei freigegebenem Port, nennt den Dienst für die öffentliche Adresse,
+darf gecacht werden, hinter einem Edge „nicht prüfbar"). Zwei Grenzen
+stehen offen auf der Seite: **Stufe 1 ist ein Selbsttest vom Knoten** —
+ein Router ohne Hairpin lässt eine funktionierende Freigabe von hier aus
+stumm erscheinen, deshalb ist ein Fehlschlag nie ein rotes „kaputt",
+sondern ein graues „von hier nicht bestätigt"; nur ein **Erfolg** wird
+behauptet, weil er nicht zu fälschen ist. Der Reflektor von außen
+(Stufe 2) nimmt diese Grenze weg. **UDP** lässt sich mit einem bloßen
+Paket nicht bestätigen; geprüft wird per STUN-Anfrage, die jeder
+WebRTC-Medienserver beantwortet — echter Beweis für genau die Endpunkte,
+die UDP trägt.
 
 **„Gebremste Anfragen" (RFC-0010).** Je Instanz mit öffentlicher Route:
 wie oft die Mengenbremse in den letzten 24 Stunden abgewiesen hat.
