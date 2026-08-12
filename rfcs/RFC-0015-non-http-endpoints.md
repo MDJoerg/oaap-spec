@@ -1,7 +1,9 @@
 # RFC-0015: Declared Endpoints — What the Gateway Cannot Carry
 
 - **Status:** Accepted (2026-08-11) — all five questions decided on the
-  day the RFC was written
+  day the RFC was written; addendum the same evening (wrapped stacks
+  and SNI routing), also decided — **and it turned up a defect: any
+  installed app can escalate to `server_admin`, see A4**
 - **Date:** 2026-08-11
 - **Authors:** Claude (proposal), Jörg (direction: "a meeting tool with
   streaming, MQTT will come")
@@ -196,6 +198,13 @@ layer-4 module our Caddy build does not have. Everything else would
 have to be port-based, which makes the port part of the public address
 (`meet.example.de:8401`) and demands fleet-wide unique allocation.
 Both are real; neither is needed for one media service.
+
+> **Corrected by the addendum below (same day).** The SNI path turned
+> out to be considerably stronger than "growth path" suggests: it
+> removes the port scarcity entirely for TLS over TCP and restores
+> RFC-0006 for those protocols. "Node-local" therefore holds for
+> plaintext and for UDP — including the media path this RFC is about —
+> but not for TLS over TCP. See "Question B".
 
 ### The router stops being invisible
 
@@ -397,6 +406,241 @@ against it. Two things follow, and they pull in opposite directions:
 The trigger to revisit this note is Jörg's, not ours: unknown users
 who depend on the platform. Until he says so, the format is soft and
 the guarantees are not.
+
+## Addendum (2026-08-11, evening) — wrapped stacks and SNI routing
+
+Two follow-up questions from Jörg, both of which change something in
+the RFC above rather than merely extending it.
+
+### Question A: do wrapped stacks get excluded?
+
+*"mosquitto, jitsi meet, coturn, mediasoup — do we exclude these
+because they need more than HTTP(S) ports?"*
+
+No. But they do not split the way the question assumes. Sorted by what
+each actually needs:
+
+**Already possible today, with no change at all.** Mosquitto speaks
+**MQTT over WebSocket** (`listener 9001` / `protocol websockets`), and
+a WebSocket goes through the gateway *with* identity. For browser and
+JavaScript clients this is not a workaround, it is the better path —
+the gateway brings the authenticated user with the connection, which a
+raw port never can. The same holds for every HTTP face of a stack.
+
+**Fits this RFC exactly.** Jitsi Meet's videobridge needs **one UDP
+port** (10000; the old TCP 4443 fallback is optional and considered
+obsolete), and the rest of the stack is HTTP. mediasoup is a library
+whose port range is configurable and can be pinned narrow or to a
+single muxed port. Mosquitto for devices that cannot speak HTTP needs
+1883 or 8883. All of these are exactly "one declared endpoint".
+
+**Genuinely does not fit — and that is the answer, not a gap.**
+coturn needs 3478 *plus a relay port range*. The range is not an
+implementation detail, it is what TURN **is**; `min-port`/`max-port`
+narrows it to a hundred ports, never to one. So coturn stays outside.
+Note what that means: the single class of software this RFC cannot
+host is precisely the class we decided in §3 that we do not need,
+because an SFU replaces it. Jitsi, LiveKit and mediasoup *are* that
+SFU. The hole and the decision line up.
+
+#### The real blocker for stacks is not ports
+
+Worth stating clearly, because the question pointed at ports and the
+actual obstacle is somewhere else. The converter emits **one app per
+HTTP service**, and the runtime rejects anything else:
+
+> `exactly one service is supported in runtime increment 1`
+
+A Jitsi stack is four containers that must run together and talk to
+each other. What stops it is not UDP — it is that we cannot express a
+multi-container app.
+
+**The good news is that the model already allows it.** The manifest
+schema takes `services` as an object with `minProperties: 1` and **no
+upper bound**; multi-service apps were designed in from the start
+(RFC-0004). The restriction is one check in the implementation,
+labelled as an increment. Stacks therefore need an existing concept
+**finished**, not a new one invented — and that work belongs to
+RFC-0004's increment, not here.
+
+Two things must be settled when it is finished, both found while
+checking this:
+
+1. **`routes` requires at least one entry.** An app that is *only* a
+   non-HTTP service — a bare broker for devices — cannot be declared
+   at all today. This RFC's endpoints make such an app meaningful for
+   the first time, so the "at least one route" rule needs revisiting.
+2. **Instances already share one flat network.** Containers are named
+   `oaap-app-<instance>` on `oaap_default`, so instances *can* reach
+   each other by name — Jörg's "wire several instances together" is
+   technically real today. But so is the converse: **every app can
+   reach every other app, and nothing declares or restricts it.** If
+   instance-wiring becomes an endorsed pattern we are endorsing a flat
+   trust zone, and the apps most likely to be wired that way are
+   `wrapped` third-party images sitting on the same network as a
+   customer's CRM. This should be named before it becomes doctrine.
+
+### Question B: can non-HTTP traffic be routed by domain?
+
+*"Can one forward non-HTTP ports to internal ports depending on a
+domain, without knowing what kind of port it is?"*
+
+**Yes — for TLS over TCP, and the answer is stronger than the growth
+path sketched above suggests.**
+
+Every TLS connection opens with a ClientHello that is sent **in
+cleartext, before encryption begins**, and it carries **SNI**: the
+hostname the client is asking for. A layer-4 proxy reads that one
+field, chooses a target, and then pipes bytes through **without
+decrypting them and without knowing the protocol**. That is precisely
+the question: routing by domain, protocol-agnostic. HAProxy
+(`req.ssl_sni`), nginx (`ssl_preread`) and Caddy (via the `caddy-l4`
+module) all do it.
+
+**What it changes is the scarcity.** The port stops being the
+identifier, so many services on many domains share **one** port — and
+443 is already forwarded. A TLS broker at `mqtt.kunde.de:443` would
+need **no new router forward at all**. It also restores RFC-0006: an
+edge can forward by SNI to the owning platform exactly as it forwards
+by `Host` today. The claim in §"It is node-local, and that must be
+printed" is therefore too absolute and is corrected here: it holds for
+plaintext and for UDP, not for TLS over TCP.
+
+**Three honest costs.**
+
+1. **The certificate has to go somewhere.** With pure passthrough the
+   app must present the certificate for its own name — for a
+   `wrapped` third-party image, often impossible to configure. The
+   better variant is that the **proxy terminates TLS and forwards
+   plaintext inside**: the platform keeps ACME and the app speaks its
+   protocol unencrypted on the internal network. This needs no
+   protocol knowledge either, and it preserves the thing that makes
+   OAAP easy. The price is that the app can no longer do client
+   certificate authentication and cannot see the TLS layer at all.
+2. **TCP only.** UDP has no handshake and no name. DTLS does carry SNI
+   in its ClientHello, but afterwards the packets are SRTP with no
+   name in them, so routing would mean tracking connections by
+   5-tuple — exotic, fragile, and not something we should build. **The
+   media path, which is the reason this whole thread exists, stays
+   port-based.** SNI solves MQTT elegantly and media not at all.
+3. **It needs a gateway we do not build.** We run the official
+   `caddy:2` image; `caddy-l4` is a plugin requiring a self-built
+   image (xcaddy), with our own supply chain and update cadence — or
+   a second proxy component in front. Neither is free.
+
+**One security observation.** An SNI router decides on a name the
+*client* asserts, before anything is authenticated. That is
+acceptable — the app still authenticates, and the name is a
+switchboard rather than a boundary — but it must not be described as
+access control. The useful side effect is the incentive: **SNI routing
+rewards TLS**, because plaintext protocols cannot use it. That pushes
+in the right direction, as long as we do not accidentally make the
+plaintext port the more convenient option.
+
+### Decided on the addendum (Jörg, 2026-08-11)
+
+**A1. Multi-container apps: yes, build the foundations.** They will be
+needed. Work belongs under RFC-0004's increment.
+
+**A3. A separate layer-4 component in front, not a self-built Caddy.**
+Jörg's reasoning: he does not want to build everything himself. Taken.
+
+**A2. The SNI variant — and why the answer flipped.** Jörg deferred to
+the recommendation, which was "terminate". **A3 changes that
+recommendation, and the two answers interact in a way worth spelling
+out.** "Terminate" was cheap on the assumption that the terminator was
+the gateway we already run, which already does ACME. Once the
+component in front is one we deliberately do not build, "terminate"
+means acquiring a second TLS terminator *with its own certificate
+management* — the opposite of not building things. So:
+
+- **Shape 1 — passthrough plus a platform-issued certificate file
+  (recommended).** The layer-4 component reads SNI and decrypts
+  nothing: platform names are piped to Caddy exactly as today, endpoint
+  names to the app container. The platform obtains the certificate for
+  the endpoint name — it already runs ACME — and mounts it into the
+  container as a file. Exactly **one** thing manages certificates, the
+  layer-4 component stays dumb and replaceable, and nothing anywhere
+  needs to know the protocol. The cost is real and bounded: the app
+  must be able to load a certificate file and pick up a renewal.
+  Mosquitto and coturn both can; Jitsi's media path uses no TLS at all.
+- **Shape 2 — a terminating component with its own ACME** (Traefik and
+  similar). The app then needs no TLS at all, which suits a dumb
+  third-party image. The price is a second certificate manager: a
+  second thing that silently stops renewing.
+
+**Recommendation: Shape 1 first**, and Shape 2 only when a real app
+turns up that cannot load a certificate file — the same rule applied
+to runtime secrets in RFC-0013. Flagged rather than silently
+implemented because it reverses an earlier recommendation of mine.
+
+**A4 — the question was badly put, and answering it properly turned up
+a defect.** See below.
+
+### A4: app-to-app isolation — the question, corrected
+
+Jörg's reading was: a compose stack shares an internal network, its
+containers know each other, boundaries are drawn deliberately, and
+anything reaching outside must be declared and granted; internal routes
+between two apps would then be an explicit, portal-managed act, which
+is better than sending app-to-app traffic across the public internet.
+
+**That model is right. It is the target. It is not what runs today** —
+and the gap is larger than "app A can reach app B".
+
+**Every app instance runs on the single network `oaap_default`**
+(`docker run … --network oaap_default`), **together with the
+platform's own services** — gateway, identity and portal. There is no
+per-app network and no boundary of any kind.
+
+The consequence is not mainly about apps talking to each other. It is
+that the identity service is on that network, and **its internal API
+has no authentication at all**. The protection is stated in its own
+source:
+
+> `Internal API — only reachable on the container network (spec 4.3).`
+> `The portal is responsible for admin authorization of its callers.`
+
+`POST /internal/users` accepts a username, a password and a **role
+list** and writes the user. Identity listens on `0.0.0.0:8000` and is
+resolvable by name on that network. So any code inside any app
+container can create itself a `server_admin` account with a single
+HTTP request — full platform administration, from inside an app.
+
+**Why this is a defect and not a design debate.** RFC-0002's guarantee
+is enforced perfectly on the way *in*: nothing reaches an app without
+passing the gateway. There is no equivalent **sideways**. And the
+apps this most concerns are exactly the ones RFC-0012's trust classes
+were built for: a `wrapped` third-party image the operator confirmed
+once in the store. The implicit promise of that confirmation is that
+the app runs contained. It does not.
+
+Scope, stated honestly: exploiting it requires being able to install
+an app, which is `server_admin` (or a `dev` node with a git URL). It
+is not reachable from the internet. It means: **any app you install
+can escalate to full server administration** — including third-party
+images running right now (Forgejo, Uptime Kuma) and apps built by
+other people's AIs.
+
+**The fix, cheapest first:**
+
+1. **Authenticate the internal API.** A shared secret between portal
+   and identity, delivered the way `SESSION_SECRET` already is. Closes
+   the escalation path on its own, needs no network surgery, and can
+   ship immediately.
+2. **A network per app.** The gateway joins each app's network to
+   reach it; apps reach neither each other nor the platform services.
+   This is Jörg's model, and it is the structural fix.
+3. **Declared internal links, managed in the portal** — Jörg's own
+   proposal, and correct: once each app is isolated, wiring two of
+   them becomes an explicit, auditable, revocable act. Strictly better
+   than today's "everything sees everything", and far better than
+   routing app-to-app traffic over the public internet.
+
+**The convergence worth noticing:** a multi-container app needs its
+own network so its containers can find each other — which is the same
+work as step 2. **The foundation Jörg approved in A1 and the fix for
+A4 are one build step**, not two.
 
 ## Deutsche Zusammenfassung
 
