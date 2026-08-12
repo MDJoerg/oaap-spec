@@ -1,7 +1,7 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.8
+- **Version:** 0.2.9
 - **Maturity:** draft (0.2 adds remote deployment via deploy tokens;
   0.2.1 adds the one-click store install in 2.6 with test 17; 0.2.2
   adds instance visibility in 2.7 and moves platform-level portal
@@ -25,11 +25,16 @@
   `secret: true` promises and what it does not — exposure through the
   platform's surfaces, not encryption at rest, and therefore nothing
   about backups. Nothing changes; an unstated promise about credentials
-  was the risk, per RFC-0013 §5)
+  was the risk, per RFC-0013 §5; 0.2.8 adds per-instance network
+  isolation and app-to-app links in the new 2.11, per RFC-0016 — closing
+  structurally the escalation the 0.1.29 key only guarded; 0.2.9 adds
+  multi-container apps in the new 2.12 and moves the health probe through
+  the gateway, since isolated apps are no longer reachable by name)
 - **Based on:** RFC-0001 (capability model), RFC-0002 (roles/gateway),
   RFC-0003 (placement), RFC-0004 (manifest/app types), RFC-0005
   (addressing), RFC-0007 (visibility groups), RFC-0008 (server_admin),
-  RFC-0011 (node profiles), RFC-0012 (store sources and list format);
+  RFC-0011 (node profiles), RFC-0012 (store sources and list format),
+  RFC-0016 (app isolation and multi-container apps);
   platform side of the App Deployment Contract
   (`docs/app-deployment-contract.md`)
 
@@ -125,9 +130,38 @@ other app and from the platform's own services.
   control is a possible later, profile-gated capability, out of scope
   here.
 
-The manifest is unaffected: an app declares routes and services as
-before. Isolation, gateway bridging and links are the platform's and
-the operator's concern, not the app author's.
+Because apps are isolated, the platform's own services can no longer
+reach them by container name either — including the portal's health
+probe. The health check therefore goes **through the gateway** (the one
+core service on every app network): the gateway exposes an internal,
+platform-network-only endpoint that proxies to each instance's health
+path, and the portal asks it. Apps cannot reach that endpoint (they are
+not on the platform network).
+
+### 2.12 Multi-container apps (RFC-0016)
+
+An app MAY declare more than one service. Each service runs as its own
+container on the instance's network (2.11) and answers to its bare
+service name there (so a wrapped compose stack's cross-references —
+a UI addressing `db`, a bridge addressing `prosody` — keep working).
+
+- **Routes** name their target service (`service:` on the route). The
+  field may be omitted only when the app has exactly one service, so
+  every single-service manifest stays valid. Each route is proxied to
+  its service's container and port.
+- **Storage** entries likewise name their service (default: the primary
+  service). Each mount is attached to the container that owns it.
+- The **primary service** is the one serving `/` (else the first route's
+  service, else the first service). It carries the app-level health
+  check and the instance's default entry point.
+- Non-web services (a database, an internal broker port) carry no route
+  and are never published — the same rule as a single-service app, now
+  meaningful.
+
+The manifest otherwise is unaffected: a single-service app declares
+routes and services exactly as before. Isolation, gateway bridging,
+links and multi-service wiring are the platform's and the operator's
+concern, not extra work for the app author.
 
 ### 2.4 Contract delivery (what the runtime MUST provide)
 
@@ -583,6 +617,15 @@ to `app.type` (2.2), which says how it is *packaged*:
     network (B's private siblings stay unreachable); the link survives a
     redeploy of either instance; revoking it, or removing either
     instance, tears the dedicated network down.
+36. **Multi-container app (2.12)**: an app with two services installs as
+    two containers on one instance network; a route declared for each is
+    proxied to the right container; the two resolve each other by bare
+    service name; removing the instance removes both containers and the
+    network. A single-service manifest (no `service` on its routes)
+    installs and runs unchanged.
+37. **Health through the gateway (2.11)**: the portal's health page
+    reports each isolated app's real state, obtained via the gateway's
+    internal probe endpoint; an app container cannot reach that endpoint.
 
 ## 6. Dependencies
 
@@ -827,3 +870,23 @@ beitreten (A wird **nicht** in Bs eigenes Netz gehängt — Bs interne
 Container bleiben privat), und ist widerrufbar. Beim Entfernen einer
 Instanz werden ihr Netz und alle Links, die sie betrafen, abgeräumt.
 Bestehende Apps wandern beim `oaap update` automatisch auf eigene Netze.
+
+## Deutsche Zusammenfassung (Mehr-Container-Apps, v0.2.9, RFC-0016)
+
+Eine App darf jetzt **mehrere Dienste** haben (Abschnitt 2.12). Jeder
+Dienst läuft als eigener Container im Instanz-Netz und ist dort unter
+seinem **bloßen Dienstnamen** erreichbar — genau so, wie sich die
+Container eines fertigen compose-Stacks gegenseitig ansprechen (eine
+Oberfläche ruft `db`, eine Brücke ruft `prosody`). **Routen** benennen
+ihren Ziel-Dienst (`service:`), **Storage**-Einträge ebenso; bei genau
+einem Dienst darf die Angabe fehlen, also bleibt jedes bisherige
+Manifest gültig. Der **Primärdienst** (die Route `/`, sonst der erste)
+trägt den Healthcheck und den Standard-Eingang. Dienste ohne Route
+werden nie veröffentlicht.
+
+Weil isolierte Apps nicht mehr per Containername erreichbar sind, geht
+die **Gesundheitsprüfung** des Portals jetzt **über das Gateway** (den
+einzigen Kerndienst auf jedem App-Netz): eine interne, nur
+plattformintern erreichbare Weiche am Gateway reicht die Prüfung an den
+Health-Pfad jeder Instanz weiter. Eine App kommt an diese Weiche nicht
+heran.
