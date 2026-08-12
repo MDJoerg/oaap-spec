@@ -1,7 +1,7 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.9
+- **Version:** 0.2.10
 - **Maturity:** draft (0.2 adds remote deployment via deploy tokens;
   0.2.1 adds the one-click store install in 2.6 with test 17; 0.2.2
   adds instance visibility in 2.7 and moves platform-level portal
@@ -29,11 +29,15 @@
   isolation and app-to-app links in the new 2.11, per RFC-0016 — closing
   structurally the escalation the 0.1.29 key only guarded; 0.2.9 adds
   multi-container apps in the new 2.12 and moves the health probe through
-  the gateway, since isolated apps are no longer reachable by name)
+  the gateway, since isolated apps are no longer reachable by name;
+  0.2.10 adds non-HTTP endpoints in the new 2.13 — an app may declare one
+  gateway-bypassing port, published only on an operator grant on an
+  `exposed` node, per RFC-0015)
 - **Based on:** RFC-0001 (capability model), RFC-0002 (roles/gateway),
   RFC-0003 (placement), RFC-0004 (manifest/app types), RFC-0005
   (addressing), RFC-0007 (visibility groups), RFC-0008 (server_admin),
   RFC-0011 (node profiles), RFC-0012 (store sources and list format),
+  RFC-0015 (non-HTTP endpoints),
   RFC-0016 (app isolation and multi-container apps);
   platform side of the App Deployment Contract
   (`docs/app-deployment-contract.md`)
@@ -162,6 +166,36 @@ The manifest otherwise is unaffected: a single-service app declares
 routes and services exactly as before. Isolation, gateway bridging,
 links and multi-service wiring are the platform's and the operator's
 concern, not extra work for the app author.
+
+### 2.13 Non-HTTP endpoints (RFC-0015)
+
+An app MAY **declare** at most one non-HTTP endpoint (e.g. a media or
+device port) in its manifest: `name`, `protocol` (`udp`/`tcp`/`both`),
+`container_port`, an optional wished-for host port, a mandatory
+`reason`, and an optional `service`. Declaration is **not** publication.
+
+- Nothing is opened until a `server_admin` **grants** it per instance,
+  and only on a node carrying the `exposed` profile — granting a
+  gateway-bypassing port is exactly the power that profile marks a node
+  as willing to give. The profile is checked wherever the grant is
+  applied, not only where the button is.
+- The platform **assigns the host port** — the wished-for one if free,
+  else the next free in a reserved range — and tells the app via
+  `OAAP_ENDPOINT_PORT`. The app never chooses its published port; a
+  wish is a wish, not a demand.
+- A granted endpoint **bypasses the gateway entirely**: no
+  authentication, no role check, no throttling, no access log. The app
+  alone controls who it admits. The grant surface MUST say this plainly
+  and require confirmation — it is the `public` route one notch further
+  (a `public` route still passes through the gateway; this does not).
+- The address is **node-local**: the edge cannot forward it, and it is
+  never carried in a backup. A granted endpoint **survives redeploy**
+  (the operator's decision to open a port is not undone by a
+  deployment); on **restore** the grant is dropped and reported, because
+  the assigned port and the router forward belong to the machine.
+- The platform states the **router forward** the operator must create.
+  Confirming from outside that the forward actually works (a
+  reachability watchdog, RFC-0015 decision Q4) is a later increment.
 
 ### 2.4 Contract delivery (what the runtime MUST provide)
 
@@ -626,6 +660,14 @@ to `app.type` (2.2), which says how it is *packaged*:
 37. **Health through the gateway (2.11)**: the portal's health page
     reports each isolated app's real state, obtained via the gateway's
     internal probe endpoint; an app container cannot reach that endpoint.
+38. **Endpoint grant needs the profile (2.13, RFC-0015)**: granting a
+    declared endpoint is refused on a node without the `exposed`
+    profile — through the CLI and through the portal's queued path. On
+    an `exposed` node the grant assigns a host port and publishes it.
+39. **A granted endpoint bypasses the gateway (2.13)**: after a grant,
+    the raw port reaches the app directly with no login, while the app's
+    HTTP route still requires authentication; the grant survives a
+    redeploy; `deny`, or removing the instance, closes the port.
 
 ## 6. Dependencies
 

@@ -642,6 +642,43 @@ own network so its containers can find each other — which is the same
 work as step 2. **The foundation Jörg approved in A1 and the fix for
 A4 are one build step**, not two.
 
+## Implementation status (2026-08-12, reference 0.1.32)
+
+Built and verified on oaap-test; fleet on 0.1.32.
+
+- **Manifest**: `endpoints` (at most one) with
+  `name`/`protocol`(`udp`|`tcp`|`both`)/`container_port`/`wish`/`reason`/
+  `service`. Schema and validation shipped.
+- **Node profile `exposed`** added (RFC-0011 mechanism). Grant is
+  refused without it, on the CLI **and** re-checked in the portal's
+  host-side worker — the button is not the boundary. A node may hold
+  `dev` and `exposed` together (RFC-0016's set model).
+- **Grant/deny**: `oaap app endpoint list|allow|deny` and a portal card
+  "Direkter Port" on the instance object page. The platform assigns the
+  host port (the `wish` if free, else the next free in 8200–8299),
+  publishes it straight to the container (bypassing the gateway), and
+  tells the app via `OAAP_ENDPOINT_PORT`. `both` publishes the same
+  number for udp and tcp.
+- **The loud warning** (no auth / no roles / no throttle / no log) and
+  the **router forward to create** are printed at grant time and shown
+  on the card; the portal grant requires an explicit confirm.
+- **Survives redeploy** like the address; **on restore the grant is
+  dropped and reported** (the port and the router forward are
+  machine-local). Removing the instance closes the port.
+- **Proven on oaap-test**: profile gate refuses without `exposed`;
+  after granting, the raw port reaches the app directly with **no
+  login** (HTTP 200) while the gateway route still redirects to login
+  (303); the wished-for port was honoured; the grant survived a
+  redeploy; `deny` closed the port.
+
+**Deferred, and named rather than hidden:** the external reachability
+watchdog of decision Q4 — "does the router forward actually exist" — is
+**not** built. It needs an outside probe service (the DNS watchdog of
+RFC-0009 is the model), and a UDP probe in particular is not something
+to ship unverified. For now the platform *tells the operator which
+forward to create* but does not yet *confirm from outside that it
+works*. This is the one open piece of RFC-0015.
+
 ## Deutsche Zusammenfassung
 
 **Worum es geht.** Alles, was eine OAAP-App heute erreichbar macht,

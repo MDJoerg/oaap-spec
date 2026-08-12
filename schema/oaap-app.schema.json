@@ -252,6 +252,53 @@
           }
         }
       }
+    },
+    "endpoints": {
+      "type": "array",
+      "maxItems": 1,
+      "description": "RFC-0016/RFC-0015: at most one non-HTTP endpoint the app may declare; published only after an operator grants it on an 'exposed' node.",
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "protocol",
+          "container_port",
+          "reason"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9-]*$"
+          },
+          "protocol": {
+            "enum": [
+              "udp",
+              "tcp",
+              "both"
+            ]
+          },
+          "container_port": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535
+          },
+          "wish": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535,
+            "description": "desired published host port; granted if free, otherwise the platform assigns another"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          },
+          "service": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9-]*$"
+          }
+        }
+      }
     }
   }
 }
