@@ -1,7 +1,7 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.10
+- **Version:** 0.2.11
 - **Maturity:** draft (0.2 adds remote deployment via deploy tokens;
   0.2.1 adds the one-click store install in 2.6 with test 17; 0.2.2
   adds instance visibility in 2.7 and moves platform-level portal
@@ -32,7 +32,9 @@
   the gateway, since isolated apps are no longer reachable by name;
   0.2.10 adds non-HTTP endpoints in the new 2.13 — an app may declare one
   gateway-bypassing port, published only on an operator grant on an
-  `exposed` node, per RFC-0015)
+  `exposed` node, per RFC-0015; 0.2.11 adds the reachability self-test to
+  2.13 (RFC-0015 Q4 stage 1) and the `fixed: true` endpoint option for
+  servers that advertise their own port, per RFC-0017 §5.1)
 - **Based on:** RFC-0001 (capability model), RFC-0002 (roles/gateway),
   RFC-0003 (placement), RFC-0004 (manifest/app types), RFC-0005
   (addressing), RFC-0007 (visibility groups), RFC-0008 (server_admin),
@@ -171,8 +173,9 @@ concern, not extra work for the app author.
 
 An app MAY **declare** at most one non-HTTP endpoint (e.g. a media or
 device port) in its manifest: `name`, `protocol` (`udp`/`tcp`/`both`),
-`container_port`, an optional wished-for host port, a mandatory
-`reason`, and an optional `service`. Declaration is **not** publication.
+`container_port`, an optional wished-for host port, an optional
+`fixed` flag, a mandatory `reason`, and an optional `service`.
+Declaration is **not** publication.
 
 - Nothing is opened until a `server_admin` **grants** it per instance,
   and only on a node carrying the `exposed` profile — granting a
@@ -182,7 +185,13 @@ device port) in its manifest: `name`, `protocol` (`udp`/`tcp`/`both`),
 - The platform **assigns the host port** — the wished-for one if free,
   else the next free in a reserved range — and tells the app via
   `OAAP_ENDPOINT_PORT`. The app never chooses its published port; a
-  wish is a wish, not a demand.
+  wish is a wish, not a demand. **Exception — `fixed: true`** (RFC-0017
+  §5.1): a server that advertises its own port to clients (a media
+  server's ICE candidates carry the exact number) cannot accept a
+  reassigned one. A fixed endpoint is published unchanged (`host_port ==
+  container_port`, which MUST lie in the reserved range) and a grant on
+  a node where the port is taken **fails loudly** rather than picking
+  another. This is the only case where the port is a requirement.
 - A granted endpoint **bypasses the gateway entirely**: no
   authentication, no role check, no throttling, no access log. The app
   alone controls who it admits. The grant surface MUST say this plainly
@@ -193,9 +202,13 @@ device port) in its manifest: `name`, `protocol` (`udp`/`tcp`/`both`),
   (the operator's decision to open a port is not undone by a
   deployment); on **restore** the grant is dropped and reported, because
   the assigned port and the router forward belong to the machine.
-- The platform states the **router forward** the operator must create.
-  Confirming from outside that the forward actually works (a
-  reachability watchdog, RFC-0015 decision Q4) is a later increment.
+- The platform states the **router forward** the operator must create,
+  and **checks the port's reachability** (RFC-0015 decision Q4, stage 1
+  in 0.1.33): a self-test from the node confirms the port answers at the
+  node's public address (TCP by connecting, UDP by a STUN request), and
+  reports "not confirmed from here" rather than a false failure when the
+  router does not hairpin. An outside reflector (stage 2) is a later
+  increment. Detail is in `oaap.core.portal` §2.5.
 
 ### 2.4 Contract delivery (what the runtime MUST provide)
 

@@ -162,6 +162,16 @@ breaks media. It keeps the wish default for everything else and reopens
 RFC-0015 only by addition, not by changing what is already decided. This
 is the single decision this RFC most needs from Jörg before the build.
 
+> **Decided (2026-08-12): (b), and already built in 0.1.34.** An endpoint
+> may declare `fixed: true`. The port then equals `container_port`, is
+> published unchanged (`host_port == container_port`), and a grant on a
+> node where that port is taken **fails loudly** instead of reassigning.
+> A fixed `container_port` must lie in 8200–8299 so it cannot clash with a
+> platform port. Default stays "wish". Verified on oaap-test: a fixed
+> endpoint published `-p 8215:8215` for udp+tcp with `OAAP_ENDPOINT_PORT=
+> 8215`; a second instance demanding the same port was refused with a
+> clear message and a non-zero exit.
+
 ### 5.2 Growth path to a shared service
 
 Decision 1 keeps this a reference app but asks it to be growth-open. The

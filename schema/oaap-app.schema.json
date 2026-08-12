@@ -287,11 +287,11 @@
             "type": "integer",
             "minimum": 1,
             "maximum": 65535,
-            "description": "desired published host port; granted if free, otherwise the platform assigns another"
+            "description": "desired published host port; granted if free, otherwise the platform assigns another (ignored when fixed:true, where container_port IS the port)"
           },
-          "reason": {
-            "type": "string",
-            "minLength": 1
+          "fixed": {
+            "type": "boolean",
+            "description": "RFC-0017 §5.1: the port is a requirement, not a wish. Used by servers that advertise their own port to clients (a media server: ICE candidates carry the exact port). When true the endpoint is published unchanged (host_port == container_port), container_port MUST be in 8200-8299, and a grant fails loudly if the port is taken rather than reassigning."
           },
           "service": {
             "type": "string",

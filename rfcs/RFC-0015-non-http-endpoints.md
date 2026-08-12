@@ -659,6 +659,13 @@ Built and verified on oaap-test; fleet on 0.1.32.
   publishes it straight to the container (bypassing the gateway), and
   tells the app via `OAAP_ENDPOINT_PORT`. `both` publishes the same
   number for udp and tcp.
+- **Fixed port** (RFC-0017 §5.1, added 0.1.34): an endpoint may set
+  `fixed: true` when the app advertises its own port to clients (a media
+  server's ICE candidates carry the exact number). The port is then a
+  requirement, not a wish — published unchanged (`host_port ==
+  container_port`, which must be in 8200–8299) and a grant **fails loudly**
+  if the port is taken rather than reassigning to a number the app never
+  announced. The wish default is unchanged for every other endpoint.
 - **The loud warning** (no auth / no roles / no throttle / no log) and
   the **router forward to create** are printed at grant time and shown
   on the card; the portal grant requires an explicit confirm.
