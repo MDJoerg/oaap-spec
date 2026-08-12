@@ -1,15 +1,17 @@
 # oaap.core.gateway — HTTP Gateway (outline)
 
 - **ID:** `oaap.core.gateway`
-- **Version:** 0.2.4
+- **Version:** 0.2.5
 - **Maturity:** draft (outline — full specification to follow;
   §Edge routing added 2026-08-07 per RFC-0006; visibility groups
   parameter added 2026-08-07 per RFC-0007; per-instance public
   hostnames added 2026-08-08 per RFC-0009; public-route throttling and
   the WebSocket forward-auth fix added 2026-08-08 per RFC-0010;
-  app-network membership added 2026-08-12 per RFC-0016)
+  app-network membership added 2026-08-12 per RFC-0016; per-instance
+  hostnames extended to a canonical name plus aliases 2026-08-12 per
+  RFC-0018)
 - **Based on:** RFC-0001, RFC-0002, RFC-0003, RFC-0006, RFC-0007,
-  RFC-0008, RFC-0009, RFC-0010, RFC-0016
+  RFC-0008, RFC-0009, RFC-0010, RFC-0016, RFC-0018
 
 ## Purpose
 
@@ -120,33 +122,42 @@ page; the same mechanism will serve deliberately-offline routes
 an OAAP-branded page to custom content. Details are deferred to the
 full specification; RFC-0006 resolved question 3 records the decision.
 
-## Per-instance public hostnames (RFC-0009)
+## Per-instance public hostnames (RFC-0009, extended by RFC-0018)
 
 Besides the automatic `<instance>.<external hostname>` subdomains
-above, a single app instance MAY register a public hostname **of its
-own** — one that does not derive from the node's name and therefore
-survives the app moving to another node. The gateway serves it as an
-additional site for that instance:
+above, an app instance MAY register public hostnames **of its own** —
+names that do not derive from the node's name and therefore survive the
+app moving to another node. Since RFC-0018 that is **one canonical name
+plus zero or more aliases**: the canonical name is the one the platform
+reports and that is meant to be embedded in shipped clients; aliases are
+additional names, fully reachable, under the same protection. The
+gateway serves **one site per name** — canonical and each alias alike:
 
 1. built from the **same** route/role/group block as every other entry
    point of that instance — default deny, reserved `/auth/*`,
-   anti-spoofing and visibility groups apply unchanged. Its own
-   address grants an app nothing extra;
+   anti-spoofing and visibility groups apply unchanged. An own name (or
+   an alias) grants an app nothing extra; a name is a front door, not a
+   permission;
 2. in **direct** mode: a TLS site with ACME plus an explicit
-   HTTP→HTTPS redirect;
+   HTTP→HTTPS redirect, per name;
 3. in **behind-edge** mode: plain HTTP, no ACME, no redirect, and only
    from the edge address — points 1–4 of the backend-side rules above
-   apply verbatim, for the same reasons;
+   apply verbatim, for the same reasons; the edge needs one route per
+   name;
 4. **additive** — the automatic node subdomain keeps working, so
    clients can migrate gradually;
 5. **collision-refusing**: a name is rejected if it is or lies under
    the node's own external hostname, if an edge route on this node
-   covers it, or if another instance already holds it; symmetrically,
-   an edge route that would capture a local instance's hostname is
-   rejected. The gateway never silently resolves such a conflict.
+   covers it, or if any instance already holds it **as a canonical name
+   or an alias**; symmetrically, an edge route that would capture a
+   local instance's hostname is rejected. The gateway never silently
+   resolves such a conflict. An alias may be registered only once the
+   instance has a canonical name; removing the canonical name while
+   aliases remain is refused.
 
-DNS and port forwarding for the name are the operator's responsibility
-(RFC-0006's division of labour, unchanged).
+DNS and port forwarding for **every** name are the operator's
+responsibility (RFC-0006's division of labour, unchanged); on a restore
+all names travel with the app and each must be repointed by hand.
 
 ## Public-route throttling (RFC-0010)
 
@@ -158,8 +169,8 @@ reached.
 - On by default (reference default: 300 requests per 60 s), adjustable
   per instance and switchable off by `server_admin`.
 - **One budget per instance**, shared by every entry point it has (LAN
-  listener, node subdomain, own hostname) — a limit that can be
-  bypassed by changing entry point is not a limit.
+  listener, node subdomain, canonical name and every alias) — a limit
+  that can be bypassed by changing entry point is not a limit.
 - The **gateway determines the client address**: the TCP peer in direct
   mode, the address vouched for by the edge in behind-edge mode. A
   client-supplied `X-Forwarded-For` is never used, and the edge
@@ -230,6 +241,17 @@ Endlosschleife — dieselbe Regel wie bei Knotennamen seit RFC-0006).
 Die alte Adresse bleibt gültig, damit Clients in Ruhe umziehen können.
 Namenskonflikte werden abgelehnt statt stillschweigend aufgelöst.
 DNS-Eintrag und Portfreigabe bleiben Sache des Betreibers.
+
+**Erweiterung (RFC-0018, v0.2.5):** Aus dem einen eigenen Namen werden
+**ein Hauptname plus beliebig viele Aliasse**. Der Hauptname ist DIE
+Adresse (wird gemeldet, in Clients eingebaut); Aliasse sind gleichwertig
+erreichbar, aber nicht „die" Adresse — und stehen unter genau demselben
+Schutz (kein Schlupfloch). Das Gateway liefert **ein Site je Name**
+(direkt je ein Zertifikat + Umleitung, hinter Edge je eine Edge-Route).
+Kollisionen werden gegen **alle** Namen jeder Instanz geprüft. Ein Alias
+geht erst mit vorhandenem Hauptnamen; den Hauptnamen zu entfernen,
+solange Aliasse hängen, wird abgelehnt. Beim Umzug reisen **alle** Namen
+mit und werden einzeln zum Umbiegen gemeldet.
 
 ## Deutsche Zusammenfassung (Drosselung öffentlicher Routen, v0.2.3)
 

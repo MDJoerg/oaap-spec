@@ -1,13 +1,15 @@
 # oaap.data.backup — Platform Backup & Restore
 
 - **ID:** `oaap.data.backup`
-- **Version:** 0.1.1
-- **Maturity:** draft (0.1.1 draws the line between what belongs to the
-  **service** and travels — an instance's own address, RFC-0009 — and
-  what belongs to the **machine** and stays behind: node profiles,
-  RFC-0011)
+- **Version:** 0.1.2
+- **Maturity:** draft (0.1.2 extends "the address travels" to every name
+  an instance owns — canonical plus aliases, RFC-0018; 0.1.1 draws the
+  line between what belongs to the **service** and travels — an
+  instance's own address, RFC-0009 — and what belongs to the **machine**
+  and stays behind: node profiles, RFC-0011)
 - **Based on:** RFC-0001 (capability model), RFC-0003 (node topology —
   0.1 covers a single-node platform), RFC-0009 (instance address),
+  RFC-0018 (canonical name plus aliases),
   RFC-0011 (node profiles), App Deployment Contract (storage
   guarantee "included in platform backup"), `oaap.core.host` (installer
   `restore` mode), `oaap.apps.runtime` (instance registry and package
@@ -107,10 +109,11 @@ Rules:
 not.** The line is drawn once, and both sides are stated out loud
 rather than left to be discovered:
 
-- An instance's **own public hostname** (RFC-0009) is part of the
-  instance and MUST be restored with it — clients address the app, not
-  the box it happens to run on. Since that name still resolves to the
-  old machine right after a relocation, the restore MUST say so per
+- An instance's **own public hostnames** (RFC-0009, and its aliases per
+  RFC-0018) are part of the instance and MUST be restored with it —
+  clients address the app, not the box it happens to run on. Since those
+  names still resolve to the old machine right after a relocation, the
+  restore MUST say so **per name** (canonical and every alias) on each
   affected instance; pointing DNS at the new machine is the operator's
   next step, exactly as for the node's external hostname above.
 - The node's **profiles** (RFC-0011) describe the machine and MUST NOT
@@ -200,12 +203,13 @@ are restored as part of the flow, not from the backup.
 **Eine Linie, zweimal angewandt:** Was zum *Dienst* gehört, zieht mit
 um. Was zur *Maschine* gehört, bleibt zurück.
 
-- Die **eigene Adresse einer Instanz** (RFC-0009) gehört zur App und
-  wandert deshalb mit — Kunden sprechen die Anwendung an, nicht den
-  Kasten, auf dem sie zufällig läuft. Direkt nach einem Umzug zeigt
-  dieser Name aber noch auf die alte Maschine; die Wiederherstellung
-  sagt das jetzt für jede betroffene Instanz ausdrücklich, statt es
-  einen später beim Aufrufen entdecken zu lassen.
+- Die **eigenen Adressen einer Instanz** (RFC-0009, samt Aliassen nach
+  RFC-0018) gehören zur App und wandern deshalb mit — Kunden sprechen die
+  Anwendung an, nicht den Kasten, auf dem sie zufällig läuft. Direkt nach
+  einem Umzug zeigen diese Namen aber noch auf die alte Maschine; die
+  Wiederherstellung sagt das jetzt für **jeden Namen** (Haupt- und
+  Aliasname) jeder betroffenen Instanz ausdrücklich, statt es einen
+  später beim Aufrufen entdecken zu lassen.
 - Das **Knoten-Profil** (RFC-0011) beschreibt die Maschine und wandert
   deshalb **nicht** mit: Ein Werkbank-Backup, eingespielt auf einer
   Produktivmaschine, darf dort keine Entwicklerrechte mitbringen. Auch

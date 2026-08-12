@@ -21,3 +21,5 @@ never deleted; superseded RFCs get status `Superseded by RFC-XXXX`.
 - [RFC-0014](RFC-0014-manifest-owns-the-words.md) — The Manifest Owns the Words (Draft — six open questions)
 - [RFC-0015](RFC-0015-non-http-endpoints.md) — Declared Endpoints: What the Gateway Cannot Carry (Accepted)
 - [RFC-0016](RFC-0016-app-isolation-and-multi-container-apps.md) — App Isolation and Multi-Container Apps (Accepted)
+- [RFC-0017](RFC-0017-realtime-media-livekit-reference.md) — Real-Time Media as a Capability, LiveKit as the Reference (Draft)
+- [RFC-0018](RFC-0018-multiple-instance-names.md) — Several Public Names for One Instance: a Canonical Name and Aliases (Accepted)
