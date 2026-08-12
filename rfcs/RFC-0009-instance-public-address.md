@@ -121,6 +121,12 @@ sudo oaap app address remove <instance>
    incident (a node silently off the internet for days) is what this
    is for, and with client-embedded addresses the consequence is worse.
    Implementation belongs with `oaap.core.portal`'s health section.
+   *Follow-up (2026-08-12, reference 0.1.35):* the watchdog resolves
+   **dual-stack** — a name is "unresolved" only when neither A nor AAAA
+   answers, and a name that resolves only over IPv6 (a rebind-protected
+   CNAME seen from inside the LAN) is reported as "not comparable"
+   against the IPv4 public address rather than as a false failure. This
+   surfaced from Jörg's `bdt-hub-test.joomp.de` Fritzbox case.
 3. **On restore, the address travels and is reported clearly.** It
    belongs to the app — clients point at it and it must survive a move
    — but the DNS record has to be repointed by hand, so the restore

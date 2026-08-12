@@ -1,8 +1,13 @@
 # oaap.core.portal — Web Portal
 
 - **ID:** `oaap.core.portal`
-- **Version:** 0.3.10
-- **Maturity:** draft (0.3.10 adds the direct-port reachability watchdog
+- **Version:** 0.3.11
+- **Maturity:** draft (0.3.11 makes the published-names watchdog
+  resolve dual-stack (IPv4 **and** IPv6): a name that resolves only over
+  IPv6 — a Fritzbox rebind-protected CNAME seen from inside the LAN is
+  the real case — no longer reads as a false "does not resolve" or
+  "points elsewhere"; RFC-0009 follow-up;
+  0.3.10 adds the direct-port reachability watchdog
   to the health page — the sibling of the published-names watchdog,
   RFC-0015 decision Q4: a self-test that confirms a granted port answers
   at the node's public address, TCP by connecting and UDP by STUN, and
@@ -225,6 +230,15 @@ portal. It therefore differs from every other card:
     implementation MUST then report only whether the names resolve at
     all, and say why it can say no more — a guess would be worse than
     an honest "unknown".
+  - **Dual-stack resolution.** A name is resolved over IPv4 **and**
+    IPv6. It counts as "does not resolve" only when neither an A nor a
+    AAAA record answers. A name that resolves only over IPv6 — a
+    rebind-protected CNAME seen from inside the LAN is the real case —
+    MUST NOT read as unresolved, and MUST NOT be flagged "points
+    elsewhere" against the IPv4 public address; with nothing comparable
+    it reads as an honest "not comparable". (The public address is
+    discovered as IPv4 today; a v6-only name cannot be compared against
+    it, and saying so beats a false alarm.)
 - **Direct ports** (RFC-0015 decision Q4): for every granted direct
   endpoint (`oaap app endpoint allow`), whether the published port is
   actually reachable at this node's public address. A forgotten router
@@ -526,6 +540,14 @@ sie sagt, wann zuletzt geprüft wurde. Hinter einem Edge-Knoten zeigen
 die Namen auf dessen öffentliche Adresse, die von hier aus nicht
 feststellbar ist; dann steht dort nur, ob die Namen auflösen — und
 warum nicht mehr gesagt werden kann.
+
+*Nachtrag 0.3.11:* Der Wächter fragt jetzt **IPv4 und IPv6**. „Löst
+nicht auf" gilt nur noch, wenn weder ein A- noch ein AAAA-Eintrag
+antwortet. Ein Name, der von innen nur IPv6 liefert — genau Dein
+`bdt-hub-test.joomp.de` hinter dem Fritzbox-Rebind-Schutz — wird nicht
+länger fälschlich als „löst nicht auf" oder gar „zeigt woanders hin"
+angezeigt, sondern ehrlich als „Nur IPv6 (nicht vergleichbar)", weil
+die öffentliche Adresse heute als IPv4 ermittelt wird.
 
 **„Direkte Ports" (RFC-0015).** Der Zwilling der „Veröffentlichten
 Namen" und teilt sich mit ihnen die Mechanik: Der Namens-Wächter fragt
