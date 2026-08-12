@@ -1,7 +1,7 @@
 # oaap.core.identity — Identity & Roles
 
 - **ID:** `oaap.core.identity`
-- **Version:** 0.3.0
+- **Version:** 0.3.1
 - **Maturity:** draft
 - **Based on:** RFC-0001, RFC-0002, RFC-0007, RFC-0008
 - **Scope of this version:** built-in minimal identity provider with
@@ -161,7 +161,18 @@ independently.
 2. Session cookies are HttpOnly and SameSite=Lax at minimum.
 3. Management operations are only reachable through a
    server_admin-authenticated surface; the identity-internal API is
-   never exposed through the gateway.
+   never exposed through the gateway. **The internal API additionally
+   requires a shared platform key** (RFC-0015 addendum A4): being on the
+   internal container network is not proof of anything, because every
+   app instance runs on that same network. The key is held only by the
+   platform services that legitimately call the internal API (the
+   portal) and is delivered to them at install time; identity **fails
+   closed** — a missing key disables the internal API rather than
+   opening it. Login, `/verify` and app traffic do not use the internal
+   API and are unaffected. Without this, code inside any installed app
+   container could create itself a `server_admin` account. Superseded
+   in full once each app runs on its own network (RFC-0015 A4 step 2),
+   which removes the reachability rather than guarding it.
 4. Failed logins return a generic error (no username enumeration).
 5. Role, group and deactivation changes act on the next request (see 2.3).
 6. Anti-spoofing is the gateway's duty (deployment contract guarantee
@@ -200,6 +211,12 @@ independently.
    cannot reach `/users`, `/store`, `/instances` or `/health`; a user
    holding only `server_admin` (not `admin`) can manage users but does
    not automatically gain any app's own admin-level function.
+10. **Internal API requires the platform key** (RFC-0015 A4) — a request
+    to any `/internal/*` route without the shared key is rejected (401);
+    the same request with the key succeeds. With no key configured on
+    the node, every `/internal/*` route is disabled (503), never open.
+    The guard is by path prefix, so a newly added internal route is
+    covered without a per-route change.
 
 ## 6. Dependencies
 
@@ -237,3 +254,25 @@ für `server_admin`, nicht mehr für `admin`.
 irgendein Benutzer sie trägt. `/verify` prüft optional `?groups=...`
 zusätzlich zu den Rollen; `server_admin` sieht immer alles. Kein neuer
 Header an Apps — der Deployment Contract bleibt unverändert.
+
+## Deutsche Zusammenfassung (interne API mit Plattform-Schlüssel, v0.3.1)
+
+Ein bei der Beantwortung von RFC-0015 gefundener Sicherheitsfehler ist
+geschlossen. Die interne API von Identity (`/internal/*`, u. a.
+Benutzer anlegen samt Rollen) war allein dadurch geschützt, „im
+Container-Netz erreichbar" zu sein — **jede installierte App läuft aber
+in genau diesem Netz.** Damit konnte Code in jedem App-Container sich
+selbst ein `server_admin`-Konto anlegen und die ganze Plattform
+übernehmen (von außen nicht erreichbar, aber jede installierte App,
+auch fremde Images, hätte es gekonnt). Neu: Jeder Aufruf von
+`/internal/*` braucht einen **gemeinsamen Plattform-Schlüssel**, den
+nur die berechtigten Plattformdienste (das Portal) besitzen und der bei
+der Installation erzeugt wird. Identity **verweigert im Zweifel** —
+fehlt der Schlüssel, ist die interne API abgeschaltet, nicht offen.
+Anmeldung, `/verify` und App-Verkehr laufen nicht über die interne API
+und sind unberührt. Der Schutz per Pfad-Präfix deckt auch künftige
+`/internal/*`-Routen automatisch ab. Bestehende Knoten bekommen den
+Schlüssel bei `sudo oaap update` erzeugt und die beiden Dienste einmal
+neu erzeugt. **Die eigentliche Lösung** ist ein eigenes Netz je App
+(RFC-0015 A4, Schritt 2) — dieser Schlüssel schließt die Lücke sofort,
+bis die Netz-Trennung die Erreichbarkeit ganz beseitigt.
