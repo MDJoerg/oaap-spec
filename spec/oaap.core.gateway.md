@@ -1,14 +1,15 @@
 # oaap.core.gateway — HTTP Gateway (outline)
 
 - **ID:** `oaap.core.gateway`
-- **Version:** 0.2.3
+- **Version:** 0.2.4
 - **Maturity:** draft (outline — full specification to follow;
   §Edge routing added 2026-08-07 per RFC-0006; visibility groups
   parameter added 2026-08-07 per RFC-0007; per-instance public
   hostnames added 2026-08-08 per RFC-0009; public-route throttling and
-  the WebSocket forward-auth fix added 2026-08-08 per RFC-0010)
+  the WebSocket forward-auth fix added 2026-08-08 per RFC-0010;
+  app-network membership added 2026-08-12 per RFC-0016)
 - **Based on:** RFC-0001, RFC-0002, RFC-0003, RFC-0006, RFC-0007,
-  RFC-0008, RFC-0009, RFC-0010
+  RFC-0008, RFC-0009, RFC-0010, RFC-0016
 
 ## Purpose
 
@@ -45,6 +46,12 @@ happened and never see credentials.
 - **Topology** (RFC-0003): the gateway runs on the controller and also
   publishes apps that run on worker nodes; a worker whose controller is
   down is not reachable through the gateway.
+- **App network membership** (RFC-0016): each app instance runs on its
+  own network (`oaap.apps.runtime` 2.11); the gateway is the only core
+  service that joins those networks, which is how it proxies to apps
+  that are otherwise isolated from identity, portal and each other. The
+  membership is re-established whenever the gateway is recreated (every
+  platform update), or apps become unreachable (502).
 - **TLS termination** and port configuration (see `oaap.core.host`).
 
 ## Edge routing (RFC-0006)

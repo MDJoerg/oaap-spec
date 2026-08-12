@@ -1,7 +1,7 @@
 # RFC-0016: App Isolation and Multi-Container Apps
 
-- **Status:** Draft (2026-08-12) — direction chosen by Jörg on all four
-  forks; open questions are implementation detail, not direction
+- **Status:** Accepted (2026-08-12) — direction and the implementation
+  questions both decided by Jörg the same day
 - **Date:** 2026-08-12
 - **Authors:** Claude (proposal), Jörg (direction and decisions)
 - **Depends on:** RFC-0002 (security-first), RFC-0003 (topology),
@@ -230,6 +230,27 @@ state after any single app's recreate is consistent.
    backup` (link restore). Which spec owns the network model as its
    normative text? Recommendation: `oaap.apps.runtime`, with a gateway
    spec cross-reference.
+
+## Decided (Jörg, 2026-08-12)
+
+Direction and all five implementation questions settled the day the RFC
+was written.
+
+- **Scope: build the whole RFC** — isolation, multi-container, and links
+  together, not isolation alone. It is one build step.
+- **Q1 naming:** keep `oaap-app-<inst>` for the single-service case;
+  suffix `-<service>` only when an app has more than one service. No
+  rename of the eleven running apps.
+- **Q2 route→service:** an optional `service` on each route, defaulting
+  to the sole service. Every current manifest stays valid.
+- **Q3 link mechanism:** a **dedicated `oaap-link-<A>-<B>` network** both
+  instances join — not connecting A into B's whole network. Revocation
+  is a clean teardown, and A never gains the run of B's internal
+  containers, only the agreed wire.
+- **Q4 egress:** left **on** by default, as today. Per-app egress
+  control is noted as a later profile-gated capability, out of this RFC.
+- **Q5 spec home:** `oaap.apps.runtime` owns the normative network
+  model; `oaap.core.gateway` cross-references the bridging.
 
 ## Deutsche Zusammenfassung
 

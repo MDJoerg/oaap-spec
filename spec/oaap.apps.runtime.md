@@ -1,7 +1,7 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.7
+- **Version:** 0.2.8
 - **Maturity:** draft (0.2 adds remote deployment via deploy tokens;
   0.2.1 adds the one-click store install in 2.6 with test 17; 0.2.2
   adds instance visibility in 2.7 and moves platform-level portal
@@ -94,6 +94,40 @@ the core never comes from a store (RFC-0001).
   storage (mirroring `oaap uninstall` semantics).
 - Placement (RFC-0003): an instance MAY be pinned to a node (e.g. a
   test worker); default is the controller.
+
+### 2.11 Instance networks and isolation (RFC-0016)
+
+Each app instance runs on **its own network**, isolated from every
+other app and from the platform's own services.
+
+- On install the platform creates a per-instance network
+  (`oaap-inst-<instance>` in the reference); all container(s) of the
+  instance join it and resolve each other by name.
+- The **gateway** joins each instance network so it can proxy in. The
+  identity and portal services do **not** — an app can reach the
+  gateway and its own siblings, and nothing else. This is what makes
+  the platform's internal APIs unreachable from an app (closing the
+  escalation of RFC-0015 A4 structurally; the internal-API key of
+  `oaap.core.identity` 4.3 remains as defence in depth).
+- The gateway's membership MUST be restored whenever the gateway is
+  recreated (a platform update does this): after recreating core
+  services, the platform reconnects the gateway to every instance
+  network. A node that skips this leaves apps unreachable (502).
+- **App-to-app links** are the only way one app reaches another, and
+  they are an explicit operator decision, never in the manifest:
+  a link `A → B` is recorded in the registry (survives redeploy),
+  realised as a **dedicated network** both instances' primary
+  containers join (not by placing A on B's own network — B's private
+  containers stay private), and revocable (revocation tears the
+  dedicated network down). Removing an instance tears down its network
+  and every link that referenced it.
+- Outbound internet access is unchanged (on by default). Per-app egress
+  control is a possible later, profile-gated capability, out of scope
+  here.
+
+The manifest is unaffected: an app declares routes and services as
+before. Isolation, gateway bridging and links are the platform's and
+the operator's concern, not the app author's.
 
 ### 2.4 Contract delivery (what the runtime MUST provide)
 
@@ -404,8 +438,10 @@ to `app.type` (2.2), which says how it is *packaged*:
 
 - Default deny end to end: no app reachable without gateway
   authentication unless a route is explicitly `public` in its manifest.
-- Instance isolation: storage, secrets, and internal networks are per
-  instance; a test instance can never read production data.
+- Instance isolation: storage, secrets, and **networks** are per
+  instance (RFC-0016); a test instance can never read production data,
+  and no app can reach another app or the platform's own services
+  except through the gateway or an explicitly declared link (2.11).
 - `wrapped` apps with third-party images receive the same enforcement —
   platform security must not depend on app quality (RFC-0002).
 - Manifest-declared roles are the only path to route authorization;
@@ -532,6 +568,21 @@ to `app.type` (2.2), which says how it is *packaged*:
     store source, disabling that source, or removing it changes nothing
     about the tiles of instances already installed — the decision came
     from the manifest at install time.
+
+33. **App isolation (2.11, RFC-0016)**: after install, an app container
+    is on its own network only, not the platform network; it cannot
+    resolve or reach the identity/portal services, while the gateway
+    can; the app remains reachable through its entry point. A second
+    app installed alongside cannot reach the first.
+34. **Gateway link survives a recreate (2.11)**: after the gateway
+    container is recreated (as every platform update does), the platform
+    reconnects it to every instance network, and all apps are reachable
+    again — a node that ran the update never stays in the 502 state.
+35. **App-to-app link (2.11)**: a declared link `A → B` lets A reach B
+    by name on a dedicated network and does not put A on B's own
+    network (B's private siblings stay unreachable); the link survives a
+    redeploy of either instance; revoking it, or removing either
+    instance, tears the dedicated network down.
 
 ## 6. Dependencies
 
@@ -751,3 +802,28 @@ Manifest festgelegt, es gibt also keinen Weg, zur Laufzeit einen
 weiteren hinzuzufügen. Der Store Editor ist der erste echte Fall
 (RFC-0013 §5) — und die allgemeine Antwort wird bewusst so lange
 aufgeschoben, bis dieser Fall gebaut ist, statt sie zu erraten.
+
+## Deutsche Zusammenfassung (App-Isolation und -Links, v0.2.8, RFC-0016)
+
+Jede App-Instanz läuft ab jetzt in **ihrem eigenen Netz**, getrennt von
+allen anderen Apps und von den Plattformdiensten (Abschnitt 2.11). Nur
+das **Gateway** tritt jedem App-Netz bei — eine App erreicht das Gateway
+und ihre eigenen Container, aber weder eine andere App noch Identity
+oder Portal. Damit ist die interne API von Identity aus einer App
+**strukturell** unerreichbar (die Eskalation aus RFC-0015 A4 ist nicht
+mehr nur per Schlüssel abgewiesen, sondern gar nicht mehr erreichbar;
+der Schlüssel aus `oaap.core.identity` 4.3 bleibt als zweite Schicht).
+
+Weil ein Plattform-Update das Gateway neu erzeugt und dabei die
+manuellen Netz-Verbindungen verliert, verbindet die Plattform das
+Gateway nach dem Neustart der Kerndienste **wieder mit jedem App-Netz** —
+sonst wären die Apps danach nicht erreichbar (502).
+
+**App-zu-App-Verbindungen** sind der einzige Weg, auf dem eine App eine
+andere erreicht, und sie sind eine ausdrückliche Betreiber-Entscheidung,
+nie im Manifest: Ein Link `A → B` steht in der Registry (übersteht
+Redeploy), wird als **eigenes Netz** umgesetzt, dem beide Primär-Container
+beitreten (A wird **nicht** in Bs eigenes Netz gehängt — Bs interne
+Container bleiben privat), und ist widerrufbar. Beim Entfernen einer
+Instanz werden ihr Netz und alle Links, die sie betrafen, abgeräumt.
+Bestehende Apps wandern beim `oaap update` automatisch auf eigene Netze.
