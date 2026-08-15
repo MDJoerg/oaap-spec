@@ -1,7 +1,7 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.11
+- **Version:** 0.2.12
 - **Maturity:** draft (0.2 adds remote deployment via deploy tokens;
   0.2.1 adds the one-click store install in 2.6 with test 17; 0.2.2
   adds instance visibility in 2.7 and moves platform-level portal
@@ -34,7 +34,12 @@
   gateway-bypassing port, published only on an operator grant on an
   `exposed` node, per RFC-0015; 0.2.11 adds the reachability self-test to
   2.13 (RFC-0015 Q4 stage 1) and the `fixed: true` endpoint option for
-  servers that advertise their own port, per RFC-0017 §5.1)
+  servers that advertise their own port, per RFC-0017 §5.1; 0.2.12
+  reverses 2.5's rule that a deploy request may never upload a package —
+  fetching from a private source forces the node to hold a FOREIGN
+  credential in cleartext, so an artifact is admitted instead, through
+  the three-phase exchange and the envelope rule of the new 2.14, per
+  RFC-0019)
 - **Based on:** RFC-0001 (capability model), RFC-0002 (roles/gateway),
   RFC-0003 (placement), RFC-0004 (manifest/app types), RFC-0005
   (addressing), RFC-0007 (visibility groups), RFC-0008 (server_admin),
@@ -210,6 +215,61 @@ Declaration is **not** publication.
   router does not hairpin. An outside reflector (stage 2) is a later
   increment. Detail is in `oaap.core.portal` §2.5.
 
+### 2.14 Artifact deployment (RFC-0019)
+
+A deployment MAY bring its own package instead of naming a source the
+node fetches. The reason is not convenience: fetching from a private
+repository forces the node to store a **foreign credential in
+cleartext**, and thus in every backup. An artifact is a package, not an
+access right.
+
+- The exchange has **three phases**. (1) The client *announces* the new
+  version, the complete manifest, the artifact's SHA-256 and its size.
+  (2) The node validates that announcement and answers with a
+  **single-use upload grant** — short-lived (15 min), bound to that
+  instance, that manifest and that checksum. (3) The artifact is
+  accepted **only** against the grant, and is verified again before
+  anything is unpacked. The manifest inside the artifact MUST be
+  byte-identical to the announced one; without that check the
+  announcement would be decoration.
+- The grant is **not a second trust factor** — whoever holds the deploy
+  token can also announce. It exists so a bad deployment is refused
+  before the transfer, and so the upload endpoint is not permanently
+  open.
+- **The envelope rule.** A deploy token redeploys an instance **within
+  the envelope already granted to it**; anything that widens the
+  envelope requires a human. Refused outright: a changed app id, an
+  invalid manifest, a manifest or checksum that does not match the
+  announcement, and an **unchanged version** (with no commit hash, the
+  version is the only record of what runs). Refused pending an
+  administrator's confirmation: new routes reachable without login, new
+  declared endpoints (2.13), new storage mounts. Everything else
+  deploys unattended — the normal case MUST stay frictionless.
+  A confirmation is bound to the announced manifest, never to the
+  instance in general.
+- Refusals MUST carry a machine-readable reason **and** a sentence
+  stating what to change: the recipient is usually an AI with nobody
+  next to it.
+- The artifact is **retained on the node** with its checksum and receipt
+  time, together with at least three predecessors, so that a redeploy
+  has a source, the running package can be named, and a rollback is an
+  ordinary installation. Retained artifacts live with the instance and
+  therefore travel in backups — an artifact-deployed instance is the
+  first whose backup is self-contained.
+- **Unpacking an untrusted archive** MUST reject absolute paths, paths
+  escaping the package root, and links or special files; MUST bound
+  entry count and unpacked size, checking the size **while** unpacking
+  rather than trusting the archive's own headers; MUST unpack into a
+  fresh directory and replace the instance only after every check has
+  passed.
+- Artifact deployment is **test-channel only**, like every deploy token
+  (2.5). Announce and upload are throttled like the hook and MUST NOT
+  reveal whether an instance exists. Moving an instance to production,
+  or removing it, invalidates its grants.
+- Creating the **first** instance from an artifact needs privilege
+  rather than a token: the portal offers it on a node with the profile
+  `dev` (2.6, RFC-0011).
+
 ### 2.4 Contract delivery (what the runtime MUST provide)
 
 For every instance, the runtime delivers the contract guarantees:
@@ -236,9 +296,11 @@ result immediately, without a platform administrator in the loop. This
 is the smallest working core of the Studio idea.
 
 - Every instance installed from a remote source records its **package
-  source** (e.g. git URL, path, ref). Remote deployment always means
+  source** (e.g. git URL, path, ref). Remote deployment normally means
   "fetch the recorded source again" — a deploy request can never
-  supply a different source or upload a package.
+  supply a *different* source. A request MAY bring the package itself
+  (2.14), which is a different thing: it names no source at all and
+  costs the node no credential.
 - An administrator MAY create a **deploy token** for a **test-channel
   instance**: an opaque random secret bound to exactly one instance,
   shown once at creation, revocable at any time. The platform stores
@@ -945,3 +1007,54 @@ einzigen Kerndienst auf jedem App-Netz): eine interne, nur
 plattformintern erreichbare Weiche am Gateway reicht die Prüfung an den
 Health-Pfad jeder Instanz weiter. Eine App kommt an diese Weiche nicht
 heran.
+
+## Deutsche Zusammenfassung (Artefakt-Deployment, v0.2.12, RFC-0019)
+
+**Was sich umkehrt:** Abschnitt 2.5 sagte bisher, ein Deploy-Request
+könne **niemals** ein Paket hochladen. Das fällt — aus einem
+Sicherheitsgrund, nicht aus Bequemlichkeit. Wer aus einem **privaten**
+Repository deployt, zwingt den Knoten, fremde Zugangsdaten im Klartext
+zu speichern (und damit in jedem Backup). Ein Artefakt ist ein **Paket,
+kein Zugangsrecht** — der Knoten hütet nichts Fremdes mehr.
+
+**Drei Phasen (neuer Abschnitt 2.14):** Der Client **meldet an** (neue
+Version, vollständiges Manifest, Prüfsumme, Größe) → der Knoten prüft
+und gibt eine **Einmal-Erlaubnis** zurück (15 Minuten, gebunden an
+Instanz, Manifest und Prüfsumme) → das Paket wird **nur** damit
+angenommen und vor dem Entpacken erneut geprüft. Das Manifest **im**
+Paket muss zeichengleich zum angemeldeten sein; ohne diese Bindung wäre
+die Anmeldung bloße Zierde. Ausdrücklich festgehalten: die
+Einmal-Erlaubnis ist **kein zweiter Vertrauensfaktor** — sie sorgt für
+Ablehnung *vor* der Übertragung und dafür, dass der Upload-Endpunkt
+nicht dauerhaft offensteht.
+
+**Die Rahmenregel:** Ein Deploy-Token rollt **innerhalb des bereits
+erteilten Rahmens** neu aus; alles, was den Rahmen erweitert, braucht
+einen Menschen. **Hart abgelehnt:** geänderte App-Kennung, ungültiges
+Manifest, Manifest/Prüfsumme ≠ angemeldet, **unveränderte Version**
+(ohne Commit-Hash ist die Version das Einzige, was „was läuft da"
+beantwortet). **Abgelehnt bis zur Bestätigung:** neue Routen ohne
+Anmeldung, neue deklarierte Ports, neue Storage-Mounts — die
+Bestätigung gilt für *genau dieses* Manifest. **Alles andere läuft
+durch:** der Normalfall muss reibungslos bleiben. Ablehnungen tragen
+immer einen Satz, der sagt, was zu ändern ist — der Empfänger ist meist
+eine KI ohne Menschen daneben.
+
+**Aufbewahrung:** Das Paket bleibt mit Prüfsumme und Empfangszeit auf
+dem Knoten, samt drei Vorgängern. Dadurch hat ein erneutes Deployment
+eine echte Quelle, das laufende Paket ist benennbar, und ein
+Rückschritt ist eine normale Installation. Nebenwirkung: das Backup
+einer solchen Instanz ist erstmals **vollständig**.
+
+**Entpacken** (die scharfe Kante): keine absoluten Pfade, nichts, was
+aus der Paketwurzel herausführt, keine Links oder Spezialdateien;
+Grenzen für Anzahl und entpackte Größe, geprüft **während** des
+Entpackens statt aus den Angaben des Archivs; frisches Verzeichnis; der
+Instanzbaum wird erst ersetzt, wenn alles durch ist.
+
+**Grenzen:** nur Test-Kanal (wie jedes Deploy-Token); Anmelden und
+Hochladen sind gedrosselt und verraten nicht, ob es eine Instanz gibt;
+Produktivsetzung oder Entfernen macht offene Erlaubnisse ungültig. Die
+**erste** Instanz aus einem Paket anzulegen ist kein Token-Fall,
+sondern ein Privileg: das Portal bietet es auf einem Knoten mit Profil
+`dev` an.
