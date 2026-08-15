@@ -23,3 +23,4 @@ never deleted; superseded RFCs get status `Superseded by RFC-XXXX`.
 - [RFC-0016](RFC-0016-app-isolation-and-multi-container-apps.md) — App Isolation and Multi-Container Apps (Accepted)
 - [RFC-0017](RFC-0017-realtime-media-livekit-reference.md) — Real-Time Media as a Capability, LiveKit as the Reference (Draft)
 - [RFC-0018](RFC-0018-multiple-instance-names.md) — Several Public Names for One Instance: a Canonical Name and Aliases (Accepted)
+- [RFC-0019](RFC-0019-artifact-deployment-private-sources.md) — Artifact Deployment: Deploying Without Holding Someone Else's Key (Accepted)
