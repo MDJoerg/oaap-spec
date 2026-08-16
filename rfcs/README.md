@@ -24,3 +24,4 @@ never deleted; superseded RFCs get status `Superseded by RFC-XXXX`.
 - [RFC-0017](RFC-0017-realtime-media-livekit-reference.md) — Real-Time Media as a Capability, LiveKit as the Reference (Draft)
 - [RFC-0018](RFC-0018-multiple-instance-names.md) — Several Public Names for One Instance: a Canonical Name and Aliases (Accepted)
 - [RFC-0019](RFC-0019-artifact-deployment-private-sources.md) — Artifact Deployment: Deploying Without Holding Someone Else's Key (Accepted)
+- [RFC-0020](RFC-0020-promotion-to-production.md) — Promotion to Production: Shipping Exactly What Was Tested (Accepted)

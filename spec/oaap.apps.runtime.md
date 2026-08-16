@@ -1,7 +1,7 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.13
+- **Version:** 0.2.14
 - **Maturity:** draft (0.2 adds remote deployment via deploy tokens;
   0.2.1 adds the one-click store install in 2.6 with test 17; 0.2.2
   adds instance visibility in 2.7 and moves platform-level portal
@@ -42,7 +42,10 @@
   RFC-0019; 0.2.13 closes the one gap that left: before an instance
   exists there is no token, so 2.14 gains the single-use **instance
   creation grant** an administrator issues — the same handshake one
-  level up — and the rule that a lost answer is not a refusal)
+  level up — and the rule that a lost answer is not a refusal; 0.2.14
+  adds **promotion to production** in the new 2.14.1, per RFC-0020:
+  the tested artifact itself goes live, by a server_admin, never by a
+  token)
 - **Based on:** RFC-0001 (capability model), RFC-0002 (roles/gateway),
   RFC-0003 (placement), RFC-0004 (manifest/app types), RFC-0005
   (addressing), RFC-0007 (visibility groups), RFC-0008 (server_admin),
@@ -290,6 +293,36 @@ access right.
   longer to build than any client waits; the deployment continues and
   the node's log is the binding record. Clients SHOULD say "outcome
   unknown" and point at that record rather than report a failure.
+
+#### 2.14.1 Promotion to production (RFC-0020)
+
+A retained artifact MAY be **promoted** from a test instance to a
+production instance of the same app: the package that was tested is
+installed again, unchanged, into production. This is the one path from
+an uploaded package to production, and it moves **bytes, not
+permissions** — nothing is fetched, nothing is uploaded, no credential
+is involved.
+
+- Promotion is a **`server_admin` action** and MUST NOT be delegated to
+  any token or spendable grant. Production instances still never carry
+  a deploy token (2.5).
+- The source MUST be a test instance running from a retained artifact —
+  the only case where "the same bytes" is provable. The target MUST be
+  the **same app id** and on the production channel; it MAY be created
+  by the promotion, which is 2.6's one exception to "the portal creates
+  test instances".
+- The artifact's version MUST be **higher** than what production runs.
+  Going back is a rollback, not a promotion.
+- The **envelope is reviewed against the target**, not against the test
+  instance: a package can be unremarkable next to its test instance and
+  still widen what production may do. A widening is not refused — the
+  human the envelope rule asks for is present — but it MUST be reported
+  in full and confirmed explicitly before the promotion runs.
+- The target keeps its own data, config values, address(es), visibility,
+  tile, brake, endpoints and links. Only the package moves.
+- The target's source MUST record where it came from, so "what runs in
+  production?" is answerable with a test instance and a checksum.
+  Retention applies as usual, so the way back is the ordinary rollback.
 
 ### 2.4 Contract delivery (what the runtime MUST provide)
 
@@ -1108,3 +1141,36 @@ bauen, als ein Client wartet; der Knoten rollt derweil weiter aus. Ein
 Client, der daraus „abgelehnt" macht, sagt etwas Falsches über eine
 Instanz, die es hinterher gibt. Richtig ist „Ausgang unklar" plus der
 Verweis auf das verbindliche Protokoll des Knotens.
+
+## Deutsche Zusammenfassung (Übernehmen nach Produktiv, v0.2.14, RFC-0020)
+
+**Die Zusage:** Was produktiv geht, ist **genau das, was getestet
+wurde** — nicht „dieselbe Version", nicht „ein neuer Bau desselben
+Standes", sondern **dieselben Bytes**. Deshalb wird das aufbewahrte
+Paket des Teststands ein zweites Mal installiert, statt es erneut
+hochzuladen: Zwischen zwei Uploads liegen ein Mensch, ein Dateimanager
+und ein Download-Ordner — drei Stellen, an denen aus „die Datei, die
+ich getestet habe" still „eine Datei" wird.
+
+**Wer:** ausschließlich `server_admin`, im Portal (oder `oaap app
+promote` an der Maschine). **Kein Token, keine verbrauchbare
+Erlaubnis** — Produktivsetzung ist genau die Entscheidung, die die
+Erlaubnisse aus RFC-0019 bewusst *nicht* enthalten. Produktiv-Instanzen
+bekommen weiterhin nie ein Deploy-Token.
+
+**Was geprüft wird — am Wirt, nicht am Knopf:** Quelle ist ein
+Teststand mit aufbewahrtem Paket; Ziel ist dieselbe App auf dem
+Produktiv-Kanal (bestehend oder neu angelegt); die Version muss
+**höher** sein (zurück geht es über den Rückschritt); und der **Rahmen
+wird gegen die Produktiv-Instanz** geprüft, nicht gegen den Teststand —
+ein Paket kann neben seinem Teststand unauffällig sein und trotzdem
+erweitern, was produktiv erlaubt ist. Eine Erweiterung wird nicht
+abgelehnt (der Mensch ist ja da), aber **vollständig genannt und
+ausdrücklich bestätigt**.
+
+**Was die Produktiv-Instanz behält:** ihre Daten, ihre
+Konfigurationswerte (ein Testgeheimnis reist nicht mit), ihre Adressen,
+Gruppen, Kachel, Bremse, Ports und Verbindungen. Übernommen wird das
+Paket, sonst nichts. Die Herkunft wird festgehalten — „was läuft hier?"
+ist danach mit einem Teststand und einer Prüfsumme beantwortbar statt
+mit einer Versionshoffnung.
