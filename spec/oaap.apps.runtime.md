@@ -1,7 +1,7 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.12
+- **Version:** 0.2.13
 - **Maturity:** draft (0.2 adds remote deployment via deploy tokens;
   0.2.1 adds the one-click store install in 2.6 with test 17; 0.2.2
   adds instance visibility in 2.7 and moves platform-level portal
@@ -39,7 +39,10 @@
   fetching from a private source forces the node to hold a FOREIGN
   credential in cleartext, so an artifact is admitted instead, through
   the three-phase exchange and the envelope rule of the new 2.14, per
-  RFC-0019)
+  RFC-0019; 0.2.13 closes the one gap that left: before an instance
+  exists there is no token, so 2.14 gains the single-use **instance
+  creation grant** an administrator issues — the same handshake one
+  level up — and the rule that a lost answer is not a refusal)
 - **Based on:** RFC-0001 (capability model), RFC-0002 (roles/gateway),
   RFC-0003 (placement), RFC-0004 (manifest/app types), RFC-0005
   (addressing), RFC-0007 (visibility groups), RFC-0008 (server_admin),
@@ -269,6 +272,24 @@ access right.
 - Creating the **first** instance from an artifact needs privilege
   rather than a token: the portal offers it on a node with the profile
   `dev` (2.6, RFC-0011).
+- An administrator MAY instead issue an **instance creation grant** so
+  the creation can happen from an app (Studio, RFC-0019 Studio section)
+  without that app ever holding a standing permission. Such a grant is
+  **single-use, short-lived, bound to one instance name and the test
+  channel**, revocable before use, and recorded like any other change.
+  It stands in for the deploy token in phase 1 only; phases 2 and 3 are
+  unchanged, which is the point — creation is the same handshake one
+  level up, not a second path. It is **spent when the instance is
+  actually created**, not when the package is announced, so a failed
+  upload does not cost the administrator's permission. There is nothing
+  to widen on a first package: the manifest IS the envelope the
+  administrator agreed to when issuing the grant. The node MUST re-check
+  the `dev` profile, the free name and the grant itself when the package
+  arrives — a queued request is data, not trust.
+- A client MUST NOT read a lost answer as a refusal. A node may need
+  longer to build than any client waits; the deployment continues and
+  the node's log is the binding record. Clients SHOULD say "outcome
+  unknown" and point at that record rather than report a failure.
 
 ### 2.4 Contract delivery (what the runtime MUST provide)
 
@@ -1058,3 +1079,32 @@ Produktivsetzung oder Entfernen macht offene Erlaubnisse ungültig. Die
 **erste** Instanz aus einem Paket anzulegen ist kein Token-Fall,
 sondern ein Privileg: das Portal bietet es auf einem Knoten mit Profil
 `dev` an.
+
+## Deutsche Zusammenfassung (Anlege-Erlaubnis, v0.2.13, RFC-0019)
+
+**Das Loch, das 0.2.12 offen ließ:** Bevor es eine Instanz gibt, gibt
+es kein Deploy-Token — die **erste** Fassung konnte deshalb nur ein
+Administrator im Portal oder an der Maschine einspielen. Das Studio
+kam bis zur Instanz, aber nicht über sie hinweg.
+
+**Die Lösung ist derselbe Handschlag, eine Ebene höher:** Der
+`server_admin` stellt im Portal eine **Anlege-Erlaubnis** für *einen*
+Instanznamen aus — **einmal verwendbar**, 30 Minuten gültig, nur
+Test-Kanal, jederzeit widerrufbar, protokolliert. Sie ersetzt den
+Deploy-Token **nur in Phase 1**; Anmelden, Einmal-Erlaubnis und Upload
+bleiben unverändert. Damit hält das Studio weiterhin **kein Recht** —
+alles Privilegierte gibt der Mensch im Augenblick der Handlung.
+
+**Zwei Feinheiten, die aus dem Bau kommen:** Die Erlaubnis wird
+**verbraucht, wenn die Instanz entsteht** — nicht schon beim Anmelden;
+sonst kostet ein abgebrochener Upload dem Administrator seine
+Erlaubnis. Und beim **ersten** Paket gibt es keinen Rahmen zu
+erweitern: Was das Manifest verlangt, *ist* der Rahmen, dem der Mensch
+mit der Erlaubnis zugestimmt hat. Ab dem zweiten Paket gilt die
+Rahmenregel unverändert.
+
+**Keine Antwort ist keine Ablehnung.** Ein kleiner Knoten kann länger
+bauen, als ein Client wartet; der Knoten rollt derweil weiter aus. Ein
+Client, der daraus „abgelehnt" macht, sagt etwas Falsches über eine
+Instanz, die es hinterher gibt. Richtig ist „Ausgang unklar" plus der
+Verweis auf das verbindliche Protokoll des Knotens.
