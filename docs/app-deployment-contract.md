@@ -1,4 +1,4 @@
-# OAAP App Deployment Contract (draft v0.4)
+# OAAP App Deployment Contract (draft v0.5)
 
 **Audience:** developers and AI coding agents (Codex, Claude Code, …)
 building an app that will be deployed on an OAAP platform.
@@ -11,7 +11,11 @@ v0.3 (2026-08-04) adds the recommended pattern for app-internal users
 and roles, from the second real app integration (a CRM with its own
 role/permission model). v0.4 (2026-08-04) adds the project mailbox
 (AI collaboration convention) and the deploy-hook workflow for test
-deployments.
+deployments. v0.5 (2026-08-16) adds the **artifact path** — shipping the
+package itself instead of a repository the platform fetches (RFC-0019) —
+and states what needs a human: an envelope that widens, and every step
+to production (RFC-0020). Both were already implemented and specified;
+this document is where the app side reads them.
 
 Give this document to your coding agent as a working instruction:
 "Make the app deployable on OAAP according to this contract."
@@ -225,6 +229,54 @@ both live in or next to your repository, not in chat sessions:
    poll `GET <hook-url>/status`). The token deploys **only** this test
    instance and nothing else; production deployments remain a human
    action with a version bump.
+3. **Deploying a package instead of a repository** (RFC-0019). If the
+   platform cannot reach your source — a private repository, an
+   air-gapped node, a file on a stick — you ship the **package
+   itself**, with the same token, in three steps:
+
+   ```sh
+   # 1. announce: the complete manifest, the checksum and the size
+   curl -X POST <hook-url>/announce \
+     -H "Authorization: Bearer <token>" -H "Content-Type: application/json" \
+     -d '{"manifest": "<complete oaap-app.yaml>",
+          "artifact_sha256": "<sha256 of the zip>",
+          "artifact_bytes": <size in bytes>}'
+   # answer: {"ok": true, "upload_token": "...", "upload_url": "..."}
+
+   # 2. upload: only against that single-use token (valid 15 minutes)
+   curl -X PUT "<upload_url>" \
+     -H "Authorization: Bearer <upload_token>" \
+     -H "Content-Type: application/zip" --data-binary @app.zip
+   ```
+
+   Rules that decide whether this succeeds:
+
+   - The manifest **inside** the ZIP must be **byte-identical** to the
+     announced one. Announce what you are shipping.
+   - `app.version` must **change with every deployment**. Without a
+     commit hash, the version is the only answer to "what is running?".
+   - The archive holds your project directory: `oaap-app.yaml` in the
+     root **or** in exactly one top-level folder. No absolute paths, no
+     `..`, no symlinks — such an archive is refused unread.
+   - Announcing costs nothing and refuses **before** the transfer, so
+     announce first and read the answer rather than uploading blind.
+   - A refusal always carries a machine-readable `refused` code **and**
+     a sentence saying what to change. Read both; they are written for
+     you, not for a log.
+   - **No answer is not a refusal.** A small node may build longer than
+     your client waits. Ask `GET <hook-url>/status` before you retry —
+     a blind retry with the same version will be refused anyway.
+4. **What needs a human, and why you should say so.** Your token
+   redeploys **within the envelope the instance already has**. A
+   deployment that would widen it — a route that becomes reachable
+   without login, a new storage mount, a new gateway-bypassing port, a
+   new link to another app — is held back until an administrator
+   confirms *that* manifest. This is not an obstacle to route around:
+   when you need one of these, say so in the mailbox with the reason,
+   in the same deployment where it appears. Going to **production** is
+   always a human decision (RFC-0020): the administrator promotes the
+   artifact you tested, unchanged, so make sure the package you hand
+   over is the one you mean.
 
 ## Recommendations (SHOULD)
 
@@ -266,3 +318,26 @@ Briefe unveränderlich, sofort pushen) und der **Deploy-Hook** (nach dem
 Push per Bearer-Token die eigene Test-Instanz ausrollen und sofort
 unter Realbedingungen testen; Produktivsetzung bleibt Menschensache mit
 Versions-Bump).
+
+**Neu in v0.5 — der Paket-Weg (RFC-0019):** Kommt die Plattform an die
+Quelle nicht heran (privates Repository, Knoten ohne Internet, Datei
+vom Stick), liefert die KI das **Paket selbst**, mit demselben Token
+und in drei Schritten: **anmelden** (vollständiges Manifest, Prüfsumme,
+Größe) → die Plattform prüft und gibt eine **Einmal-Erlaubnis** zurück
+→ **hochladen**. Bedingungen: Das Manifest **in** der ZIP muss
+zeichengleich zum angemeldeten sein, `app.version` muss sich bei jedem
+Deployment ändern, und das Archiv enthält das Projektverzeichnis
+(Manifest in der Wurzel oder in genau einem Oberordner, keine
+absoluten Pfade, kein `..`, keine Symlinks). **Keine Antwort ist keine
+Ablehnung** — dauert der Bau länger als die Geduld des Clients, fragt
+man `GET <hook>/status`, statt blind zu wiederholen.
+
+**Was einen Menschen braucht:** Ein Deploy-Token rollt **innerhalb des
+bereits erteilten Rahmens** neu aus. Was den Rahmen erweitert (eine
+Route ohne Anmeldung, ein neuer Speicher, ein Port am Gateway vorbei,
+eine neue Verbindung zu einer anderen App), wird zurückgehalten, bis
+ein Administrator **genau dieses** Manifest bestätigt — das ist kein
+Hindernis zum Umgehen, sondern der Anlass, es im Postkasten zu
+begründen. Und die **Produktivsetzung** ist immer eine menschliche
+Entscheidung (RFC-0020): Übernommen wird das Paket, das getestet wurde,
+unverändert.
