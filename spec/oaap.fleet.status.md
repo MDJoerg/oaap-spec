@@ -1,8 +1,9 @@
 # oaap.fleet.status — Read-Only Fleet Status Document
 
 - **ID:** `oaap.fleet.status`
-- **Version:** 0.1
-- **Maturity:** draft (implemented by the reference 0.1.41)
+- **Version:** 0.2 (adds `names` and `public_ip` — additive, 0.1
+  consumers keep working; implemented by the reference 0.1.43)
+- **Maturity:** draft
 - **Based on:** RFC-0021; RFC-0008 (`server_admin`), RFC-0010
   (throttling precedent), RFC-0019 (token hygiene precedent)
 
@@ -43,9 +44,9 @@ minutes → 1 attempt/minute), in a throttle namespace of their own.
 
 ```json
 {
-  "schema": "oaap.fleet.status/0.1",
+  "schema": "oaap.fleet.status/0.2",
   "node": "oaap.joomp.de",
-  "platform_version": "0.1.41",
+  "platform_version": "0.1.43",
   "profiles": [],
   "time": "2026-08-23T10:15:00Z",
   "core": [
@@ -59,6 +60,13 @@ minutes → 1 attempt/minute), in a throttle namespace of their own.
      "channel": "production", "state": "ok",
      "origin": "promoted", "address": "hub.bdt.joomp.de"}
   ],
+  "names": [
+    {"name": "oaap.joomp.de", "kind": "node", "state": "ok",
+     "resolved": "203.0.113.7"},
+    {"name": "hub.bdt.joomp.de", "kind": "instance",
+     "instance": "bdt-hub", "state": "ok", "resolved": "203.0.113.7"}
+  ],
+  "public_ip": "203.0.113.7",
   "attention": [
     {"kind": "dns_drift", "detail": "name.example: points elsewhere"},
     {"kind": "confirmation_pending", "instance": "bdt-hub-test"}
@@ -87,6 +95,18 @@ Rules:
    node; it adds urgency, not information channels.
 5. **`node`** is the node's registered external hostname, or the host
    the poller addressed when none is registered.
+6. **`names`** (0.2) is the node's own DNS view of every name it
+   publishes: the registered node hostname, each instance's canonical
+   name and every alias (RFC-0018). `kind` is `node | instance |
+   alias` (`instance` names the owning instance); `state` is the
+   node's own verdict from its half-hourly DNS watchdog — `ok` (points
+   here), `warn` (points elsewhere), `error` (does not resolve),
+   `unknown` (cannot compare: behind an edge, or IPv6-only). `resolved`
+   lists the addresses the name resolved to, and is omitted when there
+   are none. **`public_ip`** (0.2) is the address the node last saw
+   for itself from the outside; omitted when unknown. Both fields are
+   facts the health page already shows — port/reach verdicts
+   (RFC-0015) stay out until a consumer needs them.
 
 ## 4. Consumers
 
@@ -113,7 +133,12 @@ Instanzliste (App, Version, Kanal, Zustand, Herkunftstyp, Adresse) und
 einer `attention`-Liste („braucht einen Menschen": Kerndienst
 ausgefallen, DNS-Drift, Name löst nicht auf, wartende Bestätigung,
 Instanz ungesund — offen für weitere Arten, Konsumenten müssen
-Unbekanntes tolerieren). Autorisiert wird mit einem **Flotten-
+Unbekanntes tolerieren). **Seit 0.2** zusätzlich `names` — die
+DNS-Sicht des Knotens auf jeden veröffentlichten Namen (Knotenname,
+Instanz-Namen, Aliasse; Urteil des halbstündlichen DNS-Wächters:
+zeigt hierher / zeigt woanders hin / löst nicht auf / nicht
+vergleichbar) — und `public_ip` (die zuletzt von außen gesehene
+eigene Adresse); beides additiv, 0.1-Konsumenten laufen weiter. Autorisiert wird mit einem **Flotten-
 Schlüssel**: `sudo oaap fleet key issue <label>` zeigt ihn genau
 einmal, gespeichert wird nur der SHA-256-Digest; `list` nennt nie
 Schlüsselmaterial, `revoke` wirkt sofort; Ausstellung und Entzug

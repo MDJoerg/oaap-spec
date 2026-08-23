@@ -1,7 +1,7 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.14
+- **Version:** 0.2.15
 - **Maturity:** draft (0.2 adds remote deployment via deploy tokens;
   0.2.1 adds the one-click store install in 2.6 with test 17; 0.2.2
   adds instance visibility in 2.7 and moves platform-level portal
@@ -509,6 +509,12 @@ files the operator must edit", rule 4), so the runtime must offer it:
   values steer the platform's own instance and routinely contain
   credentials. This does not touch an app's *own* in-app settings,
   which stay `admin`/`keyuser` (2.6).
+- **List-valued keys can grow.** `set --append` (0.2.15) appends the
+  new entry to the current value with `;` instead of replacing it —
+  needed for keys that hold one entry per subject (FleetView's node
+  and key lists were the driver): a secret list cannot be re-entered
+  wholesale, because the operator can never read the stored value
+  back.
 - **Auditable without leaking.** Every change is recorded with
   instance, key name, actor and time — values never appear in any log.
 
@@ -1174,3 +1180,13 @@ Gruppen, Kachel, Bremse, Ports und Verbindungen. Übernommen wird das
 Paket, sonst nichts. Die Herkunft wird festgehalten — „was läuft hier?"
 ist danach mit einem Teststand und einer Prüfsumme beantwortbar statt
 mit einer Versionshoffnung.
+
+## Deutsche Zusammenfassung (2.8 Ergänzung, v0.2.15)
+
+Listen-Konfigurationswerte können **wachsen**: `sudo oaap app config
+set <instanz> <schlüssel> <wert> --append` hängt den neuen Eintrag mit
+`;` an den bestehenden Wert an, statt ihn zu ersetzen. Gebraucht wird
+das für Schlüssel mit einem Eintrag je Gegenstand (Treiber: FleetViews
+Knoten- und Schlüssel-Listen) — eine **geheime** Liste kann der
+Betreiber nicht komplett neu eingeben, weil er den gespeicherten Wert
+nie zurücklesen kann.
