@@ -1,7 +1,7 @@
 # oaap.core.gateway — HTTP Gateway (outline)
 
 - **ID:** `oaap.core.gateway`
-- **Version:** 0.2.5
+- **Version:** 0.2.6
 - **Maturity:** draft (outline — full specification to follow;
   §Edge routing added 2026-08-07 per RFC-0006; visibility groups
   parameter added 2026-08-07 per RFC-0007; per-instance public
@@ -9,7 +9,7 @@
   the WebSocket forward-auth fix added 2026-08-08 per RFC-0010;
   app-network membership added 2026-08-12 per RFC-0016; per-instance
   hostnames extended to a canonical name plus aliases 2026-08-12 per
-  RFC-0018)
+  RFC-0018; fleet status route added 2026-08-23 per RFC-0021)
 - **Based on:** RFC-0001, RFC-0002, RFC-0003, RFC-0006, RFC-0007,
   RFC-0008, RFC-0009, RFC-0010, RFC-0016, RFC-0018
 
@@ -45,6 +45,11 @@ happened and never see credentials.
   at the gateway. The original `Host` header is preserved;
   `X-Forwarded-Proto`/`X-Forwarded-For` are set. Additional ports an
   app opens are never published.
+- **Fleet status route** (RFC-0021): `GET /fleet/status` is carried
+  like the deploy hook — no forward auth, client-sent identity headers
+  stripped, authorization by a fleet key that the portal validates
+  (`oaap.fleet.status` 0.1). Served on the platform apex of every
+  published name; never on app instance sites.
 - **Topology** (RFC-0003): the gateway runs on the controller and also
   publishes apps that run on worker nodes; a worker whose controller is
   down is not reachable through the gateway.

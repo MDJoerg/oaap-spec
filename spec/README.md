@@ -17,3 +17,4 @@ before the full specification is written.
 - [oaap.core.gateway](oaap.core.gateway.md) — HTTP gateway (outline)
 - [oaap.apps.runtime](oaap.apps.runtime.md) — app runtime: install, instances, contract delivery, remote deployment (draft, v0.2)
 - [oaap.data.backup](oaap.data.backup.md) — platform backup, restore & relocation (draft, v0.1)
+- [oaap.fleet.status](oaap.fleet.status.md) — read-only fleet status document & fleet keys (draft, v0.1)
