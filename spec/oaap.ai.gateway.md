@@ -1,7 +1,8 @@
 # oaap.ai.gateway — AI Supply Behind One Keyed Endpoint
 
 - **ID:** `oaap.ai.gateway`
-- **Version:** 0.1 (first specification; nothing implemented yet)
+- **Version:** 0.2 (the traffic light of §7 replaces the geographic
+  classification of 0.1 — breaking, and free: nothing is installed yet)
 - **Maturity:** draft
 - **Based on:** RFC-0023 (supply, placement, entitlement); RFC-0022
   (account and tenant); RFC-0002 (default deny); RFC-0010 (public
@@ -65,6 +66,8 @@ hook (writes) and the fleet status (reads).
 - A key may be **restricted to a subset of aliases**.
 - A key carries a **budget** and a **rate limit**. These are hard: they
   protect against a runaway bill, which an invoice afterwards does not.
+- A key carries the **worst light it may use** and a **release for
+  personal data** (§7). Both are decided when the key is issued.
 - Issue and revoke are **audited**; requests are metered (§5) but their
   content is never recorded (§6).
 - Every failure of authorization answers the **same 403 without
@@ -92,7 +95,7 @@ mapping is the operator's configuration, not the consumer's business.
 A supplier is **an OpenAI-compatible HTTP endpoint plus a
 credential** — that is the entire model. A local runtime, an external
 provider, a customer's own endpoint and another gateway are the same
-kind of thing; they differ in address, credential and class (§7), not
+kind of thing; they differ in address, credential and light (§7), not
 in code. There is deliberately **no adapter framework** in this
 version: a plugin architecture built before its second real case is a
 guess wearing an interface.
@@ -147,29 +150,75 @@ into a disclosure risk.
 
 This is a conformance requirement, not a recommendation.
 
-## 7. Data classification is a routing policy
+## 7. The traffic light: what a supplier does to your data
 
-Each supplier carries a **class**:
+Every supplier carries a **light**. It does not describe quality,
+speed or price — it describes **what can happen to the data you send**:
 
-| class      | meaning                                                       |
-| ---------- | ------------------------------------------------------------- |
-| `internal` | runs on hardware the operator controls — nothing leaves it    |
-| `eu`       | a sovereign provider in an EU data centre                     |
-| `external` | everything else, however good — the class is about custody    |
+| light    | what it means                                                             | what may be sent                                                              |
+| -------- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `green`  | the data does not leave the organisation — the model runs on its own hardware | anything the consumer is otherwise allowed to hold; personal data **with an explicit release** |
+| `yellow` | the data may leave the organisation, but to a provider under a binding commitment (contract, EU data centre, no training on the data) | company information; personal data **with an explicit release**                |
+| `red`    | an external provider — the data can flow away                              | **no company information, no personal data** — public or synthetic input only  |
 
-A consumer — a tenant, or a key — declares which classes it may use.
-Failover respects that boundary; a route the policy forbids does not
-exist for that consumer, and no fallback may cross the line silently.
+The light replaces a purely geographic classification on purpose:
+where a machine stands is the *reason* for a light, never its
+*meaning*. What an operator needs to decide is not "is this in the
+EU?" but "what happens to my data here?"
 
-**The order is the default, not merely a filter.** Within an
-equivalence group a gateway prefers `internal` before `eu` before
-`external`, and an operator who wants it otherwise says so explicitly.
-Sovereignty is thus what happens when nobody configures anything —
+### The light is enforced on declarations, never on content
+
+The gateway **cannot see what a request contains** — §6 forbids it to
+look, and that rule is not negotiable. Therefore the light can only be
+enforced against **properties the consumer declared in advance**:
+
+- every key carries the **worst light it may use** (default `yellow`,
+  so `red` is a deliberate extra permission);
+- every key carries a **release for personal data**, granted by
+  whoever issued the key.
+
+From those two the rule follows that the platform can actually keep:
+**a key released for personal data may never use `red`.** Not because
+red is forbidden in principle, but because we cannot tell one request
+from another — and a rule that depends on the gateway recognising
+personal data would be a promise it cannot keep.
+
+Everything beyond that stays where it belongs: with the person who
+sends the prompt. The platform is honest about the difference between
+what it *enforces* and what it *documents*.
+
+### A chain may only ever get more dangerous
+
+> A declared light is a **ceiling, never a floor**. What a gateway
+> offers downstream can never be greener than the worst link in the
+> path it will actually use.
+
+This is the rule that keeps a chain honest, and it is the reason the
+light exists in both directions:
+
+- **downstream**, `GET /v1/models` reports for every alias the light
+  the *requesting key* would actually get — the worst light among the
+  candidates that key may reach. An alias that can fail over from a
+  green model to a red provider is **not green**;
+- **upstream**, a gateway that draws from another gateway **reads that
+  gateway's declared light and may not improve it**. Configuring
+  `green` for a supplier that reports `red` does not make it green; the
+  worse of the two wins.
+
+Without this, a gateway becomes a laundry: put one in front of an
+external provider, label it `green`, and every consumer downstream is
+lied to by construction. The rule costs nothing and closes that.
+
+### What the consumer must be able to see
+
+The consumer must be able to see **the light of the alias it is using
+and the supplier that actually served a request** (`GET /v1/usage`). A
+policy the customer cannot verify is a promise, not a control.
+
+Within an equivalence group a gateway prefers `green` before `yellow`
+before `red`, and an operator who wants otherwise says so explicitly.
+**Sovereignty is thus what happens when nobody configures anything** —
 which is the only form of it that survives daily use.
-
-The consumer must be able to **see which supplier currently serves an
-alias**. A policy the customer cannot verify is a promise, not a
-control.
 
 ## 8. Errors
 
@@ -193,8 +242,15 @@ control.
 4. A streamed answer is charged once by the RFC-0010 brake.
 5. Budget exhaustion answers 429 and does **not** reach the supplier.
 6. A failover inside a declared group is recorded with the supplier
-   actually used; a failover to a class the consumer forbids does not
+   actually used; a failover to a light the consumer forbids does not
    happen.
+6a. `GET /v1/models` reports for each alias the worst light the
+   requesting key would actually reach — an alias that may fail over
+   to `red` is not reported as `green`.
+6b. A key released for personal data is refused every `red` supplier,
+   even when its own ceiling says `red`.
+6c. A supplier configured `green` that reports `red` upstream is
+   treated as `red`; the worse of the two wins.
 7. No log file produced by the gateway contains prompt or completion
    text, in any operating mode.
 8. An upstream credential appears in no response, no error and no
@@ -253,15 +309,44 @@ beschränkt, mit **Budget und Rate-Limit als harter Grenze**. Ein
 Gateway, das sich bei einem anderen bedient, hält dort **genau einen
 eigenen** Schlüssel, der nie nach unten durchgereicht wird.
 
+**Die Ampel (§7) sagt, was mit den Daten geschehen kann** — nicht, wo
+ein Rechner steht: **grün** die Daten verlassen das Unternehmen nicht;
+**gelb** sie verlassen es vielleicht, aber zu einem Anbieter unter
+verbindlicher Zusage; **rot** externer Anbieter, Daten können
+abfließen — keine Unternehmensinformationen, keine personenbezogenen
+Daten. Der Standort ist der *Grund* für eine Farbe, nie ihre
+*Bedeutung*.
+
+**Durchgesetzt wird an Erklärungen, nie am Inhalt.** Das Gateway darf
+nicht hineinsehen (§6), also kann es nur prüfen, was vorher erklärt
+wurde: je Schlüssel die **schlechteste erlaubte Farbe** (voreingestellt
+gelb, rot ist Zusatzerlaubnis) und eine **Freigabe für personenbezogene
+Daten**. Daraus folgt die eine Regel, die die Plattform wirklich halten
+kann: **Ein für personenbezogene Daten freigegebener Schlüssel darf
+niemals rot benutzen.** Alles Weitere bleibt bei dem, der den Prompt
+abschickt — und die Spec ist ehrlich über den Unterschied zwischen dem,
+was sie *durchsetzt*, und dem, was sie *dokumentiert*.
+
+**Eine Kette kann nur gefährlicher werden, nie ungefährlicher.** Eine
+erklärte Farbe ist eine **Obergrenze, nie eine Untergrenze**: Was ein
+Gateway nach unten anbietet, kann nie grüner sein als das schlechteste
+Glied der Kette, die es tatsächlich benutzt. Deshalb wirkt die Ampel in
+beide Richtungen — nach unten meldet `GET /v1/models` je Alias die
+Farbe, die *dieser Schlüssel* wirklich bekäme (ein Alias, der von einem
+grünen Modell auf einen roten Anbieter ausweichen kann, ist nicht
+grün), und nach oben liest ein Gateway die Farbe seiner Bezugsquelle
+und darf sie **nicht verbessern**. Ohne diese Regel wird ein Gateway
+zur Wäscherei: eins davorstellen, `grün` dranschreiben, und alle
+darunter sind von Bauart wegen belogen.
+
 **Souveränität ist die Standard-Reihenfolge, kein bloßer Filter:**
-Innerhalb einer Ausweich-Gruppe gilt `internal` vor `eu` vor
-`external` — wer es anders will, sagt es ausdrücklich. Souveränität
-ist damit das, was passiert, wenn niemand etwas einstellt; jede andere
-Form überlebt den Alltag nicht. Eine Bezugsquelle ist dabei **immer
-dasselbe**: ein OpenAI-kompatibler Endpunkt plus Zugangsdaten — lokal,
-extern, beim Kunden oder ein anderes Gateway. Einen Adapter-Baukasten
-gibt es bewusst nicht, solange wir den zweiten echten Fall nicht
-kennen.
+Innerhalb einer Ausweich-Gruppe gilt grün vor gelb vor rot — wer es
+anders will, sagt es ausdrücklich. Souveränität ist damit das, was
+passiert, wenn niemand etwas einstellt; jede andere Form überlebt den
+Alltag nicht. Eine Bezugsquelle ist dabei **immer dasselbe**: ein
+OpenAI-kompatibler Endpunkt plus Zugangsdaten — lokal, extern, beim
+Kunden oder ein anderes Gateway. Einen Adapter-Baukasten gibt es
+bewusst nicht, solange wir den zweiten echten Fall nicht kennen.
 
 **Ausweichen nur innerhalb einer erklärten Gruppe** — LLMs sind nicht
 austauschbar wie Webserver hinter einem Lastverteiler; stilles
