@@ -355,8 +355,10 @@ properties, not model properties:
 - **Q3 — a changed label keeps working for a grace period** as an alias.
 - **Q4 — stage 2 is pulled forward regardless** (tenant- and
   account-aware, invisible to everyone). Everything above it waits for a
-  real case; Jörg is weighing two — making the BDT scenario
-  multi-tenant, or the AI gateway.
+  real case. **Resolved 2026-08-24 (RFC-0023 A4): the AI gateway is
+  that case**, not BDT-multi-tenant — BDT runs in public mode with no
+  authentication, so it has no login to isolate. Stages 3 and 4 below
+  therefore wait for the **CRM application**.
 
 ## Staging
 
@@ -368,9 +370,15 @@ properties, not model properties:
    assignments, tenant administration, labels in names, usage figures.
 4. **Federated login per tenant** — one or more IdPs, the maintenance
    pattern of §2.
-5. **AI gateway** (own RFC) and **messaging / digital twin** (own
+5. **AI gateway** (RFC-0023) and **messaging / digital twin** (own
    RFCs) on top of the finished boundary. Jörg's CRM-as-twin-source is
    the intended first consumer.
+
+**Order revised 2026-08-24:** the AI gateway **overtakes stages 3 and
+4**. It may, because its identity is an API key, not a tenant member
+(RFC-0023 §3) — its first stage needs stage 2 and nothing above it.
+Stages 3 and 4 return with the CRM application, which is the first
+thing here that actually needs a login.
 
 ## Non-goals (deliberate)
 

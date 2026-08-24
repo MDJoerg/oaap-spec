@@ -1,6 +1,7 @@
 # RFC-0023: The AI Gateway — Supply, Placement, Entitlement
 
-- **Status:** Draft — sorting the concept, decisions open (2026-08-24)
+- **Status:** Accepted (2026-08-24) — the sorting stands; A1 and A4
+  decided, A2/A3/A5 are open detail decisions that block nothing
 - **Date:** 2026-08-24
 - **Authors:** Claude (analysis & proposal), Jörg (requirements &
   decisions)
@@ -63,6 +64,26 @@ administrator.** LLMs are not interchangeable the way web servers
 behind a load balancer are; silent substitution changes behaviour.
 Switching is automatic, but only within a declared group, and it is
 visible in the telemetry.
+
+### Every layer is a real hop (decision A1)
+
+A chain **proxies**; it does not refer. Traffic flows through every
+layer, every layer logs the access and meters the consumption, and a
+consumer's key is always a key of the layer they are talking to — never
+a key handed down from further up.
+
+Jörg's reasoning, which is now the rule: a `tenant_admin` who binds our
+gateway as their supply **knows what they are taking on**, and nothing
+compels them — an external inferencing service is an equally legitimate
+supply, and we are not on the path to it. Performance therefore becomes
+a question of **how long the chain is**: keep it short, or host the
+supply yourself. That is a trade-off we make visible, not a cost we
+hide.
+
+The price is accepted deliberately: latency adds up, and each layer is
+a point of failure for everything below it. What is bought with it is
+that every layer can answer *"what did this key consume?"* without
+asking anyone else — which is the reason the chain exists at all.
 
 ## 2. Placement: a gateway is a service on a node, and one node may specialise
 
@@ -168,40 +189,53 @@ Two additions:
   same reason, and more strongly: prompts are the most sensitive
   payload the platform will ever carry.
 
-## Decisions to make (Jörg)
+## Decisions (Jörg, 2026-08-24)
 
-**A1 — Does a chain proxy, or refer?** Chaining as described means each
-layer holds its own keys in both directions, so traffic **flows
-through** every layer. That is simple and consistent, and it is what
-makes central metering possible — but it makes each layer a bottleneck
-and adds latency to a streaming response. The alternative ("referral":
-the upstream's address plus a short-lived key handed to the consumer,
-who then connects directly) is faster and cannot keep the books.
-*Recommendation: proxy in stage 1, referral only if a real latency
-problem appears.*
+- **A1 — a chain proxies, it does not refer.** Decided against the
+  caveats: every layer logs and meters, so the traffic has to pass
+  through it (§1). Chain length is the consumer's own performance
+  trade-off, and our gateway is never compulsory.
+- **A4 — the AI gateway goes first**, ahead of a second tenant. It is
+  immediately useful in Jörg's daily work, which BDT-multi-tenant would
+  not have been — and Jörg named the stronger reason: **BDT runs in
+  public mode with no authentication at all**, so making it
+  multi-tenant would have exercised isolation on an app that has no
+  login to isolate. The tenant with authentication becomes real with
+  the **CRM application**, which is also the intended first source for
+  the digital twin (RFC-0022 §5).
 
-**A2 — What happens when the management node is down?** If Jörg's
-laptop consumes through it, an outage there takes away his local
-alternative to LM Studio. *Recommendation: allow a consumer to hold
-keys at more than one gateway* — the laptop keeps a direct key at the
-AI node as a fallback. Cheap, and it removes a single point of failure
-from a convenience feature.
+This re-orders RFC-0022's staging: the gateway is stage 5 there and now
+overtakes stages 3 and 4. It can, because of §3 — stage 1 of the
+gateway needs no tenant isolation whatsoever. The identity is the key.
 
-**A3 — `ai` as a node profile (RFC-0011)?** *Recommendation: yes* — it
-is exactly what profiles are for, and it lets a node say "I run models,
-I host no customer apps".
+### Still open — none of them blocks the start
 
-**A4 — Which comes first: the gateway, or a second tenant?** Jörg is
-weighing whether to pull the AI gateway forward as the real scenario
-for RFC-0022 stage 3, against making BDT multi-tenant. Worth noting:
-the gateway exercises **accounts, keys, metering and the management
-node** but barely touches tenant isolation; BDT exercises **isolation**
-and barely touches metering. They test different halves.
+- **A2 — fallback when the management node is down.** Recommendation
+  unchanged: let a consumer hold keys at more than one gateway, so the
+  laptop keeps a direct key at the AI node. Becomes real only once Jörg
+  actually consumes through the management node.
+- **A3 — `ai` as a node profile (RFC-0011).** Recommendation: yes.
+  Decide when the first dedicated hardware exists.
+- **A5 — LiteLLM as the reference implementation**, spec staying
+  tool-neutral. Decide at the start of stage 2 below — it is the first
+  question that stage asks.
 
-**A5 — Reference implementation.** The catalogue names LiteLLM as a
-candidate, and the capability stays tool-neutral as always.
-*Recommendation: confirm LiteLLM as the reference and keep the spec
-free of it* — same relationship as Docker to ADR-0004.
+## Staging
+
+1. **RFC-0022 stage 2** — account- and tenant-aware plumbing, invisible
+   to everyone. A key has to hang somewhere; this is that somewhere.
+   Already decided (RFC-0022 Q4), independent of everything here.
+2. **One gateway on `oaapx01`** — aliases over local Ollama plus one
+   external provider, keys with metadata, per-key metering, a usage
+   view. First consumer: Jörg's laptop, replacing LM Studio.
+3. **Chaining** — a second gateway draws from the first, each keeping
+   its own books (§3). This is where A1 is proved.
+4. **Tenant-facing** — a tenant's own gateway, data-classification
+   routing (§4), consumption visible to the tenant. Needs RFC-0022
+   stage 3.
+
+RFC-0022 stages 3 and 4 (`tenant_admin`, federated login) leave this
+RFC's critical path and return with the CRM application.
 
 ## Non-goals (stage 1)
 
@@ -254,9 +288,35 @@ Schlüssel, die es selbst ausgegeben hat.** Die Zahlen der Bezugsquelle
 sind deren Wahrheit und werden nicht automatisch abgeglichen — alles
 andere lädt zu stiller Doppelzählung über drei Schichten ein.
 
-**Fünf Entscheidungen liegen bei Jörg** (A1–A5): durchreichen oder
-vermitteln; was gilt, wenn der Management-Knoten ausfällt; `ai` als
-Knotenprofil; ob das Gateway oder ein zweiter Mandant der erste reale
-Fall wird (beide prüfen verschiedene Hälften — das Gateway Accounts,
-Schlüssel und Messung, BDT die Mandanten-Trennung); und LiteLLM als
-Referenz-Implementierung.
+**Zwei Entscheidungen sind getroffen** (2026-08-24):
+
+**A1 — die Kette reicht durch.** Jeder Layer protokolliert Zugriffe und
+misst Verbräuche, also muss der Verkehr durch ihn hindurch. Wer unser
+Gateway als Bezugsquelle anbindet, weiß, was er in Kauf nimmt — und ist
+zu nichts gezwungen: Ein externer Inferencing-Dienst ist eine genauso
+legitime Bezugsquelle, und dort liegen wir nicht im Weg. Performance
+wird damit zur Frage der **Kettenlänge**: kurz halten oder selbst
+hosten. Der Preis ist bewusst genommen (Latenz summiert sich, jede
+Schicht ist ein Ausfallpunkt für alles darunter); dafür kann jede
+Schicht ohne Rückfrage sagen, was ein Schlüssel verbraucht hat.
+
+**A4 — das KI-Gateway kommt vor dem zweiten Mandanten.** Es ist sofort
+im Alltag einsetzbar; BDT wäre das nicht gewesen. Jörgs Argument ist
+dabei stärker als meine Fragestellung: **BDT läuft im public-Modus ganz
+ohne Authentifizierung** — BDT mehrmandantenfähig zu machen hätte also
+Trennung an einer App geübt, die gar keinen Login hat, den man trennen
+könnte. Der Mandant mit Anmeldung wird mit der **CRM-Anwendung** real,
+auf die auch der digitale Zwilling aufsetzt. Das überholt in RFC-0022
+die Stufen 3 und 4 — möglich, weil Stufe 1 des Gateways keinerlei
+Mandanten-Trennung braucht: Die Identität ist der Schlüssel.
+
+**Offen, aber nicht im Weg** (A2/A3/A5): Verhalten bei Ausfall des
+Management-Knotens (Empfehlung: ein Verbraucher darf Schlüssel an
+mehreren Gateways halten), `ai` als Knotenprofil (Empfehlung: ja, wenn
+die erste Hardware da ist) und LiteLLM als Referenz — letzteres ist die
+erste Frage der Bau-Stufe 2.
+
+**Reihenfolge:** RFC-0022 Stufe 2 (Account/Mandant unsichtbar) → ein
+Gateway auf `oaapx01` mit Aliassen, Schlüsseln und Verbrauchssicht
+(erster Verbraucher: Jörgs Laptop statt LM Studio) → Verkettung →
+mandantenseitig.
