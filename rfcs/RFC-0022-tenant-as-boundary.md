@@ -1,6 +1,6 @@
 # RFC-0022: Account and Tenant — OAAP's Boundary of Belonging
 
-- **Status:** Draft — second round, four questions open (2026-08-24)
+- **Status:** Accepted (2026-08-24)
 - **Date:** 2026-08-24
 - **Authors:** Claude (analysis & proposal), Jörg (decisions)
 - **Depends on:** ADR-0006 (deployment scenarios), ADR-0007 (phases),
@@ -191,6 +191,18 @@ decision (D5) and it is the only honest model for someone who has root
 on the machine anyway. The counterweight is not a restriction but
 **transparency**: see §6.
 
+From that follows an operating rule, not a technical one (Jörg, Q2):
+**in a multi-tenant environment `server_admin` is not a working
+account.** It is the firefighter — used for emergencies, held by
+dedicated, *named* people, and never the account someone does their
+daily job with. Every `server_admin` action that touches a tenant
+belongs in the tenant's audit log (§6).
+
+The mechanism that makes this practicable — full server access granted
+to service staff for a bounded time, possibly through temporary users —
+is a concept of its own ("fire fighter" access) and gets its own RFC.
+It is named here because this decision creates the need for it.
+
 `tenant_admin` is the half RFC-0008 left open. The node operator
 creates a tenant and its first `tenant_admin` in the node's user
 administration; from there the tenant administers itself:
@@ -246,9 +258,17 @@ already set by the fleet key log and the deploy log:
   `server_admin` sees all of them.
 - **Access by the operator is itself an event.** Because
   `server_admin` may do everything, the record of *what they did* is
-  what makes the arrangement trustworthy. This is the same principle
-  the idea store already fixed for partner delegation (2026-08-23):
-  metadata always, payload only deliberately and announced.
+  what makes the arrangement trustworthy. Actions of a `server_admin`
+  against a tenant are logged in that tenant's log, not in a separate
+  operator log — the customer must be able to see them. This is the
+  same principle the idea store already fixed for partner delegation
+  (2026-08-23): metadata always, payload only deliberately and
+  announced.
+- **The audit log is load-bearing, not an accessory.** In this model
+  the customer's trust rests on it alone: there is no technical barrier
+  in front of a `server_admin`, and pretending otherwise would be
+  dishonest. It therefore ranks with `tenant_admin` in stage 3, not
+  after it.
 
 ### 7. Usage is measured, not capped (revision of D6)
 
@@ -317,52 +337,26 @@ properties, not model properties:
   API keys issued by whoever operates a gateway and per-consumer usage
   visible to that consumer. Own RFC.
 
-## Still open — four questions
+## Decisions, second round (Jörg, 2026-08-24)
 
-**Q1 — Where does the account live?** A tenant lives on one node, but
-an account spans nodes, and so does an IdP assignment (D3). Two ways:
-
-- **(a) The account lives on the management node** (the FleetView side,
-  RFC-0021). Nodes know only their tenants plus an opaque account
-  reference. No write path between nodes is needed, so nothing here
-  pre-empts RFC-0021 stage 2. *Recommended.*
-- **(b) The account is a first-class object on every node**, kept in
-  sync. This needs exactly the cross-node write path RFC-0021
-  deliberately does not have.
-
-The price of (a) is honest and should be named: without the management
-node, an account is only a label on a tenant. Cross-node views —
-"everything belonging to Meier GmbH", account-wide usage, an IdP
-registry you do not have to retype per node — only exist where the
-management node exists.
-
-**Q2 — Who may detach the maintenance IdP?** If the service provider
-attaches its own identity provider to a customer tenant, its staff can
-log into that tenant. In the delegated model the customer holds
-`tenant_admin` — may they detach it? Yes means the customer can lock
-their provider out of a system the provider is responsible for
-operating; no means the customer cannot end the access. Proposal:
-**they may detach it, and the operator is told** — plus the audit trail
-of §6 so the access was never invisible in the first place.
-`server_admin` retains access to the machine regardless; that is
-honest, and pretending otherwise would be worse.
-
-**Q3 — Does a label change keep the old name alive?** Proposed in §3
-(grace period as an alias). Confirm — the alternative is a hard cut,
-and we know from `hub.bdt.joomp.de` what a hard cut costs.
-
-**Q4 — Which comes first?** Two orders are defensible:
-
-- **inside-out:** stage 2 below (tenant-aware, invisible) first, then
-  IdP federation, then the second tenant. Nothing visible happens for a
-  while, but nothing breaks either.
-- **case-driven:** wait for a real second tenant (the hosting
-  acquaintance, or the "external developers" scenario) and build
-  against it.
-
-*Recommendation: inside-out for stage 2 regardless* — it is invisible,
-cheap now and expensive later — and case-driven for everything above
-it.
+- **Q1 — the account lives on the central management node.** Nodes know
+  only their own tenants plus an opaque account reference; no cross-node
+  write path is created, and RFC-0021 stage 2 is not pre-empted. The
+  price is accepted knowingly: without the management node an account is
+  only a label on a tenant, and cross-node views — account-wide usage,
+  an identity-provider registry one does not retype per node — exist
+  only where that node exists.
+- **Q2 — the customer may detach the maintenance provider**, everything
+  is logged, and they carry the consequences. `server_admin` remains the
+  way back in — as **firefighter, not as a working account** (see §4),
+  held by named people, with every tenant-facing action in the tenant's
+  audit log. A bounded "fire fighter" access for service staff becomes
+  its own RFC.
+- **Q3 — a changed label keeps working for a grace period** as an alias.
+- **Q4 — stage 2 is pulled forward regardless** (tenant- and
+  account-aware, invisible to everyone). Everything above it waits for a
+  real case; Jörg is weighing two — making the BDT scenario
+  multi-tenant, or the AI gateway.
 
 ## Staging
 
@@ -448,8 +442,20 @@ zeigt** — Instanzen, Speicher, KI-Verbrauch, je Mandant und je Account;
 echte Grenzen kommen als Laufzeit-Limits, wenn ein realer Fall da ist.
 Dieselbe Messung trägt die Abrechnung des KI-Gateways.
 
-**Offen sind vier Fragen** (Q1–Q4): Wo lebt der Account — auf dem
-Management-Knoten (empfohlen) oder auf jedem Knoten? Wer darf den
-Wartungs-IdP wieder abhängen? Überlebt ein altes Kürzel eine
-Übergangsfrist? Und bauen wir von innen nach außen oder erst, wenn ein
-echter zweiter Mandant da ist?
+**Die vier offenen Fragen sind entschieden** (Jörg, 24.08.): Der
+**Account liegt auf dem zentralen Management-Knoten** — damit entsteht
+kein Schreibweg zwischen Knoten, und der Preis ist wissentlich in Kauf
+genommen: Ohne diesen Knoten ist ein Account nur ein Etikett. Der
+**Kunde darf den Wartungs-IdP abhängen**, alles wird protokolliert, und
+er trägt die Folgen; `server_admin` bleibt der Weg zurück — aber
+ausdrücklich als **Feuerwehr und nicht als Arbeitskonto**, geführt von
+namentlich bekannten Personen, mit jeder mandantenbezogenen Handlung im
+Audit-Log des Mandanten. Ein zeitlich begrenzter Notfallzugang für
+Service-Mitarbeiter („Fire Fighter") bekommt ein eigenes RFC. Ein
+**altes Kürzel überlebt eine Übergangsfrist** als Alias. Und **Stufe 2
+wird in jedem Fall vorgezogen**, weil sie unsichtbar, jetzt billig und
+später teuer ist; alles darüber wartet auf einen echten Fall.
+
+Damit ist das Konzept **angenommen**. Was daraus folgt, verteilt sich
+auf eigene RFCs: Fire-Fighter-Zugang, KI-Gateway, Messaging und
+digitaler Zwilling.

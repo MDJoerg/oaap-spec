@@ -26,4 +26,5 @@ never deleted; superseded RFCs get status `Superseded by RFC-XXXX`.
 - [RFC-0019](RFC-0019-artifact-deployment-private-sources.md) — Artifact Deployment: Deploying Without Holding Someone Else's Key (Accepted)
 - [RFC-0020](RFC-0020-promotion-to-production.md) — Promotion to Production: Shipping Exactly What Was Tested (Accepted)
 - [RFC-0021](RFC-0021-fleet-status-api-and-overview.md) — Fleet Status API and Fleet Overview App (Accepted)
-- [RFC-0022](RFC-0022-tenant-as-boundary.md) — Account and Tenant: OAAP's Boundary of Belonging (Draft — second round, four questions open)
+- [RFC-0022](RFC-0022-tenant-as-boundary.md) — Account and Tenant: OAAP's Boundary of Belonging (Accepted)
+- [RFC-0023](RFC-0023-ai-gateway.md) — The AI Gateway: Supply, Placement, Entitlement (Draft — decisions open)
