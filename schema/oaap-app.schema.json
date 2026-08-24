@@ -219,6 +219,10 @@
           },
           "secret": {
             "type": "boolean"
+          },
+          "multiline": {
+            "type": "boolean",
+            "description": "The value is a LIST. The portal offers one line per entry; on the wire the lines are joined with ';' — so an app parses the single-line form and no entry may itself contain ';'."
           }
         }
       }
@@ -296,6 +300,10 @@
           "service": {
             "type": "string",
             "pattern": "^[a-z0-9][a-z0-9-]*$"
+          },
+          "reason": {
+            "type": "string",
+            "description": "Why this app needs a port past the gateway. Required, because the operator granting it reads this sentence and nothing else — and the schema listed it as required without ever allowing it, so no manifest with an endpoint could validate (found 2026-08-24)."
           }
         }
       }

@@ -1,7 +1,7 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.15
+- **Version:** 0.2.16
 - **Maturity:** draft (0.2 adds remote deployment via deploy tokens;
   0.2.1 adds the one-click store install in 2.6 with test 17; 0.2.2
   adds instance visibility in 2.7 and moves platform-level portal
@@ -515,6 +515,30 @@ files the operator must edit", rule 4), so the runtime must offer it:
   and key lists were the driver): a secret list cannot be re-entered
   wholesale, because the operator can never read the stored value
   back.
+- **A list-valued key MAY declare `multiline: true`** (0.2.16), and the
+  portal then offers **one line per entry** instead of a single-line
+  field. This is a presentation rule with a hard boundary behind it:
+
+  > **On the wire a config value stays one line.** The portal splits
+  > and joins; what is stored and handed to the container is the
+  > `;`-separated form.
+
+  The reason is not taste. Config values reach an app as environment
+  variables, and the runtime carries them in a **line-based** env file
+  (reference: `instance.env`, passed as `--env-file`). A newline inside
+  a value would tear that file apart and, on the next read, silently
+  swallow half the configuration — a corruption that surfaces long
+  after the edit. The restriction that follows is stated plainly rather
+  than hidden: **no entry may itself contain `;`**, and an entry that
+  does is **refused with a message naming it**, never split silently.
+
+  Until 0.2.16 there was no such declaration, and apps invented the
+  same workaround twice independently (FleetView's node list, the AI
+  gateway's suppliers and aliases). A convention arrived at twice
+  belongs in the platform. An app that declares it keeps working on an
+  older node — the manifest rule of 2.2 is "strict schema, tolerant
+  runtime", so an older node ignores the key and shows a single-line
+  field.
 - **Auditable without leaking.** Every change is recorded with
   instance, key name, actor and time — values never appear in any log.
 
