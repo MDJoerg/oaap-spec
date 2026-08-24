@@ -89,10 +89,17 @@ mapping is the operator's configuration, not the consumer's business.
 
 ## 4. Suppliers, and chains
 
-A supplier is a local runtime, an external provider, or another
-gateway. There is no third case, and a chain is not a special
-construction: **a gateway has an upstream side and a downstream side,
-and an upstream may be another gateway.**
+A supplier is **an OpenAI-compatible HTTP endpoint plus a
+credential** — that is the entire model. A local runtime, an external
+provider, a customer's own endpoint and another gateway are the same
+kind of thing; they differ in address, credential and class (§7), not
+in code. There is deliberately **no adapter framework** in this
+version: a plugin architecture built before its second real case is a
+guess wearing an interface.
+
+A chain is therefore not a special construction either: **a gateway
+has an upstream side and a downstream side, and an upstream may be
+another gateway.**
 
 A chain **proxies; it does not refer** (RFC-0023 A1). Traffic passes
 through every layer, because every layer logs the access and meters
@@ -142,10 +149,23 @@ This is a conformance requirement, not a recommendation.
 
 ## 7. Data classification is a routing policy
 
-Each supplier carries a **class** (`internal`, `eu`, `external`). A
-consumer — a tenant, or a key — declares which classes it may use.
+Each supplier carries a **class**:
+
+| class      | meaning                                                       |
+| ---------- | ------------------------------------------------------------- |
+| `internal` | runs on hardware the operator controls — nothing leaves it    |
+| `eu`       | a sovereign provider in an EU data centre                     |
+| `external` | everything else, however good — the class is about custody    |
+
+A consumer — a tenant, or a key — declares which classes it may use.
 Failover respects that boundary; a route the policy forbids does not
 exist for that consumer, and no fallback may cross the line silently.
+
+**The order is the default, not merely a filter.** Within an
+equivalence group a gateway prefers `internal` before `eu` before
+`external`, and an operator who wants it otherwise says so explicitly.
+Sovereignty is thus what happens when nobody configures anything —
+which is the only form of it that survives daily use.
 
 The consumer must be able to **see which supplier currently serves an
 alias**. A policy the customer cannot verify is a promise, not a
@@ -157,7 +177,8 @@ control.
 | ---------------------------------- | ----------------------------------------------------------------- |
 | missing, unknown, revoked key      | `403`, no detail, braked                                          |
 | alias not permitted for this key   | `400` with the permitted aliases                                  |
-| budget exhausted or rate limit hit | `429` with `Retry-After`                                          |
+| rate limit hit                     | `429` with `Retry-After`                                          |
+| budget exhausted                   | `429` **without** `Retry-After` — waiting does not help, only a new budget |
 | no supplier in the group available | `503`, naming the alias, never the upstream credential            |
 | upstream failed                    | `502`, with the supplier's own status where it is safe to pass on |
 
@@ -231,6 +252,16 @@ RFC-0022 Stufe 2 schlicht `default`), optional auf einzelne Aliasse
 beschränkt, mit **Budget und Rate-Limit als harter Grenze**. Ein
 Gateway, das sich bei einem anderen bedient, hält dort **genau einen
 eigenen** Schlüssel, der nie nach unten durchgereicht wird.
+
+**Souveränität ist die Standard-Reihenfolge, kein bloßer Filter:**
+Innerhalb einer Ausweich-Gruppe gilt `internal` vor `eu` vor
+`external` — wer es anders will, sagt es ausdrücklich. Souveränität
+ist damit das, was passiert, wenn niemand etwas einstellt; jede andere
+Form überlebt den Alltag nicht. Eine Bezugsquelle ist dabei **immer
+dasselbe**: ein OpenAI-kompatibler Endpunkt plus Zugangsdaten — lokal,
+extern, beim Kunden oder ein anderes Gateway. Einen Adapter-Baukasten
+gibt es bewusst nicht, solange wir den zweiten echten Fall nicht
+kennen.
 
 **Ausweichen nur innerhalb einer erklärten Gruppe** — LLMs sind nicht
 austauschbar wie Webserver hinter einem Lastverteiler; stilles

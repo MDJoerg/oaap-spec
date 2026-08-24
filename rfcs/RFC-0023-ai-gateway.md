@@ -208,7 +208,57 @@ This re-orders RFC-0022's staging: the gateway is stage 5 there and now
 overtakes stages 3 and 4. It can, because of §3 — stage 1 of the
 gateway needs no tenant isolation whatsoever. The identity is the key.
 
-### Still open — none of them blocks the start
+- **A5 — our own implementation, not LiteLLM.** Every supplier Jörg
+  names speaks the **same OpenAI protocol** — Groq, T-Systems' AI
+  Business Hub, later customer endpoints — so LiteLLM's main value,
+  a hundred provider adapters, solves a problem we do not have. What
+  remains is key handling, aliases, metering and streaming relay: our
+  own idiom, and small. Two arguments decided it:
+  - the conformance rule "no prompt content in any log, in any
+    operating mode" (`oaap.ai.gateway` §6, test 7) is **provable** in
+    code we own and only **assertable** against a large foreign system
+    with its own database, admin UI and dozens of logging options;
+  - LiteLLM's virtual keys and spend tracking want Postgres on
+    `oaapx01`, where BDT runs in production.
+
+  The counter-argument stands and is accepted: we take on streaming
+  correctness, retries and provider quirks permanently. **The exit is
+  cheap** — the interface is OpenAI-compatible on both sides, so
+  swapping the engine behind it is invisible to every consumer.
+  LiteLLM stays the named escape hatch if provider breadth or routing
+  sophistication ever becomes the bottleneck.
+
+### One supplier kind, no adapter framework (Jörg, 2026-08-24)
+
+A supplier is **an OpenAI-compatible HTTP endpoint plus a credential**
+— that is the whole model. Local runtime, external provider, customer
+endpoint and another gateway are the same kind of thing, differing
+only in address, credential and class (§4 of the capability spec).
+
+Jörg's instruction: **wait with further adapters until the
+requirements are known.** That is not a gap, it is the decision — a
+plugin architecture built before its second case is a guess wearing an
+interface.
+
+### Sovereignty is the ordering principle, not a filter
+
+Jörg's focus: **digitally sovereign — self-hosted, or sovereign from
+EU data centres.** That turns §4's data classification from a feature
+into the default routing order: `internal` before `eu` before
+`external`. Concretely, and measured on the node (2026-08-24):
+
+| Supply | Class | Note |
+| --- | --- | --- |
+| local runtime on `oaapx01` | `internal` | 8 vCPU, 31 GiB RAM, **no GPU** — embeddings and small models are realistic, a daily chat model is not |
+| T-Systems AI Business Hub | `eu` | sovereign, the intended default for chat |
+| Groq | `external` | fast, US — only where the consumer permits the class |
+| customer endpoints | declared per endpoint | just another supplier |
+
+The AI node with real GPUs (RFC-0011 profile `ai`, A3) is therefore
+not a nicety: it is what makes `internal` a serious answer for
+anything larger than an embedding.
+
+### Still open — neither blocks the start
 
 - **A2 — fallback when the management node is down.** Recommendation
   unchanged: let a consumer hold keys at more than one gateway, so the
@@ -216,9 +266,7 @@ gateway needs no tenant isolation whatsoever. The identity is the key.
   actually consumes through the management node.
 - **A3 — `ai` as a node profile (RFC-0011).** Recommendation: yes.
   Decide when the first dedicated hardware exists.
-- **A5 — LiteLLM as the reference implementation**, spec staying
-  tool-neutral. Decide at the start of stage 2 below — it is the first
-  question that stage asks.
+- ~~**A5**~~ — decided below.
 
 ## Staging
 
@@ -310,11 +358,38 @@ auf die auch der digitale Zwilling aufsetzt. Das überholt in RFC-0022
 die Stufen 3 und 4 — möglich, weil Stufe 1 des Gateways keinerlei
 Mandanten-Trennung braucht: Die Identität ist der Schlüssel.
 
-**Offen, aber nicht im Weg** (A2/A3/A5): Verhalten bei Ausfall des
+**A5 — eigene Implementierung statt LiteLLM.** Alle Bezugsquellen, die
+Jörg nennt (Groq, T-Systems AI Business Hub, später Kunden-Endpunkte),
+sprechen **dasselbe OpenAI-Protokoll** — LiteLLMs Hauptwert, hundert
+Adapter, löst damit ein Problem, das wir nicht haben. Übrig bleiben
+Schlüssel, Aliasse, Messung und Streaming-Weiterleitung: unser Idiom.
+Ausschlaggebend war die Konformitätsregel „keine Prompts in irgendeinem
+Protokoll“ — in eigenem Code **beweisbar**, an einem großen Fremdsystem
+nur **behauptbar** — und dass LiteLLMs Schlüsselverwaltung Postgres auf
+`oaapx01` verlangt, wo BDT produktiv läuft. Der Gegeneinwand steht
+(Streaming, Wiederholungen, Anbieter-Eigenheiten gehören dann uns);
+**der Ausweg ist billig**, weil die Schnittstelle beidseitig
+OpenAI-kompatibel ist und ein Maschinenwechsel für Verbraucher
+unsichtbar bleibt. LiteLLM bleibt als benannter Notausgang im RFC.
+
+**Eine Sorte Bezugsquelle, kein Adapter-Baukasten.** Eine Bezugsquelle
+ist ein OpenAI-kompatibler HTTP-Endpunkt plus Zugangsdaten — mehr
+nicht. Jörgs Vorgabe: mit weiteren Adaptern warten, **bis wir die
+Anforderungen kennen**. Das ist keine Lücke, das ist die Entscheidung.
+
+**Souveränität ist die Reihenfolge, kein Filter.** Jörgs Fokus — selbst
+gehostet oder souverän aus EU-Rechenzentren — macht aus der
+Datenklassifizierung die Standard-Routing-Ordnung: `internal` vor `eu`
+vor `external`. Nachgemessen auf `oaapx01` (8 vCPU, 31 GiB, **keine
+GPU**): lokal sind Embeddings und kleine Modelle realistisch, ein
+tägliches Chat-Modell nicht. Der KI-Knoten mit echten GPUs ist deshalb
+keine Kür — er ist das, was `internal` für mehr als Embeddings
+überhaupt zu einer ernsten Antwort macht.
+
+**Offen, aber nicht im Weg** (A2/A3): Verhalten bei Ausfall des
 Management-Knotens (Empfehlung: ein Verbraucher darf Schlüssel an
-mehreren Gateways halten), `ai` als Knotenprofil (Empfehlung: ja, wenn
-die erste Hardware da ist) und LiteLLM als Referenz — letzteres ist die
-erste Frage der Bau-Stufe 2.
+mehreren Gateways halten) und `ai` als Knotenprofil (Empfehlung: ja,
+sobald die erste Hardware da ist).
 
 **Reihenfolge:** RFC-0022 Stufe 2 (Account/Mandant unsichtbar) → ein
 Gateway auf `oaapx01` mit Aliassen, Schlüsseln und Verbrauchssicht
