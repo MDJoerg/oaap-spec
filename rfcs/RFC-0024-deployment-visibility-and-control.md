@@ -1,6 +1,6 @@
 # RFC-0024: A Deployment You Can See — Status, Retry, Cancel, Delete
 
-- **Status:** Draft
+- **Status:** Accepted (2026-08-29)
 - **Date:** 2026-08-29
 - **Authors:** Jörg (direction and decisions), Claude (write-up)
 - **Depends on:** RFC-0019 (artifact deployment), RFC-0020 (promotion to

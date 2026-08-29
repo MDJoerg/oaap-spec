@@ -28,4 +28,4 @@ never deleted; superseded RFCs get status `Superseded by RFC-XXXX`.
 - [RFC-0021](RFC-0021-fleet-status-api-and-overview.md) — Fleet Status API and Fleet Overview App (Accepted)
 - [RFC-0022](RFC-0022-tenant-as-boundary.md) — Account and Tenant: OAAP's Boundary of Belonging (Accepted)
 - [RFC-0023](RFC-0023-ai-gateway.md) — The AI Gateway: Supply, Placement, Entitlement (Draft — decisions open)
-- [RFC-0024](RFC-0024-deployment-visibility-and-control.md) — A Deployment You Can See: Status, Retry, Cancel, Delete (Draft)
+- [RFC-0024](RFC-0024-deployment-visibility-and-control.md) — A Deployment You Can See: Status, Retry, Cancel, Delete (Accepted)
