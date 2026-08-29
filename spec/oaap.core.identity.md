@@ -1,7 +1,7 @@
 # oaap.core.identity — Identity & Roles
 
 - **ID:** `oaap.core.identity`
-- **Version:** 0.3.2
+- **Version:** 0.3.3
 - **Maturity:** draft
 - **Based on:** RFC-0001, RFC-0002, RFC-0007, RFC-0008
 - **Scope of this version:** built-in minimal identity provider with
@@ -10,7 +10,10 @@
   without changing the gateway contract. 0.3.0 adds the `server_admin`
   role (RFC-0008) and free-form visibility groups (RFC-0007). 0.3.2
   adds the tenant membership of `oaap.core.tenant` 0.1 — a field and a
-  migration, invisible while a node has one tenant.
+  migration, invisible while a node has one tenant. 0.3.3 makes that
+  membership operative (`oaap.core.tenant` 0.2): the `tenant_admin`
+  role, a tenant boundary the gateway enforces, and user management
+  scoped to one tenant. Still invisible while a node has one tenant.
 
 ## 1. Purpose
 
@@ -32,10 +35,11 @@ their own business roles.
 The standard roles from RFC-0002 and RFC-0008 exist on every
 installation and are not user-definable in this version:
 
-`server_admin`, `admin`, `keyuser`, `user`, `guest`, `partner`, `public`
+`server_admin`, `tenant_admin`, `admin`, `keyuser`, `user`, `guest`,
+`partner`, `public`
 
 `public` is a route marker (no authentication), never a role held by a
-user account. A user account holds **one or more** of the other six.
+user account. A user account holds **one or more** of the other seven.
 
 `server_admin` (RFC-0008) is full platform administration authority —
 users, groups, edge/external routing, backup, store, and the
@@ -48,6 +52,15 @@ independently — a user can hold `admin` (full administrative function
 inside one app) without holding `server_admin` (control of the OAAP
 server itself), and vice versa.
 
+`tenant_admin` (0.3.3, RFC-0008's deferred half) is administration
+authority **inside one tenant** — the tenant of the holder's own user
+record, never one named in a request. It is a platform role like
+`server_admin`, is likewise never forwarded to apps as something to
+interpret, and is bounded by three rules that `oaap.core.tenant` 2.3
+states in full: it may not grant `server_admin`, it may not touch a
+user of another tenant, and the tenant it acts in comes from the actor.
+Without those, the role is a two-step path to the whole node.
+
 ### 2.2 User model
 
 Each user account has at least:
@@ -56,19 +69,26 @@ Each user account has at least:
 | -------------- | ------------------------------------------------------------------------------- |
 | `username`     | unique, immutable after creation, `[a-z0-9][a-z0-9._-]*`, 2–40 chars, lowercase |
 | `display_name` | optional free text; portal UX only — apps receive the `username`                |
-| `roles`        | non-empty subset of {server_admin, admin, keyuser, user, guest, partner}        |
+| `roles`        | non-empty subset of {server_admin, tenant_admin, admin, keyuser, user, guest, partner} |
 | `groups`       | free-form visibility tags (RFC-0007), default empty — see 2.6                   |
 | `tenant`       | the tenant this user belongs to (`oaap.core.tenant` 1.1); absent means the default tenant |
 | `active`       | boolean; inactive users cannot sign in and existing sessions stop verifying     |
 | password       | stored only as a salted hash; minimum length 8                                  |
 
-**Tenant membership (0.3.2).** A user belongs to exactly one tenant.
-The field is written by the migration of `oaap.core.tenant` 1.5 and is
-otherwise not settable in this version — there is only one tenant to
-belong to. It changes **nothing** about authentication: no new header,
-no new parameter, no change to the login screen. An app must never
-learn which tenant its caller belongs to; the day it needs to know, the
-boundary is in the wrong place (RFC-0022 non-goals).
+**Tenant membership (0.3.3).** A user belongs to exactly one tenant.
+The field is written by the migration of `oaap.core.tenant` 1.5, and
+from 0.3.3 it is **chosen when the account is created** and never
+changed afterwards: moving a user between tenants is moving a person
+between customers, and the honest form of that is a new account, not a
+field edit. A tenant named in a create request MUST be one this node
+has (`oaap.core.tenant` 2.5: unknown never means default), and a
+`tenant_admin` may name only their own.
+
+It still changes **nothing** on the app side: no new header, no change
+to the login screen, and no way for an app to learn which tenant its
+caller belongs to. The day an app needs to know, the boundary is in the
+wrong place (RFC-0022 non-goals). What it does change is *where the
+session may go* — see the tenant restriction in 2.3.
 
 ### 2.3 Authentication contract with the gateway
 
@@ -90,6 +110,14 @@ boundary is in the wrong place (RFC-0022 non-goals).
   hold at least one of the listed groups, **unless** it holds
   `server_admin`, which bypasses the group check unconditionally
   (2.6). Absent, this parameter changes nothing (today's behavior).
+- Verify accepts an optional **tenant restriction** (`?tenant=<id>`,
+  `oaap.core.tenant` 3.1) — the boundary of belonging, enforced here
+  and nowhere else. The session's user must belong to the named tenant,
+  **unless** it holds `server_admin` (RFC-0022 D5: the operator may
+  reach everything, and the audit log is the counterweight). A tenant
+  parameter naming a tenant this node does not have is refused, never
+  treated as the default one. Absent, this parameter changes nothing —
+  which is why nothing changes on a single-tenant node.
 - **Fresh state per request:** verify MUST evaluate the *current* user
   store on every call. Deactivating a user or changing their roles or
   groups takes effect on their next request — waiting for re-login is
@@ -98,9 +126,19 @@ boundary is in the wrong place (RFC-0022 non-goals).
 
 ### 2.4 User management
 
-- Managing users is restricted to sessions holding the `server_admin`
-  role (RFC-0008 — this operates on the server itself). The portal
-  provides the UI; identity provides the operations.
+- Managing users is restricted to sessions holding `server_admin`
+  (RFC-0008 — this operates on the server itself) or, **within their
+  own tenant only**, `tenant_admin` (0.3.3). The portal provides the
+  UI; identity provides the operations.
+- **A `tenant_admin` sees and changes only their own tenant's users.**
+  A request naming a user of another tenant is answered exactly as a
+  request naming a user who does not exist: "not found". Answering
+  "forbidden" would confirm that the username is taken on this node,
+  which is already an answer across the boundary.
+- **A `tenant_admin` may not grant a role whose authority reaches past
+  a tenant** — `server_admin` and `partner` — and may not grant
+  `tenant_admin` outside their own tenant. All are refused, not
+  silently dropped.
 - Operations: **list** users (never exposing password hashes),
   **create** (username, initial password, roles, groups, display
   name), **update** (roles, groups, display name, active flag — not
@@ -228,6 +266,16 @@ independently.
     the node, every `/internal/*` route is disabled (503), never open.
     The guard is by path prefix, so a newly added internal route is
     covered without a per-route change.
+11. **The tenant boundary holds at the gateway** (0.3.3) — a session
+    whose user belongs to tenant A receives 403 on a route verified
+    with `?tenant=<B>`, and the upstream app is never reached; the same
+    session with `server_admin` passes; without the parameter nothing
+    changes.
+12. **A `tenant_admin` is bounded** (0.3.3) — they can create, list and
+    change users of their own tenant; a request naming a user of
+    another tenant answers "not found", not "forbidden"; granting
+    `server_admin` or `partner`, or naming a foreign tenant on create,
+    is refused.
 
 ## 6. Dependencies
 
@@ -237,12 +285,13 @@ None (foundation; the gateway depends on identity, not vice versa).
 
 `draft` — v0.2.0 added user management to the v0.1 outline; v0.3.0
 adds the `server_admin` role (RFC-0008) and visibility groups
-(RFC-0007). Open points for later versions: external identity
+(RFC-0007); v0.3.3 adds `tenant_admin` and the tenant boundary
+(`oaap.core.tenant` 0.2). Open points for later versions: external identity
 providers (Keycloak/LDAP/OIDC), 2FA (required by the internet
 hardening profile), forced password change on first login, user
-deletion/GDPR semantics, per-app service accounts, `tenant_admin`
-(future — explicitly out of scope for RFC-0008, see multi-tenancy in
-the capability backlog), managed group objects (RFC-0007 kept groups
+deletion/GDPR semantics, per-app service accounts, moving a user
+between tenants (2.2 deliberately has no such operation), managed
+group objects (RFC-0007 kept groups
 free-form deliberately; revisit if renaming-safety or a full overview
 of groups in use becomes a real need).
 
