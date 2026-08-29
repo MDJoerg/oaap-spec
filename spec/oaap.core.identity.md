@@ -1,14 +1,16 @@
 # oaap.core.identity — Identity & Roles
 
 - **ID:** `oaap.core.identity`
-- **Version:** 0.3.1
+- **Version:** 0.3.2
 - **Maturity:** draft
 - **Based on:** RFC-0001, RFC-0002, RFC-0007, RFC-0008
 - **Scope of this version:** built-in minimal identity provider with
   user management. External identity providers (Keycloak, LDAP, OIDC)
   are out of scope and must be able to replace this provider later
   without changing the gateway contract. 0.3.0 adds the `server_admin`
-  role (RFC-0008) and free-form visibility groups (RFC-0007).
+  role (RFC-0008) and free-form visibility groups (RFC-0007). 0.3.2
+  adds the tenant membership of `oaap.core.tenant` 0.1 — a field and a
+  migration, invisible while a node has one tenant.
 
 ## 1. Purpose
 
@@ -56,8 +58,17 @@ Each user account has at least:
 | `display_name` | optional free text; portal UX only — apps receive the `username`                |
 | `roles`        | non-empty subset of {server_admin, admin, keyuser, user, guest, partner}        |
 | `groups`       | free-form visibility tags (RFC-0007), default empty — see 2.6                   |
+| `tenant`       | the tenant this user belongs to (`oaap.core.tenant` 1.1); absent means the default tenant |
 | `active`       | boolean; inactive users cannot sign in and existing sessions stop verifying     |
 | password       | stored only as a salted hash; minimum length 8                                  |
+
+**Tenant membership (0.3.2).** A user belongs to exactly one tenant.
+The field is written by the migration of `oaap.core.tenant` 1.5 and is
+otherwise not settable in this version — there is only one tenant to
+belong to. It changes **nothing** about authentication: no new header,
+no new parameter, no change to the login screen. An app must never
+learn which tenant its caller belongs to; the day it needs to know, the
+boundary is in the wrong place (RFC-0022 non-goals).
 
 ### 2.3 Authentication contract with the gateway
 

@@ -1,7 +1,7 @@
 # oaap.data.backup — Platform Backup & Restore
 
 - **ID:** `oaap.data.backup`
-- **Version:** 0.1.2
+- **Version:** 0.1.3
 - **Maturity:** draft (0.1.2 extends "the address travels" to every name
   an instance owns — canonical plus aliases, RFC-0018; 0.1.1 draws the
   line between what belongs to the **service** and travels — an
@@ -50,6 +50,12 @@ contained instances). It MUST contain:
   contract guarantees
 - The app storage of every instance
 
+- The **tenant store** (`oaap.core.tenant` 1.1). Without it the
+  restored users and instances name tenants the node does not have,
+  and the resolution rule of `oaap.core.tenant` 2.2 refuses them —
+  correctly, and unhelpfully. A whole-node backup therefore always
+  carries the whole tenant store, even when only one tenant exists.
+
 It MUST NOT contain container images (they are rebuilt or pulled from
 the recorded package sources on restore) and SHOULD NOT contain caches,
 logs, or ephemeral protection state (e.g. login-throttling counters —
@@ -58,6 +64,12 @@ node's **profiles** (`oaap.core.host` 2.5) as restorable state; the
 manifest SHOULD record them as information (see 2.3). TLS/ACME material MAY be
 included; it is re-obtainable, and after a relocation the certificates
 are re-issued anyway.
+
+**Per-tenant backup (RFC-0022 D7) is not this version.** A backup here
+is a whole node. Cutting one tenant out of it is a different operation
+with a different failure mode — a tenant export is a customer's
+complete data set in one file — and it arrives with `oaap.core.tenant`
+0.2, together with the roles that decide who may ask for it.
 
 ### 2.2 Creating a backup
 

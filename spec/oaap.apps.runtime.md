@@ -1,7 +1,7 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.16
+- **Version:** 0.2.17
 - **Maturity:** draft (0.2 adds remote deployment via deploy tokens;
   0.2.1 adds the one-click store install in 2.6 with test 17; 0.2.2
   adds instance visibility in 2.7 and moves platform-level portal
@@ -341,6 +341,19 @@ For every instance, the runtime delivers the contract guarantees:
    for crashed services.
 5. App containers attach only to internal networks — no container port
    is ever published directly; every entry point is a gateway listener.
+
+### 2.4.4 Tenancy of an instance (0.2.17)
+
+Every instance record carries the tenant it belongs to
+(`oaap.core.tenant` 1.1); absent means the default tenant. A **deploy
+token stores no tenant** — it is bound to one instance and the instance
+already knows. A **creation permit does**, because it is issued before
+the instance exists.
+
+While a node has one tenant this changes no output, no route and no
+hostname. From `oaap.core.tenant` 0.2 onward the instance's tenant
+label enters its external names as `<instance>.<label>.<node>`; the
+default tenant keeps `<instance>.<node>` unchanged (RFC-0018).
 
 ### 2.5 Remote deployment (deploy tokens)
 
