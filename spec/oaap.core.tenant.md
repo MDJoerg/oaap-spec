@@ -195,7 +195,10 @@ is shown.
   instances). Counts, not names: this command is an inventory, not a
   data export.
 - `oaap tenant check` — the integrity check of 3.2. Exit code 0 when
-  every record resolves, 1 when any does not.
+  every record resolves, 1 when any does not — and **1 also when a
+  store it must check could not be read at all**. "Everything resolves"
+  is a claim about records that were looked at; a check that silently
+  counts an unreadable store as empty makes that claim about nothing.
 - `oaap tenant log [<label>] [-n <count>]` — the audit log (1.7), newest
   last.
 
@@ -349,6 +352,10 @@ On a node with one tenant: none that anyone can observe, exactly as in
    tenant field resolves to the default tenant; a record naming an
    unknown UUID is reported by `oaap tenant check` with a non-zero exit
    and is not rewritten by it.
+3a. **An unreadable store fails the check.** With the user store present
+    but unreadable, `oaap tenant check` exits non-zero and says so,
+    rather than reporting that every record resolves. A store that is
+    not there at all is an honest zero and passes.
 4. **The default id is per node**, and the default tenant can be
    neither renamed nor deleted.
 5. **The node is not in a tenant.** Node profiles, external hostname,
