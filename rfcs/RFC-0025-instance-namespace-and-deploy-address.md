@@ -1,6 +1,7 @@
 # RFC-0025: The Instance Namespace — One Node, or One Tenant?
 
-- **Status:** Draft (decisions open — see §7)
+- **Status:** Accepted (2026-09-02) — Option B, with the key
+  derivation of §8 that the draft did not yet ask about
 - **Date:** 2026-09-02
 - **Authors:** Claude (analysis & proposal), Jörg (question and framing)
 - **Depends on:** RFC-0005 (addressing), RFC-0009/RFC-0018 (instance
@@ -32,7 +33,11 @@ customer administers"*, and the one Jörg named as the real case:
 > kaum Kommunikation hat, da man ja den Tenant-Aufbau bewusst delegiert.
 
 This RFC states what is true today, what the shared namespace costs
-under delegation, and offers three options. It **decides nothing**.
+under delegation, and offers three options. **Jörg decided Option B on
+2026-09-02**, together with the key derivation the draft had not
+thought to ask about; both are recorded in §7 and §8. What made the
+decision easy was that Option B turned out to be affordable in a way
+this draft got wrong — see §8.3.
 
 ## 1. What is true today
 
@@ -188,21 +193,103 @@ recorded as debt rather than as a decision:
   instance name, ask what happens when that name is later taken by
   another tenant.** §2.3 is the template of that mistake.
 
-## 7. Decisions for Jörg
+## 7. Decisions (Jörg, 2026-09-02)
 
-- **D1 — Do we accept node-wide instance names for now** (Option A),
-  with the guard from 0.1.56 and the debt of §6?
-- **D2 — What triggers Option B?** Proposed: the first node where a
-  tenant is administered by someone outside our own operation. A number
-  of tenants is the wrong trigger; delegation is the right one.
-- **D3 — If Option B: does `/deploy/<name>` keep working** for the
-  default tenant permanently (RFC-0009's lesson), or only for a named
-  grace period, as a renamed tenant label does (RFC-0022 Q3)?
-- **D4 — A naming convention today?** Even under Option A, deciding now
-  that customer instances carry a tenant prefix would make an eventual
-  migration to Option B nearly free — the names would already be unique
-  per tenant. The price is the stutter of §2.1 in every generated
-  address.
+- **D1 — no.** Option A is not taken. The rebuild happens now, while
+  exactly one customer tenant exists and it can be set up again from
+  scratch — the cheapest moment there will ever be. Jörg: *"Ich setze
+  den Tenant cls neu auf. Die fremde KI kennt zwar unsere Vorgehensweise,
+  aber noch keine URL."*
+- **D2 — moot.** The trigger question disappears with D1. The reasoning
+  behind it survives as the reason D1 went this way: the delegated
+  model is the case, and it is close.
+- **D3 — `/deploy/<name>` keeps working, permanently and without a
+  compatibility layer.** It falls out of the key rule of §8.1 rather
+  than being maintained: for the default tenant the key *is* the name.
+- **D4 — superseded.** A hand-applied naming convention was the
+  fallback for Option A. The platform now composes the prefix itself,
+  which is the same effect enforced by a mechanism instead of by
+  discipline — and without the stutter, because the customer types and
+  reads the bare name while only the key carries the prefix.
+- **D5 (new) — the key derives from a frozen slug**, not from the
+  current label and not from the UUID. See §8.1.
+
+## 8. The decision (Jörg, 2026-09-02)
+
+### 8.1 Option B, with one new field on the tenant
+
+An instance is `(tenant, name)`. What everything node-scoped uses is a
+**node key**, composed once and never recomputed:
+
+    key = <slug>-<name>        for a tenant with a slug
+    key = <name>               for the default tenant
+
+The **slug** is a new field on the tenant record: minted when the
+tenant is created (initially the label, with a numeric discriminator
+if that slug is already taken), and **never changed afterwards** —
+`tenant rename` does not touch it.
+
+Jörg chose this over deriving the key from the current label, and over
+deriving it from the tenant UUID. The reasoning:
+
+- **From the label** would mean every rename is a real migration —
+  containers rebuilt, networks recreated, data directories moved,
+  gateway files rewritten. On a customer node that is downtime for
+  that tenant's apps, charged for a cosmetic change. RFC-0022 Q3
+  already promises that a rename is *"a renaming, not a migration"*;
+  deriving keys from the label would have broken that promise the day
+  it was tested.
+- **From the UUID** is perfectly stable but unreadable. `docker ps`
+  would stop answering "whose container is this", and it answers that
+  question at exactly the moment when someone is under pressure.
+- **A frozen slug** keeps both properties. The price is honest and
+  small: after a rename, container names and paths still carry the old
+  slug. That is cosmetic drift in identifiers, not in addresses, and
+  it is written down here so nobody has to rediscover it.
+
+### 8.2 The deploy address does not change shape
+
+`/deploy/<key>`. For the default tenant the key **is** the name, so
+every address already handed out keeps working unchanged, forever, with
+no compatibility layer to maintain — D3 answers itself. A tenant's
+instance gets `/deploy/cls-viewer`, and because the slug is frozen,
+that address survives a rename too. The draft's fear in §4 — that the
+hook would need `/deploy/<tenant>/<name>` and a permanent fallback —
+was misplaced: the key already carries the tenant, and it carries it
+in the stable form rather than the mutable one.
+
+### 8.3 The migration renames nothing
+
+This is what made the decision cheap, and the draft underestimated it.
+Existing instances **keep the keys they have**. The migration adds two
+fields and moves no data:
+
+- every tenant gets a `slug` (the default tenant's is the empty
+  string, exactly as its label is the absence of a label in a hostname);
+- every instance gets a `name`, initialised to its current key.
+
+Only instances created *after* the migration get a slug-prefixed key.
+An instance that predates it keeps a bare key and a name equal to it,
+which is correct and unambiguous — keys only have to be unique, not
+uniform. No container is rebuilt, no directory moves, no address
+changes, and a node with one tenant cannot tell that anything happened.
+
+The consequence for §2.3 is worth naming: with slug-prefixed keys a
+freed name **cannot** be taken by another tenant, because their key
+would differ. The guard from 0.1.56 stays as a second line — it still
+catches a tenant deleted and recreated under the same slug — but the
+leak is now closed by construction, which is what Option B promised.
+
+### 8.4 What must be checked at creation
+
+Two refusals, not one:
+
+- the composed **key** must be free on the node (as today), and
+- the **name** must be free *within the tenant*.
+
+The second is not implied by the first for instances that predate the
+migration, and forgetting it would let one tenant hold two instances
+both called `viewer`.
 
 ## Non-goals
 
@@ -243,19 +330,41 @@ Fehler dieser Form hervorgebracht, und die Frage ist, wie viele
 derselben Form noch dort warten, wo Knoten-Ebene und Mandanten-Ebene
 aufeinandertreffen.
 
-**Vorschlag:** Vorerst so lassen (Option A). Der Umbau auf
-mandantenweite Namen (Option B) ist keine Code-Arbeit, sondern eine
-Migration am Register — dem Herzstück des Knotens — auf laufenden
-Kundenanlagen. Das lohnt sich nicht bei zwei Mandanten und einer
-Instanz dazwischen; bei zwölf Kunden wird es teurer. Der richtige
-Auslöser ist **nicht** eine Anzahl von Mandanten, sondern der erste
-Knoten, auf dem jemand außerhalb unseres Betriebs einen Mandanten
-verwaltet.
+**Entschieden am 02.09. (Jörg): wir bauen jetzt um.** Nicht, weil es
+dringend wäre, sondern weil es der billigste Moment ist, den es je
+geben wird: Es gibt genau einen Kundenmandanten, er lässt sich neu
+aufsetzen, und die fremde KI kennt noch keine URL.
 
-**Zu entscheiden (§7):** ob wir es vorerst so lassen (D1), was den
-Umbau auslöst (D2), ob `/deploy/<name>` danach dauerhaft weiterlebt
-(D3) — und ob wir schon heute eine Namenskonvention mit
-Mandanten-Präfix setzen (D4). D4 ist der billigste Hebel: Wären die
-Namen von Anfang an je Mandant eindeutig, wäre der spätere Umbau fast
-umsonst. Der Preis ist der Stotterer `cls-viewer.cls.oaap.joomp.de` in
-jeder erzeugten Adresse.
+**Wie der Umbau aussieht (§8):** Ein Instanzname gilt künftig **je
+Mandant**. Alles Knotenweite — Containername, Netzwerk,
+Datenverzeichnis, Registry-Schlüssel, Deploy-Adresse — benutzt einen
+**Schlüssel**, der einmal zusammengesetzt und nie neu berechnet wird:
+`<kurzname>-<name>`, und für den Standard-Mandanten schlicht `<name>`.
+
+Der **Kurzname** ist ein neues Feld am Mandanten: beim Anlegen einmal
+vergeben (zunächst das Kürzel) und danach **unveränderlich** — ein
+`tenant rename` fasst ihn nicht an. Das ist Jörgs Entscheidung gegen
+zwei Alternativen: Vom aktuellen Kürzel abzuleiten hätte jedes
+Umbenennen zu einer echten Migration mit Ausfallzeit gemacht und das
+Versprechen aus RFC-0022 Q3 gebrochen („Umbenennen, keine Migration");
+von der UUID abzuleiten wäre stabil, aber `docker ps` beantwortet dann
+nicht mehr, wem ein Container gehört — und diese Frage stellt man
+ausgerechnet unter Druck. Der Preis des Kurznamens ist ehrlich und
+klein: Nach einem Umbenennen zeigen Containernamen und Pfade noch den
+alten Kurznamen. Kosmetik an Kennungen, nicht an Adressen.
+
+**Zwei Dinge, die den Umbau billig machen und im Entwurf noch zu
+pessimistisch standen:** Die **Deploy-Adresse ändert ihre Form nicht** —
+für den Standard-Mandanten *ist* der Schlüssel der Name, jede
+ausgelieferte URL gilt unverändert weiter, ganz ohne Übergangsschicht.
+Und die **Migration benennt nichts um**: Bestehende Instanzen behalten
+ihre Schlüssel, es kommen nur zwei Felder dazu. Kein Container wird neu
+gebaut, kein Verzeichnis verschoben, keine Adresse ändert sich — ein
+Knoten mit einem Mandanten merkt nichts davon.
+
+**Was das Leck aus 0.1.56 angeht:** Mit mandantenpräfigierten
+Schlüsseln *kann* ein frei gewordener Name gar nicht mehr von einem
+anderen Mandanten genommen werden — die Schlüssel unterscheiden sich.
+Die Sicherung von 0.1.56 bleibt als zweite Linie stehen (sie greift
+noch, wenn ein Mandant gelöscht und unter demselben Kurznamen neu
+angelegt wird), aber die Lücke ist jetzt durch die Bauart geschlossen.

@@ -1,7 +1,12 @@
 # oaap.core.tenant — Account and Tenant, the Boundary of Belonging
 
 - **ID:** `oaap.core.tenant`
-- **Version:** 0.2.2 (adds 1.4: data left behind by a removed instance
+- **Version:** 0.3 (RFC-0025: an instance name belongs to a TENANT, not
+  to the node. Everything node-scoped uses a key composed once from the
+  tenant's frozen short name; the address keeps carrying the name the
+  customer chose. The migration renames nothing, and a node with one
+  tenant cannot tell that anything changed;
+  0.2.2 added 1.4: data left behind by a removed instance
   belongs to the tenant it was written for, and no other tenant may take
   it over -- instance names are unique per node, so a name one customer
   gives up can be taken by the next, and until now the data would have
@@ -63,12 +68,20 @@ account   (reference only — see 1.3)
 | `account_name`  | cached display text for the account; never authoritative                    |
 | `created`       | ISO-8601 timestamp                                                          |
 | `former_labels` | previous labels kept as aliases, each with an expiry — see 1.6              |
+| `slug`          | short, node-unique, **frozen at creation**; empty for the default tenant — see 2.4 |
 
 **Everything internal refers to `id`.** Not to the label, and never to
 the name. This is what makes a label change a renaming instead of a
 migration (RFC-0022 D4) — and label changes happen, because a label
 ends up in hostnames and hostnames end up in public Certificate
 Transparency logs.
+
+The one thing that is not a reference but a *name* is the **`slug`**,
+and it exists for the same reason: node-scoped identifiers (container
+names, networks, directories, keys) have to be readable by a human
+under pressure, so they cannot be UUIDs — and they have to survive a
+rename, so they cannot follow the label. The slug is therefore minted
+once from the first label and frozen (2.4, RFC-0025 §8.1).
 
 ### 1.2 The default tenant
 
@@ -319,11 +332,39 @@ to fix their DNS.
 Per-instance own hostnames (RFC-0009/RFC-0018) are unaffected: they are
 chosen in full and carry no tenant label.
 
-**Instance names stay unique per node**, not per tenant. That is one
-fact the boundary cannot hide: a name already taken elsewhere has to be
-refused, or the refusal arrives later and less comprehensibly. The
-refusal therefore says that the name is taken and **not whose it is** —
-the collision is the fact, the owner is not.
+**An instance name belongs to a tenant** (RFC-0025). Two customers may
+both call an instance `viewer`; what keeps their containers, networks,
+directories, deploy tokens and hook addresses apart is a **key**,
+composed once and never recomputed:
+
+    key = <slug>-<name>      in a tenant
+    key = <name>             in the default tenant
+
+The **slug** is a short name minted when the tenant is created —
+initially its label, with a numeric discriminator if that slug is
+already held — and **frozen from then on**. A rename does not touch
+it. That is deliberate: deriving keys from the current label would turn
+every rename into a migration with downtime and break 1.6's promise
+that a rename is a renaming. The price is named rather than hidden:
+after a rename, identifiers still carry the old slug. Cosmetic drift in
+identifiers, never in addresses.
+
+The default tenant's slug is the **empty string**, exactly as its label
+is the absence of a label in a hostname (1.2). Everything on a
+single-tenant node therefore keeps the key, address and deploy URL it
+already had, with no compatibility layer to maintain.
+
+Two things must be free before an instance is created, and checking
+only the first is a bug: the **key** on the node, and the **name**
+within the tenant. They are not the same question for an instance that
+predates this rule, whose key carries no slug. A refusal says that the
+name is taken and **not whose it is** — the collision is the fact, the
+owner is not.
+
+The address is built from the **name**, never from the key: an instance
+keyed `cls-viewer` answers at `viewer.cls.<node>`. The key exists so
+identifiers do not collide; the address does not need it, because the
+label already says which tenant this is.
 
 ### 2.5 Resolution rules
 
@@ -379,7 +420,13 @@ On a node with one tenant: none that anyone can observe, exactly as in
    boundary applies to authenticated access, which is what it is for.
 7. **The audit log records the operator too** (1.7). An action taken by
    a `server_admin` inside a tenant is filed in that tenant's log.
-8. **A name may be reused; the data behind it may not** (1.4). Instance
+8. **A name belongs to its tenant** (2.4). Two tenants each create an
+   instance called `viewer`; both succeed, and their containers,
+   networks, data directories, deploy tokens and hook addresses differ.
+   Each answers at `viewer.<its label>.<node>`. A second `viewer`
+   inside one tenant is refused. Renaming a tenant changes its
+   addresses and **no** identifier.
+9. **A name may be reused; the data behind it may not** (1.4). Instance
    names become free again when an instance is removed, while its
    storage and configured secrets are deliberately kept. An install
    into a different tenant than the retained data belonged to is
@@ -436,7 +483,15 @@ On a node with one tenant: none that anyone can observe, exactly as in
     name is free for B, and the deletion appears in **A's** audit log.
     On a node with one tenant, none of this is observable.
 
-12. **No port past the gateway for a tenant.** On an `exposed` node, a
+12. **Two tenants, one word.** Both create an instance named `viewer`.
+    Both succeed; `docker ps` shows two different containers, the two
+    data directories are different, each instance answers only at its
+    own `viewer.<label>.<node>`, and each deploy hook reaches only its
+    own. A second `viewer` in the same tenant is refused, naming the
+    name and not its owner. Then rename one tenant: its addresses
+    change, its identifiers do not, and its deploy address still works.
+
+13. **No port past the gateway for a tenant.** On an `exposed` node, a
     `tenant_admin` asking for a declared non-HTTP endpoint of their own
     instance is refused with a message naming the reason, and the host
     refuses the same request when it arrives through the queue with the
@@ -509,3 +564,53 @@ mit welchem Ergebnis.
 **Löschen eines Mandanten ist bewusst nicht dabei.** Ein Mandant hält
 Benutzer, Instanzen und deren Daten; ihn zu löschen ist ein
 Exportieren-dann-Vernichten und bekommt eine eigene Runde.
+
+## Nachtrag 0.3 — der Name gehört dem Mandanten
+
+Bis 0.2 war ein Instanzname **knotenweit** eindeutig. Zwei Kunden auf
+einem Knoten konkurrierten damit um gewöhnliche Wörter — `crm`, `wiki`,
+`viewer` —, und der Zweite bekam eine Ablehnung, deren Grund er nicht
+sehen konnte. Im Modell „wir betreiben, der Kunde verwaltet" ist das
+besonders unangenehm: Dort sieht der Betreiber absichtlich nicht, was
+die Mandantenverwalter tun, und ist an dem Gespräch, das die Ablehnung
+erklären würde, gar nicht beteiligt.
+
+Seit 0.3 gehört ein Instanzname dem **Mandanten**. Zwei Kunden dürfen
+beide eine `viewer` haben. Was ihre Container, Netzwerke,
+Datenverzeichnisse, Deploy-Token und Hook-Adressen auseinanderhält, ist
+ein **Schlüssel**, der einmal zusammengesetzt und nie neu berechnet
+wird: `<kurzname>-<name>`, im Standard-Mandanten schlicht `<name>`.
+
+**Der Kurzname ist eingefroren.** Er entsteht beim Anlegen des
+Mandanten aus dessen erstem Kürzel und wird danach nie wieder geändert
+— auch nicht beim Umbenennen. Der Grund ist eine Zusage aus 1.6: Ein
+Umbenennen soll eine *Umbenennung* sein und keine Migration. Würden
+Containernamen und Verzeichnisse dem aktuellen Kürzel folgen, wäre
+jedes Umbenennen ein Umbau mit Ausfallzeit — bezahlt für eine
+kosmetische Änderung. Der Preis steht dafür ausdrücklich da: Nach einem
+Umbenennen tragen die Kennungen noch den alten Kurznamen. Kosmetik an
+Kennungen, nie an Adressen.
+
+**Die Adresse trägt weiter den Namen, den der Kunde gewählt hat.** Eine
+Instanz mit dem Schlüssel `cls-viewer` antwortet unter
+`viewer.cls.<knoten>` — der Schlüssel existiert, damit Kennungen nicht
+kollidieren, die Adresse braucht ihn nicht, weil das Kürzel den
+Mandanten schon nennt.
+
+**Für einen Knoten mit einem Mandanten ändert sich nichts.** Sein
+Kurzname ist der leere String, genau wie sein Kürzel die Abwesenheit
+eines Kürzels im Hostnamen ist. Jeder bestehende Schlüssel, jede
+Adresse und jede ausgelieferte Deploy-URL gilt unverändert weiter —
+ohne Übergangsschicht, die jemand pflegen müsste.
+
+**Und die Umstellung benennt nichts um.** Bestehende Instanzen behalten
+die Schlüssel, die sie haben; es kommen nur zwei Felder dazu. Kein
+Container wird neu gebaut, kein Verzeichnis verschoben. Schlüssel
+müssen eindeutig sein, nicht einheitlich.
+
+**Zwei Prüfungen statt einer:** frei sein muss der **Schlüssel** auf
+dem Knoten *und* der **Name** innerhalb des Mandanten. Für eine
+Instanz, die älter ist als diese Regel und deshalb einen Schlüssel ohne
+Kurznamen trägt, sind das zwei verschiedene Fragen — und nur die erste
+zu stellen hieße, einem Mandanten zwei Instanzen namens `viewer` zu
+erlauben.

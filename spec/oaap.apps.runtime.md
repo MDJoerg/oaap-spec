@@ -1,7 +1,10 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.18
+- **Version:** 0.2.19 (an instance name belongs to its tenant (RFC-0025); the registry key, the containers, the network, the data
+  directory, the deploy token and the deploy hook use a key composed
+  from the tenant's frozen short name, while the ADDRESS keeps carrying
+  the name the customer chose)
 - **Maturity:** draft (0.2 adds remote deployment via deploy tokens;
   0.2.1 adds the one-click store install in 2.6 with test 17; 0.2.2
   adds instance visibility in 2.7 and moves platform-level portal
@@ -359,12 +362,29 @@ instance to another.
 While a node has one tenant this changes no output, no route and no
 hostname. From `oaap.core.tenant` 0.2 onward:
 
-- **Names.** An instance of a non-default tenant is served under
-  `<instance>.<label>.<node>`, plus one such name per unexpired former
-  label of that tenant (`oaap.core.tenant` 1.6). An instance of the
-  default tenant keeps `<instance>.<node>` and gains nothing
-  (RFC-0018). An instance's *own* registered hostname (RFC-0009) is
-  chosen in full and carries no label.
+- **Names.** An instance name belongs to a **tenant**, not to the node
+  (RFC-0025). Two tenants may each hold a `viewer`. Every node-scoped
+  identifier of an instance — its registry key, its containers, its
+  per-app network, its gateway site file, its data directory, its
+  deploy token, its creation permit and its deploy hook path — uses a
+  **key** composed once from the tenant's frozen short name
+  (`oaap.core.tenant` 1.1/2.4):
+
+      key = <slug>-<name>      in a tenant
+      key = <name>             in the default tenant
+
+  Composed at creation and never recomputed, so nothing can move an
+  instance between tenants and a tenant rename touches no identifier.
+  Before an instance is created, **both** must be free: the key on the
+  node and the name inside the tenant.
+
+  The **address is built from the name, not from the key**: an instance
+  keyed `cls-viewer` is served under `viewer.<label>.<node>`, plus one
+  such name per unexpired former label of that tenant
+  (`oaap.core.tenant` 1.6). An instance of the default tenant keeps
+  `<instance>.<node>` and gains nothing (RFC-0018). An instance's *own*
+  registered hostname (RFC-0009) is chosen in full and carries neither
+  key nor label.
 - **Access.** Every authenticated route of an instance is verified
   against that instance's tenant (`oaap.core.identity` 2.3): a session
   from another tenant is refused at the gateway, before the app is
