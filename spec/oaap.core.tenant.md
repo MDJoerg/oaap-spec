@@ -1,7 +1,11 @@
 # oaap.core.tenant — Account and Tenant, the Boundary of Belonging
 
 - **ID:** `oaap.core.tenant`
-- **Version:** 0.2 (RFC-0022 stage 3: the second tenant, `tenant_admin`,
+- **Version:** 0.2.1 (adds rule 4 of 2.3: a `tenant_admin` may not grant
+  an instance a port that bypasses the gateway, not even on their own
+  instance -- found 2026-09-02, where the portal's own comment said
+  "server_admin only" and the code admitted a tenant administrator;
+  0.2 was RFC-0022 stage 3: the second tenant, `tenant_admin`,
   labels in names, and the audit log that makes the arrangement
   trustworthy)
 - **Maturity:** draft
@@ -229,7 +233,8 @@ else.**
 
 | | `server_admin` | `tenant_admin` |
 | --- | --- | --- |
-| Node updates, profiles, ports, certificates, store sources | ✔ | ✘ |
+| Node updates, profiles, certificates, store sources | ✔ | ✘ |
+| Grant an instance a port that bypasses the gateway (RFC-0015) | ✔ | ✘ |
 | Create tenants, appoint the first tenant admin | ✔ | ✘ |
 | Users and roles **of their own tenant** | ✔ | ✔ |
 | Install and remove app instances **of their own tenant** | ✔ | ✔ |
@@ -253,6 +258,13 @@ Three rules make the second column safe:
 3. **A `tenant_admin` acts only in their own tenant**, and the tenant
    is taken from *their own record*, never from the request. A tenant
    supplied by a caller is a tenant a caller has chosen.
+4. **A `tenant_admin` may not reach past the gateway.** Granting an
+   instance a non-HTTP port (RFC-0015) is refused for them even on
+   their **own** instance: such a port is a resource of the host, and
+   traffic through it never passes the gateway that enforces the
+   boundary in the first place. It is the same line that kept the
+   `exposed` node profile on the machine (RFC-0011). The refusal is
+   re-checked on the host, not only in the portal.
 
 `server_admin` may do everything (RFC-0022 D5). The counterweight is
 1.7, not a restriction. The operating rule that follows — in a
@@ -380,6 +392,12 @@ On a node with one tenant: none that anyone can observe, exactly as in
    log sees their own tenant's entries and no others.
 10. **A rename warns before it acts**, names the address change, and
     keeps the old label serving for the grace period.
+
+11. **No port past the gateway for a tenant.** On an `exposed` node, a
+    `tenant_admin` asking for a declared non-HTTP endpoint of their own
+    instance is refused with a message naming the reason, and the host
+    refuses the same request when it arrives through the queue with the
+    portal check bypassed. A `server_admin` gets it.
 
 ## 5. Dependencies
 
