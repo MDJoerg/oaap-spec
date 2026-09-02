@@ -1,8 +1,15 @@
 # oaap.core.portal — Web Portal
 
 - **ID:** `oaap.core.portal`
-- **Version:** 0.3.11
-- **Maturity:** draft (0.3.11 makes the published-names watchdog
+- **Version:** 0.3.12
+- **Maturity:** draft (0.3.12 opens the store catalogue to a
+  `tenant_admin` — RFC-0022 §4 gives them "install and remove app
+  instances of their tenant", and a catalogue they cannot open makes
+  that right unusable, while the SOURCE list stays the node operator's;
+  and it requires the generated instance address to carry the tenant
+  label, after a portal that left it out linked tiles to a host that
+  answers nowhere;
+  0.3.11 makes the published-names watchdog
   resolve dual-stack (IPv4 **and** IPv6): a name that resolves only over
   IPv6 — a Fritzbox rebind-protected CNAME seen from inside the LAN is
   the real case — no longer reads as a false "does not resolve" or
@@ -21,7 +28,7 @@
   page and added source management, per RFC-0012 §6/§7 — the last step
   of `portal-statt-cli.md`)
 - **Based on:** RFC-0001, RFC-0002, RFC-0003, RFC-0005, RFC-0007,
-  RFC-0008, RFC-0009, RFC-0010, RFC-0011, RFC-0012
+  RFC-0008, RFC-0009, RFC-0010, RFC-0011, RFC-0012, RFC-0022
 
 ## 1. Purpose
 
@@ -139,6 +146,16 @@ app into service:
 
 - **Own public hostname** (`oaap.apps.runtime` / RFC-0009), with the
   automatic node address shown alongside so the difference is visible.
+  That automatic address is the name the **gateway** serves the
+  instance under, tenant label included: `<instance>.<node>` in the
+  default tenant, `<instance>.<label>.<node>` in every other one
+  (`oaap.core.tenant` 2.4). The portal MUST compute it that way
+  everywhere it prints or links it — the object page, the launchpad
+  tile, the deploy log. A portal that leaves the label out names a host
+  that resolves into the node's catch-all and answers for nothing,
+  which is worse than naming no address at all. An instance whose
+  tenant this node does not have therefore gets **no** automatic
+  address, the same fail-closed answer the gateway gives.
 - **Public-route throttling** (RFC-0010) — shown **only** when the app
   actually declares a `public` route, because on every other instance
   the setting would have no effect and would only mislead. The card
@@ -272,7 +289,28 @@ portal. It therefore differs from every other card:
 
 ### 2.6 Store (RFC-0012 §6/§7)
 
-`server_admin` only. Two floorplans and a third for the sources.
+Two rights, deliberately separated:
+
+- the **catalogue and its object page, and installing from them**,
+  are open to `server_admin` **and** `tenant_admin`. RFC-0022 §4
+  gives a tenant administrator "install and remove app instances of
+  their tenant"; a catalogue they may not open makes that right
+  unusable. The install lands in **their** tenant, because the host
+  derives the acting tenant from the caller's own record
+  (`oaap.core.tenant` 2.3 rule 3) and never from the request.
+- the **source list** stays with the node operator: `server_admin`
+  only. Where packages may come from is a node decision, and a
+  tenant that could add a source could install anything.
+
+Everything a `tenant_admin` reads here is read through the boundary:
+an app installed in another tenant MUST NOT read as "installed", and
+a running install of another tenant's instance MUST NOT be reported.
+A name already taken elsewhere on the node is still refused as
+**taken** (`oaap.core.tenant` 2.4), not as "unknown" -- the collision
+is the fact, the owner is not.
+
+Three floorplans: the catalogue, an object page per app, and the
+sources.
 
 **Catalogue (list report).** All enabled sources are shown as **one**
 catalogue, with the source and its trust class on **every** entry — not
@@ -307,7 +345,8 @@ from and in which class, which other lists also carry it, and whether
 the package is pinned. The install button lives here; a `new` badge is
 **computed** from the release date and never stored.
 
-**Sources (list report).** `server_admin` adds, renames, enables,
+**Sources (list report).** `server_admin` only -- see above. They add,
+rename, enable,
 disables, removes a source and sets its trust class. Two rules:
 `platform` is not settable by an operator, and raising a source to
 `verified` MUST say what it costs — apps from it then install without a
@@ -336,10 +375,14 @@ configuration is a later stage (2.2).
 1. The portal never authenticates users itself; it trusts the
    gateway's verified identity headers (RFC-0002, deployment-contract
    guarantee 1).
-2. Every management surface re-checks the required role server-side
-   (`server_admin` for user management/store/instance visibility,
-   `server_admin`/`partner` for health) — the navigation filter is UX
-   only.
+2. Every management surface re-checks the required role server-side —
+   the navigation filter is UX only. `server_admin` for instance
+   visibility and store **sources**; `server_admin` or `tenant_admin`
+   for user management, the instance list and the store **catalogue**
+   (2.6, RFC-0022 §4); `server_admin`/`partner` for health. A new
+   route under an already-guarded area MUST call the same guard: the
+   failure mode this is written against is a route added later and
+   left open.
 3. The portal talks to identity's internal API only over the internal
    container network; that API is never exposed through the gateway.
 4. Health checks run from the portal over the internal network and
@@ -384,8 +427,11 @@ configuration is a later stage (2.2).
     read-only with navigation to an object page; setting a group
     restriction and setting it back to "all" both take effect (tile
     and gateway) without requiring `oaap update`.
-11. **Instance visibility authorization**: without `server_admin`,
-    `/instances` routes return 403 and the navigation hides the entry.
+11. **Instance visibility authorization**: without `server_admin` or
+    `tenant_admin`, `/instances` routes return 403 and the navigation
+    hides the entry; a `tenant_admin` reaches the list and sees only
+    their own tenant's instances, and an instance of another tenant
+    answers 404 rather than 403 (`oaap.core.tenant` 2.3 rule 2).
 12. **Create is profile-bound**: on a node without the `dev` profile,
     the create entry point is absent AND the route returns 403; after
     the profile is set on the machine, the page appears and creates a
@@ -426,6 +472,21 @@ configuration is a later stage (2.2).
     disappear again, without `oaap update`. On a node where this hides
     something, the launchpad tells a `server_admin` how many and where
     to look.
+19. **The generated address carries the tenant label**: on a node with
+    a second tenant, that tenant's instance is shown and linked as
+    `<instance>.<label>.<node>` on the object page, on the launchpad
+    tile and in the deploy log, and the name matches the site the
+    gateway actually wrote — compare the two, do not assert a
+    string. An instance of the default tenant keeps `<instance>.<node>`.
+    An instance naming a tenant the node does not have gets no
+    automatic address at all.
+20. **Store authorization**: a `tenant_admin` reaches the catalogue and
+    an app's object page and can install from them, and the new
+    instance lands in their tenant; the sources page and every source
+    change answers 403 for them and the button is not rendered; an app
+    installed in another tenant does not read as "installed"; and
+    installing under a name that tenant does not hold is refused as
+    **taken**, without naming the tenant that holds it.
 
 ## 6. Dependencies
 
@@ -661,3 +722,40 @@ still — sie sollen nichts vermissen, was sie ohnehin nicht bedienen.
 Rollen- und Gruppenfilter: Die Instanz behält Route, Rollen und URL,
 und das Gateway prüft weiter. Wer eine App wirklich vor jemandem
 verbergen will, nimmt Sichtbarkeitsgruppen (RFC-0007).
+
+## Nachtrag 0.3.12 — der Store für den Mandanten, und der Name, der wirklich antwortet
+
+Zwei Dinge, die beide erst mit dem zweiten Mandanten sichtbar wurden.
+
+**Der Store war für den Kunden zu.** RFC-0022 §4 gibt einem
+`tenant_admin` ausdrücklich das Recht, Instanzen seines Mandanten zu
+installieren und zu entfernen. Der Katalog verlangte aber `server_admin`
+— der Kunde bekam 403 und sah keine einzige App, die er hätte
+installieren können. Das Recht stand auf dem Papier und war nicht
+ausübbar. Katalog, App-Seite und Installieren sind jetzt für beide
+offen; installiert wird immer im **eigenen** Mandanten, weil der Knoten
+den handelnden Mandanten aus dem Benutzerdatensatz ableitet und nie aus
+der Anfrage.
+
+**Die Quellenliste bleibt beim Betreiber.** Woher Pakete kommen dürfen,
+ist eine Entscheidung über den Knoten, nicht über einen Mandanten. Wer
+eine Quelle eintragen könnte, könnte alles installieren. Zwei Rechte,
+zwei Wächter — und die Prüfung achtet darauf, dass keine neu ergänzte
+Route zwischen ihnen durchfällt.
+
+**Der zweite Punkt ist eine falsche Adresse gewesen.** Das Gateway
+veröffentlicht die Instanz eines Mandanten unter
+`<instanz>.<kürzel>.<knoten>`. Das Portal rechnete an drei Stellen
+weiter `<instanz>.<knoten>` — die Launchpad-Kachel verlinkte damit auf
+einen Namen, der auf den Auffang-Eintrag des Knotens zeigt, und die
+Objektseite zeigte eine Adresse zum Abschreiben, die nirgends antwortet.
+Auffällig ist daran nicht die Formel, sondern dass es **drei Kopien**
+davon gab: Die Regel liegt jetzt an einer Stelle, und die Prüfung
+vergleicht sie mit dem Namen, den `appctl` tatsächlich in die
+Gateway-Datei schreibt. Zwei Rechenwege, eine Antwort — weichen sie
+voneinander ab, ist genau dieser Fehler wieder da.
+
+**Eine Instanz, deren Mandant auf diesem Knoten unbekannt ist, bekommt
+gar keine automatische Adresse.** Das ist dieselbe Richtung, in die das
+Gateway ausfällt: lieber kein Name als die App eines Kunden unter dem
+Namen des Betreibers.
