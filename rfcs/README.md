@@ -29,4 +29,5 @@ never deleted; superseded RFCs get status `Superseded by RFC-XXXX`.
 - [RFC-0022](RFC-0022-tenant-as-boundary.md) — Account and Tenant: OAAP's Boundary of Belonging (Accepted)
 - [RFC-0023](RFC-0023-ai-gateway.md) — The AI Gateway: Supply, Placement, Entitlement (Draft — decisions open)
 - [RFC-0024](RFC-0024-deployment-visibility-and-control.md) — A Deployment You Can See: Status, Retry, Cancel, Delete (Accepted)
-- [RFC-0025](RFC-0025-instance-namespace-and-deploy-address.md) — The Instance Namespace: One Node, or One Tenant? (Draft — four decisions open)
+- [RFC-0025](RFC-0025-instance-namespace-and-deploy-address.md) — The Instance Namespace: One Node, or One Tenant? (Accepted)
+- [RFC-0026](RFC-0026-names-are-changeable-identity-is-not.md) — Names Are Changeable, Identity Is Not (Draft — five decisions open)
