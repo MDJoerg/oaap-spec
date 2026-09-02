@@ -31,3 +31,5 @@ never deleted; superseded RFCs get status `Superseded by RFC-XXXX`.
 - [RFC-0024](RFC-0024-deployment-visibility-and-control.md) — A Deployment You Can See: Status, Retry, Cancel, Delete (Accepted)
 - [RFC-0025](RFC-0025-instance-namespace-and-deploy-address.md) — The Instance Namespace: One Node, or One Tenant? (Accepted)
 - [RFC-0026](RFC-0026-names-are-changeable-identity-is-not.md) — Names Are Changeable, Identity Is Not (Accepted)
+- [RFC-0027](RFC-0027-machine-principals-and-api-keys.md) — Machine Principals: One Way to Prove You Are Not a Person (Draft — six decisions open)
+- [RFC-0028](RFC-0028-terminals-and-the-person-in-front-of-them.md) — The Terminal and the Person In Front Of It (Draft — seven decisions open)
