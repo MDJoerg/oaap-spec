@@ -1,6 +1,7 @@
 # RFC-0027: Machine Principals — One Way to Prove You Are Not a Person
 
-- **Status:** Draft — six decisions open (§6)
+- **Status:** Accepted (2026-09-02) — D1 decided by Jörg; D2–D6
+  taken as recommended, cheap to overturn. Implementation started.
 - **Date:** 2026-09-02
 - **Authors:** Claude (analysis & proposal), Jörg (direction)
 - **Depends on:** RFC-0002 (security-first access model), RFC-0008
@@ -239,10 +240,15 @@ outcome. Naming them here is enough to stop a *fourth* carve-out.
   first honest answer to "can I script my node".
 - A named place for SSO to attach later instead of a rewrite.
 
-## 6. Decisions asked for
+## 6. Decisions
+
+D1 was put to Jörg and decided. D2–D6 are taken as recommended
+until he says otherwise — each is a single constant or a single check,
+so overturning one costs a line, not a redesign.
 
 **D1 — Machine principals as users with `kind`, or a separate store?**
-*Recommendation: users with a kind.* Everything else already works —
+**Decided (Jörg, 2026-09-02): users with a kind.**
+*Recommendation was:* Everything else already works —
 tenant, roles, groups, deactivation, audit. A parallel store would
 duplicate the tenant check, which is the one check we have argued
 hardest to keep in a single place.
@@ -318,7 +324,11 @@ Bringt ein Kunde sein eigenes SSO mit, ist das ein drittes Verfahren an
 derselben Stelle — kein Umbau. Der Satz dahinter: **Wie man beweist,
 wer man ist, ist austauschbar. Was das gewährt, ist es nicht.**
 
-Sechs Entscheidungen liegen bei Jörg (§6): Prinzipale als Benutzer mit
-Kennzeichen, `server_admin` gesperrt, Ablauf verpflichtend,
+**Entschieden (Jörg, 02.09.):** D1 — Maschinen-Prinzipale sind
+**Benutzer mit Kennzeichen** (`kind: machine`), kein zweiter Speicher.
+Damit gelten Mandant, Rollen, Sichtbarkeitsgruppen, Deaktivierung und
+Audit unverändert, und die Mandantenprüfung bleibt an **einer** Stelle.
+Die übrigen fünf (`server_admin` gesperrt, Ablauf verpflichtend,
 `tenant_admin` darf im eigenen Mandanten ausstellen, Begrenzung auf
-eine Instanz in Version 1, und nur der Bearer-Header.
+eine Instanz in Version 1, nur der Bearer-Header) nehme ich wie
+empfohlen — jede ist eine Konstante oder eine Prüfung, kein Umbau.

@@ -1,6 +1,8 @@
 # RFC-0028: The Terminal and the Person In Front Of It
 
-- **Status:** Draft — seven decisions open (§8)
+- **Status:** Accepted (2026-09-02) — D1 and D7 decided by Jörg;
+  D1's answer changed the model (see §4.1). D2–D6 taken as
+  recommended. Step-up (D6) and MQTT (§5) are staged, not built.
 - **Date:** 2026-09-02
 - **Authors:** Claude (analysis & proposal), Jörg (direction)
 - **Depends on:** RFC-0027 (machine principals), RFC-0007 (visibility
@@ -108,24 +110,51 @@ matter, because everything was already open.
 
 ## 4. Proposal
 
-### 4.1 A terminal is a machine principal
+### 4.1 A device is not a principal
 
-One machine principal per terminal (RFC-0027 §3.1), in the tenant that
-owns it:
+The first draft of this RFC said "one machine principal per terminal".
+Jörg answered D1 with **"sowohl als auch — Entscheidung des
+Anwenders"**, and that answer is better than either option offered,
+because it forces apart two things the draft had welded together.
+
+- A **device** is an enrolled screen. It has an id, a name, a location,
+  and **its own credential**.
+- A **principal** is what that device authenticates *as* — a machine
+  principal in the sense of RFC-0027 §3.1, carrying tenant, roles and
+  visibility groups.
+
+Several devices may share a principal. **No two devices ever share a
+credential.** That is the line that makes the operator's choice safe:
+even with ten terminals on one principal, a lost screen is revoked
+**alone** (its key is revoked, the others keep working), and the audit
+log still names *which* screen, because the key id identifies the
+device.
 
 ```json
-{ "username": "cls-terminal-3", "kind": "machine",
+// principal (RFC-0027 §3.1)
+{ "username": "cls-terminal", "kind": "machine",
   "tenant": "<cls-uuid>", "roles": ["user"],
   "groups": ["packstation"], "active": true }
+
+// device — one per screen, each with its own key
+{ "id": "dev-a91c", "name": "Packstation 3", "principal": "cls-terminal",
+  "key_id": "k7f3a91c", "idle_seconds": 300, "enrolled_by": "cls_admin" }
 ```
 
-Its visibility groups (RFC-0007) do the location work: the terminal at
-the packing station reaches the packing apps and nothing else. That
-mechanism exists and is enforced at the gateway, not in a menu.
+**What the operator gains by sharing a principal:** one set of roles
+and groups to maintain, one thing to change when the location's apps
+change.
 
-**One principal per terminal, not one for all** (§8 D1). Cost is near
-zero; the return is that a stolen terminal is revoked alone, the audit
-log says *which* screen, and groups can differ by location.
+**What they give up, and it is the whole decision:** visibility differs
+per *principal*, not per device (RFC-0007). A packing station that must
+see different apps than goods-in needs its own principal. The portal
+should say exactly that at enrolment, in one line, rather than leaving
+it to be discovered.
+
+**Default: a new principal per terminal.** Sharing is the deliberate
+choice, not the path of least resistance — because the failure mode of
+sharing (everyone sees the packing apps) is silent, and the failure
+mode of not sharing (more principals to maintain) is merely tedious.
 
 ### 4.2 Enrolment: one admin login, once
 
@@ -148,7 +177,7 @@ call from a plant at 06:00.
 
 ### 4.3 The operator roster lives in the tenant
 
-Operators are **not OAAP users** (§8 D7). Five hundred warehouse staff
+Operators are **not OAAP users** (§8 D7, decided). Five hundred warehouse staff
 who never log in anywhere should not be five hundred accounts with
 passwords, sessions and role assignments.
 
@@ -168,10 +197,12 @@ and never copied into the next app.
 
 ### 4.4 Presence: who is at terminal X
 
-The platform keeps one small piece of state per terminal:
+The platform keeps one small piece of state **per device**, never per
+principal — otherwise one operator badging in at Packstation 3 would
+appear to be standing at every screen that shares the principal:
 
 ```json
-{ "terminal": "cls-terminal-3", "operator": "op-4711",
+{ "device": "dev-a91c", "operator": "op-4711",
   "since": "...", "expires": "..." }
 ```
 
@@ -288,13 +319,18 @@ second design.
   passwords, zero sessions.
 - A stolen terminal is one revocation.
 
-## 8. Decisions asked for
+## 8. Decisions
+
+D1 and D7 were put to Jörg and decided; D1's answer changed §4.1.
+D2–D6 are taken as recommended until he says otherwise.
 
 **D1 — One principal per terminal, or one for all terminals?**
-*Recommendation: per terminal.* Revocation, audit and per-location
-visibility groups all want it, and principals cost nothing. One shared
-principal only wins where there is no tooling to manage many — so the
-answer is to ship `oaap terminal add`.
+**Decided (Jörg, 2026-09-02): both — the operator chooses.** This
+rejected the framing rather than the options: it separates *device*
+from *principal* (§4.1). Every device keeps its own credential either
+way, so revocation and audit survive sharing; only visibility groups
+are tied to the principal, and that is the trade the operator is
+choosing. Default is a new principal per terminal.
 
 **D2 — Does the operator reach the app as a header, or must the app
 ask?** *Recommendation: header for identity, plus a small read API for
@@ -320,7 +356,7 @@ case appears.* Naming it now costs one section; retrofitting it costs
 the rule in §3.
 
 **D7 — Are operators OAAP users?**
-*Recommendation: no.* They are tenant data with no login, no session
+**Decided (Jörg, 2026-09-02): no.** They are tenant data with no login, no session
 and no roles. If a person needs to log in, they get a normal account —
 the two are different things about possibly the same human, and
 conflating them is how the badge starts granting.
@@ -345,8 +381,17 @@ Ein Bildschirm in der Halle hat **zwei Identitäten, und sie dürfen
 nicht gleichwertig sein.**
 
 Das **Terminal** ist authentifiziert: ein Maschinen-Prinzipal mit
-eigenem Geheimnis (RFC-0027), einer je Terminal. Seine
-Sichtbarkeitsgruppen aus RFC-0007 machen die Ortsarbeit — das Terminal
+eigenem Geheimnis (RFC-0027). Jörgs Entscheidung zu D1 — *sowohl als
+auch, der Anwender wählt* — hat den Entwurf verbessert, weil sie
+**Gerät und Prinzipal trennt**: Mehrere Geräte dürfen sich einen
+Prinzipal teilen, **niemals aber ein Geheimnis**. Jedes Gerät bekommt
+bei der Einrichtung seinen eigenen Schlüssel, also wird ein verlorener
+Bildschirm auch bei geteiltem Prinzipal **allein** entzogen, und das
+Protokoll sagt trotzdem welcher. Verloren geht genau eines, und das ist
+die eigentliche Entscheidungsfrage: **unterschiedliche Sichtbarkeit je
+Ort** hängt am Prinzipal. Vorgabe ist deshalb ein eigener Prinzipal je
+Terminal; Teilen ist die bewusste Wahl. Die Sichtbarkeitsgruppen aus
+RFC-0007 machen die Ortsarbeit — das Terminal
 an der Packstation erreicht die Packstations-Apps und sonst nichts.
 Einrichtung einmalig durch einen `tenant_admin` am Gerät; danach läuft
 es monatelang, auch über Neustarts. **Heute geht das nicht:** Der
@@ -379,7 +424,9 @@ Tag → Werker passiert **auf der Plattform**. Version 1 braucht gar
 keine Infrastruktur: Die billigen RFID-Leser sind
 Tastatur-Emulatoren.
 
-Sieben Entscheidungen liegen bei Jörg (§8) — ein Prinzipal je Terminal,
-Werkerkennung als Header, Verzeichnis auf der Plattform, PIN und RFID
+**Entschieden (Jörg, 02.09.):** D1 — Gerät und Prinzipal getrennt, der
+Anwender wählt. D7 — Werker sind keine Benutzer. Die übrigen fünf
+(Werkerkennung als Header, Verzeichnis auf der Plattform, PIN und RFID
 beide gehasht, Zeitsperre für den Werker statt fürs Terminal,
-Aufwertung in Version 1 mitgedacht, und Werker sind keine Benutzer.
+Aufwertung in Version 1 mitgedacht) nehme ich wie empfohlen — jede ist
+eine Zeile, keine davon ein Umbau.
