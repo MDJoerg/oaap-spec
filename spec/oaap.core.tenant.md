@@ -1,7 +1,12 @@
 # oaap.core.tenant — Account and Tenant, the Boundary of Belonging
 
 - **ID:** `oaap.core.tenant`
-- **Version:** 0.2.1 (adds rule 4 of 2.3: a `tenant_admin` may not grant
+- **Version:** 0.2.2 (adds 1.4: data left behind by a removed instance
+  belongs to the tenant it was written for, and no other tenant may take
+  it over -- instance names are unique per node, so a name one customer
+  gives up can be taken by the next, and until now the data would have
+  travelled with the name;
+  0.2.1 added rule 4 of 2.3: a `tenant_admin` may not grant
   an instance a port that bypasses the gateway, not even on their own
   instance -- found 2026-09-02, where the portal's own comment said
   "server_admin only" and the code admitted a tenant administrator;
@@ -98,14 +103,38 @@ Carries a tenant reference:
 | creation permit (RFC-0019)              | **stored**        | it is issued *before* the instance exists — there is nothing to derive from |
 | backup manifest (`oaap.data.backup`)    | stored            | RFC-0022 D7: backup per tenant        |
 | audit entry (1.7)                       | stored            | an entry is filed in the tenant it concerns |
+| an instance's data directory            | **stored**        | it outlives the instance, so there is nothing left to derive from |
 
 The distinction is worth the extra column. A tenant reference stored in
 two places is a tenant reference that can disagree with itself, and the
 day it does, the wrong copy decides who may write into whose instance.
 So: **derive wherever something already knows the answer, store only
-where nothing does.** The creation permit is the one place where
-nothing does — which also makes it the place where the tenant must be
-chosen deliberately, by the human issuing it.
+where nothing does.** The creation permit is one of the two places
+where nothing does — which also makes it the place where the tenant
+must be chosen deliberately, by the human issuing it.
+
+The other is an instance's **data directory**, and the reason is worth
+stating because it is not obvious. Removing an instance keeps its
+storage and its configured secrets unless deletion is asked for
+explicitly: reinstalling under the same name is how an operator repairs
+an app without losing its data, and losing it by default would be the
+worse mistake. But instance names are unique per *node* (2.4), so a name
+one tenant gives up can be taken by the next — and the data would
+travel with the name. Therefore:
+
+> **Data left behind belongs to the tenant it was written for, and no
+> other tenant may take it over.** An install into a different tenant
+> than the retained data belonged to is refused; the refusal names the
+> way out and does *not* name the other tenant (2.4). Deleting the
+> retained data is an operator act and is written to the audit log of
+> the tenant it belonged to (1.7).
+
+Retained data with **no** tenant recorded (written before this rule
+existed) is treated as belonging to nobody: harmless on a node with one
+tenant, where there is nothing to cross, and refused on a node with
+several, where it is no longer decidable. Nodes stamp what they can on
+update, so only directories whose instance was already gone stay
+anonymous.
 
 Does **not** carry a tenant, on purpose:
 
@@ -350,6 +379,12 @@ On a node with one tenant: none that anyone can observe, exactly as in
    boundary applies to authenticated access, which is what it is for.
 7. **The audit log records the operator too** (1.7). An action taken by
    a `server_admin` inside a tenant is filed in that tenant's log.
+8. **A name may be reused; the data behind it may not** (1.4). Instance
+   names become free again when an instance is removed, while its
+   storage and configured secrets are deliberately kept. An install
+   into a different tenant than the retained data belonged to is
+   refused, and deleting that data is an operator act recorded in the
+   audit log of the tenant it belonged to.
 
 ## 4. Conformance tests
 
@@ -393,7 +428,15 @@ On a node with one tenant: none that anyone can observe, exactly as in
 10. **A rename warns before it acts**, names the address change, and
     keeps the old label serving for the grace period.
 
-11. **No port past the gateway for a tenant.** On an `exposed` node, a
+11. **Retained data does not change hands.** With two tenants: an
+    instance of tenant A is removed without deleting its data; an
+    install of the same name into tenant B is refused, and the refusal
+    names neither A nor its label. The same install into A succeeds and
+    keeps the data. After the operator deletes the retained data the
+    name is free for B, and the deletion appears in **A's** audit log.
+    On a node with one tenant, none of this is observable.
+
+12. **No port past the gateway for a tenant.** On an `exposed` node, a
     `tenant_admin` asking for a declared non-HTTP endpoint of their own
     instance is refused with a message naming the reason, and the host
     refuses the same request when it arrives through the queue with the
