@@ -3,6 +3,8 @@
 - **Status:** Accepted (2026-09-02) — D1 and D7 decided by Jörg;
   D1's answer changed the model (see §4.1). D2–D6 taken as
   recommended. Step-up (D6) and MQTT (§5) are staged, not built.
+  Enrolment (§4.1/4.2) implemented in reference 0.1.64; operator
+  presence (§4.4/4.5) is the next stage.
 - **Date:** 2026-09-02
 - **Authors:** Claude (analysis & proposal), Jörg (direction)
 - **Depends on:** RFC-0027 (machine principals), RFC-0007 (visibility
@@ -137,9 +139,17 @@ device.
   "groups": ["packstation"], "active": true }
 
 // device — one per screen, each with its own key
-{ "id": "dev-a91c", "name": "Packstation 3", "principal": "cls-terminal",
-  "key_id": "k7f3a91c", "idle_seconds": 300, "enrolled_by": "cls_admin" }
+{ "id": "k7f3a91c", "label": "Packstation 3", "principal": "cls-terminal",
+  "terminal": true, "expires": "...", "last_used": "..." }
 ```
+
+**The device record IS the key record.** Written as two things in the
+draft, built as one — a device is a named credential, and every field
+the draft wanted (id, name, principal, enrolled by, last seen) is
+already in a key. Giving it a separate store would have meant two
+things to create, two to revoke and two to keep in step, in exchange
+for nothing. When presence arrives (§4.4) it gets its own small file,
+keyed by this same id.
 
 **What the operator gains by sharing a principal:** one set of roles
 and groups to maintain, one thing to change when the location's apps
@@ -170,10 +180,38 @@ Jörg's flow, made precise:
 From then on the browser presents the terminal's credential, not a
 person's. A reboot changes nothing.
 
-The credential must be **bound to that browser** — stored so that
-copying the URL is not enough — and re-enrolment must be possible from
-the portal without a site visit, because the alternative is a support
-call from a plant at 06:00.
+**What implementation changed here.** The draft said the browser
+"presents the key". It cannot: **a browser puts no `Authorization`
+header on an ordinary navigation.** A script can; a kiosk following a
+link cannot. So a terminal needs a **cookie**, not a header — and step
+3 above is really an *exchange*: the key is posted once to
+`/auth/terminal`, which returns a long-lived session cookie naming the
+machine principal **and the key it came from**.
+
+That last part is what keeps the exchange honest. Every request
+re-checks the named key, so:
+
+- `oaap key revoke` ends the terminal **within seconds**, not at the
+  next reboot. A cookie that outlived its credential would make
+  revoking the same as doing nothing.
+- deactivating the principal does the same, through the check that was
+  already there.
+- the key's expiry is the session's expiry.
+
+The key travels from the portal to identity in a **hidden form field**
+on a page rendered once, for the administrator standing at the machine
+— never in a URL, and it is never displayed. It does not need to be
+written down anywhere: it goes into this browser and stays there.
+
+**And a terminal does not log out.** The button is refused for a
+terminal session, because one stray tap in a warehouse would otherwise
+leave a dead screen until somebody with an administrator password walks
+over — and the person who tapped it would have no way to know that is
+what happened. Ending a terminal is revoking its key, from the portal,
+without being there.
+
+Re-enrolment must be possible from the portal without a site visit,
+because the alternative is a support call from a plant at 06:00.
 
 ### 4.3 The operator roster lives in the tenant
 
@@ -414,6 +452,20 @@ sich nirgends anmelden, sollen keine fünfhundert Konten sein. Sie sind
 Mandantendaten (Name, Tag-Nummern, PIN — alles gehasht). Das ist der
 seltene Fall, in dem **Zentralisieren eines schwachen Geheimnisses das
 Risiko senkt**: einmal gehasht, einmal gebremst, einmal entzogen.
+
+**Beim Bauen kam ein Befund dazu (§4.2):** Ein Browser setzt bei einer
+normalen Navigation **keine `Authorization`-Kopfzeile**. Ein Skript kann
+das, ein Kiosk, der einem Link folgt, nicht. Ein Terminal braucht also
+ein **Cookie**, kein Kopfzeilen-Verfahren — die Einrichtung *tauscht*
+den Schlüssel einmal gegen eine langlebige Sitzung, und diese Sitzung
+**nennt weiterhin den Schlüssel**. Jede Anfrage prüft ihn nach: Damit
+beendet `oaap key revoke` das Terminal in Sekunden statt beim nächsten
+Neustart. Ein Cookie, das seinen Nachweis überlebt, machte Entziehen zu
+Nichtstun. Der Schlüssel reist dabei in einem **versteckten
+Formularfeld** auf einer Seite, die genau einmal gerendert wird — nie in
+einer Adresse, und angezeigt wird er nie. **Und ein Terminal meldet sich
+nicht ab:** Ein Fehltipp in der Halle darf keinen toten Bildschirm
+hinterlassen, den nur jemand mit Administratorpasswort wiederbelebt.
 
 **MQTT ist auf Deinen Wunsch zurückgestellt** — es gehört zum Gespräch
 über Digitale Zwillinge und Messaging. Festgelegt wird hier nur das

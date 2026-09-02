@@ -213,6 +213,29 @@ folding in once keys have run for a while — and if that never happens
 because the cost outweighs the tidiness, that is an acceptable
 outcome. Naming them here is enough to stop a *fourth* carve-out.
 
+### 3.8 The app sees the header — and why that argues for scoping
+
+`forward_auth` consults identity and then proxies the **original
+request** onward, headers included. So the app behind the route
+receives the `Authorization` header, key and all.
+
+This is not new — an app has always received the session cookie of the
+person using it — but a key is worth saying out loud about, because a
+key is *portable* in a way a cookie is not: it is meant to be pasted
+into a config file, and a malicious or compromised app could paste it
+somewhere else.
+
+We do **not** strip it. Stripping the header would break every app that
+uses `Authorization` for its own purposes, and it would only move the
+problem: the app would still be serving a principal it could act as.
+
+What actually bounds this is **scoping** (D5). A key limited to
+`cls-viewer` reaches only `cls-viewer` — so an app that keeps it gains
+nothing it did not already have. An unscoped key reaches everything its
+roles allow, and hands that reach to every app it touches. That is why
+`instance` is in v1 and not "later", and why the CLI says so at issue
+time rather than in a document.
+
 ## 4. What this costs
 
 - **A new class of exposure.** A long-lived secret lives in a file, an
@@ -223,6 +246,8 @@ outcome. Naming them here is enough to stop a *fourth* carve-out.
 - **Something new to rotate.** Every credential is an operational
   obligation. We should ship the reminder with the mechanism, not
   after the first key silently expires in production at 03:00.
+- **The key travels to the app** (§3.8). Bounded by scoping, not
+  removed by it.
 - **A second door into `/verify`.** One branch, but it is the branch
   that decides who someone is. It deserves its own conformance tests
   before anything else uses it.
@@ -272,9 +297,11 @@ decision (RFC-0022 work, 0.1.55): the tenant admin runs their tenant,
 and the point of delegating is that they do not have to ask.
 
 **D5 — Is `instance` scoping in v1?**
-*Recommendation: yes.* It is a single comparison, it mirrors the
-deploy token, and a key that can only reach one app is the difference
-between an incident and a nuisance.
+*Recommendation: yes* — and §3.8, found while wiring the gateway,
+strengthened it from convenience to containment: the app receives the
+header, so an unscoped key hands its whole reach to every app it
+touches. A key that can only reach one app is the difference between an
+incident and a nuisance.
 
 **D6 — Bearer header only, or also a query parameter?**
 *Recommendation: header only.* Convenience here is paid for in access
@@ -328,6 +355,19 @@ wer man ist, ist austauschbar. Was das gewährt, ist es nicht.**
 **Benutzer mit Kennzeichen** (`kind: machine`), kein zweiter Speicher.
 Damit gelten Mandant, Rollen, Sichtbarkeitsgruppen, Deaktivierung und
 Audit unverändert, und die Mandantenprüfung bleibt an **einer** Stelle.
+**Ein Punkt, der beim Bauen auffiel (§3.8):** Das Gateway befragt
+identity und reicht die Anfrage danach **unverändert** an die App
+weiter — samt `Authorization`-Kopfzeile. Die App sieht den Schlüssel
+also. Neu ist das nicht (das Sitzungs-Cookie sieht sie seit jeher),
+aber ein Schlüssel ist *tragbar*: er ist dafür gemacht, in eine
+Konfigurationsdatei kopiert zu werden. Entfernen wollen wir ihn nicht —
+das bräche jede App, die `Authorization` selbst benutzt, und verschöbe
+das Problem nur. Was es wirklich begrenzt, ist die **Beschränkung auf
+eine Instanz**: Ein Schlüssel für `cls-viewer` erreicht nur
+`cls-viewer`, eine App gewinnt durch Aufheben also nichts. Deshalb ist
+D5 in Version 1 und nicht „später", und deshalb sagt die CLI es beim
+Ausstellen statt in einem Dokument.
+
 Die übrigen fünf (`server_admin` gesperrt, Ablauf verpflichtend,
 `tenant_admin` darf im eigenen Mandanten ausstellen, Begrenzung auf
 eine Instanz in Version 1, nur der Bearer-Header) nehme ich wie
