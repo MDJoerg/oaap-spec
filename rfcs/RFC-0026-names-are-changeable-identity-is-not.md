@@ -1,6 +1,7 @@
 # RFC-0026: Names Are Changeable, Identity Is Not
 
-- **Status:** Draft (proposed; decisions in §8)
+- **Status:** Accepted (2026-09-02) — implemented in reference
+  0.1.60/0.1.61; the node migration is staged and awaits a moment Jörg picks (D5)
 - **Date:** 2026-09-02
 - **Authors:** Claude (analysis & proposal), Jörg (direction)
 - **Depends on:** RFC-0009/RFC-0018 (instance names and aliases),

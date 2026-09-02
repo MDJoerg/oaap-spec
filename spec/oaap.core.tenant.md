@@ -1,7 +1,12 @@
 # oaap.core.tenant — Account and Tenant, the Boundary of Belonging
 
 - **ID:** `oaap.core.tenant`
-- **Version:** 0.3 (RFC-0025: an instance name belongs to a TENANT, not
+- **Version:** 0.4 (RFC-0026: an instance gets an identity, its data
+  lives at `tenants/<tenant-id>/instances/<instance-id>/`, and both a
+  tenant and an instance can be renamed with the addresses following.
+  The frozen short name of 0.3 is withdrawn: identifiers follow the
+  current label again, because the data no longer hangs off a name;
+  0.3 was RFC-0025: an instance name belongs to a TENANT, not
   to the node. Everything node-scoped uses a key composed once from the
   tenant's frozen short name; the address keeps carrying the name the
   customer chose. The migration renames nothing, and a node with one
@@ -68,7 +73,7 @@ account   (reference only — see 1.3)
 | `account_name`  | cached display text for the account; never authoritative                    |
 | `created`       | ISO-8601 timestamp                                                          |
 | `former_labels` | previous labels kept as aliases, each with an expiry — see 1.6              |
-| `slug`          | short, node-unique, **frozen at creation**; empty for the default tenant — see 2.4 |
+
 
 **Everything internal refers to `id`.** Not to the label, and never to
 the name. This is what makes a label change a renaming instead of a
@@ -76,12 +81,18 @@ migration (RFC-0022 D4) — and label changes happen, because a label
 ends up in hostnames and hostnames end up in public Certificate
 Transparency logs.
 
-The one thing that is not a reference but a *name* is the **`slug`**,
-and it exists for the same reason: node-scoped identifiers (container
-names, networks, directories, keys) have to be readable by a human
-under pressure, so they cannot be UUIDs — and they have to survive a
-rename, so they cannot follow the label. The slug is therefore minted
-once from the first label and frozen (2.4, RFC-0025 §8.1).
+Instance **data** refers to `id` too, and to the instance's own id
+(`oaap.apps.runtime`): it lives at
+`tenants/<tenant-id>/instances/<instance-id>/`. That is what makes a
+rename a rename rather than a data migration, and it is why 0.3's
+frozen short name could be withdrawn — it existed only to keep names
+out of paths, and now identities do that job (RFC-0026 §3.2).
+
+Readable **symlinks** lie beside the identities:
+`tenants/by-label/<label>` and `tenants/<id>/by-name/<name>`. They are a
+convenience for whoever has to read a path at two in the morning, never
+something the platform depends on: a filesystem that refuses them
+changes nothing about how the node runs.
 
 ### 1.2 The default tenant
 
@@ -340,14 +351,15 @@ composed once and never recomputed:
     key = <slug>-<name>      in a tenant
     key = <name>             in the default tenant
 
-The **slug** is a short name minted when the tenant is created —
-initially its label, with a numeric discriminator if that slug is
-already held — and **frozen from then on**. A rename does not touch
-it. That is deliberate: deriving keys from the current label would turn
-every rename into a migration with downtime and break 1.6's promise
-that a rename is a renaming. The price is named rather than hidden:
-after a rename, identifiers still carry the old slug. Cosmetic drift in
-identifiers, never in addresses.
+The **slug** is the tenant's **current** label. RFC-0025 froze it so a
+rename would not have to move data; RFC-0026 moved the data under an
+identity instead (1.1), and once it hangs off an id rather than a name,
+freezing bought nothing but drift between what a container is called
+and who owns it. So identifiers follow the label again — and a
+tenant rename therefore **re-keys that tenant's instances and restarts
+them**. That trade is named before it is made, in the rename dialog:
+seconds of downtime for an act that is rare, deliberate and warned,
+against no drift at all. Nothing moves on disk.
 
 The default tenant's slug is the **empty string**, exactly as its label
 is the absence of a label in a hostname (1.2). Everything on a
@@ -365,6 +377,15 @@ The address is built from the **name**, never from the key: an instance
 keyed `cls-viewer` answers at `viewer.cls.<node>`. The key exists so
 identifiers do not collide; the address does not need it, because the
 label already says which tenant this is.
+
+**Both names may change** (RFC-0026). A tenant label and an instance
+name are renameable, and the addresses follow. What that costs is one
+restart of the affected apps; what it does not cost is a data move.
+Each rename keeps the previous spelling answering for a grace period
+— the address **and** the deploy address — because a name that was
+published is a name somebody wrote down. The deploy address also
+accepts the instance's **identity**, which never changes at all: an
+agent given that form need never be told about a rename.
 
 ### 2.5 Resolution rules
 
@@ -483,7 +504,22 @@ On a node with one tenant: none that anyone can observe, exactly as in
     name is free for B, and the deletion appears in **A's** audit log.
     On a node with one tenant, none of this is observable.
 
-12. **Two tenants, one word.** Both create an instance named `viewer`.
+12. **Both names change, and the outside follows.** Rename an instance:
+    its address and its deploy address move to the new name, the old
+    spelling of both keeps working for the grace period, its identity
+    is unchanged, and its data directory is not touched. Rename its
+    tenant: the same, for every instance of that tenant at once. On a
+    single-tenant node neither is observable from outside.
+
+13. **Data lives under its tenant.** Every instance's storage,
+    configured secrets and retained packages are under
+    `tenants/<tenant-id>/instances/<instance-id>/`, and nothing of one
+    tenant is under another's path. Removing an instance without
+    deleting its data records what was left and under which identity;
+    reinstalling the same name in the same tenant finds that data
+    again; deleting it is an operator act in the tenant's audit log.
+
+14. **Two tenants, one word.** Both create an instance named `viewer`.
     Both succeed; `docker ps` shows two different containers, the two
     data directories are different, each instance answers only at its
     own `viewer.<label>.<node>`, and each deploy hook reaches only its
@@ -491,7 +527,7 @@ On a node with one tenant: none that anyone can observe, exactly as in
     name and not its owner. Then rename one tenant: its addresses
     change, its identifiers do not, and its deploy address still works.
 
-13. **No port past the gateway for a tenant.** On an `exposed` node, a
+15. **No port past the gateway for a tenant.** On an `exposed` node, a
     `tenant_admin` asking for a declared non-HTTP endpoint of their own
     instance is refused with a message naming the reason, and the host
     refuses the same request when it arrives through the queue with the
@@ -614,3 +650,53 @@ Instanz, die älter ist als diese Regel und deshalb einen Schlüssel ohne
 Kurznamen trägt, sind das zwei verschiedene Fragen — und nur die erste
 zu stellen hieße, einem Mandanten zwei Instanzen namens `viewer` zu
 erlauben.
+
+## Nachtrag 0.4 — Namen sind änderbar, Identität nicht
+
+0.3 hat den Namensraum je Mandant geschnitten. Die Frage danach war
+Jörgs: *Kann man einen Mandanten und eine Instanz eigentlich umbenennen
+und das Erscheinungsbild nach außen mitziehen?* Bis dahin: einen
+Mandanten ja, eine Instanz gar nicht. Beides hing am selben Umstand —
+ein Name war hier nicht nur ein Name, er war auch die Ablage.
+
+**Die schmerzhafte Stelle war genau eine.** Von allem, was eine
+Umbenennung anfasst, wird das meiste bei jedem Deployment ohnehin neu
+geschrieben: Containernamen, Netzwerke, Gateway-Dateien,
+Registry-Schlüssel, Token-Einträge. Teuer ist nur eines — die Daten zu
+verschieben. Und es ist das Einzige, das halb fertig scheitern und
+Kundendaten an zwei Orten hinterlassen kann.
+
+**Also hängt die Ablage jetzt an Identitäten:**
+`tenants/<mandant-id>/instances/<instanz-id>/`, mit lesbaren Symlinks
+daneben. Drei Dinge fallen dabei ab. Alle Daten eines Mandanten sind
+**ein Pfad** — das macht Sicherung je Mandant, Löschen mit Export und
+den Umzug eines Mandanten auf einen anderen Knoten zu normalen
+Vorgängen statt zu Projekten. Eine Umbenennung **verschiebt nichts**.
+Und Daten können die Mandantengrenze **gar nicht mehr versehentlich
+überqueren** — die Sicherung aus 0.2.2 wird zur Form des Baums, und die
+Markierungsdatei darin überflüssig.
+
+**Der eingefrorene Kurzname aus 0.3 ist zurückgenommen.** Er war die
+richtige Antwort, solange die Ablage am Namen hing: Einfrieren hielt
+eine Umbenennung davon ab, eine Migration zu werden. Hängt die Ablage
+an einer Identität, kauft das Einfrieren nichts mehr außer Drift
+zwischen dem, wie ein Container heißt, und dem, wem er gehört. Also
+folgen Kennungen wieder dem aktuellen Kürzel — und eine Umbenennung des
+Mandanten baut dessen Apps neu und startet sie neu. Der Dialog sagt das
+vorher: Sekunden Ausfall für eine seltene, ausdrückliche Handlung,
+dafür keine Drift.
+
+**Was ein alter Name behält.** Beide Umbenennungen lassen die frühere
+Schreibweise eine Schonfrist lang weiter antworten — die Adresse *und*
+die Deploy-Adresse. Ein Name, der veröffentlicht war, ist ein Name, den
+jemand aufgeschrieben hat. Zusätzlich nimmt die Deploy-Adresse die
+**Kennung** der Instanz an, und die ändert sich nie: Wer einer KI diese
+Form gibt, muss sie nach keiner Umbenennung informieren.
+
+**Eine Zusage wäre dabei fast verloren gegangen.** „Daten behalten"
+beim Entfernen verspricht, dass eine Neuinstallation gleichen Namens
+sie wiederfindet. Mit id-basierten Pfaden gilt das nur noch, weil das
+Entfernen sich die Identität als Merkposten notiert — und dieser
+Merkposten macht zurückgelassene Kundendaten zum ersten Mal überhaupt
+sichtbar, statt sie nach einer einmaligen Meldung verschwinden zu
+lassen.

@@ -1,7 +1,13 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.19 (an instance name belongs to its tenant (RFC-0025); the registry key, the containers, the network, the data
+- **Version:** 0.2.20 (an instance gets an immutable `id`; its data
+  lives at `tenants/<tenant-id>/instances/<instance-id>/`, so renaming
+  a tenant or an instance moves nothing — RFC-0026. Removing an
+  instance without deleting its data records what was left and under
+  which identity, which is what keeps the promise that reinstalling
+  the same name recovers it;
+  0.2.19 made an instance name belong to its tenant (RFC-0025); the registry key, the containers, the network, the data
   directory, the deploy token and the deploy hook use a key composed
   from the tenant's frozen short name, while the ADDRESS keeps carrying
   the name the customer chose)
