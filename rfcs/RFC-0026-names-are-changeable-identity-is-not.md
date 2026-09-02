@@ -234,11 +234,26 @@ field in one file and a migration that clears it.
 - **D1 — the tenant tree**: instances filed under
   `tenants/<tenant-id>/instances/<instance-id>/`, with readable
   symlinks. Proposed: yes.
-- **D2 — the registry key becomes the instance id**, and every name a
-  human types is resolved. Proposed: yes. The alternative — keeping a
-  readable key and rewriting it on rename — works too, but leaves the
-  key mutable, which is the property that made all of this fragile in
-  the first place.
+- **D2 — the registry key stays readable and becomes mutable.**
+  Revised from the first draft of this section, which proposed keying
+  the registry by the instance id. Reason for the revision: Jörg's
+  suggestion was *targeted* — UUIDs **where renaming hurts** — and the
+  only place it hurts is the data directory. Keying the whole registry
+  by an id would also change every CLI argument, every log line, every
+  message and the fleet document, and would leave an operator reading
+  `oaap app list` a column of hex. That is a worse platform bought to
+  fix a problem the directory change already fixes.
+
+  So: the id exists, the **data hangs off it**, the canonical deploy
+  path uses it — and everything a human reads stays a name. The
+  registry key is rewritten on a rename, which is a JSON edit and a
+  container recreate, not a data move.
+- **D2b — readable identifiers follow the CURRENT tenant label**, and
+  the frozen slug of RFC-0025 is withdrawn (§6). A tenant rename
+  therefore re-keys that tenant's instances and restarts them. That is
+  the trade this RFC makes deliberately: no drift between what a
+  container is called and who it belongs to, paid for with a restart
+  during an act that is rare, deliberate and warned.
 - **D3 — a rename restarts the app.** Proposed: yes, said out loud in
   the dialog. The alternative is renaming containers in place, which
   Docker allows but networks do not, so it would only move the restart
