@@ -1,8 +1,10 @@
 # oaap.data.backup — Platform Backup & Restore
 
 - **ID:** `oaap.data.backup`
-- **Version:** 0.1.4
-- **Maturity:** draft (0.1.4 names the instance tree under `tenants/` as
+- **Version:** 0.1.5
+- **Maturity:** draft (0.1.5 adds the tenant audit log to the required
+  content -- the first real restore drill produced a node that came back
+  complete and said "No entries yet", 2026-09-05; 0.1.4 names the instance tree under `tenants/` as
   required content and makes completeness a check against the finished
   archive — written after a live node produced a 9 KB "backup" of 899 MB
   and said nothing, 2026-09-05; 0.1.2 extends "the address travels" to every name
@@ -56,6 +58,13 @@ contained instances). It MUST contain:
   tree (`tenants/<tenant-id>/instances/<instance-id>/`); records written
   before it still lie flat under `apps/<key>/`, and an archive taken on
   a node holding both MUST carry both (0.1.4)
+
+- The **tenant audit log** (`oaap.core.tenant` 1.7). It is the
+  counterweight to "a `server_admin` may do everything on this node"
+  (RFC-0022 D5): the customer's own record of what the operator did
+  inside their tenant. A restore that drops it hands the operator a
+  clean slate, which is the one thing the log exists to prevent -- and
+  it does so invisibly, because everything else comes back (0.1.5)
 
 - The **tenant store** (`oaap.core.tenant` 1.1). Without it the
   restored users and instances name tenants the node does not have,
@@ -206,9 +215,17 @@ The documented Umzug flow, built from the two operations above:
    instance's storage *with its contents* and each `instance.env`.
    Tested by reading the archive, never by reading the code — and on
    two tenants, because a node with one is the case in which the old
-   flat path and the new one look alike. Counter-test: an
-   implementation that omits the instance tree MUST fail and leave no
-   archive.
+   flat path and the new one look alike. The same is asked of the
+   **tenant audit log**: a node that has one and an archive that does
+   not is not a backup of that node. Counter-test: an implementation
+   that omits either MUST fail and leave no archive.
+
+3b. **The log survives the round trip** (0.1.5). After conformance test
+   3, `oaap tenant log` on the restored node shows the entries it
+   showed before. Found by the first real restore drill, 2026-09-05:
+   everything else came back and the log said "No entries yet" — which
+   is exactly how the operator's record of their own actions would
+   disappear without anyone noticing.
 2. **Target safety:** a target inside the platform data directory is
    refused with a clear message; nothing is stopped or changed.
 3. **Round-trip restore:** on a fresh machine, `restore` from the
