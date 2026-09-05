@@ -1,7 +1,7 @@
 # oaap.core.identity — Identity & Roles
 
 - **ID:** `oaap.core.identity`
-- **Version:** 0.3.3
+- **Version:** 0.3.4
 - **Maturity:** draft
 - **Based on:** RFC-0001, RFC-0002, RFC-0007, RFC-0008
 - **Scope of this version:** built-in minimal identity provider with
@@ -14,6 +14,8 @@
   membership operative (`oaap.core.tenant` 0.2): the `tenant_admin`
   role, a tenant boundary the gateway enforces, and user management
   scoped to one tenant. Still invisible while a node has one tenant.
+  0.3.4 names the self-service surface an app may use (2.7): the
+  `/auth/*` guarantee on every entry point, and `GET /auth/whoami`.
 
 ## 1. Purpose
 
@@ -194,6 +196,54 @@ independently.
   Contract. An app that wants group-aware behavior has no API for that
   in this version.
 
+### 2.7 The self-service surface an app may use (0.3.4)
+
+Apps render their own chrome. The platform owes them the *facts* about
+the person in front of the screen and the *addresses* of the actions it
+owns — never the widget.
+
+- **`/auth/*` is reachable on every instance entry point**, not only on
+  the portal, because the gateway reserves that prefix on every
+  generated site (`oaap.core.gateway`). An app may therefore link to
+  `/auth/password` and `/auth/logout` **relative to its own address**,
+  with no platform change and no cross-origin request. This is a
+  guarantee, not an accident of the current configuration.
+- **`GET /auth/whoami`** answers the same question `/verify` answers,
+  in a form a page can read: JSON describing **the caller and nobody
+  else**. It authenticates exactly like every other route — a session
+  cookie or an API key (RFC-0027), resolved by the one shared method
+  list — and refuses an unauthenticated caller with 401 rather than a
+  login redirect, because its caller is a script, not a browser
+  following links.
+- **Fields:** `username`, `display_name` (empty string when unset —
+  never invented from the username), `roles` (exactly the list
+  `X-OAAP-Roles` carries for this request), `kind` (`human` or
+  `machine`), and `links`, an object holding the addresses the app may
+  offer: `password` and `logout` for a human, `logout` only for a
+  machine principal, which has no password to change. `logout` is a
+  **POST**, not a link — a sign-out that any foreign page can trigger
+  by embedding an image is a nuisance, not a feature. Identity accepts
+  no GET there, so the rule enforces itself.
+- **The roles field and the header MUST be the same list.** whoami is a
+  second *reading* of one truth, never a second truth. An
+  implementation that computes roles separately here is wrong even
+  while the two agree.
+- **No tenant is returned, and none will be.** The tenant boundary is
+  enforced at the gateway before the app is reached (2.3,
+  `oaap.core.tenant` 3.1). Handing an app its caller's tenant would
+  invite the app to filter by it — a second, weaker enforcement one bug
+  away from a leak between customers, and on a single-tenant node it
+  would additionally make tenants visible where nothing may be
+  (`oaap.core.tenant` 2.4).
+- **No groups are returned**, for the reason 2.6 already gives for the
+  absent header: visibility is a platform switch, not part of the App
+  Deployment Contract.
+- **The answer MUST NOT be cached** (`Cache-Control: no-store`): it
+  describes the current session, and a shared cache holding it would
+  hand one person's name to the next.
+- Beyond this, no self-service exists in this version. In particular a
+  user cannot change their own display name, e-mail or roles — see 2.4.
+
 ## 3. Configuration
 
 - Session secret and setup token are generated at install time
@@ -276,6 +326,19 @@ independently.
     another tenant answers "not found", not "forbidden"; granting
     `server_admin` or `partner`, or naming a foreign tenant on create,
     is refused.
+13. **whoami answers about the caller** (0.3.4, 2.7) — a signed-in user
+    receives their own username, display name and roles; the `roles`
+    field is byte-identical to the `X-OAAP-Roles` header the same
+    session receives from `/verify`; an unauthenticated caller receives
+    401 and no body describing anybody; an API key receives the key's
+    effective (narrowed) roles, not the principal's full set.
+14. **whoami leaks no boundary** (0.3.4, 2.7) — the answer contains no
+    tenant and no groups, on a single-tenant node and on a multi-tenant
+    one alike; it carries `Cache-Control: no-store`.
+15. **The `/auth/*` guarantee** (0.3.4, 2.7) — on an instance's own
+    entry point, `/auth/password`, `/auth/logout` and `/auth/whoami`
+    reach identity and not the app, even when the app declares a route
+    of the same path.
 
 ## 6. Dependencies
 
@@ -286,7 +349,8 @@ None (foundation; the gateway depends on identity, not vice versa).
 `draft` — v0.2.0 added user management to the v0.1 outline; v0.3.0
 adds the `server_admin` role (RFC-0008) and visibility groups
 (RFC-0007); v0.3.3 adds `tenant_admin` and the tenant boundary
-(`oaap.core.tenant` 0.2). Open points for later versions: external identity
+(`oaap.core.tenant` 0.2); v0.3.4 names the app-facing self-service
+surface (2.7). Open points for later versions: external identity
 providers (Keycloak/LDAP/OIDC), 2FA (required by the internet
 hardening profile), forced password change on first login, user
 deletion/GDPR semantics, per-app service accounts, moving a user

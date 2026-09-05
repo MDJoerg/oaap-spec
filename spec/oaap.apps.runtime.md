@@ -1,12 +1,14 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.20 (an instance gets an immutable `id`; its data
+- **Version:** 0.2.21 (an instance gets an immutable `id`; its data
   lives at `tenants/<tenant-id>/instances/<instance-id>/`, so renaming
   a tenant or an instance moves nothing — RFC-0026. Removing an
   instance without deleting its data records what was left and under
   which identity, which is what keeps the promise that reinstalling
   the same name recovers it;
+  0.2.21 lets a retained package be **downloaded** by `server_admin`,
+  which is how a tested package reaches a second node — 2.14;
   0.2.19 made an instance name belong to its tenant (RFC-0025); the registry key, the containers, the network, the data
   directory, the deploy token and the deploy hook use a key composed
   from the tenant's frozen short name, while the ADDRESS keeps carrying
@@ -271,6 +273,29 @@ access right.
   ordinary installation. Retained artifacts live with the instance and
   therefore travel in backups — an artifact-deployed instance is the
   first whose backup is self-contained.
+- A retained package MAY be **downloaded** from the node (0.2.21). This
+  is what makes "the same bytes" work across a *node* boundary the way
+  promotion (2.14 below) already makes it work inside one. Four rules:
+  - **`server_admin` only.** For that role the download grants nothing
+    new — the same file is one `scp` away — while for a `tenant_admin`
+    it would be a genuinely new power: taking away software that a
+    supplier put into their tenant. That is a question about ownership,
+    not about the platform, and it is left open here rather than
+    answered by a button.
+  - **The node authorizes it, not the portal.** The request goes
+    through the same queue as every change, and only an affirmative
+    answer from the host releases the file. A read that crosses the
+    tenant boundary must be decided where the registry is
+    authoritative.
+  - **It is recorded in the tenant's audit log**, like every other
+    operator action inside a tenant (`oaap.core.tenant` 1.7, RFC-0022
+    D5). The operator may reach everything; the record is the
+    counterweight. That the same operator could also take the file by
+    other means is a reason the log cannot be complete — not a reason
+    to leave out the entries that can be written.
+  - **Only a package the instance actually retains** may be named. The
+    file name is not a path: it is checked against the retained list,
+    never joined onto a directory.
 - **Unpacking an untrusted archive** MUST reject absolute paths, paths
   escaping the package root, and links or special files; MUST bound
   entry count and unpacked size, checking the size **while** unpacking
@@ -885,6 +910,14 @@ to `app.type` (2.2), which says how it is *packaged*:
     the raw port reaches the app directly with no login, while the app's
     HTTP route still requires authentication; the grant survives a
     redeploy; `deny`, or removing the instance, closes the port.
+40. **Package download** (2.14, 0.2.21): a `server_admin` downloads a
+    retained package and receives byte-identical content (same sha256 as
+    the receipt); the tenant's audit log gains one entry naming the
+    operator, the instance and the file. A `tenant_admin` is refused on
+    their OWN instance, and the refusal names ownership as the reason
+    rather than pretending the package is not there. A file name that is
+    not in the retained list — including one shaped like a path — is
+    refused without touching the filesystem.
 
 ## 6. Dependencies
 
