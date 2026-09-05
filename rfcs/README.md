@@ -33,3 +33,4 @@ never deleted; superseded RFCs get status `Superseded by RFC-XXXX`.
 - [RFC-0026](RFC-0026-names-are-changeable-identity-is-not.md) — Names Are Changeable, Identity Is Not (Accepted)
 - [RFC-0027](RFC-0027-machine-principals-and-api-keys.md) — Machine Principals: One Way to Prove You Are Not a Person (Draft — six decisions open)
 - [RFC-0028](RFC-0028-terminals-and-the-person-in-front-of-them.md) — The Terminal and the Person In Front Of It (Draft — seven decisions open)
+- [RFC-0029](RFC-0029-scheduled-backups-and-generations.md) — A Backup That Runs By Itself: Schedule, Generations, Visibility (Draft — six decisions open)

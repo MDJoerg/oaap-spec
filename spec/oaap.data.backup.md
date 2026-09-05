@@ -1,8 +1,11 @@
 # oaap.data.backup — Platform Backup & Restore
 
 - **ID:** `oaap.data.backup`
-- **Version:** 0.1.3
-- **Maturity:** draft (0.1.2 extends "the address travels" to every name
+- **Version:** 0.1.4
+- **Maturity:** draft (0.1.4 names the instance tree under `tenants/` as
+  required content and makes completeness a check against the finished
+  archive — written after a live node produced a 9 KB "backup" of 899 MB
+  and said nothing, 2026-09-05; 0.1.2 extends "the address travels" to every name
   an instance owns — canonical plus aliases, RFC-0018; 0.1.1 draws the
   line between what belongs to the **service** and travels — an
   instance's own address, RFC-0009 — and what belongs to the **machine**
@@ -48,7 +51,11 @@ contained instances). It MUST contain:
   package source, channel, and secrets (`instance.env`,
   `OAAP_APP_SECRET`) — without these a restore cannot deliver the
   contract guarantees
-- The app storage of every instance
+- The app storage of every instance **and its `instance.env`**, wherever
+  the platform currently keeps them. Since RFC-0026 that is the tenant
+  tree (`tenants/<tenant-id>/instances/<instance-id>/`); records written
+  before it still lie flat under `apps/<key>/`, and an archive taken on
+  a node holding both MUST carry both (0.1.4)
 
 - The **tenant store** (`oaap.core.tenant` 1.1). Without it the
   restored users and instances name tenants the node does not have,
@@ -87,6 +94,21 @@ location. Requirements:
 - The archive MUST be created with restrictive file permissions, and
   the command MUST state clearly that the file contains all platform
   secrets and user data (see section 4).
+- **Completeness MUST be measured against the finished archive** (0.1.4)
+  and not asserted by the implementation. Before an archive is put in
+  place, the command MUST check, for every instance in the registry
+  that has a data directory, that the archive holds that directory. If
+  any is missing, the command MUST fail and MUST NOT leave an archive
+  behind — an incomplete backup that calls itself complete is worse
+  than none, because it is discovered on the day the original is gone.
+
+  This rule exists because it was broken. On 2026-09-05 a backup on a
+  live node was 9 KB where the node held 899 MB: since the instance
+  tree moved to `tenants/…` (RFC-0026), the implementation still copied
+  the list of paths it had always copied — registry and users, no app
+  data, no `instance.env`. Nothing failed. The archive restored, onto
+  an empty platform. A path list can be spelled correctly and be
+  empty; only the archive knows what is in it.
 
 ### 2.3 Restore
 
@@ -179,6 +201,14 @@ The documented Umzug flow, built from the two operations above:
    `oaap backup create` produces an archive with restrictive
    permissions whose manifest lists platform version and all
    instances; afterwards the platform is fully running again.
+1a. **The archive holds the data, not just the list** (0.1.4). On a node
+   with instances in **two** tenants, the archive contains each
+   instance's storage *with its contents* and each `instance.env`.
+   Tested by reading the archive, never by reading the code — and on
+   two tenants, because a node with one is the case in which the old
+   flat path and the new one look alike. Counter-test: an
+   implementation that omits the instance tree MUST fail and leave no
+   archive.
 2. **Target safety:** a target inside the platform data directory is
    refused with a clear message; nothing is stopped or changed.
 3. **Round-trip restore:** on a fresh machine, `restore` from the

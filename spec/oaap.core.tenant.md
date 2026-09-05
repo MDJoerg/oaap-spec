@@ -1,7 +1,11 @@
 # oaap.core.tenant — Account and Tenant, the Boundary of Belonging
 
 - **ID:** `oaap.core.tenant`
-- **Version:** 0.4 (RFC-0026: an instance gets an identity, its data
+- **Version:** 0.4.1 (the portal may create a tenant, `server_admin`
+  only — the same act as `oaap tenant create` through a second door,
+  with the one named exception to the invisibility rule that this
+  requires, see 2.2 and conformance test 1a;
+  0.4 was RFC-0026: an instance gets an identity, its data
   lives at `tenants/<tenant-id>/instances/<instance-id>/`, and both a
   tenant and an instance can be renamed with the addresses following.
   The frozen short name of 0.3 is withdrawn: identifiers follow the
@@ -265,6 +269,21 @@ is shown.
   [--account-name <text>]` — creates a tenant. Before it does, it
   **checks the zone** (2.4) and **says that the label will be public**
   (3.4). Both at the moment of choosing, not in a document.
+
+  **The portal may create a tenant too** (0.4.1), on the tenant page,
+  for a `server_admin` and nobody else. It is the same act through a
+  second door and MUST produce the same record, run the same label
+  rules, say the same two sentences before the act, and file the same
+  audit entry — a difference between the doors is a difference in what
+  a tenant *is*.
+
+  Why this one may leave the machine while a node profile (RFC-0011)
+  may not: a new tenant is **empty**. No user, no instance, no permit,
+  no address — a reserved word and a place to put things. What it is
+  not is reversible (there is no removal, see below), which is why it
+  stays `server_admin`'s alone. A `tenant_admin` who could create a
+  tenant could create one and appoint themselves in it: a two-step
+  path out of their own boundary (2.3 rule 1).
 - `oaap tenant rename <label> <new-label> [--grace-days <n>]` — renames
   a tenant, keeps the old label as an alias for the grace period (1.6),
   and names the consequences before doing it.
@@ -460,6 +479,18 @@ On a node with one tenant: none that anyone can observe, exactly as in
    output of the portal pages, `oaap app list`, `oaap user list` and
    every other command is byte-identical to the same node before the
    tenant store existed.
+
+1a. **The one named exception** (0.4.1). Since the portal may create a
+   tenant, the rule and the act collide: the page carrying the button
+   does not exist until the button has been pressed. The rule holds
+   where it protects somebody and yields where it protects nobody —
+   **nothing about tenants is ever OFFERED on a single-tenant node**
+   (no menu entry, no mention, no column, for any role), and the tenant
+   page answers a `server_admin` who asks for it **by address**. A
+   `tenant_admin` cannot exist on such a node, and any other role is
+   redirected as before. Test: on a single-tenant node the rendered
+   navigation of every role is byte-identical to 0.4, and `GET /tenant`
+   answers 303 for every caller except a `server_admin`.
 2. **Migration is complete and idempotent.** After migrating, `oaap
    tenant check` exits 0, every record resolves to the default tenant,
    and running the migration again creates nothing and prints nothing.
