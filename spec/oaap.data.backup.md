@@ -1,8 +1,11 @@
 # oaap.data.backup — Platform Backup & Restore
 
 - **ID:** `oaap.data.backup`
-- **Version:** 0.1.5
-- **Maturity:** draft (0.1.5 adds the tenant audit log to the required
+- **Version:** 0.2
+- **Maturity:** draft (0.2 implements RFC-0029 D3: the apps stop for the
+  COPY only, compression runs afterwards with them back up -- measured
+  cost before the change was 487 s of downtime for 8.0 GB, of which
+  almost all was gzip; 0.1.5 adds the tenant audit log to the required
   content -- the first real restore drill produced a node that came back
   complete and said "No entries yet", 2026-09-05; 0.1.4 names the instance tree under `tenants/` as
   required content and makes completeness a check against the finished
@@ -92,11 +95,30 @@ complete data set in one file — and it arrives with `oaap.core.tenant`
 `oaap backup create [--to <path>]` — creates the archive and prints its
 location. Requirements:
 
-- **Consistency:** 0.1 is an *offline-consistent* backup: app
+- **Consistency:** this is an *offline-consistent* backup: app
   containers are stopped for the copy and restarted afterwards. The
-  command MUST announce this before stopping anything and SHOULD report
-  the downtime afterwards. (Online/incremental backups are a later
-  version.)
+  command MUST announce this before stopping anything and MUST report
+  the downtime afterwards. (Online backups are a later version;
+  incremental ones are **decided against** — RFC-0029 D3.)
+- **The apps stop for the copy, not for the compression** (0.2,
+  RFC-0029 D3). The archive is written uncompressed while the
+  containers are down, the containers are started again, and only then
+  is it compressed. Measured before the change: 487 seconds of downtime
+  for 8.0 GB, of which almost all was gzip. The implementation MUST
+  restart the containers even when the copy failed — a backup that
+  leaves the node stopped has done more damage than the one it
+  prevented — and MUST NOT leave a partial file behind that could be
+  mistaken for an archive.
+
+  The price is holding the data twice for a few minutes. The command
+  MUST therefore check beforehand that the target has room for it and
+  refuse with a clear message, rather than discovering a full disk in
+  the middle of the night.
+- **The measured downtime MUST be recorded** where the platform can
+  read it back (0.2). Not for a report: RFC-0029 D1 puts the schedule
+  in the portal, and the page owes its operator the sentence "your apps
+  will stop for about this long" — with **this node's** last measured
+  figure. A number from a manual is always somebody else's machine.
 - The target MUST NOT lie inside the platform data directory (a backup
   that dies with the machine is not a backup). The command MUST refuse
   such a target and say why.
