@@ -1,6 +1,6 @@
 # RFC-0029: A Backup That Runs By Itself — Schedule, Generations, Visibility
 
-- **Status:** Draft — six decisions open (D1–D6)
+- **Status:** Draft — seven decisions open (D1–D6, D5b)
 - **Date:** 2026-09-05
 - **Authors:** Jörg (questions and direction), Claude (analysis & proposal)
 - **Depends on:** `oaap.data.backup` 0.1.4, RFC-0022 (tenant as boundary),
@@ -30,6 +30,7 @@ five. Each is a decision below, with a recommendation:
 | **D3** | Incremental backups, weekly and monthly, with periodic fulls? | **No incremental.** Weekly and monthly as *kept generations* of full archives |
 | **D4** | Are archives deleted at the source right after transfer, or after a set time? | After a set time — keep N generations locally, default 2, never zero |
 | **D5** | Separate backups per tenant, so one can be restored alone? | Yes for the archive, and it is now possible. **Per-tenant restore is the hard half** and needs its own round |
+| **D5b** | Einzelne Mandanten vom Knoten-Backup ausnehmen? | Ja — und für einen Betreiber der bessere Vorgabewert, unter drei Bedingungen. Aber **nach** D5 |
 | **D6** | Also a backup pushed by the node itself? | Yes, as a second mode — needed for a node nobody can reach (Bernd) |
 
 ## Motivation
@@ -211,6 +212,65 @@ Two things follow for the near term:
    a shape**, or we ship the half that feels safe and leaves the actual
    need unmet.
 
+### D5b — Excluding a tenant from the node backup
+
+Jörg, 2026-09-05: *„Wäre es eine Option bei der Konfiguration des
+Backups nur bestimmte Mandanten einzuschließen und beispielsweise das
+Backup aus dem Tenant heraus mit einem anderen Verfahren zu machen?"*
+
+**Recommendation: yes — and it is the better default for a multi-tenant
+operator, on three conditions that are not optional.**
+
+It changes what the operator's archive *is*. Today it is "everything on
+this machine", which on a node with customers means the operator holds
+every customer's complete data set wherever the backup target happens to
+be. With exclusion it becomes **"everything I am responsible for"** —
+which is a more honest description of an operator's actual duty, and it
+shrinks the blast radius of a stolen archive.
+
+The three conditions:
+
+1. **The archive must record what it deliberately left out.** A manifest
+   that lists the tenants it contains and the tenants it omitted *by
+   configuration*. Without this, a restore silently produces a node with
+   a customer missing — the same class of failure as the 9 KB archive
+   that started this RFC, and discovered on the same day: the day the
+   original is gone.
+2. **The restore must say it, not discover it.** An excluded tenant's
+   instances are in the registry but have no data. The restore must
+   name them and refuse to start them as if they were whole, rather than
+   bringing up an app that looks wiped. (Which of the two — omit the
+   registry entries, or restore them dormant with a warning — is the one
+   sub-question worth deciding when this is built; the recommendation is
+   **dormant plus a loud sentence**, because a customer's instance
+   silently vanishing from the registry is worse than one that says
+   "my data is elsewhere".)
+3. **The tenant has to be able to see it.** Exclusion moves the risk
+   onto the customer. That is a contract statement, not a checkbox, so
+   the setting carries a reason and appears in **that tenant's own audit
+   log** — the same counterweight that makes `server_admin` bearable
+   (RFC-0022 §6). A customer who is not backed up by the operator must
+   not learn it from the outage.
+
+**On "another procedure from within the tenant":** today a
+`tenant_admin` has no backup capability at all, so exclusion alone would
+leave that tenant with nothing. Two forms are plausible — an app-level
+export (which the App Deployment Contract could require of apps that
+want it) or a tenant-scoped `oaap backup create --tenant <label>` that a
+`tenant_admin` may run for their own tenant. The second is much the
+smaller step: it is D5's archive with a different caller.
+
+**Therefore the ordering: D5 before D5b.** Build the per-tenant archive
+first; exclusion then reduces to *"this tenant is backed up separately,
+and here is by whom"*, using the same mechanism from both ends.
+Exclusion built first would mean a tenant with no platform-side backup
+at all and a promise that somebody else is handling it — which is
+exactly the arrangement that fails quietly.
+
+For `cls` this is not urgent (Jörg, same day: *„Für cls ist das erst
+einmal egal"*), so it is a decision to make deliberately rather than
+under pressure — which is the best time to make it.
+
 ### D6 — The node pushing its own backup: a second mode, later
 
 **Recommendation: yes, as an explicitly second mode — and the security
@@ -249,8 +309,8 @@ question.
 
 ## Open — decided next
 
-D1–D6 above. Nothing beyond the trial-run scripts and the 0.1.4 rule is
-built until they are answered.
+D1–D6 and D5b above. Nothing beyond the trial-run scripts and the 0.1.4
+rule is built until they are answered.
 
 ## Deutsche Zusammenfassung
 
