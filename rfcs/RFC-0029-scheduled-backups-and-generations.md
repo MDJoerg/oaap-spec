@@ -1,6 +1,6 @@
 # RFC-0029: A Backup That Runs By Itself — Schedule, Generations, Visibility
 
-- **Status:** Draft — seven decisions open (D1–D6, D5b)
+- **Status:** Accepted (2026-09-05) — all seven decided
 - **Date:** 2026-09-05
 - **Authors:** Jörg (questions and direction), Claude (analysis & proposal)
 - **Depends on:** `oaap.data.backup` 0.1.4, RFC-0022 (tenant as boundary),
@@ -23,15 +23,15 @@ night worked. This RFC decides that shape before it is built.
 Five questions came from Jörg in one breath, and they are the right
 five. Each is a decision below, with a recommendation:
 
-| | Question | Recommendation |
+| | Question | Decided |
 | --- | --- | --- |
-| **D1** | Is the schedule configured in the portal? | Yes — read-only first, then editable, `server_admin` only |
-| **D2** | Do both portals show done / planned / cancelled backups? | Yes for the node's own; the second node's via the fleet status, not a second truth |
-| **D3** | Incremental backups, weekly and monthly, with periodic fulls? | **No incremental.** Weekly and monthly as *kept generations* of full archives |
-| **D4** | Are archives deleted at the source right after transfer, or after a set time? | After a set time — keep N generations locally, default 2, never zero |
-| **D5** | Separate backups per tenant, so one can be restored alone? | Yes for the archive, and it is now possible. **Per-tenant restore is the hard half** and needs its own round |
-| **D5b** | Einzelne Mandanten vom Knoten-Backup ausnehmen? | Ja — und für einen Betreiber der bessere Vorgabewert, unter drei Bedingungen. Aber **nach** D5 |
-| **D6** | Also a backup pushed by the node itself? | Yes, as a second mode — needed for a node nobody can reach (Bernd) |
+| **D1** | Is the schedule configured in the portal? | **Editable straight away**, `server_admin` only — Jörg chose the fuller variant over the recommended two-step |
+| **D2** | Do both portals show done / planned / cancelled backups? | **Each truth once** — a node shows what it can verify, the puller shows what only it knows |
+| **D3** | Incremental backups, weekly and monthly, with periodic fulls? | **No incremental** — and the outage drops: stop, copy uncompressed, start, compress afterwards |
+| **D4** | Are archives deleted at the source right after transfer, or after a set time? | **Keep the 2 newest at the source**, regardless of whether they were fetched |
+| **D5** | Separate backups per tenant, so one can be restored alone? | **Archive now, restore later** — the merge question gets its own round |
+| **D5b** | Einzelne Mandanten vom Knoten-Backup ausnehmen? | **Ja, nach D5** — mit den drei Bedingungen |
+| **D6** | Also a backup pushed by the node itself? | **Specified, built when the first unreachable node exists** |
 
 ## Motivation
 
@@ -78,6 +78,17 @@ and the security argument inverts — see D6.
 ## Decisions
 
 ### D1 — The schedule belongs in the portal
+> **Entschieden (2026-09-05): sofort auch änderbar** — `server_admin`
+> stellt Uhrzeit und Aufbewahrung im Portal ein, ohne die
+> Zwischenstufe. Jörg wählte damit die weitergehende Variante gegen die
+> Empfehlung unten; die Begründung für die Zwischenstufe war nie ein
+> Zweifel an der Sache, sondern die Sorge um einen Satz. Der Satz ist
+> damit **Bedingung statt Vorbehalt**: Die Seite muss im selben
+> Atemzug wie das Zeitfeld sagen, dass zur genannten Uhrzeit **jede App
+> dieses Knotens für Minuten steht** — mit der zuletzt gemessenen Dauer
+> dieses Knotens, nicht mit einer allgemeinen Zahl. Unverändert gilt:
+> Ziel-Pfad und Abhol-Schlüssel kommen nicht ins Portal.
+
 
 **Recommendation: yes, in two steps.** First the portal *shows* the
 schedule and the state and says how to change it on the machine; then
@@ -97,6 +108,9 @@ where every secret on the machine is written is a portal that can
 exfiltrate the machine.
 
 ### D2 — Visible in the portal, once per truth
+> **Entschieden (2026-09-05): jede Wahrheit nur einmal.** Wie unten
+> beschrieben.
+
 
 **Recommendation: yes — the node's own backups on the node's own health
 page, and the other node's through the fleet status (RFC-0021), never
@@ -127,6 +141,16 @@ error the Studio card was corrected for on 2026-08-24.
 parsing a transcript, and the fleet status carries the same fields.
 
 ### D3 — No incremental backups. Generations of full archives instead
+> **Entschieden (2026-09-05): keine inkrementellen Sicherungen — und
+> die Ausfallzeit sinkt.** Stoppen, unkomprimiert kopieren, starten,
+> danach komprimieren. Gemessen auf `oaapx01` am Tag der Entscheidung:
+> 487 Sekunden Ausfall für 8,0 GB, davon fast alles Komprimierung.
+> Erwartung danach: etwa eine Minute. Der Preis ist, die Daten
+> vorübergehend doppelt zu halten — auf einer Platte mit 913 GB frei
+> ist das umsonst. Damit wird dies **die erste Baustufe**, weil D1 ohne
+> sie einen Zeitplan konfigurierbar macht, dessen Kosten unnötig hoch
+> sind.
+
 
 **Recommendation: no incremental, and this is a decision, not a
 postponement.**
@@ -165,6 +189,10 @@ holding the data twice, which is free on a disk with 913 GB spare.
 nightly backup of a production node acceptable at all.
 
 ### D4 — Local archives expire by time, not by transfer
+> **Entschieden (2026-09-05): die 2 neuesten bleiben am Ursprung
+> liegen**, unabhängig vom Abholen. Wie unten beschrieben; so läuft es
+> seit dem Tag der Entscheidung bereits auf `oaapx01` und `oaap-test`.
+
 
 **Recommendation: keep the N newest at the source, default 2, never
 zero — independent of whether they were fetched.**
@@ -180,6 +208,11 @@ the same node can be fetched by two different places without either
 being able to destroy the other's material.
 
 ### D5 — Per-tenant archives: yes. Per-tenant restore: not yet
+> **Entschieden (2026-09-05): Archiv jetzt, Zurückspielen später.**
+> `oaap backup create --tenant <label>` wird gebaut; das Verschmelzen
+> eines Mandanten in einen laufenden Knoten bekommt eine eigene Runde
+> und wird bis dahin **nicht versprochen**.
+
 
 **Recommendation: split the question, because the two halves are not
 equally hard.**
@@ -213,6 +246,10 @@ Two things follow for the near term:
    need unmet.
 
 ### D5b — Excluding a tenant from the node backup
+> **Entschieden (2026-09-05): ja, nach D5** — mit allen drei
+> Bedingungen unten. Für `cls` ist es vorerst nicht dringend, was der
+> beste Zeitpunkt für eine solche Entscheidung ist: ohne Druck.
+
 
 Jörg, 2026-09-05: *„Wäre es eine Option bei der Konfiguration des
 Backups nur bestimmte Mandanten einzuschließen und beispielsweise das
@@ -272,6 +309,13 @@ einmal egal"*), so it is a decision to make deliberately rather than
 under pressure — which is the best time to make it.
 
 ### D6 — The node pushing its own backup: a second mode, later
+> **Entschieden (2026-09-05): Form steht, gebaut wird sie, wenn der
+> erste Knoten hinter fremder Firewall wirklich steht.** Heute
+> erreichen wir jeden Knoten der Flotte. Die Bedingung gilt ab dem
+> ersten Tag und ist nicht verhandelbar: Das Zugangsrecht eines
+> schiebenden Knotens darf **nur anlegen** — nie lesen, nie
+> überschreiben, nie löschen.
+
 
 **Recommendation: yes, as an explicitly second mode — and the security
 argument has to be rebuilt for it, not carried over.**
@@ -307,10 +351,24 @@ The one thing that did not wait is the completeness gap: that is fixed
 in the platform, in 0.1.70, because a silent one is not a shape
 question.
 
-## Open — decided next
+## Build order that follows
 
-D1–D6 and D5b above. Nothing beyond the trial-run scripts and the 0.1.4
-rule is built until they are answered.
+Decided 2026-09-05. Nothing here is urgent — the safety net exists and
+is proven — so the order is by what makes the next step cheaper:
+
+1. **D3, the copy-then-compress change.** First, because D1 otherwise
+   makes a schedule configurable whose cost is needlessly high. Turns
+   `oaapx01`'s nightly outage from eight minutes into about one.
+2. **D2 read, then D1 write.** The state files exist on both sides
+   already, so showing comes almost free and gives the write page
+   somewhere to land. D1's warning sentence carries the number D3 just
+   improved.
+3. **D5, the per-tenant archive.** Buildable since RFC-0026.
+4. **D5b, exclusion**, which reduces to a declaration once D5 exists.
+5. **D6** when the first unreachable node exists — not before.
+
+Deliberately not on this list: per-tenant *restore* (its own round, see
+D5) and anything incremental (D3 decided against it).
 
 ## Deutsche Zusammenfassung
 
@@ -335,19 +393,29 @@ Der zweite Fund ist eine Zahl: 899 MB brauchten **131 Sekunden mit
 gestoppten Containern**. Auf `oaapx01` wären das rund zwanzig Minuten
 Ausfall pro Nacht für bdt-hub.
 
-Jörgs fünf Fragen sind die sechs Entscheidungen D1–D6. Kurz: Zeitplan
-und Zustand gehören ins Portal (erst zeigend, dann ändernd, nur
-`server_admin`); **keine inkrementellen Sicherungen** — „wöchentlich"
-und „monatlich" sind aufgehobene Generationen vollständiger Archive,
-weil eine Kette nur so weit trägt wie ihr schwächstes Glied; am
-Ursprungsknoten bleiben die N neuesten Archive liegen (Vorgabe 2, nie
-null); **Sicherung je Mandant ist möglich geworden**, aber das
-Zurückspielen eines einzelnen Mandanten in einen laufenden Knoten ist
-die schwere Hälfte und bekommt eine eigene Runde; und der vom Knoten
-selbst geschobene Weg kommt als zweiter Modus — für Bernd unverzichtbar,
-mit einem Zugangsrecht, das **nur anlegen** darf.
+**Am 05.09.2026 hat Jörg alle sieben entschieden:**
 
-Die wichtigste einzelne Änderung steckt in D3: erst stoppen und
-unkomprimiert kopieren, dann starten, dann komprimieren. Das senkt den
-Ausfall auf `oaapx01` von rund zwanzig Minuten auf etwa eine — und macht
-ein nächtliches Backup eines Produktivknotens überhaupt erst zumutbar.
+- **D1 — Zeitplan im Portal, sofort auch änderbar** (nur
+  `server_admin`). Damit fällt die von mir vorgeschlagene Zwischenstufe
+  weg; die Sorge dahinter galt nie der Sache, sondern einem Satz — und
+  der ist jetzt Bedingung: Die Seite muss neben dem Zeitfeld sagen,
+  dass zu dieser Uhrzeit **jede App dieses Knotens für Minuten steht**,
+  mit der zuletzt gemessenen Dauer *dieses* Knotens. Ziel-Pfad und
+  Abhol-Schlüssel bleiben draußen.
+- **D2 — jede Wahrheit nur einmal.** Ein Knoten zeigt, was er belegen
+  kann; was nur der abholende Knoten weiß, steht auf dessen Seite.
+- **D3 — keine inkrementellen Sicherungen, und die Ausfallzeit sinkt.**
+  Erst stoppen und unkomprimiert kopieren, dann starten, dann
+  komprimieren. Gemessen: 487 Sekunden für 8,0 GB auf `oaapx01`, fast
+  alles davon Komprimierung. Erwartung danach: etwa eine Minute.
+- **D4 — die zwei neuesten Archive bleiben am Ursprung**, unabhängig
+  vom Abholen. Läuft seit dem Entscheidungstag so.
+- **D5 — Archiv je Mandant wird gebaut, Zurückspielen später** und bis
+  dahin nicht versprochen.
+- **D5b — Ausnehmen ja, aber nach D5**, mit allen drei Bedingungen.
+- **D6 — Form steht, gebaut wenn der erste unerreichbare Knoten
+  existiert.** Die Regel gilt ab Tag eins: nur anlegen dürfen.
+
+**Reihenfolge:** D3 zuerst — sonst macht D1 einen Zeitplan einstellbar,
+dessen Kosten unnötig hoch sind. Dann D2 (zeigen) und D1 (ändern), dann
+D5, dann D5b. D6 erst, wenn Bernd es braucht.
