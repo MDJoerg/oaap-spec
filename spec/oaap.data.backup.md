@@ -1,8 +1,10 @@
 # oaap.data.backup — Platform Backup & Restore
 
 - **ID:** `oaap.data.backup`
-- **Version:** 0.2
-- **Maturity:** draft (0.2 implements RFC-0029 D3: the apps stop for the
+- **Version:** 0.2.1
+- **Maturity:** draft (0.2.1 implements RFC-0029 D2: the state of a
+  backup is readable -- running, done, failed, never set up -- and each
+  fact appears on the side that can verify it; 0.2 implements RFC-0029 D3: the apps stop for the
   COPY only, compression runs afterwards with them back up -- measured
   cost before the change was 487 s of downtime for 8.0 GB, of which
   almost all was gzip; 0.1.5 adds the tenant audit log to the required
@@ -119,6 +121,23 @@ location. Requirements:
   in the portal, and the page owes its operator the sentence "your apps
   will stop for about this long" — with **this node's** last measured
   figure. A number from a manual is always somebody else's machine.
+- **The state MUST be recorded on every outcome** (0.2.1, RFC-0029 D2),
+  and `running` MUST be written *before* the containers are stopped.
+  Four states have to stay distinguishable — running, done, failed,
+  and never set up — because they need four different answers, and the
+  last two are the two where somebody has to act. An implementation
+  that records only successes cannot tell them apart.
+
+  A record MUST NOT be presented as a failure merely because it is
+  older than the field that would prove it succeeded. (Found the day
+  this was written: a health page called a run "failed — no reason
+  recorded" that had in fact written a 1.6 GB archive, because the
+  record predated the state field.)
+- **Each fact is shown by the side that can verify it.** Whether a copy
+  arrived somewhere else, and whether its checksum matched, is known
+  only to the receiving side. The node that produced the archive MUST
+  NOT claim it; where it has no such knowledge, saying so is the
+  correct output.
 - The target MUST NOT lie inside the platform data directory (a backup
   that dies with the machine is not a backup). The command MUST refuse
   such a target and say why.
