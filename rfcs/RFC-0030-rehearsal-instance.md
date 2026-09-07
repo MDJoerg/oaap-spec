@@ -1,6 +1,7 @@
 # RFC-0030: The Dress Rehearsal — New Code on a Copy of Production Data
 
-- **Status:** Draft (2026-09-05) — six decisions open
+- **Status:** Accepted (2026-09-05) — all six decided, plus the open
+  question about `OAAP_APP_SECRET`
 - **Date:** 2026-09-05
 - **Authors:** Jörg (question and direction), Claude (analysis & proposal)
 - **Depends on:** RFC-0020 (promotion — the same-bytes promise this
@@ -40,6 +41,10 @@ looked at once and then thrown away.
 | **D4** | What happens when it expires? | **Removed and its data deleted** — extendable any time, every extension recorded |
 | **D5** | Who may create one? | `server_admin` **and** the `tenant_admin` of the instance's own tenant |
 | **D6** | And shared data holding (Postgres, digital twin)? | **A rehearsal never shares a data source with production** — write the rule now |
+
+Jörg decided all six on 2026-09-05, following every recommendation, and
+answered the `OAAP_APP_SECRET` question with them (see the record at the
+end).
 
 ## Motivation
 
@@ -260,16 +265,16 @@ does not carry them over.
 - **It is not for the test channel.** A rehearsal of test data is a test
   instance, and there already is one.
 
-## Open questions (not decisions)
+## Answered alongside the decisions
 
-- Does the rehearsal keep the production instance's `OAAP_APP_SECRET`,
-  or get its own? Getting its own is the platform's current behaviour
-  and the safer default — but an app that encrypted stored data with it
-  would then find its own data unreadable, which is arguably the
-  rehearsal doing its job (it found a real restore problem).
-- Should the portal offer "promote" **from** a rehearsal? Recommendation
-  is no: the tested bytes come from the test instance, and RFC-0020
-  already ships exactly those. A rehearsal is a verdict, not a source.
+- **The rehearsal gets its OWN `OAAP_APP_SECRET`** (decided
+  2026-09-05), which is the platform's current behaviour and the safer
+  one. An app that encrypted stored data with it will find its own data
+  unreadable in the rehearsal — and that is the rehearsal doing its job:
+  it has found a real restore problem before the real restore did.
+- **The portal does not offer "promote" from a rehearsal.** The tested
+  bytes come from the test instance and RFC-0020 already ships exactly
+  those. A rehearsal is a verdict, not a source.
 
 ## Deutsche Zusammenfassung
 
@@ -324,3 +329,48 @@ Sechs Entscheidungen, mit Empfehlung:
 **Was es nicht ist:** kein Lasttest (dieselbe Maschine), kein Beweis,
 dass eine Migration rückwärts geht (dafür bleibt die Sicherung), kein
 zweites Produktivsystem.
+
+## Decision record (2026-09-05)
+
+Jörg decided all six in one pass, following every recommendation:
+
+- **D1 — the data comes from the last backup.** No production outage,
+  the archive is consistent already, and every rehearsal proves the
+  backup as a side effect. Explicitly **not** the restore deferred in
+  RFC-0029 D5: that one merges into a running node, this one fills a new
+  empty instance.
+- **D2 — two fields, not a third channel.** A rehearsal is an ordinary
+  production-channel instance that additionally records where its data
+  came from and when it goes away. It is therefore **not redeployable**:
+  a wrong package means delete and build another.
+- **D3 — nothing outward, and no secrets are copied.** No external
+  address, no public route, no app links, no `secret: true` value. An
+  app that will not start without its secret says so loudly, which is
+  the correct outcome.
+- **D4 — expiry removes the instance and deletes its data.** Extendable
+  at any time; every extension is recorded. Default 7 days, extended in
+  steps of 7. An expiry may exist only on a rehearsal.
+- **D5 — `server_admin` and the tenant's own `tenant_admin`**, with a
+  free-space preflight that refuses loudly and an audit entry for
+  creation and deletion.
+- **D6 — the rule is written now.** Every future shared data holding
+  must answer "how do I make an isolated copy of myself?"; an instance
+  using a source that cannot answer **refuses to be copied, with the
+  reason named**.
+
+### Build order
+
+1. **The shape first (D2 + D3).** What a rehearsal *is*, and above all
+   what is deliberately not carried over. Building the copy before the
+   refusals would mean building the dangerous version first and hoping
+   to remember the rules afterwards.
+2. **The data (D1).** Extract one instance's subtree out of the newest
+   archive into the new instance's directory. This is the only genuinely
+   new mechanism in the whole RFC.
+3. **The expiry (D4).** Timer, purge, extension, and the remaining time
+   where a human sees it.
+4. **The portal and the tenant admin (D5).** Creating, extending and
+   deleting from the page, with the free-space preflight in front.
+
+D6 needs no code today — there is no shared data source yet. What
+exists of it already is D3's rule that app links are not carried over.
