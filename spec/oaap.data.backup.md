@@ -1,7 +1,7 @@
 # oaap.data.backup — Platform Backup & Restore
 
 - **ID:** `oaap.data.backup`
-- **Version:** 0.2.1
+- **Version:** 0.3
 - **Maturity:** draft (0.2.1 implements RFC-0029 D2: the state of a
   backup is readable -- running, done, failed, never set up -- and each
   fact appears on the side that can verify it; 0.2 implements RFC-0029 D3: the apps stop for the
@@ -207,7 +207,42 @@ rather than left to be discovered:
   them again, so an operator restoring a workbench is not left
   wondering why the portal refuses to create instances.
 
-### 2.4 Relocation procedure
+### 2.4 The schedule (0.3, RFC-0029 D1)
+
+A node MAY run its backup on a schedule. Where a schedule exists, the
+platform owns **when** it runs and **how many archives stay**; it does
+not own **whether** the node has one at all, nor **where** the archives
+go.
+
+- **systemd (or the node's equivalent) is the truth; the recorded
+  schedule is a view.** The platform writes down what the timer
+  *actually reports* — the armed state and the next run asked of the
+  timer itself, never derived from what was last set. A page must not
+  claim a schedule that is not armed, and a hand edit made on the
+  machine must appear rather than be papered over.
+- **Exactly one writer.** The recorded view is written by the platform
+  alone. An installer that also wrote it would be a second answer to
+  one question.
+- **`server_admin` only.** Changing the hour stops **every** app on the
+  node, including the apps of tenants who did not choose it. Re-checked
+  where the change is applied, never only at the button.
+- **The page MUST state the cost next to the time field**, using **this
+  node's** last measured downtime (2.2). A node that has never backed
+  up MUST say so rather than borrow a number — a figure from a manual
+  is always somebody else's machine.
+- **The target path is NOT settable through the platform's remote
+  surfaces.** An archive holds every secret on the machine; where it is
+  written is decided at the machine. The path MAY be displayed.
+- **Retention at the source has a floor of one.** An archive deleted
+  the moment it was copied away leaves nothing when the copy turns out
+  to be silently damaged.
+- **Setting a schedule up in the first place MAY stay outside the
+  platform** while the form is still being proven, because that step is
+  what chooses the target. A node without a timer MUST be told so
+  plainly — "never set up" is a different answer from "switched off",
+  and both differ from "it failed".
+
+### 2.5 Relocation procedure
 
 The documented Umzug flow, built from the two operations above:
 
@@ -286,6 +321,15 @@ The documented Umzug flow, built from the two operations above:
    restore saying that DNS still points at the old machine) and a node
    with **no** profile (with the restore naming what it dropped and how
    to set it again).
+7. **Schedule in the portal** (2.4, 0.3): a `server_admin` changes the
+    hour and the retention and the timer reports the new next run; the
+    page shows this node's own last measured downtime beside the time
+    field, and a node that never backed up says so instead of showing a
+    number. A `partner` sees the state but is offered no form, and the
+    same request presented directly to the node is refused. There is no
+    field for the target path. A node without a timer is told that
+    plainly and offered no form. Switching the schedule off is
+    distinguishable from never having set one up.
 
 ## 6. Dependencies
 
