@@ -1,7 +1,7 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.21 (an instance gets an immutable `id`; its data
+- **Version:** 0.2.22 (an instance gets an immutable `id`; its data
   lives at `tenants/<tenant-id>/instances/<instance-id>/`, so renaming
   a tenant or an instance moves nothing — RFC-0026. Removing an
   instance without deleting its data records what was left and under
@@ -9,6 +9,9 @@
   the same name recovers it;
   0.2.21 lets a retained package be **downloaded** by `server_admin`,
   which is how a tested package reaches a second node — 2.14;
+  0.2.22 lets a config key the app itself defines declare
+  `generate: token`, so the portal produces a value the platform's own
+  storage can carry — 2.8;
   0.2.19 made an instance name belong to its tenant (RFC-0025); the registry key, the containers, the network, the data
   directory, the deploy token and the deploy hook use a key composed
   from the tenant's frozen short name, while the ADDRESS keeps carrying
@@ -622,6 +625,38 @@ files the operator must edit", rule 4), so the runtime must offer it:
   older node — the manifest rule of 2.2 is "strict schema, tolerant
   runtime", so an older node ignores the key and shows a single-line
   field.
+- **A key the app itself defines MAY declare `generate: token`**
+  (0.2.22), and the portal then offers to **produce the value** instead
+  of asking a human to invent one. Three rules make this more than a
+  convenience:
+
+  > **The platform generates what its own storage can carry.**
+
+  A value typed by a person comes from wherever they got it — a
+  password generator's output routinely contains `;`, which a
+  list-valued key refuses (2.8 above), or `=` and whitespace, which the
+  line-based env file cannot carry safely. The generated value is
+  URL-safe base64 without padding: 32 bytes of randomness, alphabet
+  `[A-Za-z0-9_-]`, no separator, no quoting problem, safe in an env
+  file, in a `;`-list, in a URL and on a command line.
+
+  - **It is opt-in, and the manifest is the only place that knows.**
+    Most secret keys hold *somebody else's* credential — a supplier
+    key, a fleet key, the root key of a foreign system. Generating a
+    value there is not helpful, it is wrong. Only a key whose value
+    **this app defines** may declare it.
+  - **The value must be readable until it is saved.** A generated
+    secret that is written straight into write-only storage is lost to
+    the operator who has to hand it to the other side. The portal shows
+    it, says plainly that it will not be shown again, and only then
+    stores it.
+  - **Generating is not storing.** Producing a value changes nothing;
+    the operator saves the form as they would with a typed one. An
+    abandoned page leaves no trace and no audit entry.
+
+  An app that declares it keeps working on an older node — "strict
+  schema, tolerant runtime" (2.2): the older node ignores the key and
+  shows an ordinary field.
 - **Auditable without leaking.** Every change is recorded with
   instance, key name, actor and time — values never appear in any log.
 
@@ -918,6 +953,14 @@ to `app.type` (2.2), which says how it is *packaged*:
     rather than pretending the package is not there. A file name that is
     not in the retained list — including one shaped like a path — is
     refused without touching the filesystem.
+41. **Generated config value** (2.8, 0.2.22): a key declaring
+    `generate: token` offers production of a value in the portal; the
+    produced value matches `[A-Za-z0-9_-]{22,}` and contains no `;`,
+    no `=` and no whitespace, so a list-valued key accepts it and the
+    env file survives it. Producing a value without saving the form
+    changes nothing and writes no audit entry. A key WITHOUT the
+    declaration offers no such button. An older node ignores the
+    declaration and shows an ordinary field.
 
 ## 6. Dependencies
 

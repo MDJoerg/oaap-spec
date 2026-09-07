@@ -223,6 +223,10 @@
           "multiline": {
             "type": "boolean",
             "description": "The value is a LIST. The portal offers one line per entry; on the wire the lines are joined with ';' — so an app parses the single-line form and no entry may itself contain ';'."
+          },
+          "generate": {
+            "enum": ["token"],
+            "description": "Only for a key whose value THIS app defines: the portal offers to produce it, as 32 random bytes in url-safe base64 (alphabet [A-Za-z0-9_-], no padding) — a value the platform's line-based env file and ';'-separated lists can carry. Do NOT declare it on a key that holds somebody else's credential."
           }
         }
       }
