@@ -38,3 +38,4 @@ never deleted; superseded RFCs get status `Superseded by RFC-XXXX`.
 - [RFC-0031](RFC-0031-data-model-and-digital-twin.md) — The Digital Twin: One Shared Data Layer Per Tenant (Accepted)
 - RFC-0032 — reserved: events, states and the unified namespace (RFC-0031 "followed by")
 - [RFC-0033](RFC-0033-destinations-and-the-connector.md) — Destinations and the Connector: Reaching Inward Without Opening a Door (Accepted)
+- [RFC-0034](RFC-0034-documents-and-file-storage.md) — Documents and File Storage: One Place to Put a File, Many Places to Keep It (Accepted)
