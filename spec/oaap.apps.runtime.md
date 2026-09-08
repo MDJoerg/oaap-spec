@@ -1,7 +1,10 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.22 (an instance gets an immutable `id`; its data
+- **Version:** 0.2.23 (a **rehearsal instance** — the code of a test
+  instance on a copy of production data, refusing four things by
+  default and disappearing on a date — RFC-0030, 2.15;
+  0.2.22 an instance gets an immutable `id`; its data
   lives at `tenants/<tenant-id>/instances/<instance-id>/`, so renaming
   a tenant or an instance moves nothing — RFC-0026. Removing an
   instance without deleting its data records what was left and under
@@ -59,13 +62,18 @@
   level up — and the rule that a lost answer is not a refusal; 0.2.14
   adds **promotion to production** in the new 2.14.1, per RFC-0020:
   the tested artifact itself goes live, by a server_admin, never by a
-  token)
+  token; 0.2.23 adds the **rehearsal instance** in the new 2.15, per
+  RFC-0030 — an ordinary production-channel instance with two more
+  recorded facts, carrying a copy of production data, which is why the
+  four refusals of 2.15.2 are the substance of it and not its trim)
 - **Based on:** RFC-0001 (capability model), RFC-0002 (roles/gateway),
   RFC-0003 (placement), RFC-0004 (manifest/app types), RFC-0005
   (addressing), RFC-0007 (visibility groups), RFC-0008 (server_admin),
   RFC-0011 (node profiles), RFC-0012 (store sources and list format),
   RFC-0015 (non-HTTP endpoints),
-  RFC-0016 (app isolation and multi-container apps);
+  RFC-0016 (app isolation and multi-container apps),
+  RFC-0026 (instance identity), RFC-0029 (backups),
+  RFC-0030 (rehearsal instances);
   platform side of the App Deployment Contract
   (`docs/app-deployment-contract.md`)
 
@@ -360,6 +368,153 @@ is involved.
 - The target's source MUST record where it came from, so "what runs in
   production?" is answerable with a test instance and a checksum.
   Retention applies as usual, so the way back is the ordinary rollback.
+
+### 2.15 Rehearsal instances (RFC-0030)
+
+A **rehearsal instance** (*Generalprobe*) carries the **code of a test
+instance** and a **copy of a production instance's data**, and exists to
+answer one question no test instance can answer: *does this version come
+up on THIS data?* It is created to be looked at once and then thrown
+away.
+
+It is **not a third channel.** A rehearsal is an ordinary instance on
+the `production` channel — frozen, no deploy token — that records two
+more facts: where its data came from, and when it goes away. A channel
+governs how deployments are treated (2.3/2.5), and a rehearsal wants
+production's answers to both; a third channel would only add a third
+case to every channel check to arrive back where it started.
+
+#### 2.15.1 What is recorded
+
+An instance MAY carry a `rehearsal` block. Its presence is what makes it
+a rehearsal; nothing else in the record distinguishes one.
+
+```json
+"rehearsal": {
+  "of": "<registry key of the production instance the data came from>",
+  "code_from": "<registry key of the test instance the package came from>",
+  "archive": "/var/backups/oaap/oaap-backup-…tar.gz",
+  "archive_created": "2026-09-06T02:00:11Z",
+  "created": "2026-09-08T09:14:03Z",
+  "expires": "2026-09-15T09:14:03Z",
+  "extensions": 0
+}
+```
+
+- The block MUST name the **archive** the data came from and **when that
+  archive was written**. A rehearsal on two-week-old data is a rehearsal
+  on two-week-old data, and the age MUST be stated rather than silently
+  accepted.
+- `expires` MUST exist on a rehearsal and MUST NOT exist on any other
+  instance. An automatic deletion that can reach an ordinary instance is
+  a foot-gun with a timer.
+- `extensions` counts how often the expiry has been moved. A rehearsal
+  extended six times has stopped being temporary, and the count is what
+  makes that visible instead of remembered.
+
+#### 2.15.2 The four refusals
+
+A rehearsal holds a copy of live customer data. Reading it is not what
+makes it dangerous — **acting** is: sending the real dunning e-mail,
+calling the real webhook, writing into the shared database. The runtime
+MUST therefore refuse all four of the following, by default and without
+being asked:
+
+1. **No address of its own.** A rehearsal MUST NOT inherit and MUST NOT
+   be given an own hostname or alias (RFC-0009/RFC-0018). It answers
+   under the node's automatic name and through the portal, nowhere else.
+2. **No public route.** Every route of a rehearsal MUST require a login,
+   including one the manifest declares `public`. This MUST be enforced
+   where the gateway site is generated; the stored routes MUST NOT be
+   rewritten, because a manifest copy that no longer says what the
+   manifest says is a second, untrue record.
+3. **No app-to-app links.** Links (RFC-0016) MUST NOT be carried over
+   and MUST NOT be added to a rehearsal. A copy of A that still links to
+   production B is not a copy, it is a second writer.
+4. **No copied secrets.** No config value declared `secret: true` is
+   copied. The fields come up empty and whoever created the rehearsal
+   fills in what it actually needs. An app that will not start without
+   its secret SHOULD say so loudly — that is the correct outcome; a
+   rehearsal that starts quietly and mails real customers is not.
+
+In addition, a rehearsal gets its **own `OAAP_APP_SECRET`**, never the
+original's. An app that encrypted stored data with it finds its own data
+unreadable — that is the rehearsal doing its job: it has found a real
+restore problem before the real restore did.
+
+A rehearsal MUST be **unmistakable** wherever instances are shown: its
+own badge and its remaining lifetime beside its name.
+
+#### 2.15.3 Creating one
+
+Creation extracts **one instance's subtree** out of a backup archive
+(`oaap.data.backup`) into the new instance's own data directory, and
+then installs the **retained package of the named test instance** — the
+same bytes RFC-0020 would promote (2.14.1).
+
+- It MUST be refused when there is **no archive**, and the refusal says
+  so: without a backup there is no rehearsal, which is a usable message.
+- The **age of the archive** MUST be stated before the copy runs.
+- **Free space MUST be checked first** and a shortfall refused loudly. A
+  rehearsal doubles an instance's disk use for its lifetime, and
+  discovering that at 90 % full is discovering it too late.
+- The extracted data MUST land under the **new** instance's identity
+  (RFC-0026 3.2); the source instance MUST be untouched.
+- Ownership MUST be preserved on extraction as it was on writing, or the
+  container can no longer write its own mount (guarantee 7).
+- `server_admin` MAY create one, and so MAY the `tenant_admin` of the
+  production instance's own tenant — it is their data and their release.
+  Creation, extension and deletion MUST be recorded in the tenant's
+  audit log, naming who and from which archive.
+
+A rehearsal is **not redeployable** and offers **no promotion**. If the
+package was wrong, it is deleted and another is built. The tested bytes
+come from the test instance; a rehearsal is a verdict, not a source.
+
+#### 2.15.4 Expiry
+
+- Default lifetime **7 days**, extendable at any time in steps of 7, by
+  anyone who could have created it, with the remaining time visible
+  rather than buried.
+- At expiry the instance is **removed and its data deleted**. A copy of
+  production data that expires into a directory nobody looks at is the
+  worst of both worlds.
+- The sweep that does this MUST touch **only** instances carrying a
+  `rehearsal` block. An ordinary instance that happens to carry an
+  `expires` field MUST survive it.
+- **Removing a rehearsal by hand deletes its data too**, whether or not
+  the caller asked to purge. Keeping data is the safe default for every
+  other instance (2.3); here it is the opposite — what would be left
+  behind is a copy of live customer data in a directory nobody looks at,
+  and the retention record would offer it to the next instance of the
+  same name. The expiry deletes for that reason, and a manual removal
+  must not be the way around it.
+
+Two consequences follow and MUST be stated rather than discovered:
+
+- **While a rehearsal exists, every backup archive carries a second copy
+  of that production instance's data**, and carries it for as long as
+  the archive is kept — which outlives the rehearsal. The archive stays
+  complete; `oaap backup create` says so when it is writing one.
+- **A restore does not start a rehearsal.** Its record and its data come
+  back with everything else, but bringing unreleased code up on a copy
+  of customer data while a machine is still being rebuilt is the worst
+  moment for it. The sweep removes it when its date passes; until then
+  it can be started deliberately.
+
+#### 2.15.5 Shared data holding
+
+> **A rehearsal never shares a data source with production. What cannot
+> be copied cannot be part of a rehearsal.**
+
+Today an instance's data is its own directory, so "copy the data" is a
+directory copy. Every future capability that offers **shared** data
+holding (a database, a digital twin) MUST be able to answer *how do I
+make an isolated copy of myself?* A capability that cannot answer is not
+rehearsal-capable, and an instance using it MUST **refuse to be copied,
+with the reason named** — never half-copy and point the rest at
+production. App-to-app links are today's small version of this problem,
+which is why 2.15.2 does not carry them over.
 
 ### 2.4 Contract delivery (what the runtime MUST provide)
 
@@ -962,6 +1117,32 @@ to `app.type` (2.2), which says how it is *packaged*:
     declaration offers no such button. An older node ignores the
     declaration and shows an ordinary field.
 
+42. **A rehearsal refuses outward** (2.15.2, RFC-0030): a rehearsal
+    built from a production instance that HAS an own address, an alias,
+    a `public` route, an app link and a `secret: true` value with a
+    value set carries **none** of the five. Its generated gateway site
+    demands a login on the public route as on every other; the stored
+    routes still say `public`, because the manifest is not rewritten.
+    `oaap app address set`, `alias-add` and `link add` are refused on it
+    and name the rehearsal as the reason. Its `OAAP_APP_SECRET` differs
+    from the original's.
+43. **A rehearsal carries the right data** (2.15.3): after creation the
+    production instance's files are found under the **new** instance's
+    identity, the source instance's directory is unchanged, and the
+    files belong to the same numeric owner they had in the archive. A
+    node with no archive refuses and says so; a node with too little
+    free space refuses before it copies.
+44. **The sweep only touches rehearsals** (2.15.4): an expired rehearsal
+    is removed WITH its data. An ordinary instance carrying an `expires`
+    field in its record — even one long past — survives every sweep
+    untouched. An extension moves the date, increments `extensions`, and
+    appends one entry to the tenant's audit log.
+45. **Who may rehearse** (2.15.3, D5): the `tenant_admin` of the
+    production instance's tenant may create, extend and delete one; a
+    `tenant_admin` of another tenant is answered as for an instance that
+    does not exist. The portal states, before the copy, how large it
+    will be and how much room is left on **this** node.
+
 ## 6. Dependencies
 
 `oaap.core.host`, `oaap.core.gateway`, `oaap.core.identity`,
@@ -1348,3 +1529,68 @@ das für Schlüssel mit einem Eintrag je Gegenstand (Treiber: FleetViews
 Knoten- und Schlüssel-Listen) — eine **geheime** Liste kann der
 Betreiber nicht komplett neu eingeben, weil er den gespeicherten Wert
 nie zurücklesen kann.
+
+## Deutsche Zusammenfassung (Generalprobe, v0.2.23, RFC-0030)
+
+**Die Generalprobe** ist eine Instanz mit dem **Code der Testinstanz**
+und einer **Kopie der Produktivdaten aus dem letzten Archiv**. Sie
+beantwortet die eine Frage, die keine Testinstanz beantworten kann:
+*Kommt diese Version auf DIESEN Daten hoch?* Zehn selbst angelegte
+Zeilen sagen nichts über vierzigtausend gewachsene.
+
+**Kein dritter Kanal.** Sie läuft auf dem Produktiv-Kanal — eingefroren,
+kein Deploy-Token — und merkt sich zwei Dinge mehr: woher ihre Daten
+kamen und wann sie verschwindet. Ein Kanal regelt *Deployments*, und
+dort will eine Generalprobe genau die Produktiv-Antworten; ein dritter
+Fall in jeder Kanal-Prüfung käme bei denselben Antworten heraus.
+
+**Vier Verweigerungen, und die sind das eigentliche Produkt** — nicht
+die Kopie. Gefährlich ist nicht das Lesen, gefährlich ist das
+**Handeln**: die echte Mahnung verschicken, den echten Webhook rufen.
+
+1. **Keine eigene Adresse** und kein Alias. Erreichbar über das Portal
+   und den automatischen Namen des Knotens, sonst nirgends.
+2. **Keine öffentliche Route.** Jede Route verlangt Anmeldung, auch eine
+   im Manifest als `public` erklärte. Erzwungen wird das dort, wo die
+   Gateway-Site geschrieben wird — die gespeicherten Routen werden
+   **nicht** umgeschrieben, sonst läge eine unwahre Kopie des Manifests
+   herum.
+3. **Keine App-Verknüpfungen** (RFC-0016). Eine Kopie von A, die noch
+   auf das produktive B zeigt, ist keine Kopie, sondern ein zweiter
+   Schreiber.
+4. **Keine Geheimnisse.** Kein `secret: true`-Wert wird mitkopiert; die
+   Felder kommen leer hoch. Eine App, die ohne ihr Geheimnis nicht
+   startet, **sagt das laut** — das ist das richtige Ergebnis.
+
+Dazu ein **eigenes `OAAP_APP_SECRET`**. Eine App, die damit gespeicherte
+Daten verschlüsselt hätte, findet ihre eigenen Daten unlesbar: Das ist
+die Generalprobe bei der Arbeit, nicht ihr Versagen — sie hat ein echtes
+Wiederherstellungsproblem gefunden, bevor der Ernstfall es tat.
+
+**Beim Anlegen** wird der Teilbaum *einer* Instanz aus dem Archiv gelöst
+und das zurückgehaltene Paket der Testinstanz installiert — dieselben
+Bytes, die RFC-0020 übernehmen würde. Ohne Archiv keine Generalprobe,
+und das **Alter des Archivs wird genannt**, nicht stillschweigend
+hingenommen; der Platz wird **vorher** geprüft und ein Mangel laut
+abgelehnt. Anlegen darf `server_admin` und der `tenant_admin` des
+Mandanten der Produktiv-Instanz; Anlegen, Verlängern und Löschen stehen
+im Mandantenprotokoll.
+
+**Beim Ablauf** wird sie entfernt und ihre Daten gelöscht — 7 Tage
+voreingestellt, in 7er-Schritten verlängerbar, jede Verlängerung
+gezählt und protokolliert. Der Sweep fasst **nur** Instanzen mit
+`rehearsal`-Block an: eine gewöhnliche Instanz, die zufällig ein
+`expires` im Datensatz trägt, überlebt ihn. Eine automatische Löschung,
+die eine gewöhnliche Instanz erreichen kann, wäre eine Falle mit
+Zeitschaltuhr.
+
+**Nicht erneut ausrollbar, und kein „Übernehmen" heraus.** Falsches
+Paket heißt löschen und neu bauen. Die getesteten Bytes kommen aus der
+Testinstanz; eine Generalprobe ist ein **Urteil, keine Quelle**.
+
+**Und für später:** Eine Generalprobe teilt niemals eine Datenquelle mit
+der Produktion. Jede künftige Fähigkeit mit geteilten Daten (Postgres,
+digitaler Zwilling) muss beantworten: *Wie mache ich eine isolierte
+Kopie von mir?* Wer das nicht kann, dessen Instanz verweigert die Kopie
+mit Begründung, statt halb zu kopieren und den Rest auf die Produktion
+zeigen zu lassen.

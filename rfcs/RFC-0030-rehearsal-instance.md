@@ -1,7 +1,8 @@
 # RFC-0030: The Dress Rehearsal — New Code on a Copy of Production Data
 
 - **Status:** Accepted (2026-09-05) — all six decided, plus the open
-  question about `OAAP_APP_SECRET`
+  question about `OAAP_APP_SECRET`. **Implemented 2026-09-08** in
+  reference 0.1.80; the interface is `oaap.apps.runtime` 2.15 (0.2.23).
 - **Date:** 2026-09-05
 - **Authors:** Jörg (question and direction), Claude (analysis & proposal)
 - **Depends on:** RFC-0020 (promotion — the same-bytes promise this
