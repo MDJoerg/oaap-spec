@@ -36,3 +36,5 @@ never deleted; superseded RFCs get status `Superseded by RFC-XXXX`.
 - [RFC-0029](RFC-0029-scheduled-backups-and-generations.md) — A Backup That Runs By Itself: Schedule, Generations, Visibility (Accepted)
 - [RFC-0030](RFC-0030-rehearsal-instance.md) — The Dress Rehearsal: New Code on a Copy of Production Data (Accepted)
 - [RFC-0031](RFC-0031-data-model-and-digital-twin.md) — The Digital Twin: One Shared Data Layer Per Tenant (Accepted)
+- RFC-0032 — reserved: events, states and the unified namespace (RFC-0031 "followed by")
+- [RFC-0033](RFC-0033-destinations-and-the-connector.md) — Destinations and the Connector: Reaching Inward Without Opening a Door (Accepted)
