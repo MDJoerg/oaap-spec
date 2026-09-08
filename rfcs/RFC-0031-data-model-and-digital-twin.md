@@ -1,8 +1,9 @@
 # RFC-0031: The Digital Twin — One Shared Data Layer Per Tenant
 
-- **Status:** Draft (2026-09-08) — the shape is decided (twenty answers
-  in `program/zielbild-datenplattform.md`), **eight decisions open**
-  (D1–D8 below), each with a recommendation.
+- **Status:** Accepted (2026-09-08) — the shape was decided in the
+  interview (twenty answers in `program/zielbild-datenplattform.md`),
+  the eight edge decisions D1–D8 the same evening, each following the
+  recommendation. See the decision record at the end.
 - **Date:** 2026-09-08
 - **Authors:** Jörg (model, direction, twenty decisions), Claude
   (analysis & proposal)
@@ -56,6 +57,9 @@ What remains are eight decisions about the edges:
 | **D6** | What does a consumer get without a specification? | **A reference**: id, type, title, origin — and nothing else. More fields only through a consolidated model the tenant owns. |
 | **D7** | Who may read which group? | **Reading is tenant-wide by declaration**: an app reads the types it `consumes`; a group may be marked `restricted` to its owner and named consumers. Shown before installation. |
 | **D8** | How does a rehearsal (RFC-0030) copy a twin? | **By copying the tenant's twin schema** into a rehearsal schema bound to that one instance. If the copy is refused, so is the rehearsal. |
+
+Jörg decided all eight on 2026-09-08, following every recommendation
+(record at the end).
 
 ## Motivation
 
@@ -600,3 +604,49 @@ führt zusammen; beide IDs bleiben für immer auflösbar.
 RACI, dann Mitarbeiter/Projekte/Zufriedenheit, dann der Browser, dann
 RFC-0032. Die acht Schritte in §9 sind die Konformitätsprüfung; die
 ersten drei das Minimum für den ersten Bau.
+
+**Entschieden am 08.09.2026, alle acht nach Empfehlung** — siehe
+Decision record.
+
+## Decision record (2026-09-08)
+
+Decided by Jörg in form mode, the same evening the draft was written;
+every recommendation followed.
+
+- **D1 — three origins, only the origin changes its types.** App
+  package (`app:`), data-model artefact (`model:`), tenant (`tenant`),
+  each a namespace; a type changes only by a new version of its origin;
+  others attach their own group types.
+- **D2 — definition per package, activation per tenant.** Installing
+  registers types once on the node; a tenant's twin activates what its
+  instances contribute or consume. No app learns of tenants.
+- **D3 — opaque ID plus source keys; a merged ID stays resolvable.**
+  UUID as platform ID, at most one source key per origin; a merge makes
+  one ID canonical and keeps the other as an alias forever; groups are
+  re-parented, never merged.
+- **D4 — binding at install, dialog when in doubt.** Automatic on a
+  matching key or alias, otherwise the install dialog asks — declared,
+  shown, offered, never silent, never blocking. Filters are a later
+  refinement of the same binding record.
+- **D5 — recorded time always, validity per type, planning on
+  activities.** Writes append, never overwrite; `valid_from`/`valid_to`
+  only on attribute and relation types that opt in; planning fields on
+  activities only.
+- **D6 — the reference, and nothing else, without a specification.**
+  Platform ID, type, title, origin, the consumer's own source key. More
+  only through a consolidated model the tenant owns; a consumer never
+  reads a foreign core group directly.
+- **D7 — reading by declaration, with restricted groups.** An instance
+  reads the types it consumes; a group type may be `restricted` to its
+  origin and named readers; everything is shown in plain words before
+  installation.
+- **D8 — the rehearsal copies the tenant's twin schema.** Bound to the
+  one rehearsal instance, deleted with it, size shown beforehand; a
+  failed copy refuses the rehearsal with the reason named.
+
+### What follows
+
+The build order of §11 stands. First the capability spec
+`oaap.data.store` (the only piece with no design risk left), then
+`oaap.data.model` and `oaap.data.twin` as drafts, then RFC-0032 for the
+events every write emits.
