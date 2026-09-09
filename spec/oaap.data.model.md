@@ -44,6 +44,17 @@ explicit `--bind` flag, and refuses rather than guessing), semantic-ID
 lookup against ECLASS/IEC CDD/AAS concept dictionaries (only the field
 to hold one, per RFC-0031 §3.7).
 
+**Where `global_asset_id` is configured is answered — not here.** The
+E1–E3 decision record left it open between this capability and
+`oaap.data.twin`, "je nachdem wo Mandanteneinstellungen dieser Art
+schon liegen." They do not lie anywhere yet: `oaap.core.tenant` has no
+per-tenant settings bag today, only fixed fields (§1.2 there), and the
+field itself is computed **on every twin read**, never stored — it is
+purely `oaap.data.twin`'s concern, has no type, no origin and no
+version, and does not belong in a *type* registry at all. Schritt 3
+answers it, by adding the one setting it actually needs; Schritt 2 has
+nothing to add here because it never held a candidate for it.
+
 ## 2. Interface
 
 ### 2.1 Where the registry lives
@@ -352,3 +363,9 @@ existiert; sonst verweigert die Installation und nennt die Kandidaten
 (Schritt 5) bekommt. Ein Satz aus Klartext (RFC-0031 D7) steht **vor**
 diesem Schritt: "liest X, schreibt in Y" — dieselbe Idee wie
 Berechtigungsklartext bei Smartphone-Apps, hier auf Daten angewendet.
+
+**Und die offene Frage aus der E1–E3-Entscheidung ist beantwortet:**
+Der Konfigurationsort für `global_asset_id` ist **nicht** hier — ein
+Typregister ist der falsche Ort für ein Feld ohne Typ, ohne Herkunft
+und ohne Version, das bei jeder Zwilling-Abfrage neu berechnet wird.
+Das klärt Schritt 3.
