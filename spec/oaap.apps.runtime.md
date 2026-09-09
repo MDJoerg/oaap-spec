@@ -1,7 +1,13 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.23 (a **rehearsal instance** — the code of a test
+- **Version:** 0.2.24 (manifest **0.3** adds three optional sections —
+  `data_model`, `contributes`, `consumes` — read by `oaap.data.model`
+  0.1 (RFC-0031 Schritt 2); the names were reserved in RFC-0012 §8.3,
+  the sections themselves are specified there, not here — this spec
+  only says how the manifest tolerates them (2.2) and where the
+  install path hands them off (2.2);
+  0.2.23 a **rehearsal instance** — the code of a test
   instance on a copy of production data, refusing four things by
   default and disappearing on a date — RFC-0030, 2.15;
   0.2.22 an instance gets an immutable `id`; its data
@@ -118,6 +124,21 @@ the core never comes from a store (RFC-0001).
   first use of the tolerance above, and deliberately a mild one, so
   that the mechanism is proven by something whose omission costs an
   untidy launchpad rather than a broken install.
+- **Manifest 0.3** adds three optional sections, reserved in
+  RFC-0012 §8.3 and specified in `oaap.data.model` 0.1 (RFC-0031
+  Schritt 2): `data_model` (types this package ships), `contributes`
+  (data regions it writes into) and `consumes` (data regions it
+  reads). Structural validation of their shape and everything that
+  happens with them at install — registration, binding, the
+  declaration sentence — is that capability's job, described in its
+  own spec, not repeated here; this spec's only stake is that a node
+  older than 0.3 ignores all three by the same tolerance rule above
+  (`must_understand` is not used — an app installs and runs
+  identically without them, only its data-model declarations go
+  unregistered) and that `_install_from_dir` is the one place, across
+  every install path (local, Git, uploaded artifact, remote deploy
+  hook), that hands them to `oaap.data.model` — so a package installed
+  any of those four ways is registered exactly the same way.
 - `native`: build images **on the target node** (build on device).
   `image`/`wrapped`: pull the referenced images.
 - The **compose converter** (RFC-0004) imports an existing
@@ -1594,3 +1615,18 @@ digitaler Zwilling) muss beantworten: *Wie mache ich eine isolierte
 Kopie von mir?* Wer das nicht kann, dessen Instanz verweigert die Kopie
 mit Begründung, statt halb zu kopieren und den Rest auf die Produktion
 zeigen zu lassen.
+
+## Deutsche Zusammenfassung (Manifest 0.3, v0.2.24, RFC-0031 Schritt 2)
+
+**Drei neue, freiwillige Abschnitte** im Manifest: `data_model` (welche
+Typen ein Paket mitbringt), `contributes` (wohinein es schreibt) und
+`consumes` (was es liest) — die Namen waren seit RFC-0012 §8.3
+reserviert, spezifiziert sind sie jetzt in `oaap.data.model` 0.1. Diese
+Spezifikation hält nur zwei Dinge fest: ein Knoten mit älterem
+Referenzstand liest sie **tolerant** und ignoriert sie einfach — die
+App läuft identisch, nur ihre Datenmodell-Angaben werden nicht
+registriert, kein Stichtag für die Flotte. Und: **eine** Stelle im Code
+(`_install_from_dir`) verarbeitet sie, egal ob das Paket lokal, per
+Git, als hochgeladenes Archiv oder über den Fernwartungs-Hook
+installiert wurde — vier Wege zur Installation, ein Weg zur
+Registrierung.
