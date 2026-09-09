@@ -420,7 +420,7 @@ nichts tut, wäre eine stille Fehlkonfiguration.
 macht das Portal mächtiger; `store` entscheidet, ob ein Knoten
 überhaupt das verwaltete Postgres aus `oaap.data.store` trägt — und
 damit, ob Digitaler Zwilling und Typregister auf diesem Knoten möglich
-sind. Ohne das Profil sagt `oaap store status` ausdrücklich
+sind. Ohne das Profil sagt `oaap data store status` ausdrücklich
 „nicht getragen", statt den Dienst gar nicht zu erwähnen oder beim
 ersten Zugriff unklar zu scheitern. Ein Knoten, der das Profil neu
 bekommt, erhält den Dienst beim nächsten Update; einer ohne wird nie

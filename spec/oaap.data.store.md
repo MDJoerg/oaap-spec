@@ -42,7 +42,7 @@ directly — RFC-0031 §6), replication across nodes (that is
 - **Node profile `store`** (new, registering with RFC-0011 /
   `oaap.core.host` 2.5): a node carries the service only when profiled
   for it. A node without the profile MUST report `store: not carried`
-  from `oaap store status` and MUST NOT attempt to start the service.
+  from `oaap data store status` and MUST NOT attempt to start the service.
   The portal MUST state plainly that data-model/twin capabilities are
   unavailable on such a node, rather than failing opaquely the first
   time an instance tries to bind to them.
@@ -53,17 +53,16 @@ directly — RFC-0031 §6), replication across nodes (that is
 
 ### 2.2 Schemas
 
-- `oaap store schemas` — lists schemas on this node with purpose,
+- `oaap data store schemas` — lists schemas on this node with purpose,
   tenant, size, and role name (never the password).
-- `oaap store create <purpose> <tenant-id>` — creates schema
+- `oaap data store create <purpose> <tenant-id>` — creates schema
   `<purpose>_<tenant-id>` plus a **dedicated role and password**,
   scoped to that one schema (`GRANT` only on it). The password is
   printed **once**, exactly like a machine-principal key (RFC-0027);
   it is not retrievable afterwards, and it is handed to the consuming
   platform service (`oaap.data.twin`), never to an app.
-- `oaap store drop <schema>` — refuses without `--purge`-equivalent
-  confirmation; drops schema and role together, so no orphaned role
-  outlives its schema.
+- `oaap data store drop <schema>` — refuses without `--yes`; drops
+  schema and role together, so no orphaned role outlives its schema.
 - **The tenant-id, never the Kürzel, in the schema name.** The
   tenant-id is stable (RFC-0026); the Kürzel is meant to be renamed
   freely. A schema name that outlives a rename would either freeze the
@@ -79,7 +78,7 @@ Postgres has no "copy this schema" command. The implementation:
 3. Restore it under a **new role**, distinct from the source schema's
    role — a rehearsal's credentials are never the production ones
    (parity with RFC-0030 D3, which already says this for app secrets).
-4. `oaap store copy <schema> <new-name>` exposes this as one command,
+4. `oaap data store copy <schema> <new-name>` exposes this as one command,
    called by `oaap app rehearse`, never directly by an app or a
    tenant-facing surface.
 
@@ -108,6 +107,36 @@ while stopped:
 - Restore recreates the schemas and roles from the dump before any app
   instance starts, so nothing depending on `oaap.data.twin` comes up
   against an empty store.
+
+### 2.5 Restore and relocation — where this departs from the profile rule
+
+`oaap.core.host` 2.5 says a profile is never restored from a backup
+(RFC-0011 decision 4), because `dev`/`exposed` are *powers granted to
+the operator's tooling*, and a workbench backup must not hand a
+production box those powers by accident. `store` is not that kind of
+profile: it says whether the machine has the infrastructure a tenant's
+*data* depends on, and RFC-0029 §"Umzug" already treats relocation as
+first-class. Silently dropping it would mean a relocated node comes up
+with `oaap.data.twin` pointed at a store that was never recreated — the
+exact shape of silent breakage this project has already paid for twice
+([[leser-eines-bezeichners]], the 9 KB backup).
+
+The resolution keeps both rules true without contradicting either:
+
+- The profile itself still follows RFC-0011 D4 — restore MUST NOT set
+  `store` on the new machine automatically. It stays a named, deliberate
+  act, exactly like `dev`/`exposed`.
+- The **data** MUST NOT be silently discarded because of that. A backup
+  taken on a node profiled for `store` MUST carry the dump inside the
+  archive as ordinary restorable content (it is not a profile, it is
+  data), and restore MUST extract it and tell the operator plainly what
+  it found and what to do: *"this backup carries a managed-Postgres
+  dump for N schema(s) — add the profile and replay it:
+  `sudo oaap node add-profile store && oaap data store restore <path>`"*.
+- `oaap data store restore <dump-file>` (new) replays a previously
+  extracted dump into a **running, freshly profiled** store service.
+  It MUST refuse if any schema it would create already exists, so a
+  restore never overwrites data a fresh install already produced.
 
 ## 3. Configuration
 
@@ -143,24 +172,26 @@ while stopped:
 
 ## 5. Conformance tests (described)
 
-1. **Schema lifecycle:** `oaap store create twin <tenant-id>` on a node
+1. **Schema lifecycle:** `oaap data store create twin <tenant-id>` on a node
    profiled for `store` produces a schema and a role whose password is
    shown exactly once; writing and reading rows through that role
    succeeds; a second tenant's schema is unreachable through the first
    tenant's role.
 2. **Backup and restore round trip:** with rows in a schema, a platform
    backup includes a dump of it (checked by reading the archive, not
-   the code); restoring onto an empty node profiled for `store`
-   reproduces the schema with identical rows and a working role.
+   the code); restore extracts the dump and names it and the exact
+   replay command, **without** setting the `store` profile itself;
+   after `add-profile store` and `oaap data store restore`, the schema
+   reappears with identical rows and a working (new) role.
 3. **Rehearsal copy:** a schema with 10 000 rows, copied via
-   `oaap store copy`, yields a new schema with the same row count under
+   `oaap data store copy`, yields a new schema with the same row count under
    a **different** role; the source schema and role are unchanged;
    dropping the copy drops both schema and role.
 4. **Refusal without room:** a copy attempted where the target has less
    free space than the measured source size is refused with a stated
    reason and leaves no partial schema.
 5. **Profile gating:** a node without the `store` profile answers
-   `oaap store status` with `not carried`, never attempts to start the
+   `oaap data store status` with `not carried`, never attempts to start the
    service, and the portal states that data-model/twin capabilities are
    unavailable there. A node that gains the profile gets the service on
    its next update; one that never had it is never touched.
@@ -172,7 +203,7 @@ consumer of a profile beyond `dev`, and registers the name `store`
 there), `oaap.data.backup` (dump becomes required content of every
 backup taken on a node profiled for `store`), `oaap.core.tenant`
 (tenant-id as the stable namespace a schema name is built from),
-`oaap.apps.runtime` (the rehearsal mechanism `oaap store copy` is
+`oaap.apps.runtime` (the rehearsal mechanism `oaap data store copy` is
 called from).
 
 ## 7. Maturity
@@ -208,3 +239,14 @@ einen Postgres-Versionswechsel beim Umzug, eine Verzeichniskopie nicht.
 Ein Knoten mit `store`-Profil, dessen Sicherung den Dump vergisst, MUSS
 scheitern und kein Archiv hinterlassen — dieselbe Lehre wie beim 9-KB-
 „Backup" vom 05.09.
+
+**Ausnahme von der Profil-Regel, bewusst begründet:** Profile werden
+nach RFC-0011 D4 nie automatisch wiederhergestellt — richtig für `dev`
+und `exposed`, die dem Portal Macht geben. `store` ist aber keine Macht,
+sondern die Grundlage, auf der Mandantendaten stehen; beim Umzug (RFC-
+0029) einfach wegzulassen wäre genau die stille Lücke, die dieses
+Projekt zweimal Geld gekostet hat. Deshalb: **das Profil bleibt
+Handarbeit** wie bisher, aber **der Dump geht nie verloren** — die
+Wiederherstellung entpackt ihn und nennt den genauen Befehl
+(`sudo oaap node add-profile store && oaap data store restore <Pfad>`),
+statt ihn stillschweigend fallenzulassen.
