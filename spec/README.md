@@ -20,3 +20,4 @@ before the full specification is written.
 - [oaap.fleet.status](oaap.fleet.status.md) — read-only fleet status document & fleet keys (draft, v0.3)
 - [oaap.ai.gateway](oaap.ai.gateway.md) — AI supply behind one keyed, OpenAI-compatible endpoint (draft, v0.1)
 - [oaap.core.tenant](oaap.core.tenant.md) — account and tenant, the boundary of belonging (draft, v0.2)
+- [oaap.data.store](oaap.data.store.md) — managed Postgres per node, schema per tenant/purpose (draft, v0.1)

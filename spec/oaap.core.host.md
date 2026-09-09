@@ -1,12 +1,14 @@
 # oaap.core.host — Platform Installer & Node Baseline
 
 - **ID:** `oaap.core.host`
-- **Version:** 0.3.1
+- **Version:** 0.3.2
 - **Maturity:** draft (0.2.1 adds the `oaap user` rescue commands, 2.3;
   0.3.0 adds **node profiles** — what a node is for — in 2.5, with the
   wizard question in 2.2 and `oaap node` in 2.3; 0.3.1 adds **wireless
   resilience** to the readiness step in 2.2, after a headless node lost
-  its network for 38 hours over one failed handshake)
+  its network for 38 hours over one failed handshake; 0.3.2 registers
+  the second defined profile, **`store`** (`oaap.data.store` 0.1,
+  RFC-0031 Schritt 1) — the first profile beyond `dev`)
 - **Based on:** RFC-0001 (initial capability set), RFC-0002 (bootstrap
   security), RFC-0003 (installer modes, node health), RFC-0008
   (server_admin), RFC-0011 (node profiles)
@@ -235,6 +237,15 @@ that no configured store source lists. Everything else is unchanged.
 Implementations MUST NOT attach further behaviour to `dev` without
 specifying it.
 
+**Defined profile in 0.3.2: `store`** — this node carries the managed
+Postgres of `oaap.data.store` 0.1. Its effect is exhaustive and lives
+entirely in that spec: the `store` platform service is started (and
+kept up to date) only on a profiled node; a node without it MUST report
+`store: not carried` and MUST NOT run the service. This is the first
+profile whose absence removes a **capability** (data-model/twin) rather
+than a convenience — the health page and the portal MUST say so in
+those words, not merely omit the option.
+
 **Restore** (`oaap.data.backup` 2.3): profiles describe the machine,
 not the service, and are therefore **not** restored from a backup.
 
@@ -343,6 +354,12 @@ Everything else is configured in the portal after setup.
     and an unknown name written into the node's state file by hand has
     no effect; changing profiles without root is refused; after the
     first admin exists, no portal request can change them.
+19. **`store` profile** (0.3.2, `oaap.data.store` 0.1): a node without
+    the profile answers `store: not carried` and never starts the
+    service; `oaap node add-profile store` is reflected the same way as
+    `dev` in `oaap status` and the health page, and the portal states
+    that data-model/twin capabilities are unavailable on an unprofiled
+    node instead of failing opaquely at first use.
 
 ## 6. Dependencies
 
@@ -396,6 +413,18 @@ nichts tut, wäre eine stille Fehlkonfiguration.
 
 **Beim Wiederherstellen** aus einem Backup werden Profile **nicht**
 übernommen: Sie beschreiben die Maschine, nicht den Dienst.
+
+## Deutsche Zusammenfassung (Profil `store`, v0.3.2)
+
+**Zweites Profil, erstes mit einer echten Fähigkeit dahinter.** `dev`
+macht das Portal mächtiger; `store` entscheidet, ob ein Knoten
+überhaupt das verwaltete Postgres aus `oaap.data.store` trägt — und
+damit, ob Digitaler Zwilling und Typregister auf diesem Knoten möglich
+sind. Ohne das Profil sagt `oaap store status` ausdrücklich
+„nicht getragen", statt den Dienst gar nicht zu erwähnen oder beim
+ersten Zugriff unklar zu scheitern. Ein Knoten, der das Profil neu
+bekommt, erhält den Dienst beim nächsten Update; einer ohne wird nie
+angefasst — kein Postgres auf dem Raspi, das niemand wollte.
 
 ## Deutsche Zusammenfassung (WLAN-Absicherung, v0.3.1)
 
