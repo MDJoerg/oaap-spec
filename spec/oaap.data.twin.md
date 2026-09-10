@@ -89,16 +89,26 @@ never rotated by a later redeploy — the same stability rule
 where to send it. Both are platform-owned and refused by `oaap app
 config` like `OAAP_APP_SECRET` already is.
 
-The key is issued **without** RFC-0027's `--instance` scoping — a
-deliberate departure from the pattern every other API key follows, and
-worth stating plainly: `/twin/*` is one route shared by every instance
-on the node, unlike an app's own site, which the gateway generates by
-name and can therefore scope a key to. What actually limits this key
-is the principal itself: nothing else on the node was ever issued
-`instance:<name>`'s key, and the principal carries no role beyond
-`user`. `twin` additionally refuses any caller whose verified principal
-does not start with `instance:` — a human session reaching this route,
-however it got the header, is refused outright.
+The key **is** issued with RFC-0027's `--instance` scoping (D5) — to
+`oaap.twin`, a reserved value, never the calling app's own name. This
+was not the first version of this section: 0.1's first build left the
+key unscoped, reasoning that "nothing else on the node was ever issued
+`instance:<name>`'s key" is what limits it. That answers who can
+*present* the key, not *where* `identity`'s `/verify` accepts it —
+without a `--instance` value, a key is refused nowhere but by role and
+tenant (D5 exists precisely because an app's own site always names
+itself in its `forward_auth` call). An unscoped twin key therefore
+authenticated against every *other* app's own route asking only role
+`user` in the same tenant, not only `/twin/*` — found live on
+`oaap-test` (RFC-0031 Schritt 3's own live verification, 2026-09-10) by
+testing the very claim this paragraph used to make. `oaap.twin` closes
+it the same way D5 closes it everywhere else, and can never collide
+with a real app: `app.id` matches `[a-z0-9][a-z0-9-]{1,38}[a-z0-9]`,
+which never contains a dot. `twin` additionally refuses any caller
+whose verified principal does not start with `instance:` — a human
+session reaching this route, however it got the header, is refused
+outright; this is defense in depth, not a substitute for the scoping
+above.
 
 A **rehearsal instance gets neither.** D8 (a rehearsal's own copy of
 the tenant's twin schema) is not built; the tenant's `twin_<id>` schema
@@ -212,6 +222,15 @@ RFC-0030 D6's general answer for shared data holdings).
   reads one.
 - A human session reaching `/twin/*`, however it authenticated, is
   refused: `X-OAAP-User` must start with `instance:`.
+- The E1 key is **always** issued with RFC-0027 `--instance` scoping,
+  to the reserved value `oaap.twin` — never left unscoped, and never
+  scoped to the calling app's own name (§2.2: an unscoped key
+  authenticates against every other app's own route asking the same
+  role, in the same tenant — not only `/twin/*`). Both the Caddyfile's
+  `/twin/*` block and `appctl.py`'s `_twin_issue_instance_key` name the
+  exact same value (`TWIN_KEY_SCOPE`); the two drifting apart silently
+  reopens the gap §2.2 describes, so a change to one without the other
+  is a bug, not a variant.
 - A write outside the caller's own group is refused with a plain
   reason, at the service, before any row is touched (§2.7).
 - The schema-role credential lives in exactly one place a container
@@ -263,8 +282,10 @@ uses); `oaap.data.model` (the registry read directly, `oaap_model.*`,
 granted per tenant schema); `oaap.apps.runtime` (the install hook that
 mints the E1 key and provisions the schema — one place, like the
 `data_model` hook it sits beside); RFC-0027 (machine principals — the
-credential mechanism, used here without `--instance` scoping, §2.2);
-RFC-0016 (app network isolation — the reason this service is reached
+credential mechanism, and specifically D5's `--instance` scoping,
+which this capability relies on to keep the E1 key from reaching any
+route beyond `/twin/*`, §2.2); RFC-0016 (app network isolation — the
+reason this service is reached
 through the gateway and not by a direct network link); RFC-0030 (the
 rehearsal rule this capability currently satisfies by refusal, §2.2,
 until D8 is built).
@@ -298,6 +319,14 @@ vor allem **die Generalprobe (D8)** — eine Generalprobe bekommt in 0.1
 absichtlich **gar keinen** Zwilling-Schlüssel, weil ihre eigene Schema-
 Kopie noch nicht existiert und das Mandantenschema sonst das
 **produktive** wäre. Lieber ehrlich verweigert als halb gebaut.
+
+**Nachtrag nach der ersten Live-Prüfung (2026-09-10):** der Maschinen-
+Schlüssel wird jetzt mit RFC-0027s `--instance`-Bindung ausgestellt, auf
+den reservierten Wert `oaap.twin` — nicht mehr ungebunden. Ein
+ungebundener Schlüssel wird von `identity` nirgends außer nach Rolle
+und Mandant abgewiesen; er hätte damit auch jede andere App im selben
+Mandanten mit derselben Rolle geöffnet, nicht nur `/twin/*` — live auf
+`oaap-test` nachgewiesen, siehe CURRENT_STATE 125.
 
 Der Dienst läuft als eigener, kleiner Plattform-Container (`twin`),
 am selben Knotenprofil `store` wie `oaap.data.store` selbst, erreichbar
