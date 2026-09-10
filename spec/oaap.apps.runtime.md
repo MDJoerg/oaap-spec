@@ -1,7 +1,12 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.24 (manifest **0.3** adds three optional sections —
+- **Version:** 0.2.25 (`_install_from_dir`, the same choke point that
+  hands `data_model`/`contributes`/`consumes` to `oaap.data.model`, now
+  hands the latter two to `oaap.data.twin` 0.1 too — a machine-
+  principal key and a tenant's twin schema, RFC-0031 Schritt 3, E1;
+  no new manifest field, so no MINOR bump — see 2.2;
+  0.2.24 (manifest **0.3** adds three optional sections —
   `data_model`, `contributes`, `consumes` — read by `oaap.data.model`
   0.1 (RFC-0031 Schritt 2); the names were reserved in RFC-0012 §8.3,
   the sections themselves are specified there, not here — this spec
@@ -139,6 +144,14 @@ the core never comes from a store (RFC-0001).
   every install path (local, Git, uploaded artifact, remote deploy
   hook), that hands them to `oaap.data.model` — so a package installed
   any of those four ways is registered exactly the same way.
+- The same choke point (`_install_from_dir`) hands `contributes`/
+  `consumes` to `oaap.data.twin` 0.1 too (RFC-0031 Schritt 3): the
+  instance's machine-principal key (RFC-0027) and its tenant's twin
+  schema are provisioned right beside `oaap.data.model`'s own
+  registration/binding call, on the same manifest sections, so a
+  package installed any of the four ways gets both or neither — never
+  a twin credential without a matching binding. Not for a rehearsal
+  instance: see `oaap.data.twin` 0.1 §2.2.
 - `native`: build images **on the target node** (build on device).
   `image`/`wrapped`: pull the referenced images.
 - The **compose converter** (RFC-0004) imports an existing
@@ -1630,3 +1643,18 @@ registriert, kein Stichtag für die Flotte. Und: **eine** Stelle im Code
 Git, als hochgeladenes Archiv oder über den Fernwartungs-Hook
 installiert wurde — vier Wege zur Installation, ein Weg zur
 Registrierung.
+
+## Deutsche Zusammenfassung (v0.2.25, RFC-0031 Schritt 3)
+
+**Dieselbe eine Stelle, ein Anschluss mehr.** `_install_from_dir`
+reicht `contributes`/`consumes` jetzt nicht nur an `oaap.data.model`
+weiter, sondern direkt daneben auch an `oaap.data.twin` 0.1: die
+Instanz bekommt einen Maschinen-Prinzipal-Schlüssel (RFC-0027), und das
+Mandantenschema für den Zwilling wird angelegt, falls es das noch
+nicht gibt — kein neues Manifest-Feld, deshalb keine MINOR-Erhöhung.
+Ausdrücklich **nicht** für eine Generalprobe: die Schlüssel-Ausgabe
+wird übersprungen, und ein aus der Produktion kopierter Schlüssel wird
+vor der Installation aus der `instance.env` entfernt — sonst könnte
+eine Generalprobe über den Zwilling die **echten** Kundendaten
+erreichen, obwohl RFC-0030 genau das verhindern soll. Details stehen
+in `oaap.data.twin`s eigener Spezifikation, §2.2.

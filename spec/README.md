@@ -22,3 +22,4 @@ before the full specification is written.
 - [oaap.core.tenant](oaap.core.tenant.md) — account and tenant, the boundary of belonging (draft, v0.2)
 - [oaap.data.store](oaap.data.store.md) — managed Postgres per node, schema per tenant/purpose (draft, v0.1)
 - [oaap.data.model](oaap.data.model.md) — type registry for the digital twin: object/attribute/group/relation/activity types, origin, binding (draft, v0.1)
+- [oaap.data.twin](oaap.data.twin.md) — the digital twin: objects, groups, relations, activities per tenant, append-only, behind its own gateway route (draft, v0.1)
