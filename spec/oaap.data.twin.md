@@ -245,14 +245,30 @@ nullable): `alias_id` stops being its own object and answers as
 survives being undone.
 
 Detection (`GET /internal/twin/candidates`, person-facing only) is a
-platform hint, nothing more (§3.6): two objects of the SAME type, the
-SAME normalised title, created by DIFFERENT origins, neither already
-merged away. Merge (`POST /internal/twin/merge`, body `{"keep",
-"drop"}`) and unmerge (`POST /internal/twin/unmerge`, body `{"drop"}`)
-are human acts, `tenant_admin` only, each recording one `events` row
-with `origin: "tenant:<username>"` so the audit trail names who acted,
-not only that a write happened. Merging objects of two different types
-is refused outright — a mistake, not a duplicate.
+platform hint, nothing more (§3.6): the SAME normalised title, created
+by DIFFERENT origins, neither already merged away. Merge (`POST
+/internal/twin/merge`, body `{"keep", "drop"}`) and unmerge (`POST
+/internal/twin/unmerge`, body `{"drop"}`) are human acts, `tenant_admin`
+only, each recording one `events` row with `origin:
+"tenant:<username>"` so the audit trail names who acted, not only that
+a write happened.
+
+**Deliberately not restricted to one type**, on EITHER end (detection
+or merge itself) — an earlier build did restrict both, on the reading
+that a cross-type merge is "a mistake, not a duplicate." That reading
+did not survive contact with the reference scenario this step exists
+to resolve (RFC-0031 Bauplan Schritt 4, 2026-09-10): Mitarbeiterverwal-
+tung creates "Anna" as a `Mitarbeiter` (owner `app:mitarbeiterverwal-
+tung`), independently of Partnerverwaltung's existing "Anna" as a
+`Kontaktperson` (owner `app:partnerverwaltung`) — the SAME real person,
+TWO DIFFERENT types, because neither app knows the other's model. A
+same-type restriction would have made this service unable to surface,
+let alone resolve, the one duplicate it was named for — found live on
+`oaap-test` while verifying this step, before the candidate list was
+ever shown to a person. The canonical object's own type is what every
+future read reports; the merged-away object's groups are kept and
+shown alongside it regardless, since the loader below unions by object
+id, never by type.
 
 Every read (app- and person-facing) resolves a requested id to its
 canonical id FIRST, then loads groups from the union of the canonical
