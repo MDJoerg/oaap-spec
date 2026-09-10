@@ -1,16 +1,17 @@
 # oaap.data.twin — The Digital Twin
 
 - **ID:** `oaap.data.twin`
-- **Version:** 0.1
+- **Version:** 0.2
 - **Maturity:** draft
 - **Based on:** RFC-0031 (data model & digital twin — Twin is Schritt 3
   of the build order: Store, Model, Twin, reference apps, browser, then
   broker) §3, §6, §8, §9; `oaap.data.store` (every tenant's twin is a
   schema in it); `oaap.data.model` (the registry this service reads —
-  it never holds a type definition of its own); RFC-0027 (machine
+  and, since 0.2, also writes one row into, §2.11); RFC-0027 (machine
   principals — an instance authenticates as itself); RFC-0016 (app
   network isolation — why this service sits behind the gateway, not
-  beside the app)
+  beside the app); RFC-0015 addendum A4 (the `/internal/*` guard
+  pattern 0.2 reuses for the portal, §2.12)
 
 ## 1. Purpose
 
@@ -22,37 +23,51 @@ contributor writes into its own group on someone else's object; a
 consumer reads. Origin and tenant come from the caller's own
 credential, never from anything the request says (§4).
 
-**0.1 builds RFC-0031 §9's own minimum**: steps 1–3 of the eight-step
+**0.1 built RFC-0031 §9's own minimum**: steps 1–3 of the eight-step
 conformance scenario — an owner creates an object with its core group;
 a reader gets an object back with every group its type is bound to;
 a contributor writes into its own group on a foreign object. Recorded
-time is kept always (append, never overwrite, §2.3); validity
-(`valid_from`/`valid_to`) is carried on attributes and relations and
-returned with them, because RFC-0031 §9 step 1 already exercises it
-("relates them with `isContactOf` valid from 2019") — but **nothing in
-0.1 filters by it**. Concretely NOT built yet, named here rather than
-silently missing (RFC-0031 §9 steps 4–8, and non-goals §10):
+time is kept always (append, never overwrite, §2.3).
 
-- **`?at=` and the tree** (§9 step 7) — reading what held at a past
-  date, and the recursive-CTE object graph. 0.1's `GET .../objects/{id}`
-  always answers with every current row.
+**0.2 builds the Bauplan's Schritt 5 (the twin browser) on top,
+additively — nothing 0.1 could already do is narrowed:**
+
+- **`?at=`** (§9 step 7's first half) — validity filtering on every
+  read, shared by the app-facing and the new person-facing routes
+  alike (§2.8).
+- **Merge and unmerge** (§9 step 6, §3.6) — an `aliases` table, human-
+  triggered candidate detection, and transparent resolution on every
+  read and write: an id that was merged away keeps answering, forever
+  (D3), and groups of both objects are kept and shown together (§2.9).
+- **A second authentication path**, `/internal/*`, for the portal
+  only — never through the gateway, never with an RFC-0027 key. The
+  portal already authenticates the actual person; this service only
+  re-checks their ROLE per action (§2.12, §4).
+- **Tenant type creation** (Bauplan Schritt 5: "Typen des Mandanten
+  anlegen") — deliberately narrow: a tenant_admin may add a new GROUP
+  type (plus the attribute types it needs) onto an object type that
+  already exists, never a new object type, never a change to one that
+  already exists (§2.11).
+- **A tree** (§9 step 7's second half), built by repeated reads, not a
+  recursive CTE — correct at this scale, revisited only if it becomes
+  slow (§2.10).
+
+Concretely still NOT built, named here rather than silently missing:
+
 - **`/twin/references`** (fuzzy search over titles/source keys, D6's
-  reference tuple) — nothing to search yet without it.
-- **Duplicate detection and merge** (§9 step 6, §3.6) — two origins
-  creating the same real-world thing is not noticed in 0.1.
-- **Restricted groups** (D7's second half) — 0.1's read rule is the
+  reference tuple) — still nothing to search.
+- **Restricted groups** (D7's second half) — the read rule is still the
   simple half only: an instance may read every group of a type it
-  contributes to or consumes; marking one group `restricted` to named
-  readers is not implemented.
-- **The rehearsal's own schema copy** (D8, §9 step 8) — RFC-0030 is not
-  wired to this capability at all yet. Deliberately refused rather
-  than half-built: §2.2 and §4 say exactly what a rehearsal instance
-  gets instead (nothing that reaches this service).
-- **The outbox reader** (RFC-0032) — every write appends one `events`
-  row (§2.3); nothing reads that table yet. Free to build on top later
-  without touching a write path.
-- **The twin browser** (Schritt 5) and the AAS repository API (own,
-  later RFC) both read this service's model; neither exists yet.
+  contributes to or consumes, and a person sees every group of their
+  own tenant's object; marking one group `restricted` to named readers
+  is still not implemented.
+- **The rehearsal's own schema copy** (D8, §9 step 8) — unchanged from
+  0.1: a rehearsal instance still gets no twin credential at all,
+  deliberately (§2.2, §4).
+- **The outbox reader** (RFC-0032) — every write still appends one
+  `events` row (§2.3); nothing reads that table yet.
+- **The AAS repository API** (own, later RFC) reads this service's
+  model; it does not exist yet.
 
 ## 2. Interface
 
@@ -188,7 +203,11 @@ direction (`contributes` or `consumes`) — RFC-0031 D7's simple half:
 "an instance may read the types it consumes, all groups of them."
 Returns the object's header and every group that exists on it, each
 with its current attributes, relations and activities. No `restricted`
-filtering (§1); no `?at=` (§1).
+filtering still (§1). `?at=` is honoured since 0.2 (§2.8); if the
+requested id was merged away, the object answers as its canonical
+object instead, with a `merged_from` field naming the id it was asked
+under (§2.9) — the request never fails just because the id it named no
+longer stands alone.
 
 ### 2.7 `PUT /twin/objects/{id}/groups/{group}`
 
@@ -199,19 +218,120 @@ here, not trusted from the caller. Otherwise creates the group (first
 writer becomes its origin) or appends to it: each attribute/relation
 key is compared to its current row, and a value that has not actually
 changed writes nothing — the history stays honest, not a row per
-identical PUT. Records one `events` row. Returns `204`.
+identical PUT. Records one `events` row. Returns `204`. Since 0.2, the
+object id (and a relation's own target id, §2.9) is resolved through a
+merge first — a contributor holding an id from before a merge keeps
+writing into the right place.
 
-### 2.8 What §9's remaining steps need (deferred, not designed)
+### 2.8 `?at=` — validity (§9 step 7's first half)
 
-Steps 4 (a second object of the same type from a different origin —
-already possible today, since ownership is per-type, not per-object;
-worth a conformance test, not new code), 5 (a `data_models` group type
-with no app, filled from the twin browser — needs Schritt 5), 6 (merge
-— needs detection rules and an audit-logged human action, §3.6), 7
-(`?at=` and the tree — needs validity-aware view queries and a
-recursive CTE), 8 (rehearsal copy, D8 — needs `oaap.data.store`'s
-schema-copy mechanism bound to a rehearsal's lifecycle, mirroring
-RFC-0030 D6's general answer for shared data holdings).
+Every app-facing AND person-facing read accepts `?at=<YYYY-MM-DD>`. A
+day, not a moment — the date slider Schritt 5 asks for offers exactly
+that, and it is the only granularity RFC-0031 §3.4's validity axis
+needs. An attribute or relation row is included only if `valid_from`
+(when set) is on or before `at`, and `valid_to` (when set) is strictly
+after it — the same half-open interval the earlier model used. An
+unparsable `?at=` is treated as "now" (no filter), not as an error, the
+same tolerant reading this platform already gives an unrecognised
+store-list field.
+
+### 2.9 Merge and unmerge (§9 step 6, §3.6)
+
+An `aliases` table per tenant schema (`alias_id` primary key,
+`canonical_id`, `merged_at`/`merged_by`, `unmerged_at`/`unmerged_by`
+nullable): `alias_id` stops being its own object and answers as
+`canonical_id` from then on, forever resolvable (D3). Unmerge sets
+`unmerged_at` rather than deleting the row, so a merge's history
+survives being undone.
+
+Detection (`GET /internal/twin/candidates`, person-facing only) is a
+platform hint, nothing more (§3.6): two objects of the SAME type, the
+SAME normalised title, created by DIFFERENT origins, neither already
+merged away. Merge (`POST /internal/twin/merge`, body `{"keep",
+"drop"}`) and unmerge (`POST /internal/twin/unmerge`, body `{"drop"}`)
+are human acts, `tenant_admin` only, each recording one `events` row
+with `origin: "tenant:<username>"` so the audit trail names who acted,
+not only that a write happened. Merging objects of two different types
+is refused outright — a mistake, not a duplicate.
+
+Every read (app- and person-facing) resolves a requested id to its
+canonical id FIRST, then loads groups from the union of the canonical
+id and every id merged into it: "groups of both objects are kept;
+nothing is overwritten" (§3.6), literally. A group_key collision
+between the two objects' own groups (only possible after a merge —
+"nobody else writes there" only ever protected ONE live object) is
+resolved by suffixing the second occurrence with a short form of its
+own object id, so nothing is silently dropped; this never fires for an
+object that was never merged.
+
+### 2.10 `GET /internal/twin/objects/{id}/tree?at=&depth=` — the tree
+
+Person-facing only (§2.12's authentication path applies). Follows
+relations outward from one object, depth-limited (default 2, max 5),
+`?at=` applied at every hop, built by repeated calls to the same
+loader §2.9 uses — not a recursive CTE. Correct, not yet fast; revisit
+only if it becomes slow at the size this platform actually runs at.
+
+### 2.11 `POST /internal/twin/types` — tenant type creation
+
+Bauplan Schritt 5: "Typen des Mandanten anlegen." Deliberately narrow,
+to RFC-0031 §9 step 5's own example and nothing wider: `tenant_admin`
+only, body `{"on", "group_key", "group_title"?, "attributes": [{"key",
+"title"?, "value_type"?}]}` — a brand-new GROUP type (plus the
+attribute types it needs), attached to an OBJECT type that already
+exists and is already active for the tenant. Refuses outright if the
+object type is not active, if the group key is not `namespace.name`
+lowercase, or if ANY of the new keys already exist anywhere in the
+registry — **create only**, never a version diff: `oaap.data.model`'s
+own additive/destructive comparison (`type_change_kind`) stays
+exclusively `appctl.py`'s code path, run by a human on the host, never
+reachable from a tenant's own session. A person adding one group to an
+existing object type — the ONE case RFC-0031 §9 actually names — is
+enough for this step; a new OBJECT type, or a CHANGE to an existing
+one, from the browser is explicitly deferred, not half-built.
+
+The new rows are written with `origin: "tenant:<tenant-id>"` (never the
+bare word `"tenant"` — see `oaap.data.model` 0.2's own Nachtrag for
+why) through the SAME per-tenant Postgres role every other write in
+this tenant's schema already uses, granted `INSERT` (never `UPDATE`/
+`DELETE`) on `oaap_model.type_definitions`/`activations` for exactly
+this purpose (§4).
+
+### 2.12 The person-facing API (`/internal/*`)
+
+Everything under `/internal/twin/*` (§2.8–§2.11, plus `GET
+/internal/twin/types`, `GET /internal/twin/objects?type=`, `GET
+/internal/twin/objects/{id}`, `GET /internal/twin/merges`, `PUT
+/internal/twin/objects/{id}/groups/{group}`) is reached ONLY from the
+portal, over the platform's internal network — never through the
+gateway, never with an RFC-0027 key. Guarded exactly as `identity`'s
+own `/internal/*` (RFC-0015 addendum A4): a shared `INTERNAL_API_KEY`,
+checked by path PREFIX in a `before_request` hook so a future route
+under it is covered the day it exists, not by a per-route decorator
+someone can forget. `twin` is the THIRD holder of this key, after
+`identity` and `portal`.
+
+The portal relays who is asking as three trusted headers
+(`X-OAAP-Person-User`, `X-OAAP-Person-Tenant`, `X-OAAP-Person-Roles`)
+— it has already authenticated the actual person through its own
+login and its own gateway forward-auth; this service only re-checks
+their ROLE per action, the exact split identity's own `/internal/*`
+comment already describes for itself: "this layer only establishes
+that the caller IS the portal [...]; [the caller] is responsible for
+admin authorization of its callers." RFC-0031 §6's own sentence, taken
+literally: "the twin browser uses the same API with a person's session
+instead of an instance credential" — except the session itself never
+reaches this container.
+
+Role gating, as Bauplan Schritt 5 names the roles: `user`/`keyuser`/
+`admin`/`tenant_admin` may all READ (types, objects, the tree — no
+binding filter, unlike an instance: RFC-0031 §3.3 treats the tenant as
+an origin like any other, and every person of it may see its own
+twin); `admin`/`keyuser`/`tenant_admin` may additionally WRITE into a
+`tenant`-origin group (§2.7, origin literally `"tenant"` — schema-
+scoped already, no cross-tenant namespace question the way §2.11's
+type registry has); `tenant_admin` alone may view merge candidates,
+merge, unmerge, and create a type.
 
 ## 3. Configuration
 
@@ -226,6 +346,10 @@ RFC-0030 D6's general answer for shared data holdings).
 - No manifest-level configuration of its own: `oaap.data.model`'s
   `data_model`/`contributes`/`consumes` sections are what an app
   declares; this capability only serves what they already said.
+- `INTERNAL_API_KEY` (0.2) — the same platform secret `identity` and
+  `portal` already hold, added to this container's environment so the
+  portal may reach `/internal/*` (§2.12). Absent, that surface fails
+  closed with `503`, exactly like identity's own.
 
 ## 4. Security requirements
 
@@ -235,7 +359,23 @@ RFC-0030 D6's general answer for shared data holdings).
   would be ignored even if sent — nothing in 0.1's request handling
   reads one.
 - A human session reaching `/twin/*`, however it authenticated, is
-  refused: `X-OAAP-User` must start with `instance:`.
+  refused: `X-OAAP-User` must start with `instance:`. A person reaches
+  this service ONLY through `/internal/*` (§2.12), never `/twin/*`,
+  and only via the portal — never directly, and never with an RFC-0027
+  key of their own.
+- `/internal/*` fails closed twice over (§2.12): no `INTERNAL_API_KEY`
+  configured → `503`; present but wrong or absent on the request →
+  `401`. Every route under the prefix is covered by ONE `before_request`
+  hook, not a per-route decorator — the exact fix RFC-0015 addendum A4
+  made for `identity`, reused here rather than re-derived.
+- Every `/internal/*` route re-checks the caller's ROLE for its own
+  action (§2.12) — the portal having verified the person is necessary,
+  not sufficient; a `user` reaching a `tenant_admin`-only action (merge,
+  type creation) is refused here, not only hidden in the portal's UI.
+- A tenant-created type (§2.11) can only ever ADD a brand-new key — the
+  connecting role's `GRANT INSERT` on `oaap_model.type_definitions`/
+  `activations` carries no `UPDATE`/`DELETE`, and the service's own
+  code refuses a key that already exists before any row is touched.
 - The E1 key is **always** issued with RFC-0027 `--instance` scoping,
   to the reserved value `oaap.twin` — never left unscoped, and never
   scoped to the calling app's own name (§2.2: an unscoped key
@@ -284,16 +424,38 @@ RFC-0030 D6's general answer for shared data holdings).
    installs cleanly; the CLI states plainly that the twin schema was
    NOT provisioned, matching `oaap.data.model`'s own wording for the
    same situation.
+6. **`?at=`** (§9 step 7, first half): a relation valid from 2024-06
+   onward is absent from a read with `?at=2024-01-01` and present with
+   `?at=2024-12-01` and with no `?at=` at all.
+7. **The tree** (§9 step 7, second half): `GET .../tree?depth=2` from
+   an object with one relation returns exactly one child, carrying the
+   relation's own key as `via`; `?at=` narrows it the same way test 6
+   does for a plain read.
+8. **Merge and unmerge** (§9 step 6, §3.6): staff management creates
+   "Anna Müller" independently of partner management's existing
+   "Anna"; a `tenant_admin` merges the two; a read of EITHER id
+   afterwards returns groups from BOTH; unmerge splits them back into
+   two independently-readable objects, groups intact on each side.
+9. **A person is not an instance, and vice versa:** `/twin/*` refuses
+   `X-OAAP-Person-*` headers exactly as it always refused a bare human
+   session (they are simply not `X-OAAP-User: instance:...`);
+   `/internal/*` refuses a caller without `INTERNAL_API_KEY` even if
+   it presents a perfectly valid RFC-0027 instance key.
+10. **Tenant type creation stays additive:** a `tenant_admin` adds a
+    `crm.satisfaction`-shaped group to `Firma`; a SECOND attempt using
+    the identical `group_key` is refused, naming the key, not silently
+    treated as "already done."
 
-Steps 4–8 of RFC-0031 §9 are out of scope for 0.1 (§1, §2.8) and are
-not conformance tests here yet.
+Step 8 of RFC-0031 §9 (the rehearsal's own copy, D8) is the only one
+still out of scope (§1) and not a conformance test here yet.
 
 ## 6. Dependencies
 
 `oaap.data.store` (every tenant's twin is one of its schemas, provi-
 sioned by the same host-side DDL pattern `oaap.data.model` already
 uses); `oaap.data.model` (the registry read directly, `oaap_model.*`,
-granted per tenant schema); `oaap.apps.runtime` (the install hook that
+granted per tenant schema — and, since 0.2, also written to for a
+tenant-created type, §2.11); `oaap.apps.runtime` (the install hook that
 mints the E1 key and provisions the schema — one place, like the
 `data_model` hook it sits beside); RFC-0027 (machine principals — the
 credential mechanism, and specifically D5's `--instance` scoping,
@@ -302,37 +464,59 @@ route beyond `/twin/*`, §2.2); RFC-0016 (app network isolation — the
 reason this service is reached
 through the gateway and not by a direct network link); RFC-0030 (the
 rehearsal rule this capability currently satisfies by refusal, §2.2,
-until D8 is built).
+until D8 is built); RFC-0015 addendum A4 (the `/internal/*` guard
+pattern, reused for the person-facing API, §2.12); `oaap.core.portal`
+(the only caller of `/internal/*` — it authenticates the person and
+relays who is asking, §2.12).
 
 ## 7. Maturity
 
-`draft` — becomes `beta` once conformance tests 1–5 pass on the
-reference platform (`oaap-test`), and steps 4–8 of RFC-0031 §9 each
-have their own capability-spec addendum once built (§2.8 lists what
-each needs).
+`draft` — becomes `beta` once conformance tests 1–10 pass on the
+reference platform (`oaap-test`), and step 8 of RFC-0031 §9 (the
+rehearsal's own copy, D8) has its own capability-spec addendum once
+built — the one piece 0.2 still satisfies by refusal alone (§1, §4).
 
-## Deutsche Zusammenfassung (v0.1)
+## Deutsche Zusammenfassung (v0.2)
 
 **Der einzige Dienst, mit dem eine App für gemeinsame Mandantendaten
-spricht** (RFC-0031 Schritt 3). Objekte, Gruppen, Attribute, Relationen
-und Aktivitäten je Mandantenschema (`twin_<mandant-id>` im `store`,
-`oaap.data.store`), **append-only**: eine Änderung ist immer eine neue
-Zeile, nie ein Überschreiben — `current_*`-Sichten sind die eigentliche
-Schnittstelle. Herkunft und Mandant kommen ausschließlich aus dem
-Berechtigungsnachweis des Aufrufers (Maschinen-Prinzipal `instance:
-<name>`, RFC-0027), nie aus der Anfrage selbst.
+spricht** (RFC-0031 Schritt 3), jetzt ergänzt um Schritt 5: den
+Zwillings-Browser im Portal. Objekte, Gruppen, Attribute, Relationen
+und Aktivitäten je Mandantenschema (`twin_<mandant-id>` im `store`),
+**append-only**. Herkunft und Mandant kommen für eine App weiterhin
+ausschließlich aus ihrem Berechtigungsnachweis (Maschinen-Prinzipal
+`instance:<name>`, RFC-0027) — für einen MENSCHEN neu seit 0.2 aus
+einem zweiten, ausschließlich dem Portal vorbehaltenen Zugang (siehe
+unten), nie aus der Anfrage selbst.
 
-**0.1 baut genau das Minimum, das RFC-0031 §9 selbst dafür nennt**:
-Owner legt ein Objekt mit seiner Kern-Gruppe an, ein Leser bekommt es
-mit allen gebundenen Gruppen zurück, ein Contributor schreibt in seine
-eigene Gruppe auf einem fremden Objekt — „niemand sonst schreibt dort"
-wird am Dienst selbst erzwungen, nicht dem Aufrufer vertraut. **Bewusst
-noch nicht gebaut** (§1, §2.8): `?at=`/Baum, Referenzsuche, Dubletten-
-Erkennung/Merge, `restricted`-Gruppen, der Outbox-Leser (RFC-0032), und
-vor allem **die Generalprobe (D8)** — eine Generalprobe bekommt in 0.1
-absichtlich **gar keinen** Zwilling-Schlüssel, weil ihre eigene Schema-
-Kopie noch nicht existiert und das Mandantenschema sonst das
-**produktive** wäre. Lieber ehrlich verweigert als halb gebaut.
+**0.2 baut Schritt 5, additiv — nichts, was 0.1 schon konnte, wird
+enger:** `?at=` (der Datumsregler) auf jedem Lesen; der Baum, aus
+wiederholten Lesevorgängen aufgebaut, nicht aus einer rekursiven
+Datenbankabfrage; Zusammenführen und Auflösen von Dubletten (§3.6) —
+menschliche Handlungen, protokolliert, jederzeit umkehrbar, weil
+Gruppen nie verschmolzen, nur umgehängt werden; Anlegen eines
+Mandanten-Typs — bewusst schmal: nur eine neue Gruppe an einem schon
+vorhandenen Objekttyp, nie ein ganz neuer Objekttyp, nie eine Änderung
+eines bestehenden. Ein zweiter Berechtigungsweg (`/internal/*`)
+erschließt all das für einen Menschen, ohne den bestehenden,
+maschinen-only Weg (`/twin/*`) im Geringsten zu verändern: das Portal
+weist sich mit demselben geteilten Schlüssel aus, den `identity` schon
+verlangt (RFC-0015 Nachtrag A4), und reicht die bereits geprüfte
+Person als drei vertrauenswürdige Kopfzeilen weiter — die eigentliche
+Anmeldung verlässt das Portal nie.
+
+**Bewusst noch nicht gebaut**: Referenzsuche, `restricted`-Gruppen, der
+Outbox-Leser (RFC-0032), und vor allem **die Generalprobe (D8)** —
+unverändert seit 0.1: eine Generalprobe bekommt absichtlich **gar
+keinen** Zwilling-Schlüssel, weil ihre eigene Schema-Kopie noch nicht
+existiert. Lieber ehrlich verweigert als halb gebaut.
+
+**Ein echter Fund beim Bau, nicht nur im Code:** die Herkunft eines
+mandanteneigenen Typs hieß bislang das bloße Wort `tenant` — dieselbe
+Zeichenkette für jeden Mandanten des Knotens. Zwei Mandanten, die
+zufällig denselben Schlüssel wählen, hätten sich damit unbemerkt einen
+Typ geteilt. Jetzt `tenant:<mandant-id>`, wie `app:<id>`/`model:<id>`
+es schon vormachen — Einzelheiten in `oaap.data.model` 0.2s eigenem
+Nachtrag.
 
 **Nachtrag nach der ersten Live-Prüfung (2026-09-10):** der Maschinen-
 Schlüssel wird jetzt mit RFC-0027s `--instance`-Bindung ausgestellt, auf

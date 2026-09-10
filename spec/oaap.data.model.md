@@ -160,15 +160,30 @@ registered under origin `app:<app-id>` (RFC-0031 §4):
   first four unregistered rather than half a package's model on the
   node.
 
-The tenant origin (`model type add`'s CLI stand-in, RFC-0031 §4 third
-row) uses the same table with `origin = "tenant"` and `package` set to
-the tenant-id; the ownership rule applies identically — one tenant's
-CLI-defined type cannot collide with another tenant's, because the key
-is checked exactly the same way regardless of who is asking. (0.1 does
-not yet stop tenant B from *reading* a key tenant A already claimed
-this way — the twin's per-tenant activation in §2.4 is what will make
-that visible; the registry itself is one flat, node-wide namespace by
-design, RFC-0031 D2.)
+The tenant origin (`model type add`'s CLI stand-in, and now the twin
+browser too, Schritt 5) uses the same table with `origin =
+"tenant:<tenant-id>"` and `package` set to the tenant-id. **This was
+not the first shape** (0.1's own first build): `origin` was written as
+the bare word `"tenant"`, identical for every tenant, on the claim
+below that the ownership rule "applies identically" regardless of who
+is asking. That claim was wrong, found while building Schritt 5's
+"a tenant creates its own type" (2026-09-10), before it had ever been
+exercised live: the ownership check at §2.3 compares `ex_origin !=
+origin`, and a BARE `"tenant"` origin is the SAME string for every
+tenant on the node — so tenant B registering the exact key tenant A
+already claimed would pass that check (both origins read `"tenant"`)
+and either update A's own definition (additive) or refuse the whole
+install with a confusing "already registered" (destructive), neither
+of which tenant B could make sense of, and neither of which protects
+tenant A. Qualifying the origin with the tenant-id closes this the same
+way `app:<id>`/`model:<id>` already close it for the other two origins
+— the KEY namespace stays one flat, node-wide space by design (RFC-0031
+D2: two unrelated tenants still cannot each own an UNRELATED type under
+the identical key, e.g. two tenants each wanting their own "Status" —
+deliberately left as a known 0.2 limitation, not fixed here, because
+the tenant browser's own key-collision message is enough for now and a
+per-tenant key namespace would touch every `on:`/`from:`/`to:`
+cross-reference inside a definition too).
 
 ### 2.4 Binding, and activation (D4)
 
@@ -300,10 +315,19 @@ on an older reference version.
 - Origin ownership (§2.3) is enforced on every registration, not only
   the first: an app cannot later "adopt" a type the tenant made by
   shipping a `data_model` entry with the same key.
-- A tenant's CLI-defined type (§2.3) is written with `origin: tenant`
+- A tenant-created type (§2.3) is written with `origin: tenant:<id>`
   and the tenant-id as `package` — never the tenant's Kürzel
   (RFC-0025/0026, the same rule `oaap.data.store` already applies to
-  schema names).
+  schema names). The tenant-id qualifies the ORIGIN so two tenants
+  cannot collide on ownership of the same key (§2.3's own Nachtrag);
+  it does not qualify the KEY itself, which stays one flat, node-wide
+  namespace like every other type (RFC-0031 D2).
+- A twin-browser type creation (Schritt 5) may only INSERT a brand-new
+  key, never touch one that already exists — the connecting role holds
+  `GRANT INSERT` on `type_definitions`/`activations` only, never
+  `UPDATE`/`DELETE`; the additive/destructive version diff this section
+  otherwise relies on is exclusively `appctl.py`'s own code path, run
+  by a human on the host, not reachable from a tenant's own session.
 - Binding (§2.4) never infers a tenant or origin from anything but the
   caller's own identity (the instance being installed, or — for the
   CLI `register`/`alias` actions — the node operator); RFC-0031 §5's
@@ -407,3 +431,21 @@ es passieren konnte — an der einen Stelle, die jeder Installationsweg
 durchläuft. Ein Artefakt hinterlässt bewusst **keine Instanz**: kein
 Container, kein Port, kein Eintrag in der Instanz-Registrierung — nur
 die Typregistrierung selbst bleibt bestehen.
+
+**Nachtrag nach Schritt 5, dem Zwillings-Browser (2026-09-10):** die
+Mandanten-Herkunft heißt jetzt `tenant:<mandant-id>`, nicht mehr das
+bloße Wort `tenant` — §2.3 beschrieb bislang fälschlich, dass die
+Eigentums-Prüfung zwei Mandanten schon auseinanderhält; tatsächlich las
+sie für jeden Mandanten dieselbe Herkunft und hätte einen zweiten
+Mandanten, der zufällig denselben Schlüssel wählt, entweder in den
+ersten Typ hineinschreiben lassen oder mit einer unverständlichen
+Meldung abgewiesen. Gefunden beim Bau des Browsers, der diesen Pfad
+zum ersten Mal wirklich benutzt (die alte CLI-Aktion war bis dahin nie
+produktiv gelaufen) — behoben an der Herkunft, nicht am Schlüssel: der
+Schlüsselraum bleibt bewusst flach und knotenweit (RFC-0031 D2); zwei
+Mandanten, die zufällig denselben Namen wählen, kollidieren weiterhin
+und bekommen das jetzt als klare Meldung, statt eines stillen
+Übergriffs. Der Browser selbst darf einen Mandanten-Typ nur NEU
+anlegen, nie einen bestehenden ändern — die additive/destruktive
+Versionsprüfung bleibt allein `appctl.py`s Sache, auf dem Host, von
+Hand. Einzelheiten in [`oaap.data.twin.md`](oaap.data.twin.md) 0.2.
