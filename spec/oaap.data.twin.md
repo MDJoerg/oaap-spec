@@ -89,6 +89,20 @@ never rotated by a later redeploy — the same stability rule
 where to send it. Both are platform-owned and refused by `oaap app
 config` like `OAAP_APP_SECRET` already is.
 
+**`OAAP_TWIN_URL` already ends in `/twin`.** The Caddyfile's `handle
+/twin/*` block forwards the path unchanged (no `strip_prefix`) because
+this service's own Flask routes are registered with that prefix
+(`/twin/objects`, not `/objects`) — so a caller appends only the
+sub-path §2.4–§2.7 name (`{OAAP_TWIN_URL}/objects`, `{OAAP_TWIN_URL}
+/objects/{id}`, …), never a second `/twin` segment. This section's own
+route headers below name the path as reached from the gateway's root
+for readability, which reads as "append the whole thing" if not read
+this closely — exactly the mistake Partnerverwaltung's first build made
+against the real service on `oaap-test` (RFC-0031 Schritt 4,
+2026-09-10): a 404 from THIS service's own Flask app, not from the
+gateway or `identity`, is the tell that the path was doubled, not the
+auth.
+
 The key **is** issued with RFC-0027's `--instance` scoping (D5) — to
 `oaap.twin`, a reserved value, never the calling app's own name. This
 was not the first version of this section: 0.1's first build left the
@@ -327,6 +341,19 @@ ungebundener Schlüssel wird von `identity` nirgends außer nach Rolle
 und Mandant abgewiesen; er hätte damit auch jede andere App im selben
 Mandanten mit derselben Rolle geöffnet, nicht nur `/twin/*` — live auf
 `oaap-test` nachgewiesen, siehe CURRENT_STATE 125.
+
+**Nachtrag nach Schritt 4 (2026-09-10):** die Referenz-Apps
+Partnerverwaltung (Owner) und RACI (Contributor) beweisen RFC-0031 §9
+Schritt 1 und 3 jetzt live auf `oaap-test`, mit echtem Postgres —
+Owner legt mit Kern-Gruppe an, Contributor schreibt seine eigene
+Gruppe auf einem fremden Objekt, und ein Leser sieht beide Gruppen
+zusammen. Dabei fiel eine zweite Stolperstelle auf: `OAAP_TWIN_URL`
+endet bereits auf `/twin`, weil die Caddyfile-Route den Pfad
+unverändert weiterleitet; ein Aufrufer hängt nur den Unterpfad an
+(`{OAAP_TWIN_URL}/objects`), nie ein zweites `/twin` — §2.2 nennt das
+jetzt ausdrücklich, nachdem Partnerverwaltungs erster Bau genau diesen
+Fehler machte (404 vom Zwilling selbst, nicht vom Gateway — das
+Erkennungszeichen).
 
 Der Dienst läuft als eigener, kleiner Plattform-Container (`twin`),
 am selben Knotenprofil `store` wie `oaap.data.store` selbst, erreichbar
