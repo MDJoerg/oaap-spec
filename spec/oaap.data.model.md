@@ -257,10 +257,35 @@ left to invent.
 RFC-0012 §8.5 reserves a top-level list collection `data_models` for
 artefacts that carry `data_model` only — no service, no route, no
 health check. This capability defines what such an artefact validates
-against: `app`, `data_model`, and nothing that names a service. 0.1
-does not yet ship a store list containing one (that needs a real
-artefact to publish); the manifest-processing path in §2.3 already
-handles it correctly, because it never assumes a service exists.
+against: `app`, `data_model`, and nothing that names a service.
+
+**Recognised structurally**, not by a declared class: a manifest with a
+`data_model` section and no `services` key at all is an artefact.
+`app.class` (§2.10 of `oaap.apps.runtime`) is a launchpad-tile question
+— orthogonal to whether a package has a container to begin with — so
+it is not how this is decided. An artefact also has no `app.type`
+(native/image/wrapped describe how a container is packaged; an
+artefact never runs one) and must not declare `routes`, `endpoints` or
+`storage` — refused if it does, naming the field, the same as every
+other manifest error.
+
+**Origin `model:<id>`, never `app:<id>`** (RFC-0031 §4): an artefact is
+not an app, so its types register under a different namespace than an
+app's own. **No instance is created either** — installing one leaves
+no image, no container, no port, no row in the instance registry;
+`oaap app list` does not show it and `oaap app remove` has nothing to
+remove. Its only lasting effect is the type registration itself, which
+follows §2.3's ownership rule exactly like an app's would. Reinstalling
+the same artefact at a new version re-runs that comparison
+(additive/destructive, §2.5) the same way a redeploy would.
+
+Found and fixed while building the first real one, **Kundenzufriedenheit**
+(RFC-0031 Schritt 4, second wave, 2026-09-10): the install path used to
+call the registration function with `app:<id>` unconditionally,
+regardless of whether the package had a service — meaning the very
+first artefact would have registered under the wrong namespace. Fixed
+at the one call site inside the shared install function, before any
+artefact had shipped to find it live.
 
 ## 3. Configuration
 
@@ -369,3 +394,16 @@ Der Konfigurationsort für `global_asset_id` ist **nicht** hier — ein
 Typregister ist der falsche Ort für ein Feld ohne Typ, ohne Herkunft
 und ohne Version, das bei jeder Zwilling-Abfrage neu berechnet wird.
 Das klärt Schritt 3.
+
+**Nachtrag nach Schritt 4, zweite Welle (2026-09-10):** Ein `data_models`-
+Artefakt (§2.8, ein Paket nur mit `data_model`, ohne `services`) wird
+jetzt an genau diesem Merkmal erkannt, nicht an einer Klasse — und
+registriert korrekt unter der Herkunft `model:<id>`, nicht `app:<id>`,
+wie RFC-0031 §4 es vorsieht. Vor dem ersten echten Artefakt
+(Kundenzufriedenheit) rief der Installationspfad die
+Registrierungsfunktion unbedingt mit `app:` auf; das erste Artefakt
+wäre unter der falschen Herkunft gelandet. Gefunden und behoben, bevor
+es passieren konnte — an der einen Stelle, die jeder Installationsweg
+durchläuft. Ein Artefakt hinterlässt bewusst **keine Instanz**: kein
+Container, kein Port, kein Eintrag in der Instanz-Registrierung — nur
+die Typregistrierung selbst bleibt bestehen.
