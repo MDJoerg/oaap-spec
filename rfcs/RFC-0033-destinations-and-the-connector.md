@@ -18,9 +18,10 @@
   principals — the tunnel's credential), RFC-0029 (pull direction and
   its limit, D6), RFC-0030 D3 (a rehearsal reaches nothing outward),
   RFC-0031 (groups as the unit of ownership; the store and the copy)
-- **Numbering note:** RFC-0032 is reserved for events, states and the
-  unified namespace (RFC-0031 "followed by"). This document is
-  therefore RFC-0033 although it was written first.
+- **Numbering note:** RFC-0032 was reserved for events, states and the
+  unified namespace (RFC-0031 "followed by") when this document was
+  written, and stayed unfilled until 2026-09-11 — so this is RFC-0033
+  although it was written first.
 - **Driver:** Jörg, 2026-09-08: *„Ich würde gern so ein Konzept in die
   Plattform bringen, wie es SAP mit dem SAP Cloud Connector, den
   Connectivity Service und Destinations bietet. Dass wir von ‚innen'
@@ -659,6 +660,7 @@ beim `server_admin` des Knotens (D9). Zwillings-Lesen live mit einem
 Maschinenschlüssel, den der innere Mandant der äußeren Instanz ausstellt
 (D10).
 
-**Nummerierung:** RFC-0032 ist für Ereignisse und Unified Namespace
-reserviert; dieses Dokument ist deshalb RFC-0033, obwohl es zuerst
+**Nummerierung:** RFC-0032 war beim Schreiben dieses Dokuments für
+Ereignisse und Unified Namespace reserviert und blieb es bis zum
+11.09.2026; dieses Dokument ist deshalb RFC-0033, obwohl es zuerst
 geschrieben wurde.

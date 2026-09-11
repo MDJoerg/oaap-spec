@@ -550,8 +550,8 @@ questions:
   for a node that needs an S3 service, MinIO is not considered.
   Accepted as recommended.
 - **D12 — RFC-0034 is written now; building starts after RFC-0031's
-  steps 1–3.** RFC-0032 stays reserved for events. Accepted as
-  recommended.
+  steps 1–3.** RFC-0032 stayed reserved for events at the time; it was
+  filled 2026-09-11. Accepted as recommended.
 
 ## Deutsche Zusammenfassung
 

@@ -13,8 +13,9 @@
   itself), RFC-0026 (identity is not changeable), RFC-0029 (backups),
   RFC-0030 D6 (shared data holding must be copyable), RFC-0023 (AI
   gateway — embeddings, later)
-- **Followed by:** RFC-0032 (events, states and the unified namespace),
-  a later RFC for the AAS repository API, and capability specs
+- **Followed by:** RFC-0032 (events, states and the unified namespace;
+  Accepted 2026-09-11, nothing built yet), a later RFC for the AAS
+  repository API, and capability specs
   `oaap.data.model`, `oaap.data.store`, `oaap.data.twin`.
 - **Driver:** Jörg, 2026-09-08: *„Eine App ‚Kundenmanagement' kann die
   Daten für Kunden und Ansprechpartner pflegen und diese für andere über
