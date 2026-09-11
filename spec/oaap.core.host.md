@@ -1,14 +1,16 @@
 # oaap.core.host — Platform Installer & Node Baseline
 
 - **ID:** `oaap.core.host`
-- **Version:** 0.3.2
+- **Version:** 0.3.3
 - **Maturity:** draft (0.2.1 adds the `oaap user` rescue commands, 2.3;
   0.3.0 adds **node profiles** — what a node is for — in 2.5, with the
   wizard question in 2.2 and `oaap node` in 2.3; 0.3.1 adds **wireless
   resilience** to the readiness step in 2.2, after a headless node lost
   its network for 38 hours over one failed handshake; 0.3.2 registers
   the second defined profile, **`store`** (`oaap.data.store` 0.1,
-  RFC-0031 Schritt 1) — the first profile beyond `dev`)
+  RFC-0031 Schritt 1) — the first profile beyond `dev`; 0.3.3 registers
+  the third, **`broker`** (`oaap.events.broker` 0.1, RFC-0032 D2),
+  independent of `store`)
 - **Based on:** RFC-0001 (initial capability set), RFC-0002 (bootstrap
   security), RFC-0003 (installer modes, node health), RFC-0008
   (server_admin), RFC-0011 (node profiles)
@@ -246,6 +248,15 @@ profile whose absence removes a **capability** (data-model/twin) rather
 than a convenience — the health page and the portal MUST say so in
 those words, not merely omit the option.
 
+**Defined profile in 0.3.3: `broker`** — this node carries the MQTT
+broker of `oaap.events.broker` 0.1, **independent of `store`**: a
+back-office tenant has a twin but no reason to run real-time messaging.
+Like `store`, its effect is exhaustive and lives entirely in that spec,
+and the platform service is started/stopped (and kept up to date) only
+on a profiled node. The raw device port that spec establishes is
+published only when the node ALSO carries `exposed` — `broker` alone
+never opens a port on the host.
+
 **Restore** (`oaap.data.backup` 2.3): profiles describe the machine,
 not the service, and are therefore **not** restored from a backup.
 
@@ -360,6 +371,11 @@ Everything else is configured in the portal after setup.
     `dev` in `oaap status` and the health page, and the portal states
     that data-model/twin capabilities are unavailable on an unprofiled
     node instead of failing opaquely at first use.
+20. **`broker` profile** (0.3.3, `oaap.events.broker` 0.1): settable
+    independently of `store`; `oaap node add-profile broker` starts the
+    service the same way `store` does; adding or removing `exposed`
+    while `broker` is held republishes/unpublishes the raw device port
+    without a container restart the operator has to trigger by hand.
 
 ## 6. Dependencies
 
@@ -425,6 +441,18 @@ sind. Ohne das Profil sagt `oaap data store status` ausdrücklich
 ersten Zugriff unklar zu scheitern. Ein Knoten, der das Profil neu
 bekommt, erhält den Dienst beim nächsten Update; einer ohne wird nie
 angefasst — kein Postgres auf dem Raspi, das niemand wollte.
+
+## Deutsche Zusammenfassung (Profil `broker`, v0.3.3)
+
+**Drittes Profil, unabhängig vom zweiten.** `broker` entscheidet, ob ein
+Knoten den MQTT-Broker aus `oaap.events.broker` trägt — getrennt von
+`store`, weil ein reiner Backoffice-Mandant einen Zwilling hat, aber
+keine Echtzeit-Geräte oder -Browser. Wie bei `store` startet und stoppt
+das Profil selbst einen echten Dienst. Der rohe Geräte-Port dieses
+Dienstes öffnet sich nicht schon mit `broker` allein, sondern erst,
+wenn der Knoten zusätzlich `exposed` trägt — Auf- und Abnehmen von
+`exposed` wirkt sofort, ohne dass der Betreiber den Container selbst
+neu starten muss.
 
 ## Deutsche Zusammenfassung (WLAN-Absicherung, v0.3.1)
 

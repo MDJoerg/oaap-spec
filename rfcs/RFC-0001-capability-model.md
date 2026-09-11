@@ -64,6 +64,9 @@ Capabilities are organized in namespaces:
 - `oaap.net` — connectivity: remote access, integration
 - `oaap.ai` — intelligence: inference, agents
 - `oaap.ux` — user experience: visual language, UI contracts
+- `oaap.events` — real-time messaging and the unified namespace: the
+  broker, and (later) guaranteed delivery/edge sync (added by RFC-0032,
+  2026-09-11)
 
 Namespaces are extensible; new ones require an RFC.
 
