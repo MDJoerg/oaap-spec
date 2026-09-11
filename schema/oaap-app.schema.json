@@ -1,18 +1,46 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://oaap.org/schema/oaap-app-0.2.json",
-  "title": "OAAP app manifest (oaap-app.yaml), manifest versions 0.1, 0.2 and 0.4 (0.3 not yet covered)",
-  "$comment": "This schema is an AUTHORING tool: it rejects unknown fields so a typo is caught where it is made. A node in the field reads more tolerantly (RFC-0012 §8.2) — it accepts a higher minor version and ignores what it does not know, because otherwise every extension of the format would be a flag day for the whole fleet. Strict schema, tolerant runtime. The newest schema always validates every manifest version still readable, which is why this one lists 0.1, 0.2 and 0.4 — 0.3 is a pre-existing gap (see the oaap_manifest property comment), not fixed by this change.",
+  "title": "OAAP app manifest (oaap-app.yaml), manifest versions 0.1, 0.2, 0.3 and 0.4",
+  "$comment": "This schema is an AUTHORING tool: it rejects unknown fields so a typo is caught where it is made. A node in the field reads more tolerantly (RFC-0012 §8.2) — it accepts a higher minor version and ignores what it does not know, because otherwise every extension of the format would be a flag day for the whole fleet. Strict schema, tolerant runtime. The newest schema always validates every manifest version still readable, which is why this one lists 0.1 through 0.4.",
   "type": "object",
   "required": [
     "oaap_manifest",
-    "app",
-    "services",
-    "routes",
-    "health"
+    "app"
   ],
   "additionalProperties": false,
   "allOf": [
+    {
+      "$comment": "RFC-0012 §8.5 / oaap.data.model 0.1 §2.8: a 'data_models' artefact (manifest 0.3+) is a package with data_model only — no service, no route, no health check, and no app.type either, because it never builds or runs a container (RFC-0031 §4). Recognised the same way appctl.py's validate_manifest() recognises it: structurally, by 'data_model' present and 'services' absent — not by a declared class. A normal app (the 'else' branch) keeps the pre-0.3 requirements unchanged.",
+      "if": {
+        "required": ["data_model"],
+        "properties": {
+          "data_model": {
+            "minProperties": 1
+          }
+        },
+        "not": {
+          "required": ["services"]
+        }
+      },
+      "then": {
+        "not": {
+          "anyOf": [
+            { "required": ["routes"] },
+            { "required": ["endpoints"] },
+            { "required": ["storage"] }
+          ]
+        }
+      },
+      "else": {
+        "required": ["services", "routes", "health"],
+        "properties": {
+          "app": {
+            "required": ["type"]
+          }
+        }
+      }
+    },
     {
       "$comment": "A field added in 0.2 may only be used by a manifest that declares 0.2. The runtime does NOT enforce this — it reads whatever it finds — but an author who uses a new field while still claiming the old version has made a mistake worth catching here.",
       "if": {
@@ -35,7 +63,28 @@
       }
     },
     {
-      "$comment": "Same rule as above, for the 0.4 field: 'launchpad' may only be used by a manifest declaring at least 0.4 (RFC-0036). Written against 0.1/0.2 only, because 0.3 (data_model/contributes/consumes, RFC-0031 Schritt 2) is not yet in the oaap_manifest enum below — a pre-existing gap in this authoring schema, tracked separately from this RFC's own change, not fixed here.",
+      "$comment": "Same rule as above, for the 0.4 field: 'launchpad' may only be used by a manifest declaring at least 0.4 (RFC-0036).",
+      "if": {
+        "properties": {
+          "oaap_manifest": {
+            "enum": [
+              "0.1",
+              "0.2",
+              "0.3"
+            ]
+          }
+        }
+      },
+      "then": {
+        "not": {
+          "required": [
+            "launchpad"
+          ]
+        }
+      }
+    },
+    {
+      "$comment": "Same rule again, for the 0.3 fields: 'data_model', 'contributes' and 'consumes' may only be used by a manifest declaring at least 0.3 (RFC-0031 Schritt 2, oaap.data.model 0.1).",
       "if": {
         "properties": {
           "oaap_manifest": {
@@ -48,8 +97,10 @@
       },
       "then": {
         "not": {
-          "required": [
-            "launchpad"
+          "anyOf": [
+            { "required": ["data_model"] },
+            { "required": ["contributes"] },
+            { "required": ["consumes"] }
           ]
         }
       }
@@ -60,9 +111,10 @@
       "enum": [
         "0.1",
         "0.2",
+        "0.3",
         "0.4"
       ],
-      "$comment": "MAJOR.MINOR. A new MINOR only adds; a new MAJOR is the only thing a node may refuse (RFC-0012 §8.2). Deliberately not the semver 0.x reading, where the minor would carry breaking changes. 0.2 adds app.class. 0.4 adds the 'launchpad' section (RFC-0036). 0.3 (data_model/contributes/consumes, RFC-0031 Schritt 2) is intentionally NOT listed yet — this authoring schema was never updated for it; a manifest declaring 0.3 is valid at runtime (appctl.py) but not yet accepted here. Do not author a 0.3 manifest against this schema until that gap is closed."
+      "$comment": "MAJOR.MINOR. A new MINOR only adds; a new MAJOR is the only thing a node may refuse (RFC-0012 §8.2). Deliberately not the semver 0.x reading, where the minor would carry breaking changes. 0.2 adds app.class. 0.3 adds the 'data_model', 'contributes' and 'consumes' sections (RFC-0031 Schritt 2, oaap.data.model 0.1). 0.4 adds the 'launchpad' section (RFC-0036)."
     },
     "must_understand": {
       "type": "array",
@@ -77,8 +129,7 @@
       "required": [
         "id",
         "name",
-        "version",
-        "type"
+        "version"
       ],
       "additionalProperties": false,
       "properties": {
@@ -278,6 +329,172 @@
           "type": "array",
           "items": {
             "type": "string"
+          }
+        }
+      }
+    },
+    "data_model": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Manifest 0.3, RFC-0031 §5 / oaap.data.model 0.1 §2.2/§2.3: the types THIS package defines, one array per kind. Whether a 'type:' word actually resolves to something registered is a binding-time question, answered only at install — this only checks shape (mirrors validate_data_model_sections() in platform/appctl.py).",
+      "properties": {
+        "object_types": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["key"],
+            "additionalProperties": false,
+            "properties": {
+              "key": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9]*$"
+              },
+              "title": { "type": "string" },
+              "title_plural": { "type": "string" },
+              "identifying": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "Attribute-type keys that together identify an instance of this object type (§3.3)."
+              }
+            }
+          }
+        },
+        "attribute_types": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["key", "value_type"],
+            "additionalProperties": false,
+            "properties": {
+              "key": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9]*$"
+              },
+              "title": { "type": "string" },
+              "value_type": {
+                "enum": ["text", "int", "decimal", "bool", "date", "datetime", "enum", "ref"]
+              }
+            }
+          }
+        },
+        "group_types": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["key", "on"],
+            "additionalProperties": false,
+            "properties": {
+              "key": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9]*(\\.[a-z][a-z0-9]*)+$",
+                "description": "Dotted-lowercase <namespace>.<name> (§3.3) — the one kind an app author is expected to prefix by hand."
+              },
+              "on": {
+                "type": "string",
+                "description": "The object-type key this group attaches to."
+              },
+              "attributes": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "relations": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "activities": {
+                "type": "array",
+                "items": { "type": "string" }
+              }
+            }
+          }
+        },
+        "relation_types": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["key", "from", "to"],
+            "additionalProperties": false,
+            "properties": {
+              "key": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9]*$"
+              },
+              "title": { "type": "string" },
+              "title_inverse": { "type": "string" },
+              "from": {
+                "type": "string",
+                "description": "Object-type key this relation points from."
+              },
+              "to": {
+                "type": "string",
+                "description": "Object-type key this relation points to."
+              },
+              "valid": { "type": "boolean" }
+            }
+          }
+        },
+        "activity_types": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["key"],
+            "additionalProperties": false,
+            "properties": {
+              "key": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9]*$"
+              },
+              "title": { "type": "string" },
+              "is_task": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    },
+    "contributes": {
+      "type": "array",
+      "description": "Manifest 0.3, RFC-0031 §5: object types this instance OWNS or contributes a group to.",
+      "items": {
+        "type": "object",
+        "required": ["type"],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "The object-type key being contributed to."
+          },
+          "role": {
+            "enum": ["owner", "contributor"],
+            "default": "owner",
+            "description": "'owner' may create/delete instances of the type; 'contributor' only attaches its own group (requires 'group')."
+          },
+          "group": {
+            "type": "string",
+            "description": "Required when role is 'contributor': the group-type key (data_model.group_types) this contribution attaches."
+          }
+        }
+      }
+    },
+    "consumes": {
+      "type": "array",
+      "description": "Manifest 0.3, RFC-0031 §5: object types this instance reads by reference, without owning or contributing to them.",
+      "items": {
+        "type": "object",
+        "required": ["type"],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "The object-type key being consumed."
+          },
+          "as": {
+            "type": "string",
+            "description": "Local alias this instance uses for the type."
+          },
+          "fields": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Attribute-type keys (or 'reference') this instance reads from the type."
           }
         }
       }
