@@ -1,7 +1,11 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.25 (`_install_from_dir`, the same choke point that
+- **Version:** 0.2.26 (manifest **0.4** adds an optional `launchpad`
+  section — `group` (a section label, RFC-0036 D2) and `embeddable`
+  (reserved, no effect yet, RFC-0036 D1) — in the new 2.16; not a
+  `must_understand` feature, same reasoning as `app.class` in 2.10;
+  0.2.25 (`_install_from_dir`, the same choke point that
   hands `data_model`/`contributes`/`consumes` to `oaap.data.model`, now
   hands the latter two to `oaap.data.twin` 0.1 too — a machine-
   principal key and a tenant's twin schema, RFC-0031 Schritt 3, E1;
@@ -76,7 +80,10 @@
   token; 0.2.23 adds the **rehearsal instance** in the new 2.15, per
   RFC-0030 — an ordinary production-channel instance with two more
   recorded facts, carrying a copy of production data, which is why the
-  four refusals of 2.15.2 are the substance of it and not its trim)
+  four refusals of 2.15.2 are the substance of it and not its trim;
+  0.2.26 adds **launchpad hints** in the new 2.16, per RFC-0036 D1/D2:
+  a `group` label the portal renders as a section heading, and a
+  reserved `embeddable` flag with no reader yet)
 - **Based on:** RFC-0001 (capability model), RFC-0002 (roles/gateway),
   RFC-0003 (placement), RFC-0004 (manifest/app types), RFC-0005
   (addressing), RFC-0007 (visibility groups), RFC-0008 (server_admin),
@@ -84,6 +91,7 @@
   RFC-0015 (non-HTTP endpoints),
   RFC-0016 (app isolation and multi-container apps),
   RFC-0026 (instance identity), RFC-0029 (backups),
+  RFC-0036 (launchpad/shell, Teil B),
   RFC-0030 (rehearsal instances);
   platform side of the App Deployment Contract
   (`docs/app-deployment-contract.md`)
@@ -960,6 +968,40 @@ to `app.type` (2.2), which says how it is *packaged*:
   them. Hiding an app from a user is what visibility groups (2.7) are
   for.
 
+### 2.16 Launchpad hints: section label and an embeddable reserve (RFC-0036 D1/D2)
+
+A manifest MAY declare a **`launchpad`** section — a developer hint
+about how the tile is *displayed*, never about who may *see* it (that
+stays 2.7/2.10, the operator's decision):
+
+| field        | type    | meaning                                        |
+|--------------|---------|-------------------------------------------------|
+| `group`      | string  | a section label; tiles sharing one are shown under a heading. Absent/empty means the pre-existing, unlabelled bucket. Max 40 characters. |
+| `embeddable` | boolean | reserved; has no effect yet — see below.        |
+
+- **`group` is display only, like `app.class` (2.10).** It is read from
+  the manifest at install time, never from a store list, for the same
+  offline-answer reason 2.10 gives; a redeploy re-reads it, because it
+  describes the app, not the operator's decision about this instance.
+  There is no per-tenant reordering or renaming in this version — that
+  would be an operator decision on top, deliberately not built until a
+  concrete need shows it (RFC-0036 D2, narrower than Jörg's original
+  tenant-design-editor idea, same reasoning RFC-0035 D3 used for a
+  platform-wide theme before a per-tenant one).
+- **`embeddable` does nothing today.** The launchpad (portal spec 2.6)
+  opens every tile as a normal link, target `_blank` — an app stays a
+  separate page, per RFC-0016's network isolation, which a shell cannot
+  paper over without weakening it. RFC-0036 D1 decided to keep that for
+  now, but reserved this field so a future embedded shell mode has a
+  name to read without a breaking manifest change — the same non-
+  breaking-reserve pattern RFC-0035 D3 used for a future per-tenant
+  theme. An app that sets it `true` is only stating that it was built
+  with that future mode in mind (e.g. it does not depend on full
+  browser chrome); nothing enforces or checks the claim yet.
+- **Neither field is a `must_understand` feature** (2.2). A node that
+  ignores `group` shows the tile without a heading; one that ignores
+  `embeddable` loses nothing, since nothing reads it yet.
+
 ## 3. Configuration
 
 - Level-1 port range (default 8100–8199, expert-configurable;
@@ -1176,6 +1218,16 @@ to `app.type` (2.2), which says how it is *packaged*:
     `tenant_admin` of another tenant is answered as for an instance that
     does not exist. The portal states, before the copy, how large it
     will be and how much room is left on **this** node.
+
+46. **Launchpad group is a heading, not a filter (2.16)**: two instances
+    declaring the same `launchpad.group` appear under one shared section
+    heading on the launchpad; an instance with no `group` appears in the
+    unlabelled section exactly as it would have before manifest 0.4
+    existed. Nothing about role or visibility filtering changes.
+47. **`embeddable` is inert (2.16)**: an instance whose manifest sets
+    `launchpad.embeddable: true` opens exactly like one that does not —
+    same URL, same new tab. The field is accepted and stored, and
+    nothing yet reads it.
 
 ## 6. Dependencies
 
@@ -1658,3 +1710,25 @@ vor der Installation aus der `instance.env` entfernt — sonst könnte
 eine Generalprobe über den Zwilling die **echten** Kundendaten
 erreichen, obwohl RFC-0030 genau das verhindern soll. Details stehen
 in `oaap.data.twin`s eigener Spezifikation, §2.2.
+
+## Deutsche Zusammenfassung (Manifest 0.4, v0.2.26, RFC-0036 Teil B)
+
+**Zwei neue, freiwillige Felder** unter einem neuen Manifest-Abschnitt
+`launchpad` — reine Anzeige-Hinweise des Entwicklers, keine
+Zugriffsentscheidung (die bleibt bei 2.7/2.10 und beim Betreiber):
+
+- **`group`** — eine Abschnittsüberschrift, unter der das Portal
+  Kacheln mit demselben Label gruppiert zeigt. Kein Umsortieren durch
+  den Mandanten in dieser Version — das wäre eine eigene, größere
+  Ausbaustufe (Jörgs ursprüngliche Tenant-Design-Editor-Idee), bewusst
+  zurückgestellt, bis ein konkreter Bedarf sie verlangt.
+- **`embeddable`** — tut heute noch nichts. Jede Kachel öffnet weiterhin
+  ihre App als eigene Seite in einem neuen Tab; ein eingebetteter
+  Shell-Modus würde die Netz-Trennung aus RFC-0016 aufweichen und ist
+  bewusst nicht Teil dieser Version. Der Name ist nur reserviert, damit
+  eine spätere Ausbaustufe keinen Bruch am Manifest-Format braucht —
+  derselbe Kniff, den RFC-0035 D3 für ein späteres Mandanten-Design
+  vorgemacht hat.
+
+Ein Knoten mit älterem Referenzstand ignoriert `launchpad` einfach —
+die Kachel erscheint ohne Überschrift, nicht anders als heute.

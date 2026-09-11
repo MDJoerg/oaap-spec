@@ -1,8 +1,12 @@
 # oaap.core.portal — Web Portal
 
 - **ID:** `oaap.core.portal`
-- **Version:** 0.3.12
-- **Maturity:** draft (0.3.12 opens the store catalogue to a
+- **Version:** 0.3.13
+- **Maturity:** draft (0.3.13 groups launchpad tiles under a section
+  heading when their manifest declares `launchpad.group`
+  (`oaap.apps.runtime` 2.16, RFC-0036 D2) and adds a `Profil` header
+  link next to `Passwort`, to the new self-service display-name page
+  (`oaap.core.identity` 2.4, RFC-0036 D3); 0.3.12 opens the store catalogue to a
   `tenant_admin` — RFC-0022 §4 gives them "install and remove app
   instances of their tenant", and a catalogue they cannot open makes
   that right unusable, while the SOURCE list stays the node operator's;
@@ -28,7 +32,7 @@
   page and added source management, per RFC-0012 §6/§7 — the last step
   of `portal-statt-cli.md`)
 - **Based on:** RFC-0001, RFC-0002, RFC-0003, RFC-0005, RFC-0007,
-  RFC-0008, RFC-0009, RFC-0010, RFC-0011, RFC-0012, RFC-0022
+  RFC-0008, RFC-0009, RFC-0010, RFC-0011, RFC-0012, RFC-0022, RFC-0036
 
 ## 1. Purpose
 
@@ -67,7 +71,21 @@ form again.
 
 - Installed app instances appear as tiles with name, description,
   version, and channel badge; the tile links to the instance's
-  platform-generated URL. Apps open through the gateway, never embedded.
+  platform-generated URL. Apps open through the gateway, never
+  embedded — decided formally as RFC-0036 D1: an embedded shell mode
+  would need to weaken RFC-0016's per-app network isolation, and stays
+  a non-goal until a concrete need outweighs that. `oaap.apps.runtime`
+  2.16's `embeddable` manifest hint reserves the name for that future
+  version; it is read by nothing today.
+- **Tiles are grouped under a section heading (RFC-0036 D2, 0.3.13)**
+  when their instance's manifest declares `launchpad.group`
+  (`oaap.apps.runtime` 2.16) — a developer's suggestion, not an
+  operator or tenant setting; two instances with the same label share
+  one heading. An instance with no group appears in the pre-existing,
+  unlabelled section, exactly as every tile did before this field
+  existed. There is no reordering, renaming or tenant-side layout
+  editing in this version — see the Nachtrag below for why that is
+  deliberately deferred rather than half-built here.
 - **Tile targets depend on where the caller is, not on which name they
   used.** LAN listener ports (RFC-0005 level 1) are reachable only from
   inside; from outside just the platform's HTTP(S) ports are forwarded.
@@ -105,8 +123,10 @@ form again.
   app runtime (`oaap.apps.runtime`); the portal reads it, it never
   writes it.
 - Later stages (backlog, RFC-0005/portal outline): tile images,
-  grouping, operator-configurable appearance, multiple designs per
-  user/group.
+  tenant-configurable grouping/reordering (RFC-0036 D2, deferred —
+  the launchpad.group label above is developer-only, not operator- or
+  tenant-editable), operator-configurable appearance, multiple designs
+  per user/group.
 
 ### 2.3 User management
 
@@ -487,6 +507,13 @@ configuration is a later stage (2.2).
     installed in another tenant does not read as "installed"; and
     installing under a name that tenant does not hold is refused as
     **taken**, without naming the tenant that holds it.
+21. **Launchpad grouping is display only (RFC-0036 D2)**: two visible
+    instances whose manifests declare the same `launchpad.group` render
+    under one shared heading; an instance with no group renders in the
+    unlabelled section, byte-for-byte where it would have rendered
+    before this field existed; role and group filtering (test 2) are
+    unchanged by grouping — a tile a caller may not see is absent from
+    every section, not just its own.
 
 ## 6. Dependencies
 
@@ -759,3 +786,43 @@ voneinander ab, ist genau dieser Fehler wieder da.
 gar keine automatische Adresse.** Das ist dieselbe Richtung, in die das
 Gateway ausfällt: lieber kein Name als die App eines Kunden unter dem
 Namen des Betreibers.
+
+## Nachtrag 0.3.13 — Teil B des Design-Kontrakts: Gruppierung ja, Einbetten und Mandanten-Editor bewusst noch nicht
+
+RFC-0035 (Teil A, Farben/Typografie) ließ Navigation, Sichtbarkeit je
+Gruppe und Erweiterungen für Teil B offen. Sichtbarkeit je Gruppe war
+bei genauerem Hinsehen längst gelöst (RFC-0007, 2.4) — RFC-0036 musste
+davon nur noch die tatsächlich offenen Stücke entscheiden: wie eine
+Kachel sich öffnet, wie Kacheln gruppiert werden, was ein Nutzer an
+sich selbst ändern darf, und wie weit ein App-übergreifendes
+Erweiterungskonzept jetzt schon gehen soll.
+
+**Einbetten bleibt Nicht-Ziel, aber der Name ist reserviert.** Jede
+Kachel öffnet weiterhin als eigene Seite in einem neuen Tab — ein
+eingebettetes Launchpad (echtes Fiori-Muster) würde RFC-0016s
+Netz-Trennung aufweichen, ohne dass ein konkreter Bedarf das heute
+verlangt. Damit eine spätere Ausbaustufe keinen Bruch am Manifest
+braucht, reserviert `launchpad.embeddable` (`oaap.apps.runtime` 2.16)
+schon jetzt den Namen — liest niemand, tut nichts.
+
+**Gruppierung ist die einzige Erweiterung, die jetzt schon etwas tut.**
+`launchpad.group` im Manifest ist ein Entwickler-Vorschlag für eine
+Abschnittsüberschrift, keine Mandanten- oder Betreiber-Entscheidung —
+Jörgs größere Idee eines Tenant-Design-Editors (Kacheln selbst
+umsortieren, umbenennen, per Drag&Drop zuordnen) bleibt bewusst
+zurückgestellt, aus demselben Grund, den RFC-0035 D3 für ein
+Mandanten-Farbschema schon einmal gab: erst der schmale, sofort
+nützliche Schritt, der später erweitert werden kann, ohne etwas
+wegzuwerfen.
+
+**Self-Service wächst um genau ein Feld.** Ein Nutzer kann jetzt auch
+seinen Anzeigenamen selbst ändern (`/auth/profile`,
+`oaap.core.identity` 2.4) — das einzige Feld am eigenen Datensatz ohne
+Sicherheitsrelevanz. Rollen, Gruppen, Mandant, Benutzername und
+Aktiv-Status bleiben unverändert Admin-Sache.
+
+**Das Erweiterungskonzept bleibt Richtung, nicht Code.** Wie eine App
+dem Portal künftig etwas anbieten könnte (z. B. ein leichter Link statt
+einer vollen Kachel) ist in RFC-0036 selbst nur benannt, nicht
+gebaut — dieselbe Zurückhaltung wie beim Einbetten, aus demselben
+Grund: kein konkreter Anwendungsfall verlangt es noch.

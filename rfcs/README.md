@@ -40,4 +40,4 @@ never deleted; superseded RFCs get status `Superseded by RFC-XXXX`.
 - [RFC-0033](RFC-0033-destinations-and-the-connector.md) — Destinations and the Connector: Reaching Inward Without Opening a Door (Accepted)
 - [RFC-0034](RFC-0034-documents-and-file-storage.md) — Documents and File Storage: One Place to Put a File, Many Places to Keep It (Accepted)
 - [RFC-0035](RFC-0035-app-design-contract.md) — The App Design Contract: A Shared Theme, Not a Shared Codebase (Accepted)
-- RFC-0036 — reserved: the Launchpad/Shell — navigation, visibility, self-service, extensions (RFC-0035 "followed by", Part B of the same design round)
+- [RFC-0036](RFC-0036-launchpad-shell.md) — The Launchpad Shell: tile grouping, self-service display name, embedding as a reserved non-goal, an extension-concept direction (Accepted; Part B of RFC-0035's design round)

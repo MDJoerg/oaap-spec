@@ -54,6 +54,11 @@ capability spec). It describes:
 8. **Placement hints** — optional node requirements per RFC-0003
    (e.g. "needs GPU", "location: site X"); the admin decides final
    placement.
+9. **Launchpad hints** (manifest 0.4, RFC-0036) — an optional `group`
+   section label the portal renders as a heading, and a reserved
+   `embeddable` flag with no effect yet. Display only, not access
+   control — who may see the tile stays §5 (routes & roles) and the
+   operator-set visibility (RFC-0007).
 
 The manifest contains **no runtime-specific instructions** (no compose
 or Kubernetes fragments in the core schema). Providers translate the

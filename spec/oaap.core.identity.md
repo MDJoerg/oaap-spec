@@ -1,9 +1,9 @@
 # oaap.core.identity — Identity & Roles
 
 - **ID:** `oaap.core.identity`
-- **Version:** 0.3.4
+- **Version:** 0.3.5
 - **Maturity:** draft
-- **Based on:** RFC-0001, RFC-0002, RFC-0007, RFC-0008
+- **Based on:** RFC-0001, RFC-0002, RFC-0007, RFC-0008, RFC-0036
 - **Scope of this version:** built-in minimal identity provider with
   user management. External identity providers (Keycloak, LDAP, OIDC)
   are out of scope and must be able to replace this provider later
@@ -16,6 +16,9 @@
   scoped to one tenant. Still invisible while a node has one tenant.
   0.3.4 names the self-service surface an app may use (2.7): the
   `/auth/*` guarantee on every entry point, and `GET /auth/whoami`.
+  0.3.5 extends self-service (2.4) to a user's own `display_name`, per
+  RFC-0036 D3 — the one field of their own record that carries no
+  privilege.
 
 ## 1. Purpose
 
@@ -153,8 +156,13 @@ session may go* — see the tenant restriction in 2.3.
   equivalent protection for `admin` any more — it is an ordinary
   app-facing role.
 - **Self-service password change:** every signed-in user can change
-  their own password by providing the current one. No other
-  self-service exists in this version.
+  their own password by providing the current one.
+- **Self-service display name (RFC-0036 D3, 0.3.5):** every signed-in
+  user can change their own `display_name` — the one field of their
+  own record that carries no privilege, so there is no security reason
+  it stayed admin-only. Every other field of the user record (roles,
+  groups, tenant, username, active flag) stays admin-only, unchanged
+  — this route touches nothing but the display name.
 - Deleting users is not part of this version — deactivate instead
   (audit trails in apps may reference the username). Deletion semantics
   (including GDPR aspects) are an open point for a later version.
@@ -339,6 +347,12 @@ owns — never the widget.
     entry point, `/auth/password`, `/auth/logout` and `/auth/whoami`
     reach identity and not the app, even when the app declares a route
     of the same path.
+16. **Self-service display name touches nothing else** (0.3.5, RFC-0036
+    D3) — a signed-in user changing their own `display_name` cannot,
+    through the same request, change their roles, groups, tenant,
+    username or active flag; a name over 80 characters is rejected with
+    no change made; an unauthenticated request is redirected to login,
+    never accepted.
 
 ## 6. Dependencies
 
@@ -350,7 +364,8 @@ None (foundation; the gateway depends on identity, not vice versa).
 adds the `server_admin` role (RFC-0008) and visibility groups
 (RFC-0007); v0.3.3 adds `tenant_admin` and the tenant boundary
 (`oaap.core.tenant` 0.2); v0.3.4 names the app-facing self-service
-surface (2.7). Open points for later versions: external identity
+surface (2.7); v0.3.5 extends self-service to the user's own
+`display_name` (RFC-0036 D3). Open points for later versions: external identity
 providers (Keycloak/LDAP/OIDC), 2FA (required by the internet
 hardening profile), forced password change on first login, user
 deletion/GDPR semantics, per-app service accounts, moving a user
@@ -400,3 +415,12 @@ Schlüssel bei `sudo oaap update` erzeugt und die beiden Dienste einmal
 neu erzeugt. **Die eigentliche Lösung** ist ein eigenes Netz je App
 (RFC-0015 A4, Schritt 2) — dieser Schlüssel schließt die Lücke sofort,
 bis die Netz-Trennung die Erreichbarkeit ganz beseitigt.
+
+## Deutsche Zusammenfassung (Self-Service Anzeigename, v0.3.5, RFC-0036 Teil B)
+
+**Eine neue Seite, `/auth/profile`, analog zu `/auth/password`.** Jeder
+angemeldete Nutzer kann seinen eigenen Anzeigenamen selbst ändern, ohne
+einen Admin zu bitten — bisher ging das nur beim Passwort. Bewusst
+klein geschnitten: Rollen, Gruppen, Mandant, Benutzername und
+Aktiv-Status bleiben unverändert Admin-Sache, weil sie eine
+sicherheitsrelevante Entscheidung tragen; der Anzeigename trägt keine.

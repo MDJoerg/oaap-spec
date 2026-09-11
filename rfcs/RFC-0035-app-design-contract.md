@@ -9,11 +9,13 @@
   RFC-0016 (app isolation — apps stay separate codebases; only the
   theme is shared), RFC-0022 (tenant as boundary — a future per-tenant
   theme follows the same boundary as the twin)
-- **Followed by:** RFC-0036 (reserved) — the Launchpad/Shell: navigation
-  structure, app visibility per user group, grouping, self-service
-  (profile/password), a cross-app extension concept. This RFC is
-  deliberately Part A of a two-part design round; Part B is its own
-  decision, not yet drafted.
+- **Followed by:** RFC-0036, Accepted 2026-09-11 — the Launchpad
+  Shell: tile grouping by manifest label, self-service display name,
+  an embedding non-goal with a reserved manifest field, and a
+  documented (not built) extension-concept direction. Visibility per
+  user group, also named when RFC-0036 was reserved, turned out to
+  already be RFC-0007 — RFC-0036 references it rather than redeciding
+  it. This RFC is deliberately Part A of a two-part design round.
 - **Driver:** Jörg, 2026-09-10, while `oaap-apps` was actively growing:
   *„Wir müssten eigentlich auch Tools und Regeln vorgeben, wenn wir
   erreichen wollen, dass zumindest Apps, die für OAAP gebaut werden,
@@ -126,13 +128,18 @@ enforces it, and the store does not check for it.
 
 ## 2. Non-goals
 
-Explicitly **not** decided here — reserved for RFC-0036 (Part B):
+Explicitly **not** decided here — reserved for RFC-0036 (Part B),
+resolved 2026-09-11:
 
-- Navigation structure (sidebar vs. top nav, and who chooses)
-- A launchpad/shell service: app visibility per user group, custom
-  grouping, tenant-chosen layout
-- Self-service functions hosted by a shell (profile, password)
-- Any cross-app extension concept
+- Navigation structure (sidebar vs. top nav, and who chooses) — RFC-0036
+  kept apps standalone (D1), navigation itself otherwise untouched.
+- A launchpad/shell service: app visibility per user group (turned out
+  to already be RFC-0007), custom grouping (RFC-0036 D2, developer
+  label only), tenant-chosen layout (still deferred)
+- Self-service functions hosted by a shell — password already existed;
+  RFC-0036 D3 adds the display name, nothing else
+- Any cross-app extension concept — RFC-0036 D4 names a direction,
+  builds nothing
 
 Also not decided: retrofitting the eight existing apps in one pass
 (D6 — deliberately opportunistic instead), and a manifest-level
@@ -158,7 +165,7 @@ Sechs Entscheidungen, alle nach Empfehlung:
 - **D5 — Verbindlich für `oaap-apps`, Empfehlung für fremde Apps:** kein Manifest-Zwang in dieser Version.
 - **D6 — Kein Nachbau aller acht Apps auf einmal:** Kontrakt gilt für die nächste neue App, Bestand zieht mit, wenn er ohnehin verändert wird.
 
-**Teil B** (Launchpad/Shell — Navigation, Sichtbarkeit je Nutzergruppe, Self-Service, Erweiterungskonzept) ist als RFC-0036 reserviert, noch nicht entworfen.
+**Teil B** ist RFC-0036, am 11.09. entschieden: Gruppierung per Manifest-Label, Self-Service-Anzeigename, Einbetten als bewusstes Nicht-Ziel mit reserviertem Manifest-Feld, ein nur dokumentiertes (nicht gebautes) Erweiterungskonzept. Sichtbarkeit je Nutzergruppe — beim Reservieren noch als offen benannt — war bei genauerem Hinsehen längst RFC-0007.
 
 ## Decision record (2026-09-10)
 
@@ -181,5 +188,5 @@ every recommendation followed.
 ### What follows
 
 No build yet. The contract is applied when the next app is built
-under the RFC-0031 bauplan. Part B (RFC-0036, reserved) is its own,
-separate design round — not opened by this RFC.
+under the RFC-0031 bauplan. Part B (RFC-0036) was its own, separate
+design round — not opened by this RFC — decided and built 2026-09-11.

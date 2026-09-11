@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://oaap.org/schema/oaap-app-0.2.json",
-  "title": "OAAP app manifest (oaap-app.yaml), manifest versions 0.1 and 0.2",
-  "$comment": "This schema is an AUTHORING tool: it rejects unknown fields so a typo is caught where it is made. A node in the field reads more tolerantly (RFC-0012 §8.2) — it accepts a higher minor version and ignores what it does not know, because otherwise every extension of the format would be a flag day for the whole fleet. Strict schema, tolerant runtime. The newest schema always validates every manifest version still readable, which is why this one lists both 0.1 and 0.2.",
+  "title": "OAAP app manifest (oaap-app.yaml), manifest versions 0.1, 0.2 and 0.4 (0.3 not yet covered)",
+  "$comment": "This schema is an AUTHORING tool: it rejects unknown fields so a typo is caught where it is made. A node in the field reads more tolerantly (RFC-0012 §8.2) — it accepts a higher minor version and ignores what it does not know, because otherwise every extension of the format would be a flag day for the whole fleet. Strict schema, tolerant runtime. The newest schema always validates every manifest version still readable, which is why this one lists 0.1, 0.2 and 0.4 — 0.3 is a pre-existing gap (see the oaap_manifest property comment), not fixed by this change.",
   "type": "object",
   "required": [
     "oaap_manifest",
@@ -33,15 +33,36 @@
           }
         }
       }
+    },
+    {
+      "$comment": "Same rule as above, for the 0.4 field: 'launchpad' may only be used by a manifest declaring at least 0.4 (RFC-0036). Written against 0.1/0.2 only, because 0.3 (data_model/contributes/consumes, RFC-0031 Schritt 2) is not yet in the oaap_manifest enum below — a pre-existing gap in this authoring schema, tracked separately from this RFC's own change, not fixed here.",
+      "if": {
+        "properties": {
+          "oaap_manifest": {
+            "enum": [
+              "0.1",
+              "0.2"
+            ]
+          }
+        }
+      },
+      "then": {
+        "not": {
+          "required": [
+            "launchpad"
+          ]
+        }
+      }
     }
   ],
   "properties": {
     "oaap_manifest": {
       "enum": [
         "0.1",
-        "0.2"
+        "0.2",
+        "0.4"
       ],
-      "$comment": "MAJOR.MINOR. A new MINOR only adds; a new MAJOR is the only thing a node may refuse (RFC-0012 §8.2). Deliberately not the semver 0.x reading, where the minor would carry breaking changes. 0.2 adds app.class."
+      "$comment": "MAJOR.MINOR. A new MINOR only adds; a new MAJOR is the only thing a node may refuse (RFC-0012 §8.2). Deliberately not the semver 0.x reading, where the minor would carry breaking changes. 0.2 adds app.class. 0.4 adds the 'launchpad' section (RFC-0036). 0.3 (data_model/contributes/consumes, RFC-0031 Schritt 2) is intentionally NOT listed yet — this authoring schema was never updated for it; a manifest declaring 0.3 is valid at runtime (appctl.py) but not yet accepted here. Do not author a 0.3 manifest against this schema until that gap is closed."
     },
     "must_understand": {
       "type": "array",
@@ -258,6 +279,22 @@
           "items": {
             "type": "string"
           }
+        }
+      }
+    },
+    "launchpad": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Manifest 0.4, RFC-0036 D1/D2: developer hints about the launchpad tile's DISPLAY, never about who may see it (that stays 'routes[].roles' and the operator-set 'visibility', RFC-0007). Not 'placement' above — that section is node PLACEMENT per RFC-0003 (GPU, site), an unrelated meaning of the same English word.",
+      "properties": {
+        "group": {
+          "type": "string",
+          "maxLength": 40,
+          "description": "An optional section label; tiles sharing one are shown under one heading on the launchpad. Absent means the pre-existing, unlabelled section."
+        },
+        "embeddable": {
+          "type": "boolean",
+          "description": "Reserved; has no effect yet (RFC-0036 D1). Every tile opens its app as a standalone page today, per RFC-0016's network isolation. The name is reserved now so a future embedded shell mode needs no breaking manifest change."
         }
       }
     },
