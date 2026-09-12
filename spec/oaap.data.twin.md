@@ -1,9 +1,12 @@
 # oaap.data.twin — The Digital Twin
 
 - **ID:** `oaap.data.twin`
-- **Version:** 0.2
+- **Version:** 0.3
 - **Maturity:** draft
-- **Based on:** RFC-0031 (data model & digital twin — Twin is Schritt 3
+- **Based on:** RFC-0032 (events, states and the unified namespace — 0.3
+  builds its build-order step 2: the outbox relay and the `states`
+  table, §2.13; relay decisions of 2026-09-12 recorded there);
+  RFC-0031 (data model & digital twin — Twin is Schritt 3
   of the build order: Store, Model, Twin, reference apps, browser, then
   broker) §3, §6, §8, §9; `oaap.data.store` (every tenant's twin is a
   schema in it); `oaap.data.model` (the registry this service reads —
@@ -51,6 +54,19 @@ additively — nothing 0.1 could already do is narrowed:**
 - **A tree** (§9 step 7's second half), built by repeated reads, not a
   recursive CTE — correct at this scale, revisited only if it becomes
   slow (§2.10).
+
+**0.3 builds RFC-0032's build-order step 2 — the other end of the
+outbox, additively again:**
+
+- **The outbox relay** — a second process from the same image, its own
+  compose service `relay`, carried by the node profile `broker` (not
+  `store`): it publishes every `events` row to `oaap.events.broker`,
+  retained, on the twin's topic tree (§2.13).
+- **`states`** — one row per published group change, holding that
+  group's attribute snapshot; written only by the relay (§2.13).
+- **`GET /internal/twin/outbox`** — per tenant, how many events wait and
+  when the relay last reported, for the portal's health page (§2.13,
+  `oaap.core.portal` 2.5).
 
 Concretely still NOT built, named here rather than silently missing:
 
@@ -171,7 +187,9 @@ unfiltered in 0.1 — see §1) and `recorded_at`/`recorded_by` always.
 optionally name one as their target and carry a `status` plus the
 planning fields RFC-0031 §3.4 reserves for them, though nothing in 0.1
 updates a status after creation. `events` records `kind`/`object_id`/
-`group_key`/`origin` on every write — the outbox (§1).
+`group_key`/`origin` on every write — the outbox (§1). Since 0.3 two
+more tables sit beside them, `states` and `relay_watermark`, both
+belonging to the outbox relay (§2.13).
 
 `oaap.data.model`'s tables (`oaap_model.*`) are read directly, with a
 `GRANT SELECT` given to every tenant's schema role at provisioning
@@ -349,6 +367,82 @@ scoped already, no cross-tenant namespace question the way §2.11's
 type registry has); `tenant_admin` alone may view merge candidates,
 merge, unmerge, and create a type.
 
+### 2.13 The outbox relay and `states` (0.3, RFC-0032 §1.4/§1.5)
+
+Two decisions RFC-0032 left open were taken by Jörg on 2026-09-12, both
+following the recommendation: the relay runs as **its own service**
+(not inside `twin`, whose two web workers would publish twice and whose
+crash would restart nobody), and it authenticates at the broker with
+**its own platform secret** (`oaap.events.broker` 0.2 §2.4), not with
+one RFC-0027 key per tenant.
+
+**Where it runs.** Compose service `relay`: the `twin` image, command
+`relay.py`, node profile **`broker`** — no broker, no relay. It needs
+no port and no gateway route; it only calls out, to `store` (as each
+tenant's own schema role, from the same read-only `twin-secrets.json`
+`twin` mounts) and to `broker` (platform network, port 1883). It does
+not depend on `store` in compose — on a node with `broker` but without
+`store` it finds no twin schema and idles.
+
+**Two tables per tenant schema**, provisioned by the same host-side
+`_twin_ensure_tables` as every other, and reaching an existing tenant
+through `oaap data store migrate-twin` on update:
+
+- `states (id, event_id UNIQUE, object_id, group_key, recorded_at,
+  payload jsonb)` — RFC-0032 §1.4's table, plus `event_id`: it ties a
+  snapshot to the event it answers, and its uniqueness is what makes a
+  re-published row harmless. Append-only. Written ONLY by the relay.
+- `relay_watermark (id = 1, last_event_id, updated_at, checked_at,
+  last_error)` — exactly one row: the relay's bookkeeping, not twin
+  data, and therefore the one table here that is updated in place.
+
+**What it does, per tenant, in event-id order:**
+
+1. Read the events past `last_event_id` (joined to `objects` for the
+   type key).
+2. Work out the topic (`oaap.events.broker` §2.2):
+   `oaap/<tenant>/<type>/<object>/<group>` for a group event,
+   `oaap/<tenant>/<type>/<object>` for an object-wide one (merge,
+   unmerge). A row without an object (`type.created`) has no place in
+   a tree of objects and is passed over — watermark advanced, nothing
+   published.
+3. For a group event, read that group's current attributes — the
+   snapshot.
+4. Publish the thin row (`id`, `kind`, `object_id`, `group_key`,
+   `origin`, `recorded_at`), **retained, QoS 1, over MQTT v5**, and wait
+   for the broker's acknowledgement. v5, not 3.1.1, is a requirement,
+   not a preference: under 3.1.1 a broker acknowledges a publish it
+   refused on ACL grounds exactly like one it accepted, so a
+   misconfigured principal would advance the watermark over messages
+   that went nowhere. Under v5 the refusal comes back as a reason code,
+   and a refused publish stops this tenant at that row.
+5. Only then, in **one** transaction: insert the `states` row (if any)
+   and move `last_event_id` forward (never backward). A crash between
+   4 and 5 re-publishes one row on restart — a retained message is
+   simply replaced, and `event_id` refuses a second snapshot.
+
+**When the broker is away** (or refuses, or the secret is missing),
+nothing is skipped and nothing is lost: the tenant stops at the first
+unpublished row and the reason goes into `last_error`. The relay also
+writes `checked_at` at least once a minute while idle, so silence is
+distinguishable from calm.
+
+**A backlog** — events recorded before the relay first ran, or while
+the broker was away — is published in order, but each `states` row
+holds the group's snapshot at the moment the relay READ it (RFC-0032
+§1.4's own wording), not the value at the time of the event. The
+append-only tables above keep that history; `states` is not a second
+copy of it.
+
+**`GET /internal/twin/outbox`** — for each tenant: `pending` (events
+past the watermark), `watermark`, `checked_age` (seconds since the
+relay last reported, by Postgres's clock, so a clock difference between
+containers cannot make a live relay look silent) and `last_error`; or
+`error` when a schema lacks the relay tables. The one `/internal/twin/*`
+route without person headers: it answers a node-wide operator question
+and returns counts and ages only — never an object, a group or a
+value. It still sits behind the prefix guard (§2.12).
+
 ## 3. Configuration
 
 - `apps/twin-secrets.json` (`0600`, root and the `twin` container's
@@ -366,6 +460,11 @@ merge, unmerge, and create a type.
   `portal` already hold, added to this container's environment so the
   portal may reach `/internal/*` (§2.12). Absent, that surface fails
   closed with `503`, exactly like identity's own.
+- The compose service `relay` (0.3, §2.13) — node profile `broker`, the
+  `twin` image with command `relay.py`, the same read-only
+  `twin-secrets.json` mount, no port. `BROKER_RELAY_KEY` in its
+  environment (and identity's), nowhere else — `twin` itself does not
+  hold it. `RELAY_POLL_SECONDS` (default 2) sets how often it looks.
 
 ## 4. Security requirements
 
@@ -413,8 +512,18 @@ merge, unmerge, and create a type.
   RFC-0030 exists to make, rather than half-implementing D8 under time
   pressure.
 - Every write is recorded, with `recorded_by`, and appends an `events`
-  row — nothing is silently dropped, even if nothing reads that row
-  yet.
+  row — nothing is silently dropped, whether or not a relay is running
+  to read it.
+- The relay (§2.13) MUST NOT advance a tenant's watermark past a row the
+  broker has not acknowledged as accepted — an unreachable broker, a
+  timeout and a refusal all stop that tenant at that row. It MUST speak
+  a protocol version in which a refused publish is reported (MQTT v5),
+  since under 3.1.1 a refusal is acknowledged like a success.
+- `states` is written by the relay only, never by an app, a person or
+  `twin` itself — the same rule `events` already follows: both are
+  projections of an ordinary write, never a second way to produce data.
+- `GET /internal/twin/outbox` returns counts, ages and error texts
+  only — never an object id, a group, or a value.
 
 ## 5. Conformance tests (described)
 
@@ -462,6 +571,21 @@ merge, unmerge, and create a type.
     the identical `group_key` is refused, naming the key, not silently
     treated as "already done."
 
+11. **An event reaches the broker, and its snapshot `states`** (0.3,
+    §2.13): a group write on a node carrying `store` and `broker`
+    appears as a retained message on
+    `oaap/<tenant>/<type>/<object>/<group>` carrying the event's id and
+    kind and no attribute value; the tenant's `states` gains exactly one
+    row for that event id, holding the group's attributes;
+    `relay_watermark.last_event_id` equals the event's id.
+12. **Nothing is lost while the broker is away:** with the broker
+    stopped, a group write leaves `pending` at 1 and the portal's health
+    page says so; started again, the same event is published, `pending`
+    returns to 0, and `states` still holds exactly one row for it.
+13. **A refused publish stops the relay, loudly:** a publish the broker
+    refuses is not counted as delivered — the watermark stays, and
+    `last_error` names the refusal.
+
 Step 8 of RFC-0031 §9 (the rehearsal's own copy, D8) is the only one
 still out of scope (§1) and not a conformance test here yet.
 
@@ -487,10 +611,45 @@ relays who is asking, §2.12).
 
 ## 7. Maturity
 
-`draft` — becomes `beta` once conformance tests 1–10 pass on the
+`draft` — becomes `beta` once conformance tests 1–13 pass on the
 reference platform (`oaap-test`), and step 8 of RFC-0031 §9 (the
 rehearsal's own copy, D8) has its own capability-spec addendum once
 built — the one piece 0.2 still satisfies by refusal alone (§1, §4).
+
+## Deutsche Zusammenfassung (Nachtrag v0.3 — das Ereignis-Relais)
+
+**Die `events`-Tabelle hat jetzt einen Leser.** Seit RFC-0031 legt jede
+Schreibung im Zwilling eine Zeile in `events` ab; niemand holte sie ab.
+Das **Relais** (RFC-0032 Bauplan Schritt 2) veröffentlicht sie am Broker
+— `oaap/<mandant>/<typ>/<objekt>/<gruppe>`, bei einer Zusammenführung
+eine Ebene höher —, „retained", damit ein später Abonnent die letzte
+Nachricht je Thema trotzdem sieht. Die Nachricht bleibt dünn: *dass*
+sich etwas geändert hat, nicht *was*; den Wert holt man beim Zwilling.
+
+**Jörgs zwei Entscheidungen vom 12.09.:** Das Relais ist ein **eigener
+Dienst** (`relay`, gleiches Image wie `twin`) am Profil **`broker`** —
+ohne Broker kein Relais, die Ereignisse warten dann, und das Portal
+sagt es. Und es meldet sich mit einem **eigenen Plattform-Geheimnis**
+an (`oaap.events.broker` 0.2), nicht mit einem Schlüssel je Mandant.
+
+**`states`**: je veröffentlichter Gruppenänderung eine Zeile mit dem
+Stand der Gruppe in dem Moment, in dem das Relais sie liest. Schreibt
+nur das Relais. Bei einem Rückstand (Broker war weg, oder das Relais
+lief noch nie) ist das der *heutige* Stand, nicht der vom Zeitpunkt des
+Ereignisses — die Geschichte steht weiter in den append-only-Tabellen,
+`states` ist keine zweite Kopie davon.
+
+**Verlustfreiheit, konkret:** Erst bestätigt der Broker die
+Veröffentlichung, dann schreiben Schnappschuss und Wasserstand in
+**einer** Transaktion. Absturz dazwischen → eine Nachricht geht beim
+Neustart ein zweites Mal raus, was nichts schadet. Das Relais spricht
+**MQTT v5**, weil unter 3.1.1 ein Broker auch eine *verweigerte*
+Veröffentlichung wie eine angenommene bestätigt — dann liefe der
+Wasserstand über Nachrichten hinweg, die nie ankamen.
+
+**Fürs Portal** meldet `/internal/twin/outbox` je Mandant, wie viele
+Ereignisse warten und wie lange sich das Relais nicht gemeldet hat —
+Zählungen und Zeiten, nie Werte.
 
 ## Deutsche Zusammenfassung (v0.2)
 

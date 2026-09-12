@@ -22,5 +22,5 @@ before the full specification is written.
 - [oaap.core.tenant](oaap.core.tenant.md) — account and tenant, the boundary of belonging (draft, v0.2)
 - [oaap.data.store](oaap.data.store.md) — managed Postgres per node, schema per tenant/purpose (draft, v0.1)
 - [oaap.data.model](oaap.data.model.md) — type registry for the digital twin: object/attribute/group/relation/activity types, origin, binding (draft, v0.1)
-- [oaap.data.twin](oaap.data.twin.md) — the digital twin: objects, groups, relations, activities per tenant, append-only, behind its own gateway route; validity/tree/merge and a person-facing API for the twin browser since v0.2 (draft, v0.2)
-- [oaap.events.broker](oaap.events.broker.md) — the MQTT broker per node: topic tree, node profile `broker`, auth against identity — the relay and `states` table are a later spec (draft, v0.1)
+- [oaap.data.twin](oaap.data.twin.md) — the digital twin: objects, groups, relations, activities per tenant, append-only, behind its own gateway route; validity/tree/merge and a person-facing API for the twin browser since v0.2; the outbox relay (publishes every event to the broker) and the `states` table since v0.3 (draft, v0.3)
+- [oaap.events.broker](oaap.events.broker.md) — the MQTT broker per node: topic tree, node profile `broker`, auth against identity; the platform principal `oaap.relay` the twin's relay publishes with since v0.2 (draft, v0.2)

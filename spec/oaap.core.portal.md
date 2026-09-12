@@ -1,8 +1,10 @@
 # oaap.core.portal — Web Portal
 
 - **ID:** `oaap.core.portal`
-- **Version:** 0.3.13
-- **Maturity:** draft (0.3.13 groups launchpad tiles under a section
+- **Version:** 0.3.14
+- **Maturity:** draft (0.3.14 adds the **event relay** row to the health
+  page, §2.5 — whether the digital twin's outbox is being published
+  (`oaap.data.twin` 0.3, RFC-0032 §1.5); 0.3.13 groups launchpad tiles under a section
   heading when their manifest declares `launchpad.group`
   (`oaap.apps.runtime` 2.16, RFC-0036 D2) and adds a `Profil` header
   link next to `Passwort`, to the new self-service display-name page
@@ -245,6 +247,16 @@ portal. It therefore differs from every other card:
   symptom-based check catches a stopped worker, a host without a
   service manager, and a worker that dies on every request alike. An
   alarm MUST name a way back.
+- **Event relay** (0.3.14, `oaap.data.twin` 0.3 §2.13, RFC-0032 §1.5):
+  on a node carrying `store`, whether the digital twin's outbox is
+  being published. Judged from the symptom again — events waiting, and
+  how long ago the relay last reported, measured by the database's
+  clock — never from the relay container's state. A node without
+  `broker` whose events wait MUST say that nobody collects them, that
+  nothing is lost, and how to add the profile. A relay silent for
+  several of its heartbeats while events wait, or reporting an error,
+  is an alarm that names a way back. Shown on the health page only; the
+  fleet status document (`oaap.fleet.status`) is unchanged.
 - **App instances**: per instance, the manifest's health endpoint is
   checked over the internal network (`oaap.apps.runtime` provides
   service port and health path in the registry). Instances registered
@@ -826,3 +838,26 @@ dem Portal künftig etwas anbieten könnte (z. B. ein leichter Link statt
 einer vollen Kachel) ist in RFC-0036 selbst nur benannt, nicht
 gebaut — dieselbe Zurückhaltung wie beim Einbetten, aus demselben
 Grund: kein konkreter Anwendungsfall verlangt es noch.
+
+## Deutsche Zusammenfassung (Nachtrag 0.3.14 — das Ereignis-Relais)
+
+RFC-0032 hat entschieden: Holt niemand die Ereignisse des Zwillings ab,
+**wächst der Ausgang, nichts geht verloren — und das Portal sagt es.**
+Auf einem Knoten mit Profil `store` steht deshalb unter „Kernservices"
+eine neue Zeile **Ereignis-Relais**.
+
+Geurteilt wird wie beim Deploy-Worker **am Symptom**: Wie viele
+Ereignisse warten, und wie lange hat sich das Relais nicht gemeldet?
+Das Alter misst die Datenbank, nicht das Portal — eine abweichende Uhr
+kann ein lebendes Relais nicht tot aussehen lassen.
+
+- **Kein Profil `broker`, Ereignisse warten:** Warnung — niemand holt
+  sie ab, verloren geht nichts, und wie man das Profil setzt.
+- **Relais meldet sich mehrere Minuten nicht, Ereignisse warten:**
+  „Steht", mit dem Befehl für die Logs und dem Weg zurück.
+- **Relais meldet einen Fehler, Ereignisse warten:** „Steht", mit dem
+  Fehlertext.
+- **Sonst:** „Arbeitet" (mit Anzahl) oder „Gesund".
+
+Die Zeile steht nur auf der Gesundheitsseite; das Flotten-Statusdokument
+bleibt unverändert.
