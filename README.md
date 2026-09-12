@@ -21,6 +21,11 @@ User Choice · Secure by Default · Portable by Default.
 - `schema/` — machine-readable schemas for the formats the specification defines
   - `oaap-app.schema.json` — the app manifest (`oaap-app.yaml`), RFC-0004
   - `oaap-store.schema.json` — the store list (`oaap-store.json`), RFC-0012
+  - `validate.py` — checks the manifest schema against the rules of the
+    specs and against real manifests
+    (`python schema/validate.py ../oaap-apps/apps/*/oaap-app.yaml`); the
+    schema once fell a whole manifest version behind the runtime without
+    anyone noticing, because nothing ran it
 - `docs/` — supporting, non-normative documentation
 - `adr/` — decisions scoped to this repository
 

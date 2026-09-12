@@ -1,15 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://oaap.org/schema/oaap-app-0.2.json",
-  "title": "OAAP app manifest (oaap-app.yaml), manifest versions 0.1, 0.2 and 0.4 (0.3 not yet covered)",
-  "$comment": "This schema is an AUTHORING tool: it rejects unknown fields so a typo is caught where it is made. A node in the field reads more tolerantly (RFC-0012 §8.2) — it accepts a higher minor version and ignores what it does not know, because otherwise every extension of the format would be a flag day for the whole fleet. Strict schema, tolerant runtime. The newest schema always validates every manifest version still readable, which is why this one lists 0.1, 0.2 and 0.4 — 0.3 is a pre-existing gap (see the oaap_manifest property comment), not fixed by this change.",
+  "title": "OAAP app manifest (oaap-app.yaml), manifest versions 0.1 to 0.4",
+  "$comment": "This schema is an AUTHORING tool: it rejects unknown fields so a typo is caught where it is made. A node in the field reads more tolerantly (RFC-0012 §8.2) — it accepts a higher minor version and ignores what it does not know, because otherwise every extension of the format would be a flag day for the whole fleet. Strict schema, tolerant runtime. The newest schema always validates every manifest version still readable. Until 2026-09-12 it skipped 0.3 (data_model/contributes/consumes, RFC-0031 Schritt 2): appctl.py accepted such manifests while this schema refused them, so every twin-aware app failed its own authoring check. The id keeps its historic '0.2' so existing references do not break. Check changes with 'python schema/validate.py'.",
   "type": "object",
   "required": [
     "oaap_manifest",
-    "app",
-    "services",
-    "routes",
-    "health"
+    "app"
   ],
   "additionalProperties": false,
   "allOf": [
@@ -35,7 +32,7 @@
       }
     },
     {
-      "$comment": "Same rule as above, for the 0.4 field: 'launchpad' may only be used by a manifest declaring at least 0.4 (RFC-0036). Written against 0.1/0.2 only, because 0.3 (data_model/contributes/consumes, RFC-0031 Schritt 2) is not yet in the oaap_manifest enum below — a pre-existing gap in this authoring schema, tracked separately from this RFC's own change, not fixed here.",
+      "$comment": "Same rule for the 0.3 sections (oaap.data.model 0.1 §2.2, RFC-0031 §5): data_model, contributes and consumes may only be used by a manifest declaring at least 0.3.",
       "if": {
         "properties": {
           "oaap_manifest": {
@@ -48,9 +45,116 @@
       },
       "then": {
         "not": {
+          "anyOf": [
+            {
+              "required": [
+                "data_model"
+              ]
+            },
+            {
+              "required": [
+                "contributes"
+              ]
+            },
+            {
+              "required": [
+                "consumes"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "$comment": "Same rule for the 0.4 field: 'launchpad' may only be used by a manifest declaring at least 0.4 (RFC-0036).",
+      "if": {
+        "properties": {
+          "oaap_manifest": {
+            "enum": [
+              "0.1",
+              "0.2",
+              "0.3"
+            ]
+          }
+        }
+      },
+      "then": {
+        "not": {
           "required": [
             "launchpad"
           ]
+        }
+      }
+    },
+    {
+      "$comment": "Two shapes, told apart structurally exactly as appctl.py does (oaap.data.model 0.1 §2.8): a manifest with a 'data_model' section and NO 'services' key is a data_models ARTEFACT — types only, never a container. It has no app.type (that describes how a container is packaged), no routes/endpoints/storage/health (nothing to attach them to) and no contributes/consumes (those bind an INSTANCE, and an artefact never becomes one). Everything else is an app, and needs services, routes, health and app.type.",
+      "if": {
+        "required": [
+          "data_model"
+        ],
+        "not": {
+          "required": [
+            "services"
+          ]
+        }
+      },
+      "then": {
+        "properties": {
+          "app": {
+            "not": {
+              "required": [
+                "type"
+              ]
+            }
+          }
+        },
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "routes"
+              ]
+            },
+            {
+              "required": [
+                "endpoints"
+              ]
+            },
+            {
+              "required": [
+                "storage"
+              ]
+            },
+            {
+              "required": [
+                "health"
+              ]
+            },
+            {
+              "required": [
+                "contributes"
+              ]
+            },
+            {
+              "required": [
+                "consumes"
+              ]
+            }
+          ]
+        }
+      },
+      "else": {
+        "required": [
+          "services",
+          "routes",
+          "health"
+        ],
+        "properties": {
+          "app": {
+            "required": [
+              "type"
+            ]
+          }
         }
       }
     }
@@ -60,9 +164,10 @@
       "enum": [
         "0.1",
         "0.2",
+        "0.3",
         "0.4"
       ],
-      "$comment": "MAJOR.MINOR. A new MINOR only adds; a new MAJOR is the only thing a node may refuse (RFC-0012 §8.2). Deliberately not the semver 0.x reading, where the minor would carry breaking changes. 0.2 adds app.class. 0.4 adds the 'launchpad' section (RFC-0036). 0.3 (data_model/contributes/consumes, RFC-0031 Schritt 2) is intentionally NOT listed yet — this authoring schema was never updated for it; a manifest declaring 0.3 is valid at runtime (appctl.py) but not yet accepted here. Do not author a 0.3 manifest against this schema until that gap is closed."
+      "$comment": "MAJOR.MINOR. A new MINOR only adds; a new MAJOR is the only thing a node may refuse (RFC-0012 §8.2). Deliberately not the semver 0.x reading, where the minor would carry breaking changes. 0.2 adds app.class. 0.3 adds data_model/contributes/consumes (oaap.data.model 0.1 §2.2, RFC-0031 §5) and the data_models artefact shape (§2.8). 0.4 adds the 'launchpad' section (RFC-0036)."
     },
     "must_understand": {
       "type": "array",
@@ -77,9 +182,9 @@
       "required": [
         "id",
         "name",
-        "version",
-        "type"
+        "version"
       ],
+      "$comment": "'type' is required for an app and forbidden for a data_models artefact — see the last allOf rule above.",
       "additionalProperties": false,
       "properties": {
         "id": {
@@ -282,6 +387,270 @@
         }
       }
     },
+    "data_model": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Manifest 0.3, oaap.data.model 0.1 §2.2 (RFC-0031 §5): the types THIS package ships — registered under origin app:<id> for an app, model:<id> for a data_models artefact. Every list is optional. Keys are checked for shape only; whether a type named in 'on'/'from'/'to'/'attributes' actually exists is decided at install, against the node's registry (§2.4), never here.",
+      "properties": {
+        "object_types": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "key"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "key": {
+                "$ref": "#/$defs/type_key"
+              },
+              "title": {
+                "type": "string"
+              },
+              "title_plural": {
+                "type": "string"
+              },
+              "identifying": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/type_key"
+                },
+                "description": "Attribute keys used for duplicate detection (RFC-0031 §3.6)."
+              },
+              "description": {
+                "type": "string"
+              },
+              "tags": {
+                "$ref": "#/$defs/tags"
+              }
+            }
+          }
+        },
+        "attribute_types": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "key",
+              "value_type"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "key": {
+                "$ref": "#/$defs/type_key"
+              },
+              "title": {
+                "type": "string"
+              },
+              "value_type": {
+                "enum": [
+                  "text",
+                  "int",
+                  "decimal",
+                  "bool",
+                  "date",
+                  "datetime",
+                  "enum",
+                  "ref"
+                ]
+              },
+              "description": {
+                "type": "string"
+              },
+              "tags": {
+                "$ref": "#/$defs/tags"
+              }
+            }
+          }
+        },
+        "group_types": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "key",
+              "on"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "key": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9]*(\\.[a-z][a-z0-9]*)+$",
+                "description": "Dotted lowercase, <namespace>.<name> (e.g. crm.core, raci.assignments)."
+              },
+              "title": {
+                "type": "string"
+              },
+              "on": {
+                "$ref": "#/$defs/type_key",
+                "description": "The object type this group attaches to. In YAML write it quoted (\"on\":) — unquoted, YAML 1.1 readers turn it into the boolean true."
+              },
+              "attributes": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/type_key"
+                }
+              },
+              "relations": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/type_key"
+                }
+              },
+              "activities": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/type_key"
+                }
+              },
+              "description": {
+                "type": "string"
+              },
+              "tags": {
+                "$ref": "#/$defs/tags"
+              }
+            }
+          }
+        },
+        "relation_types": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "key",
+              "from",
+              "to"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "key": {
+                "$ref": "#/$defs/type_key"
+              },
+              "title": {
+                "type": "string"
+              },
+              "title_inverse": {
+                "type": "string"
+              },
+              "from": {
+                "$ref": "#/$defs/type_key"
+              },
+              "to": {
+                "$ref": "#/$defs/type_key"
+              },
+              "valid": {
+                "type": "boolean",
+                "description": "Opt-in validity axis (RFC-0031 §3.4)."
+              },
+              "description": {
+                "type": "string"
+              },
+              "tags": {
+                "$ref": "#/$defs/tags"
+              }
+            }
+          }
+        },
+        "activity_types": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "key"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "key": {
+                "$ref": "#/$defs/type_key"
+              },
+              "title": {
+                "type": "string"
+              },
+              "is_task": {
+                "type": "boolean"
+              },
+              "description": {
+                "type": "string"
+              },
+              "tags": {
+                "$ref": "#/$defs/tags"
+              }
+            }
+          }
+        }
+      }
+    },
+    "contributes": {
+      "type": "array",
+      "description": "Manifest 0.3, oaap.data.model 0.1 §2.2: what THIS app writes into the tenant's twin.",
+      "items": {
+        "type": "object",
+        "required": [
+          "type"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "type": "string",
+            "minLength": 1
+          },
+          "role": {
+            "enum": [
+              "owner",
+              "contributor"
+            ],
+            "default": "owner"
+          },
+          "group": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9]*(\\.[a-z][a-z0-9]*)+$"
+          }
+        },
+        "if": {
+          "properties": {
+            "role": {
+              "const": "contributor"
+            }
+          },
+          "required": [
+            "role"
+          ]
+        },
+        "then": {
+          "required": [
+            "group"
+          ]
+        }
+      }
+    },
+    "consumes": {
+      "type": "array",
+      "description": "Manifest 0.3, oaap.data.model 0.1 §2.2: what THIS app reads from the tenant's twin.",
+      "items": {
+        "type": "object",
+        "required": [
+          "type"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "type": "string",
+            "minLength": 1
+          },
+          "as": {
+            "type": "string",
+            "description": "The app's own word for the type (RFC-0031 D4)."
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Omit for reference-only (RFC-0031 D6)."
+          }
+        }
+      }
+    },
     "launchpad": {
       "type": "object",
       "additionalProperties": false,
@@ -348,6 +717,20 @@
           }
         }
       }
+    }
+  },
+  "$defs": {
+    "type_key": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9]*$",
+      "$comment": "oaap.data.model 0.1 §2.2 — object, attribute, relation and activity type keys; mirrors appctl.py _MODEL_KEY_RE."
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "$comment": "Presentation only, like title/description — appctl.py type_change_kind() never counts a change here as destructive."
     }
   }
 }
