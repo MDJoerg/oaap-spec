@@ -1,8 +1,13 @@
 # oaap.core.portal — Web Portal
 
 - **ID:** `oaap.core.portal`
-- **Version:** 0.3.14
-- **Maturity:** draft (0.3.14 adds the **event relay** row to the health
+- **Version:** 0.3.15
+- **Maturity:** draft (0.3.15 makes the instance **configuration** card
+  say at the save button that saving restarts the app, gives each value
+  its own block, lets Enter save instead of generating a value, and has
+  the outcome distinguish "restarted" from "no change" — §2.4, test 22,
+  after an operator could not tell a hint from the next field's label and
+  did not know a save restarts; 0.3.14 adds the **event relay** row to the health
   page, §2.5 — whether the digital twin's outbox is being published
   (`oaap.data.twin` 0.3, RFC-0032 §1.5); 0.3.13 groups launchpad tiles under a section
   heading when their manifest declares `launchpad.group`
@@ -161,6 +166,35 @@ what is stored. Saving goes through the same worker (it has to
 recreate the container) and reports the outcome on the page. Also
 `server_admin` only: these values steer the platform's own instance
 and routinely contain credentials.
+
+How the card presents this (0.3.15):
+
+- Each key is **one visually grouped unit** in the order label, key and
+  hints, field. A hint MUST NOT stand between one field and the next
+  key's label, where it reads as that label's heading.
+- That saving a **changed** value **restarts the app** (the container is
+  recreated and the app is briefly unreachable) MUST be stated **at the
+  save button**, and the button's own text SHOULD name the restart. A
+  general sentence elsewhere on the card is not enough.
+- The outcome message MUST distinguish *saved, the app was restarted*
+  from *no change, the app kept running* — the worker already knows
+  which one happened.
+- Pressing **Enter** in a field saves. It MUST NOT trigger a secondary
+  action of the card, such as generating a value (`oaap.apps.runtime`
+  2.8).
+- The values shown MUST be the ones the instance actually runs with. The
+  portal has no access to the tenant tree (RFC-0026), so the host
+  provides them as a **view** holding the values of non-secret keys and,
+  for every key, only whether it is set — never a secret value. When the
+  portal cannot obtain that view for an instance, the card MUST say so
+  and MUST NOT offer saving: an unknown value rendered as an empty field
+  is written back as empty.
+- Saving MUST send **only the keys whose submitted value differs from the
+  value shown**. A key the operator did not touch is never written, so a
+  wrong or stale view can cost a wrong display, never a stored value.
+  (Found 2026-09-15: from RFC-0026 until 0.1.100 the reference read a
+  path that no longer existed, showed every non-secret value empty, and
+  each save emptied every value the operator had not retyped.)
 
 The object page carries the remaining per-instance operations as
 further cards, so an operator never has to reach for the CLI to put an
@@ -526,6 +560,21 @@ configuration is a later stage (2.2).
     before this field existed; role and group filtering (test 2) are
     unchanged by grouping — a tile a caller may not see is absent from
     every section, not just its own.
+22. **The configuration card says what saving does (0.3.15)**: with
+    three declared keys (a generatable secret, a multiline secret, a
+    plain value), each renders in its own block with label, key/hints and
+    field in that order and nothing of another key inside; the sentence
+    that saving restarts the app stands directly above the save button;
+    the first submit button of the form is a plain save, never *generate*;
+    saving a changed value reports a restart, saving an unchanged one
+    reports *no change* and the container's start time is unchanged.
+    **And the values are the real ones:** on a node whose instance data
+    lives in the tenant tree, the card shows each non-secret value exactly
+    as stored and each set secret as *set*; changing one field and saving
+    changes that key alone — every other key, including the ones shown,
+    keeps its stored value byte for byte. With the host's view removed,
+    the card says the values are unknown and offers no save, and a save
+    request sent anyway is refused without writing.
 
 ## 6. Dependencies
 
@@ -861,3 +910,43 @@ kann ein lebendes Relais nicht tot aussehen lassen.
 
 Die Zeile steht nur auf der Gesundheitsseite; das Flotten-Statusdokument
 bleibt unverändert.
+
+## Deutsche Zusammenfassung (Nachtrag 0.3.15 — die Konfigurationskarte sagt, was Speichern tut)
+
+Anlass war Jörgs Befund vom 15.09. bei einer Fehlersuche: Auf der
+Konfigurationsseite kam man durcheinander, und dass Speichern die App
+neu startet, war nicht klar. Beides lag an der Anordnung:
+
+- Die Erklärzeile eines Werts (technischer Name, „vertraulich") stand
+  **unter** seinem Feld und damit direkt über dem Namen des nächsten.
+  Sie las sich wie dessen Überschrift.
+- Der Neustart stand als grauer Satz unter allen Feldern.
+
+**Jetzt verbindlich (§2.4):**
+
+- **Ein Block je Wert** in der Reihenfolge Name, Erklärung, Feld.
+- Der **Neustart-Hinweis steht am Speichern-Knopf**, und der Knopf heißt
+  „Speichern und App neu starten". Nur ein geänderter Wert startet neu.
+- Die **Rückmeldung** unterscheidet „gespeichert, App neu gestartet" von
+  „keine Änderung, App läuft unverändert weiter".
+- **Enter speichert.** Vorher löste Enter den ersten Knopf im Formular
+  aus, und das konnte „Wert erzeugen" sein.
+
+**Und ein ernster Fund dabei, jetzt ebenfalls verbindlich:** Seit dem
+Umzug der Instanzdaten in den Mandantenbaum (RFC-0026) las die
+Referenz die Werte an einem Ort, den es nicht mehr gab. Die Karte zeigte
+jeden nicht-vertraulichen Wert **leer**, und jedes Speichern schrieb die
+leeren Felder zurück. Jeder Wert, den man nicht neu eintippte, war danach
+gelöscht. Auf oaapx01 ist das am 15.09. an einer Kunden-Testinstanz
+passiert, am 05. und 09.09. an `aipc-test`.
+
+- Die Karte zeigt die **echten** Werte. Der Knoten liefert sie dem Portal
+  als Ansicht: nicht-vertrauliche Werte und bei jedem Schlüssel nur, **ob**
+  er gesetzt ist, nie ein Geheimnis.
+- Fehlt diese Ansicht, **sagt die Karte das und bietet kein Speichern
+  an**.
+- Speichern schickt **nur die Felder, die sich gegenüber der Anzeige
+  geändert haben**. Eine falsche Anzeige kann damit nie wieder einen Wert
+  löschen, den niemand angefasst hat.
+
+Neuer Konformitätstest 22 prüft das alles.
