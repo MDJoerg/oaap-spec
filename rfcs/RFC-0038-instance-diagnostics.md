@@ -1,6 +1,11 @@
 # RFC-0038: Instance Diagnostics — State, a Time-Boxed Diagnosis Window, and Restart
 
-- **Status:** Draft (2026-09-15) — D1–D5 proposed, awaiting decision
+- **Status:** Accepted (2026-09-15) — D1–D5 decided by Jörg as proposed:
+  state always visible (D1); window opened by `server_admin` or the
+  instance's `tenant_admin`, 15/30/60 minutes, default 30 (D2); gateway
+  view collected only while the window is open (D3); restart recreates
+  (D4); log limit applied at each instance's next recreate, no forced
+  recreate on update (D5). Nothing built yet.
 - **Date:** 2026-09-15
 - **Authors:** Jörg (need, "explicit activation, limited time", the
   restart question), Claude (design and write-up)
@@ -82,7 +87,7 @@ an act** — opened on purpose, for a while, and on record.
 
 ## Design
 
-### D1 — State is always visible (proposed)
+### D1 — State is always visible (decided 2026-09-15)
 
 The object page's overview shows, per service container of the instance
 (RFC-0016):
@@ -102,7 +107,7 @@ registry for the portal to read, the same pattern as the rehearsal
 options view (RFC-0030) — the portal still never talks to the container
 runtime.
 
-### D2 — The diagnosis window (proposed)
+### D2 — The diagnosis window (decided 2026-09-15)
 
 **Who may open it:** whoever may administer the instance — `server_admin`,
 and a `tenant_admin` for an instance of their own tenant (the same rule as
@@ -134,7 +139,7 @@ Fenster nur für die Fehlersuche."*
 log may show production data — which the person allowed to open it is
 already allowed to see through the app.
 
-### D3 — The gateway view: collected only while the window is open (proposed)
+### D3 — The gateway view: collected only while the window is open (decided 2026-09-15)
 
 Today only external sites write an access log, and it is used for one
 line on the health page. This RFC does **not** turn on permanent logging
@@ -170,7 +175,7 @@ The view MAY add one line of interpretation where the pattern is
 unambiguous, e.g. *"Die Vorab-Anfrage (OPTIONS) wurde zur Anmeldung
 umgeleitet — der Browser bricht hier ab."*
 
-### D4 — Restart recreates, it does not merely restart (proposed)
+### D4 — Restart recreates, it does not merely restart (decided 2026-09-15)
 
 A button **App neu starten** on the object page, with a confirmation that
 names the consequence (*"Die App ist einige Sekunden nicht erreichbar.
@@ -195,7 +200,7 @@ running (RFC-0024) — the page says so instead of queuing behind it.
 Audit entry: who, when, instance. The outcome message reports the new
 start time, so "did it restart?" is answered by D1, not by trust.
 
-### D5 — Container logs get a size limit (proposed)
+### D5 — Container logs get a size limit (decided 2026-09-15)
 
 Docker's default `json-file` log driver keeps logs **without any limit**
 unless configured. No OAAP node configures it: on oaap-test there is no
@@ -326,6 +331,9 @@ im Browser, keine Logs der Kerndienste im Portal.
 **Bau-Reihenfolge:** (1) Log-Grenze, Zustand und Neustart, klein und ohne
 neue Datenschutzfrage; (2) Fenster mit App-Log; (3) Gateway-Sicht.
 
-**Deine Entscheidungen:** D1–D5. Besonders: ob `tenant_admin` das Fenster
-öffnen darf (D2), ob 60 Minuten als Obergrenze passen (D2) und ob der
-Neustart „neu erzeugen" statt „neu anstoßen" sein soll (D4).
+**Entschieden (Jörg, 15.09.), alles wie vorgeschlagen:** Zustand immer
+sichtbar (D1). Das Fenster öffnen `server_admin` und der `tenant_admin` des
+eigenen Mandanten, für 15, 30 oder 60 Minuten, Standard 30 (D2).
+Gateway-Aufzeichnung nur bei offenem Fenster (D3). Neustart erzeugt die
+Container neu (D4). Die Log-Grenze greift beim nächsten Neu-Erzeugen, ohne
+Zwangsneustart beim Update (D5). Gebaut ist noch nichts.
