@@ -1,8 +1,10 @@
 # oaap.core.gateway — HTTP Gateway (outline)
 
 - **ID:** `oaap.core.gateway`
-- **Version:** 0.2.6
+- **Version:** 0.2.7
 - **Maturity:** draft (outline — full specification to follow;
+  a refusal is readable across origins and a time-boxed per-instance
+  access log added 2026-09-17 per RFC-0038;
   §Edge routing added 2026-08-07 per RFC-0006; visibility groups
   parameter added 2026-08-07 per RFC-0007; per-instance public
   hostnames added 2026-08-08 per RFC-0009; public-route throttling and
@@ -11,7 +13,7 @@
   hostnames extended to a canonical name plus aliases 2026-08-12 per
   RFC-0018; fleet status route added 2026-08-23 per RFC-0021)
 - **Based on:** RFC-0001, RFC-0002, RFC-0003, RFC-0006, RFC-0007,
-  RFC-0008, RFC-0009, RFC-0010, RFC-0016, RFC-0018
+  RFC-0008, RFC-0009, RFC-0010, RFC-0016, RFC-0018, RFC-0027, RFC-0038
 
 ## Purpose
 
@@ -198,6 +200,82 @@ the client — breaking every WebSocket handshake before the app is
 reached. This applies to every forward-auth call: platform apex, app
 routes and the throttle check alike.
 
+## A refusal must be readable across origins (RFC-0038 follow-up)
+
+A page on another origin calls an app on this node and the gateway
+refuses it — no session, no or a wrong API key, too many requests. Until
+0.2.7 that refusal carried no CORS header, so the browser did not report
+"not authenticated": it reported a **CORS error**, and the status the
+caller actually received was invisible to the script and to the person
+debugging it. (Found the hard way on 2026-09-15: hours spent on a CORS
+question whose answer — *this one call carries no key* — was in the
+gateway's access log the whole time.)
+
+Therefore, when a refusal is produced for a request carrying an `Origin`
+that is **not** the origin of the site itself:
+
+- The refusal MUST carry `Access-Control-Allow-Origin` reflecting that
+  origin, `Vary: Origin` **added** to whatever the response already
+  varies on, and `Access-Control-Expose-Headers: WWW-Authenticate`.
+- It MUST NOT carry `Access-Control-Allow-Credentials`. A cookie-bearing
+  cross-origin call therefore still cannot read the refusal, so no
+  foreign page can use one to probe whether its visitor has a session on
+  this node. The case this serves is the one that is meant to work: an
+  API key in `Authorization` (RFC-0027), which is not a credential in the
+  CORS sense.
+- A refusal that would be a **redirect to the login form** MUST instead
+  be answered `401` with `WWW-Authenticate` and a message naming the way
+  in, **unless the request is a browser navigation** (fetch metadata:
+  `Sec-Fetch-Mode: navigate` or `Sec-Fetch-Dest: document`), where the
+  login form is the right answer and the redirect stands. A 303 to an
+  HTML page is useless to `fetch()`: the browser follows it, the login
+  page answers `200` without CORS headers, and the script reports a CORS
+  error on a URL it never called.
+- A same-origin refusal is unchanged — no CORS header, and the login
+  redirect stays.
+- Every other status keeps its meaning: only a **redirect** is
+  reinterpreted, never a `403`, a `429` or anything else.
+
+This belongs to the **one** place that produces gateway refusals
+(`oaap.core.identity`'s forward-auth endpoints — the role/tenant check
+and the throttle check are the only forward-auth calls a generated site
+makes). A rule written per site would be a rule forgotten at one site.
+
+**Known remaining gap:** a `404` the gateway itself answers for a path an
+instance declares no route for carries no CORS header either. It is the
+same class of problem and deliberately not fixed here — it needs headers
+on the gateway side rather than in identity.
+
+## A time-boxed per-instance access log (RFC-0038 D3)
+
+An instance's gateway sites MAY be asked to write an access log of their
+own — **only** while a diagnosis window is open for that instance
+(`oaap.core.portal` 2.4). This specification does **not** introduce
+permanent per-instance logging.
+
+- Opening adds the log to **every** entry point of that instance (LAN
+  listener, automatic name, canonical name and every alias) and reloads
+  the gateway gracefully; closing or expiry removes it, reloads again and
+  **deletes** the file and any rolled predecessors. An entry point left
+  out would be a blind spot exactly where somebody is looking for one.
+- Collection begins when the window opens. The portal says so, because
+  the first question otherwise is why the list is empty.
+- The file MUST be bounded in size, so an hour of a hammered route
+  cannot turn a diagnosis into a disk problem.
+- **These fields MUST NOT be written:** the request's **query string**,
+  the **value** of `Authorization` or `Proxy-Authorization`, the value of
+  `Cookie`, any `Set-Cookie`, the `X-OAAP-*` identity headers, the query
+  string of a `Location`, and bodies. This is a MUST of this
+  specification, not a property inherited from whatever the reference's
+  log implementation happens to default to.
+- The **presence** of `Authorization` or `Cookie` MUST be preserved
+  (a fixed placeholder in place of the value). It is the one fact that
+  tells *the caller sent no key* apart from *the key was wrong* — which
+  is precisely the question this feature exists to answer — and a plain
+  deletion would throw it away.
+- A `Location` keeps its path, because it is what distinguishes "sent to
+  the login form" from every other redirect.
+
 ## Dependencies
 
 `oaap.core.identity`
@@ -274,3 +352,60 @@ Verbindungsaufbau. Wichtig und ausdrücklich festgehalten: Das ist eine
 Upgrade-Header einer Anfrage nicht mitbekommen. Tat sie es, antwortete
 der Identity-Dienst mit 400 und **jeder WebSocket-Verbindungsaufbau
 scheiterte** — auf allen authentifizierten Routen, seit es sie gibt.
+
+## Deutsche Zusammenfassung (v0.2.7 — eine Ablehnung muss lesbar sein, und ein befristetes Protokoll je Instanz)
+
+**Erstens: „CORS-Fehler" war fast immer die falsche Auskunft.** Ruft eine
+Seite von einer anderen Herkunft (Origin) eine App auf diesem Knoten und
+das Gateway lehnt ab — keine Anmeldung, kein oder ein falscher
+API-Schlüssel, zu viele Anfragen —, dann trug diese Ablehnung bisher
+keine CORS-Kopfzeile. Der Browser meldete deshalb nicht „nicht
+angemeldet", sondern „CORS-Fehler", und der wahre Status war für das
+Skript und für den Menschen davor unsichtbar. Am 15.09. hat das Stunden
+gekostet; die Antwort („dieser eine Aufruf trägt keinen Schlüssel") stand
+die ganze Zeit im Zugriffsprotokoll des Gateways.
+
+Jetzt verbindlich, für Ablehnungen an Aufrufe mit **fremder** Herkunft:
+
+- Die Ablehnung spiegelt die Herkunft in `Access-Control-Allow-Origin`,
+  ergänzt `Vary: Origin` und macht `WWW-Authenticate` lesbar.
+- **Kein** `Access-Control-Allow-Credentials`. Ein Aufruf mit Cookie kann
+  die Antwort also weiterhin nicht lesen — keine fremde Seite kann so
+  ausmessen, ob ihr Besucher hier angemeldet ist. Bedient wird der Weg,
+  der gedacht ist: ein API-Schlüssel in `Authorization` (RFC-0027).
+- Eine Ablehnung, die eine **Umleitung zum Anmeldeformular** wäre, wird
+  zu `401` mit einem Satz, der den Weg hinein nennt — **außer** bei einer
+  echten Navigation im Browser, wo das Formular genau richtig ist. Für
+  ein Skript ist eine Umleitung auf eine HTML-Seite nutzlos: Der Browser
+  folgt ihr, die Anmeldeseite antwortet 200 ohne CORS-Kopfzeilen, und das
+  Skript meldet einen CORS-Fehler zu einer Adresse, die es nie gerufen
+  hat.
+- Gleiche Herkunft bleibt unverändert, und nur eine **Umleitung** wird
+  umgedeutet — ein 403 oder 429 behält seinen Status.
+
+Die Regel gehört an die **eine** Stelle, die Gateway-Ablehnungen erzeugt
+(die Forward-Auth-Endpunkte von `oaap.core.identity`). Eine Regel je Site
+wäre eine Regel, die an einer Site vergessen wird.
+
+**Offen geblieben:** Ein `404`, das das Gateway selbst für einen Pfad
+ohne erklärte Route gibt, trägt weiterhin keine CORS-Kopfzeile. Gleiche
+Klasse, bewusst nicht hier gelöst — das braucht Kopfzeilen im Gateway
+statt in der Identität.
+
+**Zweitens: das befristete Protokoll je Instanz (RFC-0038 D3).** Die
+Sites einer Instanz dürfen ein eigenes Zugriffsprotokoll schreiben —
+**nur** solange für diese Instanz ein Diagnose-Fenster offen ist. Ein
+Dauerprotokoll je Instanz gibt es ausdrücklich nicht. Öffnen fügt es an
+**jedem** Eingang der Instanz hinzu (LAN-Port, automatischer Name, eigene
+Namen, Aliasse) und lädt das Gateway sanft neu; Schließen oder Ablauf
+entfernt es und **löscht** die Datei. Aufgezeichnet wird ab dem Öffnen,
+und die Datei ist in der Größe begrenzt.
+
+**Was dabei nie geschrieben werden darf** — ein MUSS dieser Spezifikation
+und keine Eigenschaft, die man von der Voreinstellung eines Log-Moduls
+erbt: der Query-Teil der Anfrage, der **Wert** von `Authorization` und
+`Cookie`, jedes `Set-Cookie`, die `X-OAAP-*`-Kopfzeilen, der Query-Teil
+eines `Location` und Inhalte. Erhalten bleiben muss dagegen die
+**Tatsache**, dass ein Nachweis dabei war (ein fester Platzhalter statt
+des Werts): Genau sie unterscheidet „kein Schlüssel geschickt" von
+„falscher Schlüssel" — die Frage, für die es dieses Fenster gibt.

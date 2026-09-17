@@ -1,7 +1,11 @@
 # oaap.core.tenant — Account and Tenant, the Boundary of Belonging
 
 - **ID:** `oaap.core.tenant`
-- **Version:** 0.4.1 (the portal may create a tenant, `server_admin`
+- **Version:** 0.4.2 (four audit entries for instance diagnostics —
+  `diagnose.opened`/`closed`/`expired` and `instance.restarted`, 1.7,
+  RFC-0038 D2/D4: the first entries in this log for an act of READING,
+  because a diagnosis window hands somebody the app's own output;
+  0.4.1 the portal may create a tenant, `server_admin`
   only — the same act as `oaap tenant create` through a second door,
   with the one named exception to the invisibility rule that this
   requires, see 2.2 and conformance test 1a;
@@ -234,6 +238,24 @@ Recorded at minimum: creating and renaming tenants; creating, changing
 and deactivating users; appointing and removing administrators;
 installing and removing instances; issuing and revoking deploy tokens
 and creation permits.
+
+**And one read (RFC-0038 D2), which is the exception that proves the
+rule.** A diagnosis window hands somebody the app's own log — content
+the platform neither wrote nor can filter. So the *act of reading* is
+recorded, although nothing changed:
+
+| `action`             | filed when                                        |
+| -------------------- | ------------------------------------------------- |
+| `diagnose.opened`    | a window is opened; `detail` carries its duration |
+| `diagnose.closed`    | somebody closes it before its time                |
+| `diagnose.expired`   | its time ran out and the platform closed it       |
+| `instance.restarted` | an instance's containers were recreated (D4)      |
+
+**Never the contents.** The entry says who opened a window on which
+instance for how long — it is not a copy of what they saw. The same
+reasoning as `instance.export`: that the operator could also take the
+log by ssh is a reason this record cannot be complete, not a reason to
+leave out the line that can be written.
 
 **An action of a `server_admin` against a tenant is filed in that
 tenant's log**, not in a separate operator log. The customer must be
@@ -731,3 +753,24 @@ Entfernen sich die Identität als Merkposten notiert — und dieser
 Merkposten macht zurückgelassene Kundendaten zum ersten Mal überhaupt
 sichtbar, statt sie nach einer einmaligen Meldung verschwinden zu
 lassen.
+
+## Deutsche Zusammenfassung (1.7, v0.4.2 — vier Einträge für die Instanz-Diagnose)
+
+Das Mandantenprotokoll hält bisher **Zustandsänderungen** fest, nie
+Lesevorgänge. RFC-0038 D2 fügt die erste Ausnahme hinzu, und sie begründet
+die Regel, statt sie zu verwässern: Ein Diagnose-Fenster gibt jemandem das
+**Log der App** — Inhalte, die die Plattform weder geschrieben hat noch
+zuverlässig filtern kann. Deshalb wird hier das *Lesen selbst*
+aufgeschrieben, obwohl sich nichts geändert hat.
+
+Neu im Vokabular: `diagnose.opened` (mit der Dauer im `detail`),
+`diagnose.closed` (vorzeitig geschlossen), `diagnose.expired` (die Zeit
+war um, die Plattform hat geschlossen) und `instance.restarted` (die
+Container wurden neu erzeugt, D4).
+
+**Die Inhalte stehen nie drin.** Der Eintrag sagt, wer wann für wie lange
+ein Fenster auf welcher Instanz geöffnet hat — er ist keine Kopie des
+Gelesenen. Dieselbe Begründung wie bei `instance.export`: Dass der
+Betreiber sich das Log auch per ssh holen könnte, ist ein Grund, warum
+dieses Protokoll nicht vollständig sein kann — kein Grund, die Zeile
+weglassen, die man schreiben kann.

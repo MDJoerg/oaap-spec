@@ -1,7 +1,12 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.26 (manifest **0.4** adds an optional `launchpad`
+- **Version:** 0.2.27 (a **restart** operation — a recreate, refused
+  during a deployment, audited — and **bounded container logs** as a MUST
+  of the reference container shape, plus `oaap app logs`/`oaap app
+  restart` at the machine: new 2.17, RFC-0038 D4/D5. Found while writing
+  it: container logs on every node in the fleet were unbounded;
+  0.2.26 (manifest **0.4** adds an optional `launchpad`
   section — `group` (a section label, RFC-0036 D2) and `embeddable`
   (reserved, no effect yet, RFC-0036 D1) — in the new 2.16; not a
   `must_understand` feature, same reasoning as `app.class` in 2.10;
@@ -180,6 +185,50 @@ the core never comes from a store (RFC-0001).
   storage (mirroring `oaap uninstall` semantics).
 - Placement (RFC-0003): an instance MAY be pinned to a node (e.g. a
   test worker); default is the controller.
+
+### 2.17 Restart, and bounded container logs (RFC-0038 D4/D5)
+
+**Restart is a recreate.** The runtime MUST offer an operation that
+brings an instance's service containers back from their recorded shape —
+the **same** operation a configuration save already performs, not a
+lighter "restart the process" path.
+
+- **One path.** Install, restore, configuration save and restart then
+  produce the identical container. A second, lighter path would be the
+  one that drifts.
+- **It heals more.** A container that is "up" but lost its network link
+  or its published port comes back whole.
+- **It is not new behaviour.** Anything written inside the container
+  outside declared storage (2.8) is already lost on every deploy and
+  every configuration save; apps MUST NOT rely on it. A restart makes
+  that no worse.
+- It MUST be **refused while a deployment of that instance is queued or
+  running** (RFC-0024) rather than queued behind it: recreating
+  containers that a build is in the middle of replacing has no defined
+  outcome.
+- It MUST produce a tenant audit entry (`oaap.core.tenant` 1.7), from
+  the portal and from the CLI alike.
+
+**Container logs MUST be bounded.** The reference container shape MUST
+carry a size limit per container (reference: 3 × 10 MB). Docker's
+default `json-file` driver keeps logs **without any limit** unless told
+otherwise, so a chatty app fills the disk slowly and invisibly — and a
+diagnosis window (`oaap.core.portal` 2.4) that points a person at "the
+log" would be pointing at a file that can be gigabytes.
+
+- Set **per container**, not host-wide: a node may run containers that
+  are not the platform's, and their owner decides for them.
+- Existing containers receive it at their **next recreate** (deploy,
+  configuration save, restart). A platform update MUST NOT force a
+  recreate of every instance for this: that would make an update an
+  outage of every app on the node for a benefit that can wait.
+
+**Reading a log at the machine.** The node CLI MUST offer the
+instance's container log (`oaap app logs <instance>`) and the restart
+(`oaap app restart <instance>`) without any window: whoever is at the
+machine already has the container runtime, and pretending otherwise
+would be theatre. The window in the portal exists because the portal
+hands the log to somebody who does **not** have the machine.
 
 ### 2.11 Instance networks and isolation (RFC-0016)
 
@@ -1732,3 +1781,43 @@ Zugriffsentscheidung (die bleibt bei 2.7/2.10 und beim Betreiber):
 
 Ein Knoten mit älterem Referenzstand ignoriert `launchpad` einfach —
 die Kachel erscheint ohne Überschrift, nicht anders als heute.
+
+## Deutsche Zusammenfassung (2.17, v0.2.27 — Neustart und begrenzte Container-Logs)
+
+**Neustart heißt neu erzeugen.** Die Laufzeit muss einen Vorgang
+anbieten, der die Container einer Instanz aus ihrer aufgeschriebenen
+Gestalt zurückholt — und zwar **genau denselben**, den das Speichern der
+Konfiguration schon ausführt, nicht einen leichteren „Prozess neu
+anstoßen". Vier Gründe, und der erste ist der wichtigste:
+
+- **Ein Weg.** Installation, Wiederherstellung, Konfiguration und
+  Neustart erzeugen denselben Container. Ein zweiter, leichterer Weg
+  wäre der, der auseinanderläuft.
+- **Er heilt mehr.** Ein Container, der „läuft", aber seine
+  Netzverbindung oder seinen veröffentlichten Port verloren hat, kommt
+  vollständig zurück.
+- **Er ist kein neues Verhalten.** Was eine App außerhalb ihrer
+  erklärten Ablage in den Container schreibt, ist heute bei jedem
+  Deployment und bei jedem Speichern der Konfiguration weg; Apps dürfen
+  sich darauf nicht verlassen.
+- Solange ein **Deployment dieser Instanz** in der Schlange steht oder
+  läuft, wird er **abgelehnt** statt eingereiht, und er steht im
+  Mandantenprotokoll — aus dem Portal wie von der Kommandozeile.
+
+**Container-Logs müssen begrenzt sein.** Beim Schreiben dieses Abschnitts
+gefunden: Docker behält Container-Logs **ohne jede Grenze**, solange man
+ihm nichts anderes sagt — und kein Knoten der Flotte sagte ihm etwas
+anderes. Eine geschwätzige App füllt damit langsam und unsichtbar die
+Platte, und ein Diagnose-Fenster, das auf „das Log" zeigt, hätte auf eine
+Datei gezeigt, die Gigabytes haben kann. Verbindlich sind jetzt
+höchstens etwa 30 MB je Container (3 × 10 MB), gesetzt **je Container**
+und nicht global für Docker: Ein Knoten darf Container tragen, die nicht
+der Plattform gehören, und für die entscheidet ihr Besitzer. Bestehende
+Container bekommen die Grenze beim **nächsten Neu-Erzeugen** — ein
+Update darf dafür nicht jede App neu starten.
+
+**An der Maschine braucht es kein Fenster.** `oaap app logs <instanz>`
+und `oaap app restart <instanz>` gibt es dort ohne Freischaltung: Wer
+an der Maschine steht, hat die Container-Laufzeit ohnehin. Das Fenster
+im Portal existiert, weil das Portal das Log jemandem gibt, der die
+Maschine **nicht** hat.

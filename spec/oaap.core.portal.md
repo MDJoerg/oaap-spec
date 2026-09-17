@@ -1,8 +1,15 @@
 # oaap.core.portal — Web Portal
 
 - **ID:** `oaap.core.portal`
-- **Version:** 0.3.15
-- **Maturity:** draft (0.3.15 makes the instance **configuration** card
+- **Version:** 0.3.16
+- **Maturity:** draft (0.3.16 adds **instance diagnostics** to the object
+  page — RFC-0038: container state always visible with a restart-loop
+  finding above the tabs, an explicitly opened and audited **diagnosis
+  window** of 15/30/60 minutes carrying the app's log and the gateway's
+  view of requests to this instance, and a **restart** that recreates the
+  containers; §2.4, test 23. Written after an operator chasing a CORS
+  error had nothing in the portal but "up or down";
+  0.3.15 makes the instance **configuration** card
   say at the save button that saving restarts the app, gives each value
   its own block, lets Enter save instead of generating a value, and has
   the outcome distinguish "restarted" from "no change" — §2.4, test 22,
@@ -39,7 +46,8 @@
   page and added source management, per RFC-0012 §6/§7 — the last step
   of `portal-statt-cli.md`)
 - **Based on:** RFC-0001, RFC-0002, RFC-0003, RFC-0005, RFC-0007,
-  RFC-0008, RFC-0009, RFC-0010, RFC-0011, RFC-0012, RFC-0022, RFC-0036
+  RFC-0008, RFC-0009, RFC-0010, RFC-0011, RFC-0012, RFC-0022, RFC-0036,
+  RFC-0038
 
 ## 1. Purpose
 
@@ -195,6 +203,92 @@ How the card presents this (0.3.15):
   (Found 2026-09-15: from RFC-0026 until 0.1.100 the reference read a
   path that no longer existed, showed every non-secret value empty, and
   each save emptied every value the operator had not retyped.)
+
+The object page also answers **what is happening to this instance right
+now** (RFC-0038), in three steps of rising sensitivity. The order is the
+design, not a layout: state is a fact about a container, a log is
+whatever the app chose to print.
+
+**State, always visible (D1).** Per service container of the instance
+(RFC-0016): running or not, **since when**, the **restart count**, and
+when it is not running the **last exit code** and whether the kernel
+killed it for memory. Where the manifest declares a health check, its
+current verdict. These facts need no activation and produce no audit
+entry.
+
+- The portal MUST NOT talk to the container runtime. The host writes
+  these facts as a **view** beside the registry, the same arrangement as
+  the configuration view above, and refreshes it on a timer as well as
+  after every worker action — container state changes without anybody
+  saving anything.
+- A **missing view is not "not running"**. The page MUST say the state is
+  unknown. (The configuration card learned this the expensive way in
+  0.3.15.)
+- A restart count above zero on a container that started within the last
+  ten minutes MUST be reported as a finding in words — *"3 Neustarts,
+  zuletzt vor 2 Minuten — die App startet vermutlich immer wieder neu"* —
+  **above the tabs**, with a pointer to the diagnosis window. A container
+  in a restart loop must not be hidden in a tab nobody opens.
+
+**A diagnosis window (D2).** Opened explicitly, per instance, for **15,
+30 or 60 minutes** (default 30), by `server_admin` or the `tenant_admin`
+of that instance — the same right as every other card on this page. It
+can be closed early. It **cannot be extended**; opening it again is a new
+act. While it is open the page shows, both read-only and refreshed by a
+button (no JavaScript):
+
+1. the **last lines** of every service container's log, oldest first, one
+   section per service, produced by the host on request as a snapshot;
+2. the **gateway's view** of requests to this instance (D3).
+
+- Above both, the page MUST state that logs can contain confidential data
+  the app itself writes, and that the window should be opened only for
+  troubleshooting.
+- **Opened, closed early and expired** go into the tenant audit log
+  (`oaap.core.tenant` 1.7) with who and for how long — **never** the
+  contents.
+- When the window closes, everything it collected MUST be **deleted**.
+  Keeping it past the window would turn a time-boxed read into a store
+  nobody agreed to.
+- A window whose time is up MUST read as closed **immediately**, before
+  any sweep has run. The time limit is the promise; a page that shows an
+  expired window as open breaks it.
+- Without an open window the section MUST explain what it would show and
+  why it is closed by default, rather than being absent.
+
+**The gateway's view (D3).** Per request: time, method, path **without
+query string**, status, duration, **whether a credential was present
+(yes/no, never its value)**, the caller's `Origin`, and which side
+answered — the app, a refusal by `/verify`, a redirect to login, a
+throttle, or a preflight handed straight to the app. Of headers, only the
+CORS ones in and out. See `oaap.core.gateway` for what MUST NOT be
+written at all.
+
+- The page MAY add **one** line of interpretation where the pattern is
+  unambiguous (a preflight that was redirected to login or refused by the
+  app; a cross-origin call that arrived without a credential; a response
+  the gateway passed but that carries no `Access-Control-Allow-Origin`;
+  `*` together with credentials). One line, and only where there is no
+  second reading: a page that starts guessing sends somebody in the next
+  wrong direction, which is the whole reason this exists.
+- The reader MUST be an **allow-list** of fields. The gateway's filter
+  removes what must not be written; the portal additionally admits only
+  the fields it knows, so a field a future gateway version starts logging
+  reaches no page even though nobody thought to remove it.
+
+**Restart (D4).** A button that **recreates** the instance's containers —
+the operation a configuration save already performs, not `docker
+restart`. Same right as the window. It MUST name its consequence at the
+button (*the app is unreachable for a few seconds; data, address, version
+and configuration stay*), MUST be **refused while a deployment of this
+instance is queued or running** (RFC-0024) and say so rather than queue
+behind it, and MUST produce an audit entry.
+
+- The button does **not** belong in the page's last, dangerous section.
+  That section carries only irreversible operations, each confirmed by
+  typing the instance's current name (§2.4, design guidelines 6.2.2); a
+  restart changes nothing that survives it. It belongs with the
+  diagnosis, where the person looking for a fault already is.
 
 The object page carries the remaining per-instance operations as
 further cards, so an operator never has to reach for the CLI to put an
@@ -575,6 +669,31 @@ configuration is a later stage (2.2).
     keeps its stored value byte for byte. With the host's view removed,
     the card says the values are unknown and offers no save, and a save
     request sent anyway is refused without writing.
+23. **Instance diagnostics (RFC-0038, 0.3.16)**: with the host's state
+    view present, the object page names each service's state and start
+    time and needs no activation for it; with the view removed it says
+    the state is **unknown** and never "not running". A container with
+    three restarts that started two minutes ago produces the
+    restart-loop finding **above the tabs**; the same count on a
+    container that started hours ago produces none. Opening a window
+    with a duration that was not offered is refused **by the host**, not
+    only by the form. While no window is open, the instance's generated
+    gateway sites contain **no** per-instance log and a snapshot request
+    is refused. With a window open, a request through the gateway
+    carrying a query string, an `Authorization` header, a `Cookie` and an
+    `Origin` appears in the view with the path **without** its query, the
+    credential as a yes, the origin, and neither secret's value anywhere
+    in the file; the instance's log appears as lines. Closing the window
+    removes the log from the gateway sites, reloads the gateway, deletes
+    both the collected requests and the snapshot, and writes
+    `diagnose.closed`; an expired window reads as closed on the page at
+    once and is closed at the gateway by the sweep, with
+    `diagnose.expired`. A restart changes the container's start time,
+    leaves data, address, version and configuration untouched, writes
+    `instance.restarted`, and is refused with a message while a
+    deployment of that instance is in flight. The restart button is not
+    in the page's last section, which continues to hold exactly the
+    operations confirmed by typing the instance name.
 
 ## 6. Dependencies
 
@@ -950,3 +1069,73 @@ passiert, am 05. und 09.09. an `aipc-test`.
   löschen, den niemand angefasst hat.
 
 Neuer Konformitätstest 22 prüft das alles.
+
+## Deutsche Zusammenfassung (Nachtrag 0.3.16 — Instanz-Diagnose)
+
+Anlass war derselbe Tag wie bei 0.3.15: Jörg suchte einen CORS-Fehler und
+hatte im Portal nichts als „läuft" oder „läuft nicht". Warum eine App
+abstürzt, stand in `docker logs` auf der Maschine; ob die Anfrage des
+Browsers überhaupt ankam, stand nirgends. RFC-0038 beantwortet das in
+drei Stufen, und **die Reihenfolge nach Empfindlichkeit ist die ganze
+Gestaltung** — ein Zustand ist eine Tatsache über einen Container, ein
+Log ist alles, was die App zu schreiben beschlossen hat.
+
+**Zustand, immer sichtbar (D1).** Je Container: läuft oder nicht, seit
+wann, wie oft neu gestartet, letzter Exit-Code, wegen Speichermangel
+beendet, und die Selbstauskunft eines erklärten Gesundheitschecks. Keine
+Freischaltung, kein Protokolleintrag. Drei Dinge sind verbindlich:
+
+- Das Portal spricht **nicht** mit der Container-Laufzeit. Der Knoten
+  schreibt die Tatsachen als Ansicht daneben — dasselbe Muster wie bei
+  der Konfigurationskarte — und erneuert sie über einen Timer, nicht nur
+  beim Speichern: Container-Zustand ändert sich von selbst.
+- **Fehlt diese Ansicht, heißt es „unbekannt" — nie „läuft nicht".**
+- Ein Neustartzähler über null an einem Container, der vor weniger als
+  zehn Minuten gestartet ist, ist der Befund „die App startet vermutlich
+  immer wieder neu" — als Satz, **über den Reitern**, mit Verweis auf das
+  Diagnose-Fenster. Ein Container in der Schleife darf nicht in einem
+  Reiter liegen, den niemand öffnet.
+
+**Das Diagnose-Fenster (D2).** Ausdrücklich geöffnet, je Instanz, für
+**15, 30 oder 60 Minuten** (Vorgabe 30), durch `server_admin` oder den
+`tenant_admin` dieser Instanz. Vorzeitig schließbar, **nicht
+verlängerbar** — erneutes Öffnen ist ein neuer Vorgang. Solange es offen
+ist, zeigt die Seite die letzten Log-Zeilen jedes Containers und die
+Sicht des Gateways. Dazu gehört: der Warnsatz über beidem („Logs können
+vertrauliche Daten enthalten, die die App selbst schreibt"), Öffnen,
+Schließen und Ablaufen im **Mandantenprotokoll** — die Inhalte nie —, und
+beim Schließen wird **gelöscht**, was gesammelt wurde. Ein abgelaufenes
+Fenster gilt **sofort** als zu, auch bevor der Sweep gelaufen ist: Die
+Zeitgrenze ist die Zusage.
+
+**Die Gateway-Sicht (D3).** Je Anfrage: Zeit, Methode, Pfad **ohne
+Query**, Status, Dauer, **ob** ein Nachweis dabei war (ja/nein, nie sein
+Wert), die Herkunft und wer geantwortet hat — App, Rollenprüfung,
+Anmeldeumleitung, Bremse oder eine durchgereichte Vorab-Anfrage. Von den
+Kopfzeilen nur die CORS-Kopfzeilen hin und zurück; was gar nicht
+geschrieben werden darf, steht in `oaap.core.gateway`. Die Seite darf
+**eine** Zeile Deutung hinzufügen, wo das Muster eindeutig ist — und nur
+dort: Eine Seite, die zu raten anfängt, schickt jemanden in die nächste
+falsche Richtung, und genau davon handelt dieses RFC. Der Leser im Portal
+ist außerdem eine **Erlaubnisliste**: Das Gateway löscht, was nicht
+geschrieben werden darf, und das Portal lässt zusätzlich nur zu, was es
+kennt — zwei Schichten mit umgekehrter Logik.
+
+**Neustart (D4).** Ein Knopf, der die Container **neu erzeugt** — genau
+der Vorgang, den das Speichern der Konfiguration ohnehin ausführt, nicht
+`docker restart`. Mit der Folge am Knopf („einige Sekunden nicht
+erreichbar; Daten, Adresse, Version und Konfiguration bleiben"),
+abgelehnt solange ein Deployment dieser Instanz läuft, und mit
+Protokolleintrag.
+
+**Eine bewusste Abweichung von der Skizze in RFC-0038:** Der Knopf steht
+**nicht** im letzten Reiter („Verwaltung"), sondern bei der Diagnose. Im
+letzten Reiter liegt ausschließlich Unwiderrufliches, jedes mit dem
+heutigen Namen der Instanz zu bestätigen (Design-Guidelines 6.2.2, von
+einem Konformitätstest festgehalten). Ein Neustart lässt nichts zurück,
+was er nicht wiederherstellt — und er gehört dorthin, wo der steht, der
+gerade einen Fehler sucht.
+
+Neuer Konformitätstest 23 prüft all das, einschließlich der beiden
+Verwechslungen, die es nicht geben darf: „unbekannt" gegen „läuft nicht",
+und „abgelaufen" gegen „noch offen".

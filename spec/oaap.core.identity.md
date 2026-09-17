@@ -1,9 +1,13 @@
 # oaap.core.identity — Identity & Roles
 
 - **ID:** `oaap.core.identity`
-- **Version:** 0.3.5
+- **Version:** 0.3.6 (a gateway refusal is readable across origins —
+  reflected `Access-Control-Allow-Origin` without
+  `Allow-Credentials`, and `401` instead of a login redirect for a
+  script call — 2.3, RFC-0038 follow-up)
 - **Maturity:** draft
-- **Based on:** RFC-0001, RFC-0002, RFC-0007, RFC-0008, RFC-0036
+- **Based on:** RFC-0001, RFC-0002, RFC-0007, RFC-0008, RFC-0036,
+  RFC-0038
 - **Scope of this version:** built-in minimal identity provider with
   user management. External identity providers (Keycloak, LDAP, OIDC)
   are out of scope and must be able to replace this provider later
@@ -123,6 +127,22 @@ session may go* — see the tenant restriction in 2.3.
   parameter naming a tenant this node does not have is refused, never
   treated as the default one. Absent, this parameter changes nothing —
   which is why nothing changes on a single-tenant node.
+- **A refusal must be readable across origins** (RFC-0038 follow-up).
+  Every refusal a generated gateway site can produce comes from here —
+  the verify endpoint and the throttle check are the only forward-auth
+  calls such a site makes — so the rule belongs here and nowhere else. A
+  refusal answering a request whose `Origin` is **not** the origin of the
+  site it was aimed at MUST carry that origin in
+  `Access-Control-Allow-Origin`, add `Vary: Origin`, and expose
+  `WWW-Authenticate`; it MUST NOT carry
+  `Access-Control-Allow-Credentials`. A refusal that would be a redirect
+  to the login form MUST instead be `401` with `WWW-Authenticate`, unless
+  the request is a browser navigation. The full rule and its reasons are
+  in `oaap.core.gateway`.
+  The site's own origin is determined from the forwarding headers the
+  gateway sets, never from the host identity itself was reached at —
+  which is always the internal service address and therefore useless
+  here.
 - **Fresh state per request:** verify MUST evaluate the *current* user
   store on every call. Deactivating a user or changing their roles or
   groups takes effect on their next request — waiting for re-login is
