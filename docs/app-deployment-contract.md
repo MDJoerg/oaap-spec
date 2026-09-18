@@ -1,4 +1,4 @@
-# OAAP App Deployment Contract (draft v0.5)
+# OAAP App Deployment Contract (draft v0.6)
 
 **Audience:** developers and AI coding agents (Codex, Claude Code, …)
 building an app that will be deployed on an OAAP platform.
@@ -15,7 +15,13 @@ deployments. v0.5 (2026-08-16) adds the **artifact path** — shipping the
 package itself instead of a repository the platform fetches (RFC-0019) —
 and states what needs a human: an envelope that widens, and every step
 to production (RFC-0020). Both were already implemented and specified;
-this document is where the app side reads them.
+this document is where the app side reads them. v0.6 (2026-09-18)
+catches up with what was built since and never reached this document,
+from the fourth onboarding (the Handball-Infoboard): **tenants**,
+**machine callers with API keys** (RFC-0027), what a **public route**
+really gets (no identity, a rate brake, a filtered log), **outbound
+network**, **build limits**, and **open streams across a gateway
+reload**.
 
 Give this document to your coding agent as a working instruction:
 "Make the app deployable on OAAP according to this contract."
@@ -119,7 +125,12 @@ health:
    Never hardcode hostnames, ports, absolute URLs, or shared paths;
    derive everything from environment and relative URLs.
 8. **Offline-first:** the app must work without internet access at
-   runtime. External services only if explicitly configured.
+   runtime. External services only if explicitly configured — that
+   means: the address of every outbound target is a **declared config
+   variable** (with a default if you like), never a constant in the
+   code. The platform does not restrict outbound traffic today (see
+   "Network and build" below); your app must still degrade, not fail,
+   when the target is unreachable.
 9. **Accept the platform's Host.** Do not pin `Host` checks to
    `localhost` (common DNS-rebinding protection in local-server apps) —
    the app receives the platform's public hostname; see guarantee 2.
@@ -134,6 +145,10 @@ conformant provider MUST deliver them (pinned formally in the
    `X-OAAP-User` and `X-OAAP-Roles` from every incoming client request
    on **all** routes — including `public` ones — and sets them itself
    after authentication. If the header is present, it is authentic.
+   On a `public` route the gateway does not authenticate at all, so the
+   headers are **always absent there — even for a caller who is logged
+   in**. A route cannot be "public and additionally roles": as soon as a
+   real role is declared next to `public`, login is required.
 2. **Host and forwarding headers.** The app receives the original
    `Host` header unchanged, plus `X-Forwarded-Proto` and
    `X-Forwarded-For` set by the gateway (needed for absolute URLs and
@@ -155,12 +170,135 @@ conformant provider MUST deliver them (pinned formally in the
    failing health endpoint does not get the app killed (migrations may
    run); afterwards the endpoint is polled as liveness.
 7. **Gateway properties** (reference values; minimum guarantees to be
-   pinned in the spec): WebSocket and SSE pass through; no
-   gateway-imposed request-body size limit by default (internet-hardened
-   profiles may introduce limits); streaming responses are not subject
-   to a gateway timeout.
+   pinned in the spec): WebSocket and SSE pass through, on public and
+   on authenticated routes; no gateway-imposed request-body size limit
+   by default (internet-hardened profiles may introduce limits);
+   streaming responses are not subject to a gateway timeout, and an
+   idle WebSocket is not closed by the gateway. **A deployment of
+   another app does not cut your open streams** (`oaap.core.gateway`
+   0.2.8; before reference 0.1.102 it did). Your clients MUST still
+   reconnect on their own: your **own** redeploy or restart ends your
+   streams with your container, and the nightly backup stops it
+   briefly. Reconnect with a little random delay, so that all devices
+   behind one connection do not knock at the same second, and send a
+   ping every 20–30 s for the routers in front of the gateway.
 8. **Redeploy semantics.** Production instances require a version bump;
    test instances may redeploy the same version in place.
+
+## Tenants
+
+A node can host several **tenants** (customers, departments, clubs —
+`oaap.core.tenant`). What that means for an app:
+
+- Every app **instance** belongs to exactly **one** tenant, with its own
+  mounts. The app sees nothing of it: there is no tenant header and no
+  tenant environment variable, and none is needed.
+- The **boundary is enforced at the gateway**: a user of another tenant
+  is refused before the request reaches your app. Do not filter by
+  tenant yourself. (The node operator with `server_admin` passes
+  everywhere; that is deliberate and audited.)
+- If your app has its own multi-client model (clubs, sites, branches
+  inside one instance), keep it — do **not** try to map it onto OAAP
+  tenants.
+- An instance's internal key carries the tenant as a prefix, and its
+  public addresses can change (further names, aliases, renaming). Build
+  every link from `Host` + `X-Forwarded-Proto` of the current request,
+  never from a name you assume.
+- Everyone who passes the gateway on your routes is a member of the
+  instance's tenant with one of the declared roles. If "whoever gets in
+  may do everything" is your app's model, ask the operator to limit the
+  instance to **visibility groups** (RFC-0007) rather than relying on a
+  small tenant.
+
+## Machine callers: API keys (RFC-0027)
+
+A program that calls your app — a desktop client, a webhook, another
+system, a script — does **not** need a `public` route or a key scheme of
+your own:
+
+1. The operator creates a **machine principal** (a user without a
+   password) with a role, in the portal under "Zugänge" or with
+   `oaap machine add <name> --tenant <tenant> --roles user`.
+2. The operator issues a **key** for it, limited to **one instance** and
+   with an expiry (1–365 days; "never" does not exist):
+   `oaap key issue <name> --instance <key> --days 180`.
+3. The program calls your **normal, protected** route with
+   `Authorization: Bearer oaapk_…`.
+
+The gateway checks the key, and your app receives `X-OAAP-User: <name>`
+and `X-OAAP-Roles` **exactly as for a person** — the user-on-first-
+contact pattern below applies unchanged. A key for another instance is
+refused with `403`, an unknown or revoked one with `401`, immediately.
+
+- The gateway forwards the request **unchanged**: your app sees the
+  `Authorization` header. On protected routes, do not use that header
+  for anything of your own and do not reject a value you do not know —
+  the caller is already authenticated.
+- A browser page on another origin calling your API with a key first
+  sends an `OPTIONS` preflight. The gateway hands that preflight to
+  **your app** without a login check; answer it with `200`/`204` and
+  your CORS headers, or the browser stops before the real call.
+- A browser **cannot** attach a key to a page navigation or to a
+  WebSocket handshake. For devices without a user — a TV in a hall, a
+  shared tablet, smart glasses — see the next section.
+- The role `partner` is for **people** of external companies, not for
+  machines.
+
+## Public routes: what they really get
+
+`public` is sometimes the only way — a display that nobody logs into, a
+share link. It is allowed, it widens the envelope (a human confirms it,
+see "Working with the platform side"), and it comes with these facts:
+
+- **No identity.** See guarantee 1: the headers are always absent.
+- **Protect it yourself.** A key, token or code is your app's business:
+  make it long and random, revocable, and lock it out after repeated
+  failures. The platform does not know which key is being guessed.
+- **A rate brake in front of you** (RFC-0010): per client address and
+  instance, default 300 requests per 60 s; above that the gateway
+  answers `429` with `Retry-After` and your app never sees the request.
+  A WebSocket counts **once**, at the handshake. All devices behind one
+  internet connection count as **one** client — if a room full of
+  devices reloads at once, tell the platform side a realistic number;
+  the limit is adjustable per instance. Honour `Retry-After` instead of
+  retrying blindly.
+- **The access log keeps the path.** The gateway logs requests to every
+  published name. Query strings and the values of `Authorization` and
+  `Cookie` are **not** written (`oaap.core.gateway` 0.2.8), but the
+  **path** is. A secret in the path therefore ends up in a file on the
+  server. Carry device and share keys in the URL **fragment**
+  (`https://host/display#k=…`): the browser never sends the part after
+  `#` to any server, so it is in no log, no `Referer` and no proxy. Your
+  page reads it from `location.hash`, sends it as the first WebSocket
+  message or as a request header, and removes it from the address bar
+  with `history.replaceState`.
+- **A rehearsal serves none.** A rehearsal instance (RFC-0030 — test
+  code on a copy of production data) requires login on **every** route,
+  including those your manifest declares `public`. Devices that depend
+  on a public route do not work there; that is intended.
+
+## Network and build
+
+- **Inbound:** your container publishes no port on the host and sits
+  alone in its own network. Other apps on the node cannot reach it, and
+  it cannot reach them. A connection between two apps is an explicit
+  operator decision (`oaap app link`), never in the manifest.
+- **Outbound:** open, today. HTTPS and outbound WebSockets to the
+  internet work without any declaration. Per-app egress control may
+  come later as a node profile; build for "configured target, graceful
+  degradation" (rule 8) and you will not notice.
+- **Build (`native`):** `docker build` of your `Dockerfile` runs on the
+  **target node**, with internet access — the public npm, PyPI or Maven
+  registries are reachable, and so are prebuilt native modules
+  downloaded during install. There are **no build-time secrets**: if a
+  private registry becomes necessary, write to the platform side before
+  you build it in. Include a compiler toolchain in your build stage when
+  a native module may have to compile (arm64 nodes are where prebuilds
+  are missing).
+- **Limits:** a package (ZIP) is at most **256 MB**; `node_modules`,
+  build output and virtual environments do not belong in it. A whole
+  deployment — build plus start until healthy — is aborted after
+  **20 minutes**, cleaned up, and reported as failed.
 
 ## What OAAP does NOT back up
 
@@ -318,6 +456,40 @@ Briefe unveränderlich, sofort pushen) und der **Deploy-Hook** (nach dem
 Push per Bearer-Token die eigene Test-Instanz ausrollen und sofort
 unter Realbedingungen testen; Produktivsetzung bleibt Menschensache mit
 Versions-Bump).
+
+**Neu in v0.6 — nachgetragen, was gebaut war, aber hier fehlte:**
+
+- **Mandanten:** Jede Instanz gehört genau einem Mandanten; die App sieht
+  davon nichts (keine Kopfzeile, keine Variable) und filtert nicht
+  selbst — die Grenze setzt das Gateway durch. Ein eigenes
+  Mandantenmodell der App (Vereine, Standorte) bleibt, wie es ist. Links
+  immer aus `Host` und `X-Forwarded-Proto` bauen. Wer durchs Gateway
+  kommt, ist Mitglied des Mandanten — soll „wer reinkommt, darf alles"
+  gelten, grenzt der Betreiber die Instanz auf Sichtbarkeitsgruppen ein.
+- **Programme als Aufrufer:** Statt einer `public`-Route mit eigenem
+  Schlüssel gibt es API-Schlüssel (RFC-0027): Maschinen-Prinzipal mit
+  Rolle, Schlüssel auf eine Instanz begrenzt und mit Ablauf,
+  `Authorization: Bearer oaapk_…` auf der normalen geschützten Route. Die
+  App sieht `X-OAAP-User` wie bei einem Menschen. Den
+  `Authorization`-Header auf geschützten Routen nicht für Eigenes
+  benutzen; ein `OPTIONS`-Preflight erreicht die App ohne Anmeldung und
+  muss dort beantwortet werden. `partner` ist eine Rolle für Menschen.
+- **`public`-Routen:** keine Identität (die Kopfzeilen fehlen immer,
+  auch für Angemeldete), eigener Schutz mit Sperre nach Fehlversuchen,
+  eine Bremse im Gateway (Standard 300 Anfragen je 60 s und Adresse,
+  ein WebSocket zählt einmal, alle Geräte hinter einem Anschluss zählen
+  als einer), ein Zugriffsprotokoll **ohne** Query-Teil und ohne
+  Schlüsselwerte, aber **mit** Pfad — Geräte- und Freigabeschlüssel
+  deshalb ins Fragment der Adresse (`#…`). Eine Generalprobe bedient
+  keine `public`-Route.
+- **Netz und Bau:** nach innen abgeschottet, nach außen offen; Ziele
+  über deklarierte Variablen, bei Ausfall weiterarbeiten. Gebaut wird
+  auf dem Zielknoten mit Internetzugang, ohne Build-Geheimnisse; Paket
+  höchstens 256 MB, ein Deployment höchstens 20 Minuten.
+- **Offene Verbindungen:** Das Ausrollen einer **anderen** App trennt
+  eure WebSockets nicht mehr (seit Referenz 0.1.102). Neu verbinden
+  müssen Clients trotzdem können — beim eigenen Ausrollen und beim
+  nächtlichen Backup.
 
 **Neu in v0.5 — der Paket-Weg (RFC-0019):** Kommt die Plattform an die
 Quelle nicht heran (privates Repository, Knoten ohne Internet, Datei

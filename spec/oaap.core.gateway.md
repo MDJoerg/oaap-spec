@@ -1,8 +1,11 @@
 # oaap.core.gateway — HTTP Gateway (outline)
 
 - **ID:** `oaap.core.gateway`
-- **Version:** 0.2.7
+- **Version:** 0.2.8
 - **Maturity:** draft (outline — full specification to follow;
+  open streams survive a gateway reload, and the permanent access log
+  is filtered like the diagnosis log, 2026-09-18 (reference 0.1.102 /
+  0.1.103, from the Handball-Infoboard's first letter);
   a refusal is readable across origins and a time-boxed per-instance
   access log added 2026-09-17 per RFC-0038;
   §Edge routing added 2026-08-07 per RFC-0006; visibility groups
@@ -246,6 +249,53 @@ instance declares no route for carries no CORS header either. It is the
 same class of problem and deliberately not fixed here — it needs headers
 on the gateway side rather than in identity.
 
+## Open streams survive a gateway reload (0.2.8)
+
+Every deployment of **any** app reloads the gateway configuration. A
+WebSocket or SSE stream opened under the previous configuration MUST NOT
+be closed by that reload. (Measured before the rule, on oaap-test with
+Caddy 2.11.4: a held stream died in the same second as the reload, so a
+deployment of one app cut the open connections of every other app on the
+node.)
+
+- Applies to every path from the gateway to an app: app routes on every
+  entry point, edge forwarding (RFC-0006) and the broker's WebSocket
+  listener (RFC-0032).
+- The reference keeps such a stream for up to **12 hours** after the
+  reload that retired its configuration (`stream_close_delay`). A stream
+  is not guaranteed to live forever.
+- Not covered, by design: a stream to an app that is **itself**
+  redeployed or restarted ends with its container. The nightly backup
+  also stops containers briefly (RFC-0029). Clients therefore MUST still
+  reconnect; the guarantee is that a **neighbour's** deployment is not
+  one of the reasons.
+- A node updated from an earlier version rewrites its generated sites
+  once, during the update.
+
+## The permanent access log (0.2.8)
+
+The gateway writes an access log for every **published** name (platform
+apex, automatic instance names, an instance's own names and aliases, and
+edge routes). The LAN entry points write none. The same field rules as
+for the time-boxed diagnosis log (next section) apply to it, from **one**
+definition shared by both:
+
+- MUST NOT be written: the request's **query string**, the **value** of
+  `Authorization`, `Proxy-Authorization` and `Cookie`, any `Set-Cookie`,
+  the `X-OAAP-*` identity headers, the query string of a `Location`, and
+  bodies.
+- The **presence** of `Authorization` and `Cookie` is kept as a fixed
+  placeholder.
+- The **path** is written in full. A secret an app puts into the path
+  therefore lands in this log. Apps are told to carry device or share
+  keys in the URL **fragment** (`#…`), which a browser never sends to a
+  server, and to exchange it for something short-lived after loading.
+  The log belongs to the node operator and is not part of the backup.
+
+(Until 0.2.7 this log kept full URIs. The operator of bdt-hub was told
+on 2026-08-08 that this would be examined; it was fixed only when the
+second app with keys in its links asked the same question.)
+
 ## A time-boxed per-instance access log (RFC-0038 D3)
 
 An instance's gateway sites MAY be asked to write an access log of their
@@ -409,3 +459,33 @@ eines `Location` und Inhalte. Erhalten bleiben muss dagegen die
 **Tatsache**, dass ein Nachweis dabei war (ein fester Platzhalter statt
 des Werts): Genau sie unterscheidet „kein Schlüssel geschickt" von
 „falscher Schlüssel" — die Frage, für die es dieses Fenster gibt.
+
+## Deutsche Zusammenfassung (v0.2.8 — offene Verbindungen überstehen das Neuladen, und das Dauerprotokoll wird gefiltert)
+
+**Erstens: Ein Ausrollen trennt keine fremden Verbindungen mehr.** Jedes
+Ausrollen irgendeiner App lädt die Konfiguration des Gateways neu. Bis
+0.2.7 wurden dabei **alle** offenen WebSocket- und SSE-Verbindungen
+**aller** Apps des Knotens getrennt — auf oaap-test gemessen, in
+derselben Sekunde. Jetzt verbindlich: Ein Neuladen trennt keine
+bestehende Verbindung. Die Referenz hält sie bis zu 12 Stunden an der
+alten Konfiguration fest. Gilt für App-Routen an jedem Eingang, für die
+Edge-Weiterleitung und für den Broker. **Nicht** geschützt, und so
+gewollt: eine Verbindung zu einer App, die **selbst** neu ausgerollt
+wird — ihr Container stoppt. Auch das nächtliche Backup stoppt Container
+kurz. Clients müssen also weiterhin neu verbinden können; nur das
+Ausrollen des Nachbarn ist kein Grund mehr dafür.
+
+**Zweitens: Das Dauerprotokoll schreibt keine Schlüssel mehr.** Das
+Gateway protokolliert jeden Zugriff auf einen veröffentlichten Namen
+(Portal, Instanz-Namen, eigene Adressen, Edge); die LAN-Eingänge nicht.
+Bis 0.2.7 stand dort die vollständige Adresse samt Query-Teil. Jetzt
+gelten dieselben Regeln wie für das Diagnose-Protokoll, aus **einer**
+gemeinsamen Definition: kein Query-Teil, keine Werte von
+`Authorization`/`Cookie` (nur die Tatsache, dass einer dabei war), kein
+`Set-Cookie`, keine `X-OAAP-*`, kein Query-Teil in `Location`. **Der Pfad
+bleibt vollständig** — ein Schlüssel, den eine App in den Pfad legt,
+steht weiterhin im Protokoll. Empfehlung an Apps: Geräte- und
+Freigabeschlüssel ins **Fragment** der Adresse (`#…`) legen, das der
+Browser nie an einen Server schickt. Die Prüfung war bdt-hub am 08.08.
+zugesagt und ist erst jetzt eingelöst, als die zweite App dieselbe
+Frage stellte.
