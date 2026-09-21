@@ -339,7 +339,7 @@ else.**
 Three rules make the second column safe:
 
 1. **A `tenant_admin` may never grant a role whose authority reaches
-   past a tenant** — `server_admin` (the node) and `partner` (the
+   past a tenant** — `server_admin` (the node) and `support` (the
    health surface, which names every instance on the machine) — and may
    never grant `tenant_admin` outside their own tenant. Otherwise the
    role is a two-step path out of its own boundary: create an account,
@@ -541,8 +541,9 @@ On a node with one tenant: none that anyone can observe, exactly as in
 8. **A `tenant_admin` is bounded.** They cannot list, read or change a
    user or an instance of another tenant; a request naming one is
    answered as if it did not exist. They cannot grant `server_admin`
-   or `partner`. They cannot create a user in another tenant even by
-   naming one in the request.
+   or `support`. They cannot create a user in another tenant even by
+   naming one in the request. `partner` they may grant: since RFC-0039
+   it carries no platform authority and reaches nowhere.
 9. **The audit log records both sides.** A `server_admin` action inside
    a tenant appears in that tenant's log; a `tenant_admin` reading the
    log sees their own tenant's entries and no others.

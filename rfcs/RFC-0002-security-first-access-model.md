@@ -4,6 +4,10 @@
 - **Date:** 2026-08-03
 - **Authors:** Claude (proposal), Jörg (review & decision)
 - **Depends on:** RFC-0001 (capability model)
+- **Amended by:** RFC-0008 (the `admin` / `server_admin` split — the
+  `admin` row below no longer describes platform authority),
+  RFC-0022 (`tenant_admin`), RFC-0039 (`support`; and the `partner` row
+  below restored to the only meaning it has)
 
 ## Summary
 
@@ -57,13 +61,20 @@ A reverse proxy that is the only network entry point to the platform.
 
 Predefined platform roles, available on every OAAP installation:
 
+> **Read this table together with the amendments above.** It is the
+> published definition of the standard roles, and twice now a later
+> document has changed what one of these words means without changing
+> the row — `admin` in RFC-0008, `partner` in RFC-0039. A reader who
+> stops here gets the wrong answer.
+
 | Role      | Meaning                                                                  |
 | --------- | ------------------------------------------------------------------------ |
-| `admin`   | Full platform administration: users, apps, configuration, backup         |
+| `admin`   | Full platform administration: users, apps, configuration, backup — **narrowed by RFC-0008**: an app-facing role only, carrying no platform authority; the platform half is `server_admin` |
 | `keyuser` | Manages configuration and data of assigned apps; first-level user support |
 | `user`    | Regular internal user (employees); uses apps assigned to them            |
 | `guest`   | Limited, typically temporary access to a specific app function (e.g. a customer signing off a completed installation) |
-| `partner` | External partner organization participating in defined processes         |
+| `partner` | External partner organization participating in defined processes. Carries **no** platform authority — **confirmed by RFC-0039**, which moved the node-wide read it had accumulated to `support`, and is therefore grantable by a `tenant_admin` |
+| `support` | **Added by RFC-0039.** The service provider who looks after this node: reads the health page and other node-wide status surfaces. Read-only; changes nothing. Reaches past a tenant, so only a `server_admin` may grant it |
 | `public`  | Unauthenticated access; only valid for routes explicitly marked public — none by default |
 
 - Apps declare in their manifest which roles they support and what each

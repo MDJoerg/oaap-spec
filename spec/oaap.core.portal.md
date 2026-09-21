@@ -352,9 +352,11 @@ portal. It therefore differs from every other card:
 
 ### 2.5 Health
 
-- Visible for roles `server_admin` and `partner` (service-partner
-  scenario) — moved from `admin` in v0.3.0 (RFC-0008: this is
-  server-internal information, not app-facing).
+- Visible for roles `server_admin` and `support` (the service provider
+  who looks after this node) — moved from `admin` in v0.3.0 (RFC-0008:
+  this is server-internal information, not app-facing), and from
+  `partner` to `support` in RFC-0039, which took this node-wide read
+  out of a role RFC-0002 had published as app-facing.
 - **Node values**: platform version, the node's **profiles**
   (`oaap.core.host` 2.5 — a node that behaves differently from its
   neighbour must say so, including where to change it), uptime, CPU
@@ -539,7 +541,7 @@ configuration is a later stage (2.2).
    the navigation filter is UX only. `server_admin` for instance
    visibility and store **sources**; `server_admin` or `tenant_admin`
    for user management, the instance list and the store **catalogue**
-   (2.6, RFC-0022 §4); `server_admin`/`partner` for health. A new
+   (2.6, RFC-0022 §4); `server_admin`/`support` for health. A new
    route under an already-guarded area MUST call the same guard: the
    failure mode this is written against is a route added later and
    left open.
@@ -574,8 +576,8 @@ configuration is a later stage (2.2).
    the user-management routes return 403 and the navigation hides the
    entry — holding only `admin` is not sufficient.
 6. **Health authorization**: health is reachable for `server_admin`
-   and `partner`, 403 for everyone else (including a user holding only
-   `admin`).
+   and `support`, 403 for everyone else (including a user holding only
+   `admin`, and a user holding only `partner`).
 7. **Health signal**: stopping an app container (or a core service)
    changes its health row on the next page load; the full-chain
    gateway check fails when the gateway cannot reach identity.
@@ -713,7 +715,8 @@ appearance configuration, landscape health, settings/studio areas.
 **server_admin statt admin:** Benutzerverwaltung, Store und (neu)
 Instanzen-Sichtbarkeit erfordern jetzt `server_admin` statt `admin`
 (RFC-0008) — reine App-Rolle `admin` reicht dafür nicht mehr.
-Gesundheit ebenso (`server_admin`/`partner`).
+Gesundheit ebenso (`server_admin`/`support` — bis RFC-0039 stand dort
+`partner`).
 
 **Neue Seite „Instanzen" (2.4, RFC-0007):** Listenbericht aller
 installierten Instanzen mit Objektseite je Instanz — „Alle sichtbar"

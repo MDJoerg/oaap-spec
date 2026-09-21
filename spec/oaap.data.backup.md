@@ -325,7 +325,7 @@ The documented Umzug flow, built from the two operations above:
     hour and the retention and the timer reports the new next run; the
     page shows this node's own last measured downtime beside the time
     field, and a node that never backed up says so instead of showing a
-    number. A `partner` sees the state but is offered no form, and the
+    number. A `support` sees the state but is offered no form, and the
     same request presented directly to the node is refused. There is no
     field for the target path. A node without a timer is told that
     plainly and offered no form. Switching the schedule off is

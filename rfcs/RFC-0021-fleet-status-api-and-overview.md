@@ -1,6 +1,8 @@
 # RFC-0021: Fleet Status API and Fleet Overview App
 
 - **Status:** Accepted (2026-08-23)
+- **Amended by:** RFC-0039 (2026-09-21) — decision 3's role is now
+  `support`; see the note there and at the outlook below
 - **Date:** 2026-08-23
 - **Authors:** Claude (analysis & proposal), Jörg (decisions)
 - **Depends on:** RFC-0003 (platform topology), RFC-0006 (edge node),
@@ -173,6 +175,15 @@ Rules:
 Jörg's requirements for the later management stage (2026-08-23) are
 recorded so stage 1 does not paint itself into a corner:
 
+> **Vocabulary note (RFC-0039, 2026-09-21).** "Partner" below means a
+> business relationship — a company that looks after someone's nodes —
+> and reads correctly as prose. It is *not* the role `partner`, which
+> since RFC-0039 means an external company taking part in an app's
+> processes and carries no platform authority. **When this stage is
+> designed, the role it means is `support`.** Written down here so the
+> next author does not have to rediscover it: this RFC is where the two
+> meanings were still one word.
+
 1. **Trust is created by the owner.** Whoever set the nodes up (and
    holds all rights) creates the trust relationships. A **partner**
    who later cares for nodes gets rights **on the central management
@@ -199,8 +210,9 @@ recorded so stage 1 does not paint itself into a corner:
    default.
 
 Stage 1 already conforms: fleet keys are held by the central node's
-FleetView app and are never rendered back; the `partner` role reads
-through the platform's own role gate, not with a key of its own.
+FleetView app and are never rendered back; the `support` role
+(`partner` when this was written) reads through the platform's own role
+gate, not with a key of its own.
 
 ## Decisions (Jörg, 2026-08-23)
 
@@ -221,6 +233,14 @@ through the platform's own role gate, not with a key of its own.
    management instance) and with the health page, which already
    admits `partner`. Granular per-partner scoping (which partner sees
    which nodes) arrives with stage 2.
+
+   > **Amended by RFC-0039 (2026-09-21): the role is `support`.** The
+   > decision itself stands unchanged — FleetView is visible to whoever
+   > looks after the node, exactly as the health page is. What changed
+   > is which word carries that. `partner` had accumulated this
+   > node-wide read while RFC-0002 published it as app-facing; the
+   > privilege moved to `support`, and FleetView's manifest and its own
+   > guard moved with it.
 4. **The word is `fleet`.** CLI `oaap fleet …`, route `/fleet/status`,
    spec `oaap.fleet.status`. The program level keeps speaking of the
    "Flotte"; the technical level is English per ADR-0003.
@@ -256,3 +276,10 @@ Entscheidungen (Jörg, 2026-08-23): volle Status-Auskunft schon in
 Stufe 1; Poll-Intervall im Minutenbereich (Alarmierung bleibt bei
 Uptime Kuma); sichtbar für `server_admin` und `partner`; der Begriff
 ist `fleet`.
+
+**Nachtrag (RFC-0039, 21.09.2026):** Die Rolle heißt inzwischen
+`support`. Die Entscheidung selbst bleibt — sichtbar für den, der den
+Knoten betreut —, nur das Wort dafür ist ein anderes: `partner` meint
+seit RFC-0039 wieder ausschließlich die externe Firma und trägt keine
+Plattformrechte. Im Ausblick oben steht „Partner" weiterhin für die
+Geschäftsbeziehung und ist dort richtig gelesen.

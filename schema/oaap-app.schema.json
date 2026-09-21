@@ -282,6 +282,7 @@
             "minItems": 1,
             "items": {
               "enum": [
+                "support",
                 "admin",
                 "keyuser",
                 "user",

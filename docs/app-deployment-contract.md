@@ -1,4 +1,4 @@
-# OAAP App Deployment Contract (draft v0.6)
+# OAAP App Deployment Contract (draft v0.7)
 
 **Audience:** developers and AI coding agents (Codex, Claude Code, …)
 building an app that will be deployed on an OAAP platform.
@@ -21,7 +21,11 @@ from the fourth onboarding (the Handball-Infoboard): **tenants**,
 **machine callers with API keys** (RFC-0027), what a **public route**
 really gets (no identity, a rate brake, a filtered log), **outbound
 network**, **build limits**, and **open streams across a gateway
-reload**.
+reload**. v0.7 (2026-09-21) corrects the role list: `partner` is **not**
+a way to see anything of the platform, and the service provider who
+looks after a node is now `support` (RFC-0039). The Handball-Infoboard
+read the old definition and planned to give sponsors `partner`, which
+on a shared node would have shown them every instance on the machine.
 
 Give this document to your coding agent as a working instruction:
 "Make the app deployable on OAAP according to this contract."
@@ -101,14 +105,25 @@ health:
 
 1. **No own authentication.** Trust the gateway: every request carries
    the verified identity in the headers `X-OAAP-User` and
-   `X-OAAP-Roles` (comma-separated; standard roles: `admin`, `keyuser`,
-   `user`, `guest`, `partner`). Authorize inside the app based on these
-   headers — never render a login form. A caller's roles may also
-   include `server_admin` (RFC-0008) if they hold it — it is forwarded
-   like any other role, but it is a **platform-only** authority (server
-   administration, not app administration) and apps MUST NOT treat it
-   as implying anything about their own app-level permissions; a
-   manifest's routes never declare it as a required role.
+   `X-OAAP-Roles` (comma-separated; standard roles: `support`, `admin`,
+   `keyuser`, `user`, `guest`, `partner`). Authorize inside the app
+   based on these headers — never render a login form. A caller's roles
+   may also include `server_admin` (RFC-0008) if they hold it — it is
+   forwarded like any other role, but it is a **platform-only**
+   authority (server administration, not app administration) and apps
+   MUST NOT treat it as implying anything about their own app-level
+   permissions; a manifest's routes never declare it as a required
+   role.
+
+   Two of these are easy to mix up, and getting it wrong is a leak:
+   **`partner`** is an external company taking part in your processes —
+   a supplier, a sponsor. It carries no platform authority at all, and
+   a tenant administrator may hand it out. **`support`** is the service
+   provider who looks after the node itself; it reads node-wide status
+   across every tenant, and only a server administrator may grant it.
+   Gate a supplier view on `partner`, never on `support`. Until
+   RFC-0039 (2026-09-21) `partner` did both jobs, and this document
+   described only the harmless one.
 2. **HTTP only, one port per service.** No TLS in the app — the
    gateway terminates it. Listen on the port declared in the manifest,
    on `0.0.0.0`. Additional listeners the app opens are **never

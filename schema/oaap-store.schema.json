@@ -163,7 +163,7 @@
         },
         "roles": {
           "type": "array",
-          "items": { "enum": ["admin", "keyuser", "user", "guest", "partner", "public"] },
+          "items": { "enum": ["support", "admin", "keyuser", "user", "guest", "partner", "public"] },
           "$comment": "GENERATED from the manifest's route roles at publishing time (§1.3) — not a field anybody maintains. It lets the store answer \"who can use this\" without cloning the repository."
         },
 

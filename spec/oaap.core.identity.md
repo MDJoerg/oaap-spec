@@ -44,11 +44,17 @@ their own business roles.
 The standard roles from RFC-0002 and RFC-0008 exist on every
 installation and are not user-definable in this version:
 
-`server_admin`, `tenant_admin`, `admin`, `keyuser`, `user`, `guest`,
-`partner`, `public`
+`server_admin`, `tenant_admin`, `support`, `admin`, `keyuser`, `user`,
+`guest`, `partner`, `public`
 
 `public` is a route marker (no authentication), never a role held by a
-user account. A user account holds **one or more** of the other seven.
+user account. A user account holds **one or more** of the other eight.
+
+`support` (RFC-0039) is the read-only counterpart to `server_admin`:
+the service provider who looks after this node and reads its node-wide
+status surfaces, changing nothing. `partner` carries no platform
+authority at all — it is the app-facing classification RFC-0002
+defined, and nothing more.
 
 `server_admin` (RFC-0008) is full platform administration authority —
 users, groups, edge/external routing, backup, store, and the
@@ -78,7 +84,7 @@ Each user account has at least:
 | -------------- | ------------------------------------------------------------------------------- |
 | `username`     | unique, immutable after creation, `[a-z0-9][a-z0-9._-]*`, 2–40 chars, lowercase |
 | `display_name` | optional free text; portal UX only — apps receive the `username`                |
-| `roles`        | non-empty subset of {server_admin, tenant_admin, admin, keyuser, user, guest, partner} |
+| `roles`        | non-empty subset of {server_admin, tenant_admin, support, admin, keyuser, user, guest, partner} |
 | `groups`       | free-form visibility tags (RFC-0007), default empty — see 2.6                   |
 | `tenant`       | the tenant this user belongs to (`oaap.core.tenant` 1.1); absent means the default tenant |
 | `active`       | boolean; inactive users cannot sign in and existing sessions stop verifying     |
@@ -161,7 +167,7 @@ session may go* — see the tenant restriction in 2.3.
   "forbidden" would confirm that the username is taken on this node,
   which is already an answer across the boundary.
 - **A `tenant_admin` may not grant a role whose authority reaches past
-  a tenant** — `server_admin` and `partner` — and may not grant
+  a tenant** — `server_admin` and `support` — and may not grant
   `tenant_admin` outside their own tenant. All are refused, not
   silently dropped.
 - Operations: **list** users (never exposing password hashes),
@@ -352,8 +358,9 @@ owns — never the widget.
 12. **A `tenant_admin` is bounded** (0.3.3) — they can create, list and
     change users of their own tenant; a request naming a user of
     another tenant answers "not found", not "forbidden"; granting
-    `server_admin` or `partner`, or naming a foreign tenant on create,
-    is refused.
+    `server_admin` or `support`, or naming a foreign tenant on create,
+    is refused. Granting `partner` is allowed (RFC-0039): it reaches
+    nowhere past the tenant.
 13. **whoami answers about the caller** (0.3.4, 2.7) — a signed-in user
     receives their own username, display name and roles; the `roles`
     field is byte-identical to the `X-OAAP-Roles` header the same

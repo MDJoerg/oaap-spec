@@ -1,6 +1,7 @@
 # RFC-0039: `support` — Giving the Node-Wide Half of `partner` Its Own Name
 
-- **Status:** Accepted (2026-09-21) — decided by Jörg the same day; nothing built
+- **Status:** **Built** (2026-09-21) — decided by Jörg and implemented
+  the same day. Not yet released to the fleet; the fleet is on 0.1.104.
 - **Date:** 2026-09-21
 - **Authors:** Jörg (decision & direction), Claude (finding & write-up)
 - **Depends on:** RFC-0002 (roles, gateway enforcement), RFC-0008
@@ -205,32 +206,74 @@ successfully):
   as today. `support` is not granted — a node's own operator holds
   `server_admin`, which already sees everything.
 
-**An operator task follows the migration, and the release note must say
-so:** review who holds `partner` and remove it where the person is a
-service provider rather than an external company. Until that is done
-they hold both, which is safe but untidy. The platform must not do this
-automatically — it cannot tell the two apart, and guessing would either
-strip a real business partner or leave a service provider mislabelled.
+**An operator task follows the migration:** review who holds `partner`
+and remove it where the person is a service provider rather than an
+external company. Until that is done they hold both, which is safe but
+untidy. The platform must not do this automatically — it cannot tell
+the two apart, and guessing would either strip a real business partner
+or leave a service provider mislabelled.
+
+**As built, this does not rely on a release note.** A line in a release
+note scrolls past once; the accounts stay wrong for years. `oaap update`
+prints the task itself, naming every account that holds both roles, on
+every update — and falls silent the moment none does. A nag that clears
+itself when the work is done. (`appctl.py support-cleanup-note`, called
+from `migrate.sh`.)
 
 ## 4. Implementation inventory
 
-The role list is written out in **five** places. All five must move
-together, or this RFC reproduces the failure it describes. Listed so
-none is forgotten:
+The role list is written out in **nine** places. All nine must move
+together, or this RFC reproduces the failure it describes.
+
+**This list said five when the RFC was accepted.** Four more turned up
+while building it, and each would have failed late rather than loudly:
 
 | File | What |
 | --- | --- |
-| `platform/services/identity/app.py` | `ASSIGNABLE_ROLES` (+`support`), `NODE_WIDE_ROLES` (−`partner`, +`support`), new `_migrate_support_once()` |
-| `platform/services/portal/app.py` | `ALL_ROLES`, `NODE_WIDE_ROLES`, `can_health`, the health route guard |
-| `platform/appctl.py` | `ROLES` |
+| `platform/services/identity/app.py` | `ASSIGNABLE_ROLES` (+`support`), `NODE_WIDE_ROLES` (−`partner`, +`support`), both refusal messages, new `_migrate_support_once()`, and the fresh-install state flag |
+| `platform/services/portal/app.py` | `ALL_ROLES`, `NODE_WIDE_ROLES`, `can_health`, the health route guard, the module docstring |
+| `platform/appctl.py` | `ROLES` — the manifest role validator |
 | `oaap-spec/schema/oaap-app.schema.json` | route role enum |
+| **`oaap-spec/schema/oaap-store.schema.json`** | **the same enum again**, for the role list generated at publishing time (§1.3). Missed at acceptance. An app gating on `support` would have installed cleanly and then failed store validation — the failure arrives one step removed from its cause, which is the worst place for it |
 | `oaap-apps/apps/fleetview/oaap-app.yaml` | `[admin, partner]` → `[admin, support]` |
+| **`oaap-apps/apps/fleetview/app.py`** | **FleetView checks the role a second time in its own code** (`_allowed()`, defence in depth). Missed at acceptance. Changing only the manifest would have let the gateway admit a `support` holder whom the app then refused with a 403 naming a role that no longer grants anything |
+| **`oaap-apps/apps/studio/pkg.py`** | **Studio validates manifests with its own copy of the role list**, and Studio is in production (0.4.2 on oaap-demo and oaapx01). Missed at acceptance. An app gating on `support` would have been rejected by the tool a developer uses while being perfectly valid on the node — the developer would have believed the tool. Studio's own developer briefing (`app.py`) names the roles too, and now warns against confusing the two |
+| **`oaap-apps/apps/store-editor/checker.py`** | **A third copy**, in the tool that checks store lists. Missed at acceptance. Same failure one step later: valid on the node, invalid when published |
 
-Specification text to amend in the same change: `oaap.core.identity`
-(2.1 role list, 2.3 rule 1, and the role table in 5.x),
-`oaap.core.portal` (health visibility, ×4), `oaap.core.tenant` (2.3
-rule 1, and the create/update refusal message), RFC-0002's role table
-(add the `support` row; the `partner` row stands as written).
+The lesson is the RFC's own: **an inventory is a reader too, and it can
+be stale on the day it is written.** What found the four was a grep for
+the word across every repository, not a re-reading of this list. Three
+of the four were copies of the role list living in *apps* — the
+platform's own three places were the easy part.
+
+**For the next role change:** grep every repository for the role name
+before trusting any list, this one included.
+
+Specification text amended in the same change: `oaap.core.identity`
+(2.1 role list, the `roles` field, 2.3 rule 1, acceptance 12),
+`oaap.core.portal` (2.5 health visibility, acceptance 2 and 6, the
+German summary), `oaap.core.tenant` (2.3 rule 1 and acceptance 8),
+`oaap.data.backup` (acceptance 5.7 — also missed at acceptance),
+RFC-0002's role table (the `support` row, an "amended by" header and a
+note above the table), RFC-0021 (the vocabulary note of §3.6, decision
+3 and the German summary), and the **App Deployment Contract**, raised
+to v0.7 — the document the outside project actually reads, and the one
+that told them `partner` was harmless.
+
+### 4.1 Test
+
+`oaap-reference/test/test_support_role.py`, new. It checks all nine
+places move together, the migration in all four of its behaviours
+(grants, keeps `partner`, catches inactive accounts, runs once), the
+fresh-install case, the tenant boundary in **both** directions — a
+`tenant_admin` refused `support` *and* allowed `partner`, which is the
+point of the RFC and would otherwise go unproven — and, end to end
+through Flask, that `support` arrives in `X-OAAP-Roles` and gates a
+route while `partner` does not.
+
+The RFC-0008 migration this one copies had no test. This one was
+mutation-checked: reverting the migration or leaving `partner` in
+`NODE_WIDE_ROLES` turns it red.
 
 ## 5. Consequences
 
@@ -326,8 +369,36 @@ Freigabemitteilung muss sie nennen: nachsehen, wer `partner` hält, und
 sie dort abnehmen, wo es sich um einen Dienstleister und nicht um eine
 externe Firma handelt. Das kann die Plattform nicht selbst entscheiden.
 
-**Wichtig für die Umsetzung:** Die Rollenliste steht an **fünf** Stellen
-im Code und im Schema (Identity, Portal, appctl, App-Schema,
-FleetView-Manifest). Alle fünf müssen zusammen umziehen — sonst
-wiederholt dieses RFC genau den Fehler, den es beschreibt. Die Liste
-steht in §4.
+**Wichtig für die Umsetzung:** Die Rollenliste steht an **neun**
+Stellen. Alle neun müssen zusammen umziehen — sonst wiederholt dieses
+RFC genau den Fehler, den es beschreibt.
+
+Bei der Annahme standen hier **fünf**. Vier kamen beim Bauen dazu, und
+jede hätte spät statt laut versagt:
+
+- Das **Store-Schema** hat dieselbe Rollen-Enum noch einmal. Eine App
+  mit `support` hätte sich sauber installiert und wäre erst beim
+  Veröffentlichen durchgefallen.
+- **FleetView prüft die Rolle zusätzlich im eigenen Code.** Hätte ich
+  nur das Manifest geändert, hätte das Tor jemanden durchgelassen, den
+  die App danach abweist.
+- **Studio** prüft Manifeste mit einer eigenen Kopie der Liste — und
+  Studio läuft produktiv (0.4.2). Eine App mit `support` wäre im
+  Werkzeug durchgefallen, obwohl der Knoten sie annimmt; der Entwickler
+  hätte dem Werkzeug geglaubt.
+- Der **Store-Editor** hat eine dritte Kopie.
+
+Bemerkenswert: **drei der vier lagen in Apps**, nicht in der Plattform.
+Die drei Plattformstellen waren der einfache Teil. Gefunden hat alle
+vier eine Suche nach dem Wort über sämtliche Repositories, nicht ein
+erneutes Lesen dieser Liste. Die Lehre ist die des RFC selbst: **auch
+eine Inventur ist ein Leser und kann schon am Tag ihrer Entstehung
+veraltet sein.** Die vollständige Liste steht in §4.
+
+**Gebaut am 21.09.2026** (0.1.105, Studio 0.4.3, Store-Editor 0.3.1,
+FleetView 0.3.2), mit einem neuen Test (`test_support_role.py`), der
+alle neun Stellen, die Umstellung und die Mandantengrenze in beide
+Richtungen prüft — auch das Erlaubte, nicht nur das Verbotene. Die
+Aufräumaufgabe für den Betreiber meldet sich bei jedem `oaap update`
+selbst, solange noch jemand beide Rollen hält, und schweigt danach.
+Ausgeliefert ist noch nichts; die Flotte läuft auf 0.1.104.
