@@ -42,3 +42,6 @@ never deleted; superseded RFCs get status `Superseded by RFC-XXXX`.
 - [RFC-0035](RFC-0035-app-design-contract.md) — The App Design Contract: A Shared Theme, Not a Shared Codebase (Accepted)
 - [RFC-0036](RFC-0036-launchpad-shell.md) — The Launchpad Shell: tile grouping, self-service display name, embedding as a reserved non-goal, an extension-concept direction (Accepted; Part B of RFC-0035's design round)
 - [RFC-0037](RFC-0037-sideloading.md) — Sideloading: Installing a Package Into Production Without a Store (Draft — D1/D2 decided, D3 open)
+- [RFC-0038](RFC-0038-instance-diagnostics.md) — Instance Diagnostics: State, a Time-Boxed Diagnosis Window, and Restart (Accepted)
+- [RFC-0039](RFC-0039-support-role-and-the-meaning-of-partner.md) — `support`: Giving the Node-Wide Half of `partner` Its Own Name (Accepted — nothing built)
+- [RFC-0040](RFC-0040-the-person-behind-the-name.md) — The Person Behind the Name: A User Identity That Outlives Their Login Name (Accepted in direction — six decisions open, nothing built)
