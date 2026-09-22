@@ -1,7 +1,9 @@
 # RFC-0037: Sideloading — Installing a Package Into Production Without a Store
 
-- **Status:** Draft (2026-09-11) — D1 and D2 decided by Jörg; D3 proposed,
-  awaiting decision; the whole awaiting acceptance
+- **Status:** **Accepted (2026-09-22), built** — D1/D2 decided
+  2026-09-11, D3 decided as proposed 2026-09-22; implemented in
+  reference 0.1.111 (`oaap.core.host` 0.3.5, `oaap.apps.runtime` 0.2.29
+  new 2.14.2, `oaap.core.tenant` 1.7)
 - **Date:** 2026-09-11
 - **Authors:** Jörg (idea, D1, D2), Claude (design and write-up)
 - **Depends on:** RFC-0008 (`server_admin`), RFC-0011 (node profiles),
@@ -131,9 +133,15 @@ bytes:
   visibility, tile, brake, granted endpoints and links. Only the package
   changes.
 
-### D3 — Which production instances an upload may update (proposed)
+### D3 — Which production instances an upload may update
 
-**Proposal:** only instances whose current source is **already a
+> **Entschieden (2026-09-22): wie vorgeschlagen.** Nur Instanzen, die
+> schon aus einem Paket stammen. Die Alternative — mit zweiter
+> Bestätigung auch Store- und Git-Instanzen — macht aus einer seltenen,
+> strukturellen Änderung ein Häkchen; und der Weg bleibt ja offen, er
+> führt nur über die Maschine.
+
+**Decision:** only instances whose current source is **already a
 package** (`kind: "artifact"`) — that is, instances that were sideloaded,
 promoted (RFC-0020) or installed from a ZIP on the command line. An
 instance installed from a store list or a Git URL is **refused**, with
@@ -291,6 +299,37 @@ For the reference implementation:
   without saying so. Promotion already shows and requires `--confirm`;
   the CLI ZIP path gets the same.
 
+## What the build found (0.1.111)
+
+Written after the fact, because a decision that only survives until the
+first line of code is not a decision.
+
+- **The gap this RFC predicted was real, and slightly wider than
+  described.** The CLI's ZIP path ran the envelope review only when
+  *both* the request and the instance were on the test channel. So
+  updating a production instance from a package at the machine
+  installed a widening without a word — and it also accepted a *lower*
+  version, which promotion had refused all along. Both are closed:
+  same review, same `--confirm`, same higher-version rule.
+- **The shape of the defect is the one this codebase keeps producing.**
+  Two paths to the same place, one carrying a rule the other does not —
+  0.1.109's thirty-against-one, 0.1.110's three-against-one, and now
+  promotion against the CLI. The countermeasure each time is the same
+  one: make the second path *ask the first*, rather than reimplement
+  it. `sideload_review` is deliberately built as `promotion_review`'s
+  sibling and shares the envelope review, the version rule and the
+  target resolution with it.
+- **The "review then confirm" shape needed one rule that was not in the
+  RFC:** the review and the install must resolve the target *the same
+  way*, once, in one place. Two resolutions — one for showing, one for
+  acting — is how a person confirms one instance and installs into
+  another. The reference resolves tenant and tenant-local name in a
+  single branch that both actions pass through.
+- **The promotion hint compares checksums, never version numbers.** The
+  number is precisely what an uploaded package cannot vouch for, so
+  matching on it would recommend the safer path on the strength of the
+  thing that is not safe.
+
 ## Open for later
 
 - **Signed packages.** A publisher key per app would give updates
@@ -324,7 +363,7 @@ app.zip`). Im Portal gibt es den Paket-Weg nur für Test-Instanzen
   Übernahme: gleiche App-Kennung, höhere Version, Rahmen-Erweiterungen
   werden vollständig angezeigt und bestätigt, Daten und Einstellungen
   der Instanz bleiben.
-- **D3 (vorgeschlagen, deine Entscheidung):** Ein Upload darf nur
+- **D3 (entschieden 2026-09-22, wie vorgeschlagen):** Ein Upload darf nur
   Instanzen aktualisieren, die schon aus einem Paket stammen
   (hochgeladen, übernommen, per ZIP installiert). Eine Instanz aus dem
   Store oder aus Git wird im Browser nicht umgestellt — sonst würde der
@@ -344,6 +383,13 @@ app.zip`). Im Portal gibt es den Paket-Weg nur für Test-Instanzen
   gekapertes Portal oder eine gestohlene Admin-Sitzung beliebigen Code
   in Produktion bringen. Deshalb eine Entscheidung je Knoten.
 
-**Nebenbefund:** Die Kommandozeile zeigt beim ZIP-Update einer
-**Produktiv**-Instanz heute keine Rahmen-Erweiterung an; das wird im
-selben Zug an die Übernahme angeglichen (`--confirm`).
+**Nebenbefund, im selben Zug behoben:** Die Kommandozeile zeigte beim
+ZIP-Update einer **Produktiv**-Instanz keine Rahmen-Erweiterung an —
+und nahm sogar eine *niedrigere* Version an, die die Übernahme seit je
+ablehnt. Beides ist angeglichen: dieselbe Prüfung, dasselbe `--confirm`,
+dieselbe Versionsregel.
+
+**Gebaut am 22.09.2026** (Referenz 0.1.111): Profil `sideload`, Prüf-
+und Installierschritt im Knoten, Karte im Store und Abschnitt auf der
+Instanzseite, 45 Prüfungen in `test/test_sideload.py`, drei Mutationen
+(Profil, Bestätigung, D3) nachweislich rot.

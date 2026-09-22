@@ -1,7 +1,7 @@
 # oaap.core.host — Platform Installer & Node Baseline
 
 - **ID:** `oaap.core.host`
-- **Version:** 0.3.4
+- **Version:** 0.3.5
 - **Maturity:** draft (0.2.1 adds the `oaap user` rescue commands, 2.3;
   0.3.0 adds **node profiles** — what a node is for — in 2.5, with the
   wizard question in 2.2 and `oaap node` in 2.3; 0.3.1 adds **wireless
@@ -272,6 +272,32 @@ node, whether or not it carries `broker`, like
 `exposed` overlay when both profiles are held (`oaap.events.broker`
 §2.1).
 
+**Defined profile in 0.3.5: `sideload`** (RFC-0037 D1) — on this node a
+`server_admin` may install an **uploaded** package straight into a
+**production** instance from the portal. Its effects are exhaustive and
+live in `oaap.apps.runtime` 2.14.2: create a production instance from an
+uploaded package, update an existing one from an uploaded package, and
+nothing else. It does **not** imply `dev` and `dev` does not imply it; a
+node may hold both.
+
+This profile is the one whose cost has to be stated, the way `dev`'s
+was. `oaap.apps.runtime` 2.6 holds the property that *a compromised
+portal can at worst install apps the operator already chose to trust*,
+because the portal names an app id and the host resolves it against the
+configured sources. **On a `sideload` node that property is given up for
+production:** a compromised portal, or a stolen `server_admin` session,
+can put arbitrary code into a production instance. The compensating
+controls are the whole design — off by default, set at the machine,
+`server_admin` only, the envelope shown in full and confirmed, a visible
+origin, an audit entry, and the ordinary rollback — and whether the
+trade is right is a **per-node** decision. It is reasonable on a node
+that runs its owner's own apps and questionable on one that hosts other
+people's tenants.
+
+Removing it stops the portal offering uploads. Nothing that was
+sideloaded is removed or changed: such instances keep running, can still
+be updated at the machine, and can still be rolled back.
+
 **Restore** (`oaap.data.backup` 2.3): profiles describe the machine,
 not the service, and are therefore **not** restored from a backup.
 
@@ -520,3 +546,30 @@ und die Verbindung sonst zurückholt.
 Warum das überhaupt Plattformsache ist: Unsere Knoten sind dem Zielbild
 nach **kopflose Geräte** — Werkstattrechner, IoT-Gateway am Standort.
 Dort steht niemand, der ein Passwort nachreicht.
+
+## Deutsche Zusammenfassung (2.5, v0.3.5 — das Profil `sideload`)
+
+Ein neues Knotenprofil, **ab Werk aus** und nur an der Maschine
+einschaltbar (`sudo oaap node add-profile sideload`). Es erlaubt genau
+zweierlei und sonst nichts: ein `server_admin` darf im Portal ein
+**hochgeladenes** Paket in eine **Produktiv**-Instanz installieren — in
+eine neue oder in eine bestehende. Es zieht `dev` nicht nach sich und
+`dev` nicht dieses; ein Knoten darf beide tragen.
+
+**Der Preis, offen gesagt** — so wie er seinerzeit für `dev` genannt
+wurde: Normalerweise gilt, dass ein gekapertes Portal schlimmstenfalls
+Apps installieren kann, denen der Betreiber ohnehin vertraut, weil das
+Portal nur eine App-Kennung nennt und der Knoten sie gegen die
+eingetragenen Quellen auflöst. **Auf einem `sideload`-Knoten gilt das für
+Produktion nicht mehr:** Ein gekapertes Portal oder eine gestohlene
+Administrator-Sitzung kann beliebigen Code in eine Produktiv-Instanz
+bringen. Dagegen steht die ganze Bauform — aus ab Werk, an der Maschine
+geschaltet, nur `server_admin`, Rahmen vollständig gezeigt und
+bestätigt, Herkunft sichtbar, Protokolleintrag, normaler Rückschritt.
+Ob der Tausch richtig ist, ist eine Entscheidung **je Knoten**: auf einem
+Rechner mit den eigenen Apps vernünftig, auf einem mit fremden Mandanten
+fragwürdig.
+
+Das Profil wieder wegzunehmen nimmt dem Portal den Upload — es entfernt
+und ändert **nichts** an dem, was schon sideloaded wurde.
+

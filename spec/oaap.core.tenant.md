@@ -251,6 +251,16 @@ recorded, although nothing changed:
 | `diagnose.expired`   | its time ran out and the platform closed it       |
 | `instance.restarted` | an instance's containers were recreated (D4)      |
 
+**And one entry that carries more than its verb (RFC-0037):**
+`instance.sideload`, filed when an **uploaded** package is installed
+into a production instance — from the portal or from the machine. Its
+`detail` MUST name whether the instance was created or updated, the
+version, the package's checksum, and **in full** the envelope widenings
+that were confirmed. This is the one act where the platform cannot
+vouch for the origin of the code (packages are unsigned, RFC-0019), so
+the record of who accepted which bytes is what takes the place of that
+proof — and it is the customer's record, in the customer's log.
+
 **Never the contents.** The entry says who opened a window on which
 instance for how long — it is not a copy of what they saw. The same
 reasoning as `instance.export`: that the operator could also take the
@@ -775,3 +785,18 @@ Gelesenen. Dieselbe Begründung wie bei `instance.export`: Dass der
 Betreiber sich das Log auch per ssh holen könnte, ist ein Grund, warum
 dieses Protokoll nicht vollständig sein kann — kein Grund, die Zeile
 weglassen, die man schreiben kann.
+
+## Deutsche Zusammenfassung (1.7, RFC-0037 — der Eintrag, der mehr trägt als sein Verb)
+
+`instance.sideload` wird geschrieben, wenn ein **hochgeladenes** Paket in
+eine Produktiv-Instanz installiert wird — aus dem Portal wie von der
+Maschine. Sein `detail` nennt: neu oder Aktualisierung, die Fassung, die
+Prüfsumme des Pakets und **im Wortlaut** jede Rahmenerweiterung, die
+dabei bestätigt wurde.
+
+Warum dieser eine Eintrag mehr trägt als die anderen: Es ist der einzige
+Akt, bei dem die Plattform für die **Herkunft** des Codes nicht
+einstehen kann — OAAP-Pakete sind nicht signiert (RFC-0019). An die
+Stelle des Beweises tritt die Aufzeichnung, wer welche Bytes angenommen
+hat. Und sie gehört dem Kunden, in das Protokoll des Kunden.
+

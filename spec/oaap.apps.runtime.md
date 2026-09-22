@@ -1,7 +1,14 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.28 (a redeploy **keeps the channel** the instance is
+- **Version:** 0.2.29 (**sideloading**, RFC-0037: on a `sideload` node a
+  `server_admin` may install an uploaded package straight into
+  production, after a review the host produces and the person confirms
+  — new 2.14.2, a second exception in 2.6, and the CLI's ZIP path gains
+  the same rules. Found while writing it: that path ran the envelope
+  review only for test instances, so a widening reached production from
+  the command line unannounced;
+  0.2.28 (a redeploy **keeps the channel** the instance is
   on, and data an installed instance is using may not be reported as
   left behind or deleted as such: sharpened 2.3 and 2.16;
   0.2.27 (a **restart** operation — a recreate, refused
@@ -468,14 +475,91 @@ access right.
   the node's log is the binding record. Clients SHOULD say "outcome
   unknown" and point at that record rather than report a failure.
 
+#### 2.14.2 Sideloading — an uploaded package into production (RFC-0037)
+
+On a node carrying `sideload`, a `server_admin` MAY install an
+**uploaded** package into a production instance — a new one or an
+existing one. It is promotion's sibling and deliberately the weaker of
+the two: the bytes arrive from a browser, so *"this is what was
+tested"* is something a person asserts by comparing a checksum, not
+something the platform can prove. Everything below exists to make that
+assertion an informed one.
+
+**Two steps, and the second MUST NOT be reachable without the first.**
+
+1. **Review.** The upload is written to the spool and the **host**
+   reads it: the untrusted-archive rules of 2.14 (paths, links, entry
+   count, size while unpacking), then manifest validation (2.2,
+   including `must_understand`). It answers with the app id, name,
+   version, size and **SHA-256**; whether the target is new or an
+   update, and of which version; and the envelope — for an update the
+   **widening against the target**, for a new instance the **whole
+   envelope**, since there is nothing to compare against. It MUST be
+   named in full and MUST NOT be summarised as a count: an unread
+   confirmation is worse than a refusal.
+2. **Confirm and install.** The confirmation names the **checksum** and
+   the target it was given for. The reviewed package MUST expire — the
+   reference keeps it at most fifteen minutes, the upload grant's own
+   lifetime.
+
+**The host re-checks everything at install time**, because the spool
+between the two steps is data and not trust, and because the target may
+have changed in between (another upload, a promotion, a rollback). It
+MUST refuse when the file under that name is no longer the file whose
+checksum was confirmed.
+
+**An update follows 2.14.1's rules**, because it is the same act with a
+different origin of the bytes: production channel, same app id, higher
+version, envelope reviewed against the target and confirmed, and the
+instance keeps its data, configuration, addresses, visibility, tile,
+brake, endpoints and links.
+
+**An uploaded package may only update an instance that already gets its
+updates from a package** (RFC-0037 D3) — one that was sideloaded,
+promoted, or installed from a ZIP at the machine. An instance following
+a store list or a Git URL MUST be refused, and the refusal MUST name
+the source it follows and the fact that the switch is made at the
+machine. An instance has **one** answer to *where do my updates come
+from*; without this rule the other source would later offer an "update"
+that overwrites the uploaded code, and nothing would see the conflict
+coming. This is also the nearest thing to Android's signature rule that
+unsigned packages allow: an app that did not come from a package may
+not be replaced by one from a browser.
+
+**What is recorded.** The instance's source MUST name its origin — who
+uploaded it, when, and the checksum — so *"where did this come from?"*
+is answerable for an instance with no test instance behind it. The act
+MUST produce a tenant audit entry (`oaap.core.tenant` 1.7) carrying the
+confirmed widenings in full. Retention applies as always, so the way
+back is the ordinary rollback.
+
+**`server_admin` only.** Not `tenant_admin`, not an app, not a deploy
+token, not a spendable grant, not a schedule. Every sideload has a
+person in it; there is no unattended path.
+
+**Where a tested package with the same checksum already lies on the
+node**, the implementation SHOULD point at promotion (2.14.1) before
+the person chooses this path — the same thing with a proven origin.
+
+**The same rules apply at the machine.** `oaap app install <zip>`
+exists without the profile, because there the person is the authority
+(2.1) — but where it targets a **production** instance it MUST apply
+the higher-version rule, MUST report the envelope widening, MUST take
+an explicit confirmation before proceeding, and MUST record the origin.
+Until 0.2.29 the reference ran that review only for test instances, so
+a widening reached production from the command line unannounced while
+promotion, the other way in, had shown it all along.
+
 #### 2.14.1 Promotion to production (RFC-0020)
 
 A retained artifact MAY be **promoted** from a test instance to a
 production instance of the same app: the package that was tested is
-installed again, unchanged, into production. This is the one path from
-an uploaded package to production, and it moves **bytes, not
-permissions** — nothing is fetched, nothing is uploaded, no credential
-is involved.
+installed again, unchanged, into production. This is one of two portal paths from
+an uploaded package to production (2.14.2 is the other), and the only
+one that moves **bytes, not permissions** — nothing is fetched, nothing
+is uploaded, no credential is involved. Where both are available, an
+implementation SHOULD say so: promotion proves the origin, sideloading
+only asserts it.
 
 - Promotion is a **`server_admin` action** and MUST NOT be delegated to
   any token or spendable grant. Production instances still never carry
@@ -820,6 +904,16 @@ portal:
 
 An implementation without node profiles behaves exactly as before: no
 node has `dev`, so the portal creates nothing.
+
+**The second exception: production from an uploaded package, on a
+`sideload` node** (RFC-0037, 0.2.29). Where the node carries `sideload`
+(`oaap.core.host` 2.5), a `server_admin` MAY create **or** update a
+**production** instance from a package uploaded in the portal. The
+rules are 2.14.2's; what belongs here is the boundary: this is the only
+other case in which a portal request results in production code, it is
+`server_admin` only, and the host MUST re-check the profile itself —
+for the same reason as `dev`, that a profile the portal could assume
+would not be a per-node decision.
 
 ### 2.7 Visibility (RFC-0007)
 
@@ -1894,4 +1988,52 @@ löscht**, statt einen Namen mit einem Registrierungsschlüssel zu
 vergleichen — auf einem Knoten mit benannten Mandanten sind das zwei
 verschiedene Zeichenketten, und die alte Frage ließ eine laufende
 Instanz durch.
+
+## Deutsche Zusammenfassung (2.14.2, v0.2.29 — ein Paket aus dem Browser in Produktion)
+
+**Worum es geht:** Eine selbstgebaute App als ZIP-Datei soll direkt in
+den Kanal **Produktion** — ohne Store-Liste und ohne Test-Instanz auf
+diesem Knoten. Vorbild ist Androids Sideloading, samt seiner
+Sicherungen.
+
+**Der Unterschied zur Übernahme, offen gesagt:** Die Übernahme
+(RFC-0020) nimmt Bytes, die dieser Knoten schon angenommen hat — sie
+*beweist* die Herkunft. Sideloading *behauptet* sie. Was hier an die
+Stelle des Beweises tritt, ist ein Mensch, der eine Prüfsumme
+vergleicht. Deshalb sagt die Plattform es, wenn dasselbe Paket schon in
+einer Test-Instanz dieses Knotens liegt: dann ist die Übernahme der
+bessere Weg.
+
+**Erst prüfen, dann installieren, und der zweite Schritt ist ohne den
+ersten nicht erreichbar.** Nach dem Hochladen packt der **Knoten** das
+Archiv aus (nicht das Portal), prüft das Manifest und antwortet mit App,
+Version, Größe, **Prüfsumme**, dem Ziel — neu oder Aktualisierung von
+welcher Fassung — und dem **Rahmen**: bei einer Aktualisierung jede
+Erweiterung gegenüber dem Ziel, bei einer neuen Instanz der ganze
+Rahmen. Vollständig aufgezählt, nie als Anzahl zusammengefasst: eine
+ungelesene Bestätigung ist schlimmer als eine Ablehnung. Das geprüfte
+Paket liegt höchstens 15 Minuten bereit, und beim Installieren prüft der
+Knoten **alles noch einmal** — auch, ob die Datei noch die ist, deren
+Prüfsumme bestätigt wurde.
+
+**D3, unser Ersatz für Androids Signaturregel:** Ein Upload darf nur
+Instanzen aktualisieren, die schon aus einem Paket stammen. Eine Instanz
+aus dem Store oder aus Git wird im Browser nicht umgestellt — sonst böte
+die andere Quelle später ein „Update" an, das den hochgeladenen Code
+überschreibt, und niemand sähe den Konflikt kommen. Eine Instanz hat
+**eine** Antwort auf die Frage, woher ihre Aktualisierungen kommen. Der
+Weg bleibt offen, er führt nur über die Maschine.
+
+**Nachvollziehbar:** Die Instanz merkt sich, wer das Paket wann
+hochgeladen hat, samt Prüfsumme; der Vorgang steht im Protokoll **des
+Mandanten** mit den bestätigten Erweiterungen im Wortlaut; der Rückweg
+ist der normale Rückschritt. Nur `server_admin`, niemals ein Token, eine
+KI oder ein Zeitplan — in jedem Sideload steckt ein Mensch.
+
+**Nebenbefund, im selben Zug behoben:** Die Kommandozeile prüfte den
+Rahmen nur bei Test-Instanzen. Ein ZIP-Update einer **Produktiv**-Instanz
+an der Maschine installierte eine Erweiterung, ohne sie zu nennen —
+während die Übernahme, der andere Weg nach Produktiv, sie seit je
+anzeigt und eine ausdrückliche Bestätigung verlangt. Jetzt gelten für
+beide Wege dieselben Regeln.
 
