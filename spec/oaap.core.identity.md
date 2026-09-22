@@ -1,13 +1,13 @@
 # oaap.core.identity — Identity & Roles
 
 - **ID:** `oaap.core.identity`
-- **Version:** 0.3.6 (a gateway refusal is readable across origins —
-  reflected `Access-Control-Allow-Origin` without
-  `Allow-Credentials`, and `401` instead of a login redirect for a
-  script call — 2.3, RFC-0038 follow-up)
+- **Version:** 0.4.0 (a user has an identity of its own — an immutable
+  UUID, an e-mail field with a verification state, three further
+  trusted headers, a deep link that survives the login, and a write
+  lock on the user store; RFC-0040)
 - **Maturity:** draft
-- **Based on:** RFC-0001, RFC-0002, RFC-0007, RFC-0008, RFC-0036,
-  RFC-0038
+- **Based on:** RFC-0001, RFC-0002, RFC-0007, RFC-0008, RFC-0026,
+  RFC-0036, RFC-0038, RFC-0040
 - **Scope of this version:** built-in minimal identity provider with
   user management. External identity providers (Keycloak, LDAP, OIDC)
   are out of scope and must be able to replace this provider later
@@ -22,7 +22,14 @@
   `/auth/*` guarantee on every entry point, and `GET /auth/whoami`.
   0.3.5 extends self-service (2.4) to a user's own `display_name`, per
   RFC-0036 D3 — the one field of their own record that carries no
-  privilege.
+  privilege. **0.4.0 applies RFC-0026's principle to the user record**
+  (RFC-0040): the record gets an identity that is not its name, an
+  e-mail field with a verification state, three further trusted
+  headers, a login that returns the visitor to where they were going,
+  and a lock on the file every change rewrites. Nothing is removed and
+  nothing is renamed — the change is additive throughout, because
+  `X-OAAP-User` is *de facto* immutable today and apps may already be
+  relying on that.
 
 ## 1. Purpose
 
@@ -80,15 +87,54 @@ Without those, the role is a two-step path to the whole node.
 
 Each user account has at least:
 
-| Field          | Rules                                                                           |
-| -------------- | ------------------------------------------------------------------------------- |
-| `username`     | unique, immutable after creation, `[a-z0-9][a-z0-9._-]*`, 2–40 chars, lowercase |
-| `display_name` | optional free text; portal UX only — apps receive the `username`                |
-| `roles`        | non-empty subset of {server_admin, tenant_admin, support, admin, keyuser, user, guest, partner} |
-| `groups`       | free-form visibility tags (RFC-0007), default empty — see 2.6                   |
-| `tenant`       | the tenant this user belongs to (`oaap.core.tenant` 1.1); absent means the default tenant |
-| `active`       | boolean; inactive users cannot sign in and existing sessions stop verifying     |
-| password       | stored only as a salted hash; minimum length 8                                  |
+| Field            | Rules                                                                           |
+| ---------------- | ------------------------------------------------------------------------------- |
+| `id`             | **the identity** (0.4.0): a UUID, assigned at creation, immutable and never reused — see below |
+| `username`       | unique, immutable in this version, `[a-z0-9][a-z0-9._-]*`, 2–40 chars, lowercase — **a name, not the key** |
+| `display_name`   | optional free text, max 80 characters; carried to apps since 0.4.0              |
+| `email`          | optional address (0.4.0), max 254 characters; see the verification rule below    |
+| `email_verified` | boolean (0.4.0); false unless somebody proved the address                        |
+| `roles`          | non-empty subset of {server_admin, tenant_admin, support, admin, keyuser, user, guest, partner} |
+| `groups`         | free-form visibility tags (RFC-0007), default empty — see 2.6                   |
+| `tenant`         | the tenant this user belongs to (`oaap.core.tenant` 1.1); absent means the default tenant |
+| `active`         | boolean; inactive users cannot sign in and existing sessions stop verifying     |
+| password         | stored only as a salted hash; minimum length 8                                  |
+
+**The identity is not the name (0.4.0, RFC-0040 D1).** RFC-0026 settled
+this principle for the platform — *identity is a UUID, and every name a
+human reads is an alias that may change* — and applied it to instances
+and tenants. The user record was the one place it was never applied.
+
+- `id` MUST be a UUID, assigned when the record is created, **immutable
+  and never reused**, including after deactivation. No operation
+  changes it; a request that names one is ignored, not honoured.
+- Existing records receive one on the first start after the update
+  (2.5). An implementation MUST NOT leave a record without an `id`: the
+  absence is not an error anybody sees, it is an app anchoring its
+  permissions on an empty string.
+- `username` keeps its present meaning, spelling and content
+  (RFC-0040 D3). It is *de facto* immutable today only because no
+  rename and no delete operation exists (2.4) — that is a gap, not a
+  guarantee, and it is exactly why the identity is introduced before
+  anybody writes a permission model against the name.
+- **Renaming a user remains out of scope.** This version makes one
+  possible later without breaking anyone; it does not offer one.
+
+**The address, and whether anybody proved it (0.4.0, RFC-0040 §3.2).**
+`email` and `email_verified` always travel together.
+
+- Setting a **different** address MUST clear `email_verified`. An
+  address that changed is an address nobody proved, and a flag left
+  standing from the previous one is a lie the platform would then put
+  in a header.
+- The flag is set only by a deliberate assertion: in this version an
+  administrator stating that the address belongs to the person, later
+  the verification flow a foreign identity provider brings (RFC-0040
+  §6). **This version adds no e-mail sending and no verification mail.**
+- Validation is deliberately loose (one `@`, something either side of
+  it, no spaces, at most 254 characters). The platform is not the
+  arbiter of address syntax; the flag, not the pattern, is what says
+  whether an address is real.
 
 **Tenant membership (0.3.3).** A user belongs to exactly one tenant.
 The field is written by the migration of `oaap.core.tenant` 1.5, and
@@ -110,10 +156,44 @@ session may go* — see the tenant restriction in 2.3.
 - Identity issues a session on successful login; the gateway calls
   identity's verify endpoint on **every** request to a protected route
   (forward auth, RFC-0002 default deny).
-- On success, verify returns the trusted headers `X-OAAP-User`
-  (username) and `X-OAAP-Roles` (comma-separated roles); the gateway
-  copies them onto the upstream request. On failure it returns a
-  redirect to the login page (browser flows) or 401/403.
+- On success, verify returns **five** trusted headers (0.4.0; the first
+  two unchanged since RFC-0002), and the gateway copies them onto the
+  upstream request. On failure it returns a redirect to the login page
+  (browser flows) or 401/403.
+
+  | Header | Content |
+  | --- | --- |
+  | `X-OAAP-User` | the username — a name, unchanged |
+  | `X-OAAP-Roles` | comma-separated roles |
+  | `X-OAAP-User-Id` | the `id` of 2.2 — **the thing an app anchors on** |
+  | `X-OAAP-Display-Name` | the display name, may be empty |
+  | `X-OAAP-Email` | a **verified** address, or empty — see below |
+
+  - **All five MUST be returned on every success, empty where there is
+    no value.** A header the answer leaves out is a header whose
+    client-sent value has nothing to overwrite it, and the
+    anti-spoofing guarantee (4.6) works by overwriting. Apps MUST read
+    empty and absent as the same thing.
+  - **They MUST come from the one verify answer**, written by the same
+    copy list the gateway already uses — one source, no second truth.
+  - **An unverified address is NOT sent** (RFC-0040 D2). An address
+    arriving in a platform header is read as proven whatever flag
+    stands beside it, and handing over an unchecked claim is the wrong
+    default. `X-OAAP-Email` therefore carries a verified address or
+    nothing at all. (The requesting project asked for the address plus
+    a flag; this is the narrower answer and can be widened later
+    without breaking anybody.)
+  - **Header encoding (RFC-0040 D4).** `X-OAAP-Display-Name` and
+    `X-OAAP-Email` MUST be **UTF-8 percent-encoded** unless the value
+    is printable ASCII *and* contains no `%`, in which case it is sent
+    plain so the common case stays readable. The percent sign is
+    included so that the instruction to apps has no exception:
+    **always percent-decode.** Arbitrary Unicode in an HTTP header does
+    not fail cleanly — it is mojibake in one app and a dropped header
+    in another, discovered in production.
+  - **The rule apps are given** (App Deployment Contract): *anchor on
+    `X-OAAP-User-Id`, display `X-OAAP-User` and `X-OAAP-Display-Name`.*
+    That is RFC-0026's sentence, one level down.
 - Verify accepts an optional role restriction (`?roles=a,b`); the
   session must hold at least one of the listed roles (route-level
   authorization, spec `oaap.apps.runtime` 2.4). No bypass exists for
@@ -149,6 +229,30 @@ session may go* — see the tenant restriction in 2.3.
   gateway sets, never from the host identity itself was reached at —
   which is always the internal service address and therefore useless
   here.
+- **A refused request keeps its return target (0.4.0, RFC-0040 §5).**
+  Until 0.3.6 the loss was total: the refusal redirected to the login
+  form with no return target, and a successful login redirected to `/`.
+  Only the *instance* survived, because the browser stays on the same
+  hostname. An invitation link is the ordinary case this breaks, and
+  invitations are how every delegated-administration model brings
+  people in.
+  - The refusal MUST carry the originally requested **path and query**
+    to the login form, and a successful login MUST return the visitor
+    there.
+  - **Only a local path may be accepted** (RFC-0040 D5): it MUST begin
+    with a single `/`, MUST NOT begin with `//` or `/\`, MUST carry no
+    scheme and no host, and MUST contain no control characters;
+    anything else falls back to `/`. A return target taken from a URL
+    is the classic open-redirect hole — a link to our own login page
+    that sends the visitor to somebody else's site *after* they signed
+    in — so the rule belongs in the specification, not in a code
+    review. The value MUST be validated again when it comes back from
+    the form: it travelled through the visitor's browser.
+  - **A deliberate sign-out carries no return target.** Somebody who
+    signs out asked to leave the page they were on.
+  - A **fragment** (`#…`) is never involved: browsers do not send it to
+    a server. It survives a redirect on its own if the browser carries
+    it, and the platform makes no promise about that.
 - **Fresh state per request:** verify MUST evaluate the *current* user
   store on every call. Deactivating a user or changing their roles or
   groups takes effect on their next request — waiting for re-login is
@@ -171,10 +275,21 @@ session may go* — see the tenant restriction in 2.3.
   `tenant_admin` outside their own tenant. All are refused, not
   silently dropped.
 - Operations: **list** users (never exposing password hashes),
-  **create** (username, initial password, roles, groups, display
-  name), **update** (roles, groups, display name, active flag — not
-  the username), **set password** (server_admin sets a new password
-  for any user).
+  **create** (username, initial password, roles, groups, display name,
+  e-mail address), **update** (roles, groups, display name, e-mail
+  address and its verification flag, active flag — not the username
+  and **never** the `id`), **set password** (server_admin sets a new
+  password for any user).
+- **An address is created unverified (0.4.0).** Create accepts an
+  address and stores it with `email_verified` false: an address an
+  administrator types is not thereby proven. Asserting it is a
+  separate, deliberate update. An assertion arriving together with a
+  *changed* address MUST be refused (2.2) — and the refusal MUST be
+  visible to whoever made it, not swallowed, or an administrator
+  leaves the page believing an address was proven.
+- **A user's `id` is visible to the administration surface**, so that
+  the one field a support question is about can be looked up. An
+  address is only ever shown together with its verification state.
 - **Last-server_admin protection:** an operation that would leave the
   platform without at least one *active* user holding `server_admin`
   MUST be rejected (losing the last one would lock everyone out of
@@ -202,6 +317,18 @@ roles `server_admin`, `admin` and `keyuser` (RFC-0008: the common
 single-operator install needs no further role setup — this user can
 both administer the platform and use every app's own admin functions,
 and can designate further server admins).
+
+**Identity backfill (0.4.0, RFC-0040 §7).** On every start, a record
+without an `id` receives one, written once. This is deliberately
+**not** guarded by a run-once flag, unlike the migrations below: those
+change what a record *means* (a role granted, a tenant joined), so
+repeating them would undo an operator's cleanup. Filling in a missing
+identity changes no meaning and is idempotent — and without the flag it
+also heals what a flag would miss: a user store restored from a backup
+older than the update, a file edited on the machine, a creation path
+nobody remembered. Together with the rule that every write assigns a
+missing `id`, a record without an identity survives neither a write nor
+a restart.
 
 **Upgrade migration (RFC-0008, one-time):** on the first start after
 adding `server_admin`, every existing user holding `admin` also
@@ -249,9 +376,13 @@ owns — never the widget.
   list — and refuses an unauthenticated caller with 401 rather than a
   login redirect, because its caller is a script, not a browser
   following links.
-- **Fields:** `username`, `display_name` (empty string when unset —
-  never invented from the username), `roles` (exactly the list
-  `X-OAAP-Roles` carries for this request), `kind` (`human` or
+- **Fields:** `username`, `id` (0.4.0 — the same value
+  `X-OAAP-User-Id` carries), `display_name` (empty string when unset —
+  never invented from the username), `email` (0.4.0 — a **verified**
+  address or an empty string, exactly the rule the header follows;
+  **not** percent-encoded, because JSON carries Unicode natively and
+  D4's encoding exists only for HTTP headers), `roles` (exactly the
+  list `X-OAAP-Roles` carries for this request), `kind` (`human` or
   `machine`), and `links`, an object holding the addresses the app may
   offer: `password` and `logout` for a human, `logout` only for a
   machine principal, which has no password to change. `logout` is a
@@ -275,8 +406,13 @@ owns — never the widget.
 - **The answer MUST NOT be cached** (`Cache-Control: no-store`): it
   describes the current session, and a shared cache holding it would
   hand one person's name to the next.
-- Beyond this, no self-service exists in this version. In particular a
-  user cannot change their own display name, e-mail or roles — see 2.4.
+- Beyond this, no self-service exists in this version. A user can
+  change their own display name (2.4, 0.3.5) and their own password;
+  their roles, groups, tenant, active flag, `id` and **e-mail address**
+  stay admin-only. The address is deliberately not self-service while
+  the platform cannot send a verification mail: a self-set address
+  could never be more than unverified, and would therefore reach no app
+  anyway (2.3).
 
 ## 3. Configuration
 
@@ -311,7 +447,26 @@ owns — never the widget.
 6. Anti-spoofing is the gateway's duty (deployment contract guarantee
    1); identity supports it by being the only source of the trusted
    headers.
-7. `server_admin` is never forwarded to apps as anything they should
+7. **Every change to the user store happens under an exclusive lock**
+   (0.4.0, RFC-0040 D6). The store is rewritten whole on every change —
+   read, modify, write — so two concurrent changes lose one of them,
+   and lose it *silently*: the surviving file is complete and valid, it
+   simply does not contain what the other writer did. **The lock MUST
+   span the read**, not merely the write; a lock taken around the write
+   alone protects a copy that was already stale.
+   This is unreachable while an administrator creates accounts one at a
+   time, and ordinary the moment records are created by **incoming
+   traffic** — which is what a foreign identity provider and
+   self-registration bring. It is required here rather than in the
+   version that needs it, because by then the fault is live. Reads need
+   no lock: the store is swapped in atomically, so a reader sees the
+   old file or the new one, never half of either.
+8. **A user record without an `id` MUST NOT be producible** (0.4.0).
+   Every write assigns a missing one, and every start backfills
+   (2.2, 2.5). This is belt and braces on purpose: an identifier whose
+   absence is silent has caught this platform repeatedly, and here the
+   damage would land in an outside application's authorization model.
+9. `server_admin` is never forwarded to apps as anything they should
    treat specially — it is a platform gate only (2.1). Granting it only
    to another `server_admin` (never to a user holding merely `admin`)
    is enforced structurally: the management surface itself requires
@@ -380,6 +535,41 @@ owns — never the widget.
     username or active flag; a name over 80 characters is rejected with
     no change made; an unauthenticated request is redirected to login,
     never accepted.
+17. **Every user has an identity, and it does not move** (0.4.0) — a
+    user store written before the update has an `id` on every record
+    after the first start, including inactive ones; a second start
+    assigns none anew; changing a display name, a password, roles or
+    the active flag leaves it untouched; an `id` named in a create or
+    update request is ignored; a record appended without one is
+    written with one.
+18. **All five headers, every time** (0.4.0, 2.3) — a successful verify
+    returns exactly the five headers, with an empty value where the
+    record has none, never a shorter list; `X-OAAP-User-Id` is the
+    stored `id`; `X-OAAP-User` is byte-identical to what the same
+    session received before the update.
+19. **An unverified address reaches nobody** (0.4.0, RFC-0040 D2) — an
+    address stored without the flag appears neither in
+    `X-OAAP-Email` nor in whoami; asserted, it appears in both;
+    changing the address while asserting it clears the flag and empties
+    the header again, and the refusal is reported to the caller.
+20. **A non-ASCII display name survives** (0.4.0, RFC-0040 D4) — a
+    display name containing umlauts arrives percent-encoded and decodes
+    to the original; a pure-ASCII name without `%` arrives plain; an
+    ASCII name containing `%` arrives encoded, so percent-decoding is
+    correct for every value.
+21. **The return target is local or nothing** (0.4.0, RFC-0040 D5) — a
+    refused request to `/einladung?tok=x` sends the visitor to the
+    login form and, after a successful login, back to
+    `/einladung?tok=x`; each of `//host`, `/\host`, `https://host/`,
+    `host`, a value with a control character and an over-long value
+    lands on `/` instead, both when it arrives from the gateway and
+    when it comes back from the form; the login form itself is not a
+    return target; a comma in the path is not truncated.
+22. **The user store is never written without the lock** (0.4.0,
+    RFC-0040 D6) — every operation that changes a user holds it across
+    read and write, including the ones on the machine (CLI) rather than
+    through the portal; two concurrent creations of different users
+    both survive.
 
 ## 6. Dependencies
 
@@ -387,12 +577,27 @@ None (foundation; the gateway depends on identity, not vice versa).
 
 ## 7. Maturity
 
+**Recorded, not fixed here (0.4.0, RFC-0040 §4.1).** Verify parses the
+*entire* user store and scans it linearly **on every request**. At a
+dozen users that is free; at a thousand it is a few hundred kilobytes
+of JSON per request across the workers; at ten thousand it does not
+hold. The administration list has no paging and no search, and the
+store is per node rather than per tenant, so backup-per-tenant
+(`oaap.core.tenant` D7) does not cover identities. None of that is
+addressed in this version — it is written down because the direction
+towards a foreign identity provider is what makes those numbers
+plausible, and because the answer given to an outside project should
+match what is recorded.
+
 `draft` — v0.2.0 added user management to the v0.1 outline; v0.3.0
 adds the `server_admin` role (RFC-0008) and visibility groups
 (RFC-0007); v0.3.3 adds `tenant_admin` and the tenant boundary
 (`oaap.core.tenant` 0.2); v0.3.4 names the app-facing self-service
 surface (2.7); v0.3.5 extends self-service to the user's own
-`display_name` (RFC-0036 D3). Open points for later versions: external identity
+`display_name` (RFC-0036 D3); v0.4.0 gives the user record an identity
+of its own, an e-mail field with a verification state, three further
+trusted headers, a login that returns the visitor to where they were
+going, and a lock on the user store (RFC-0040). Open points for later versions: external identity
 providers (Keycloak/LDAP/OIDC), 2FA (required by the internet
 hardening profile), forced password change on first login, user
 deletion/GDPR semantics, per-app service accounts, moving a user
@@ -451,3 +656,63 @@ einen Admin zu bitten — bisher ging das nur beim Passwort. Bewusst
 klein geschnitten: Rollen, Gruppen, Mandant, Benutzername und
 Aktiv-Status bleiben unverändert Admin-Sache, weil sie eine
 sicherheitsrelevante Entscheidung tragen; der Anzeigename trägt keine.
+
+## Deutsche Zusammenfassung (die Person hinter dem Namen, v0.4.0, RFC-0040)
+
+**Das Prinzip galt schon — nur nicht für Benutzer.** RFC-0026 hat
+festgelegt: Die Identität ist eine unveränderliche Kennung, jeder Name,
+den ein Mensch liest, ist ein Alias. Für Instanzen und Mandanten war das
+umgesetzt; der Benutzersatz war die einzige Stelle ohne dieses Prinzip.
+`X-OAAP-User` trägt den Anmeldenamen, und der Anmeldename *war* der
+Schlüssel — gutgegangen ist das nur, weil es weder Umbenennen noch
+Löschen gibt. Das ist eine Lücke, keine Zusage.
+
+**Was jetzt drin ist, und was sich für heute laufende Apps ändert:
+nichts.** Alles ist *zusätzlich*. `X-OAAP-User` behält Namen,
+Schreibweise und Inhalt.
+
+1. **Eine Kennung je Benutzer** — eine UUID, beim Anlegen vergeben,
+   unveränderlich, **nie wieder vergeben**, auch nach dem Deaktivieren
+   nicht. Bestandsbenutzer bekommen sie beim ersten Start nach dem
+   Update. Kein Auftrag kann sie ändern; steht eine im Auftrag, wird
+   sie ignoriert. **Die Regel für Apps lautet ab jetzt: auf die
+   Kennung verankern, den Namen anzeigen.**
+2. **Ein E-Mail-Feld mit Prüfmerkmal** — vorher gab es gar keines. Eine
+   Adresse, die ein Administrator eintippt, ist damit *nicht* bewiesen:
+   das Häkchen „geprüft" ist ein zweiter, bewusster Schritt, und
+   **ändert sich die Adresse, fällt das Häkchen**. Die Plattform
+   verschickt in dieser Version keine Post; das Feld ist die Stelle, an
+   die später ein Identitätsanbieter eine geprüfte Adresse schreibt.
+3. **Drei weitere Kopfzeilen an Apps** — Kennung, Anzeigename, E-Mail,
+   neben den zwei unveränderten. Immer alle fünf, leer wo es keinen Wert
+   gibt: eine *fehlende* Kopfzeile hätte nichts, was einen vom Besucher
+   mitgeschickten Wert überschreibt — und genau davon lebt die
+   Fälschungssicherheit. **Eine ungeprüfte Adresse bekommt keine App zu
+   sehen** (was in einer Plattform-Kopfzeile steht, gilt dort als
+   bewiesen, egal welches Merkmal danebensteht). Umlaute werden
+   prozentkodiert, weil beliebiges Unicode in HTTP-Kopfzeilen nicht
+   sauber scheitert, sondern in einer App als Zeichensalat ankommt und
+   in der nächsten ganz fehlt.
+4. **Ein tiefer Link übersteht die Anmeldung** — bisher gingen Pfad und
+   Query verloren, erhalten blieb nur die Instanz. Ein Einladungslink
+   ist der Alltagsfall, den das kaputt machte. Angenommen wird
+   **ausschließlich ein Pfad auf dieser Plattform**; alles andere landet
+   auf `/`. Sonst wäre die eigene Anmeldeseite ein Sprungbrett auf eine
+   fremde Seite — die klassische Form einer überzeugenden Phishing-Falle.
+5. **Eine Sperre auf der Benutzerdatei** — sie wird bei jeder Änderung
+   komplett neu geschrieben, und zwei gleichzeitige Änderungen verlieren
+   eine davon **lautlos**: die überlebende Datei ist vollständig und
+   gültig, sie enthält nur nicht, was der andere getan hat. Heute
+   praktisch unerreichbar, weil ein Administrator Konten einzeln anlegt
+   — nicht mehr unerreichbar, sobald Sätze durch **eingehenden Verkehr**
+   entstehen (Selbstregistrierung, fremder Identitätsanbieter). Die
+   Sperre umfasst das Lesen mit, nicht nur das Schreiben: eine Sperre um
+   das Schreiben allein schützt eine Kopie, die schon veraltet war.
+
+**Aufgeschrieben, aber nicht behoben:** Die Prüfung zerlegt bei *jeder*
+Anfrage die ganze Benutzerdatei und sucht linear. Ab etwa tausend
+Benutzern ist das spürbar, bei zehntausend trägt es nicht. Die
+Benutzerliste im Portal hat kein Blättern und keine Suche, und die Datei
+liegt je Knoten, nicht je Mandant — die Mandantensicherung erfasst
+Identitäten deshalb nicht. Das gehört zu dem RFC, das den Speicher
+ändert, nicht zu diesem.

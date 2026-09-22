@@ -1,8 +1,10 @@
 # oaap.core.gateway — HTTP Gateway (outline)
 
 - **ID:** `oaap.core.gateway`
-- **Version:** 0.2.8
+- **Version:** 0.2.9
 - **Maturity:** draft (outline — full specification to follow;
+  five identity headers instead of two, derived from one list, and a
+  login redirect that carries a return target, 2026-09-22 per RFC-0040;
   open streams survive a gateway reload, and the permanent access log
   is filtered like the diagnosis log, 2026-09-18 (reference 0.1.102 /
   0.1.103, from the Handball-Infoboard's first letter);
@@ -37,6 +39,24 @@ happened and never see credentials.
   with `oaap.core.identity`). **Anti-spoofing guarantee**: identity
   headers arriving from clients are stripped/overwritten on every
   route, including `public` ones — apps can trust their presence.
+  Since RFC-0040 there are **five** of them (`oaap.core.identity` 2.3),
+  and the guarantee is per header, not per pair: the strip list and the
+  copy list MUST both be the complete set. A header the copy list omits
+  is a header whose client-sent value nothing overwrites, which is the
+  spoofing hole itself rather than a missing feature. An implementation
+  MUST therefore derive every place that names these headers —
+  forward-auth copy lists, the strip blocks of unauthenticated routes,
+  and the access log's field filter — from **one** list.
+- **A login redirect carries a return target** (RFC-0040 §5): the
+  refusal a forward-auth call produces names the path and query the
+  caller asked for, so a login returns the visitor there rather than to
+  `/`. The gateway needs no rule of its own for this — it passes the
+  refusal through — but it MUST make the original request address
+  available to the forward-auth endpoint, which is the only place it
+  still exists (the auth call's own URI is the verify path).
+  `oaap.core.identity` 2.3 holds the validation rule; a `Location`
+  keeps its path and loses its query in the access log, so the target
+  is not written there.
 - **Visibility groups** (RFC-0007): an installed instance may carry an
   additional `visibility` restriction (`oaap.apps.runtime` 2.7,
   operator-set, never in the app manifest). When set, every non-public

@@ -1,8 +1,11 @@
 # RFC-0040: The Person Behind the Name — A User Identity That Outlives Their Login Name
 
-- **Status:** Accepted in direction (2026-09-21) — Jörg decided to pull
-  this forward; six decisions below are open. Nothing built.
-- **Date:** 2026-09-21
+- **Status:** **Accepted (2026-09-22) and built** — Jörg said "Bau
+  RFC-0040"; all six decisions below were taken as proposed. Reference
+  0.1.107: `oaap.core.identity` 0.4.0, `oaap.core.gateway` 0.2.9, App
+  Deployment Contract v0.8, `test/test_user_identity.py`. Not yet
+  rolled out to the fleet.
+- **Date:** 2026-09-21 (accepted and built 2026-09-22)
 - **Authors:** Claude (finding & proposal), Jörg (direction)
 - **Depends on:** RFC-0002 (the two headers), RFC-0022 (tenant as
   boundary; D3 — providers are shared, users are not), RFC-0026
@@ -253,27 +256,80 @@ appear through incoming traffic.
 - **The external identity provider itself.** Own RFC (§6).
 - **The user store's scaling limits.** Recorded in §4.1, not addressed.
 
-## 9. Decisions asked for
+## 9. Decisions — all six taken as proposed (2026-09-22)
 
 - **D1 — the identifier is a UUID**, immutable, never reused, assigned
-  at creation and backfilled once for existing users. *Proposed: yes.*
-- **D2 — an unverified e-mail address is not sent to apps.** An address
-  an app receives in a platform header will be treated as proven,
-  whatever a companion flag says, and the safe default is not to hand
-  over a claim we have not checked. The alternative — send it with an
-  explicit flag — is what the requesting project asked for.
-  *Proposed: withhold until verified; revisit if a real case needs it.*
+  at creation and backfilled once for existing users. **Accepted.**
+  *Built with one refinement:* the backfill carries **no run-once
+  flag**, unlike the RFC-0008/0039 migrations. Those change what a
+  record *means*, so repeating them would undo an operator's cleanup;
+  filling in a missing identity changes no meaning and is idempotent.
+  Without the flag it also heals what a flag would miss — a user store
+  restored from an older backup, a file edited on the machine, a
+  creation path nobody remembered. Together with the rule that every
+  write assigns a missing id, a record without an identity survives
+  neither a write nor a restart.
+- **D2 — an unverified e-mail address is not sent to apps.**
+  **Accepted:** withheld until verified. The address is stored and an
+  administrator can assert it, but the header carries a proven address
+  or nothing. The requesting project asked for the address plus a flag;
+  this can be widened later without breaking anybody, and the reverse
+  cannot. *Built with one addition the RFC did not state:* asserting
+  the flag **together with a changed address is refused**, and the
+  refusal is reported to the caller rather than swallowed — a silent
+  "no" here is how an administrator comes to believe an address was
+  proven.
 - **D3 — `X-OAAP-User` keeps its present meaning and spelling.**
-  *Proposed: yes — anything else breaks running apps for cosmetics.*
+  **Accepted.**
 - **D4 — header encoding for non-ASCII** display names and addresses.
-  *Proposed: UTF-8 percent-encoded, documented in the Contract, with
-  the plain form used whenever the value is already ASCII — so the
-  common case stays readable in a log.*
+  **Accepted:** UTF-8 percent-encoded, plain whenever the value is
+  already printable ASCII. *Built with one refinement:* a value
+  containing a literal `%` is encoded too, even when it is ASCII.
+  Otherwise "100% sicher" would be indistinguishable from an escape
+  sequence, and the instruction to apps would need an exception. With
+  it, the instruction is the simple one: **always percent-decode**. A
+  rule with an exception is a rule half the apps get wrong.
 - **D5 — the return target after login accepts local paths only:** must
   begin with a single `/`, must not begin with `//`, no scheme and no
-  host; anything else falls back to `/`. *Proposed: yes.*
+  host; anything else falls back to `/`. **Accepted.** *Built with
+  three additions:* `/\host` is refused as well (browsers have
+  historically read a backslash as a slash, so it is protocol-relative
+  to a browser and local-looking to a regex); control characters and
+  over-long values are refused; and the login and logout paths
+  themselves are not return targets, because bouncing back into the
+  flow that just ran is a loop. The value is validated **twice** — when
+  it arrives from the gateway and when it comes back from the form,
+  since the form travels through the visitor's browser.
 - **D6 — the write lock (§4) ships in this RFC**, not in the one that
-  needs it. *Proposed: yes.*
+  needs it. **Accepted.** *Built with one clarification the RFC did not
+  spell out:* the lock **spans the read**, not only the write. A lock
+  around the write alone protects a copy that was already stale, which
+  is the same bug with a lock in front of it. So the unit is one
+  read-modify-write block, and it now covers every writer — including
+  the two on the machine (`oaap machine add`, the twin instance
+  principal) and `oaap user password`, which the RFC's §4 did not
+  mention because they do not go through the service's HTTP surface.
+
+### What the build found that the RFC had not
+
+- **The access log would have written the new headers.** The gateway's
+  field filter named `X-Oaap-User` and `X-Oaap-Roles` individually, so
+  a display name and an e-mail address would have gone into a file that
+  is not part of the backup. The gateway spec already said "the
+  `X-OAAP-*` identity headers" — the wildcard was right and the
+  implementation was a list. Fixed by deriving every place (copy lists,
+  strip blocks, live filter, old-log scrubber) from one tuple,
+  `appctl.IDENTITY_HEADERS`.
+- **Nine places name these headers**, not two: three `copy_headers` in
+  the static gateway config, two in the generators, five strip blocks
+  in the static config, seven in the generators, the live log filter
+  and the scrubber for logs written earlier. This is the same shape as
+  RFC-0039's inventory being wrong by four. The answer was not more
+  care but one list.
+- **A header must be sent empty, never omitted.** The anti-spoofing
+  guarantee works by *overwriting* what the client sent; a header the
+  verify answer leaves out has nothing to overwrite it. So all five are
+  always returned, empty where there is no value.
 
 ## Deutsche Zusammenfassung
 
@@ -326,8 +382,35 @@ lokalen Benutzersatz verlangt, der bei der Erstanmeldung entsteht und
 braucht es eine lokale Kennung, die kein Anmeldename ist. Dieses RFC ist
 also nicht bloß praktisch für das nächste — es ist dessen Angelpunkt.
 
-**Sechs Entscheidungen** stehen in §9 zur Abnahme; die interessanteste
+**Sechs Entscheidungen** standen in §9 zur Abnahme; die interessanteste
 ist D2: Eine ungeprüfte E-Mail-Adresse würde ich Apps **gar nicht**
 geben, weil eine Adresse in einer Plattform-Kopfzeile als bewiesen
 gelesen wird, egal welches Merkmal danebensteht — das anfragende
 Projekt hat ausdrücklich beides gewünscht.
+
+## Nachtrag: gebaut am 22.09.2026 (Referenz 0.1.107)
+
+Jörg hat alle sechs Entscheidungen wie vorgeschlagen abgenommen. Vier
+davon haben beim Bauen eine Verfeinerung bekommen, jede aus derselben
+Richtung: **eine Regel mit Ausnahme ist eine Regel, die die Hälfte
+falsch anwendet.** Bei D4 wird deshalb auch ein Prozentzeichen kodiert
+(sonst wäre „100% sicher" von einer Escape-Folge nicht zu unterscheiden,
+und Apps bräuchten eine Sonderregel — jetzt lautet die Anweisung
+schlicht *immer dekodieren*). Bei D5 fällt zusätzlich `/\host` weg, weil
+Browser den Backslash historisch als Schrägstrich lesen: für den Browser
+protokollrelativ, für einen regulären Ausdruck harmlos aussehend. Bei D1
+läuft die Nachrüstung **ohne Erledigt-Vermerk**, anders als die
+Rollen-Umstellungen — eine fehlende Kennung nachzutragen ändert keine
+Bedeutung und darf sich wiederholen, und genau das heilt auch das
+zurückgespielte alte Backup. Bei D6 umfasst die Sperre **das Lesen mit**;
+eine Sperre nur um das Schreiben schützt eine Kopie, die schon veraltet
+war.
+
+**Was der Bau gefunden hat und im RFC nicht stand:** Das
+**Zugriffsprotokoll** hätte die neuen Kopfzeilen mitgeschrieben — Name
+und E-Mail-Adresse in einer Datei, die nicht im Backup liegt. Die
+Gateway-Spezifikation sagte „die `X-OAAP-*`-Kopfzeilen"; die
+Umsetzung führte eine Liste von zwei. Und es sind **neun Stellen**, die
+diese Kopfzeilen nennen, nicht zwei — dasselbe Muster wie bei RFC-0039,
+wo die eigene Inventur um vier danebenlag. Die Antwort war nicht mehr
+Sorgfalt, sondern **eine** Liste, aus der sich alle neun ableiten.

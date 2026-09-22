@@ -1,4 +1,4 @@
-# OAAP App Deployment Contract (draft v0.7)
+# OAAP App Deployment Contract (draft v0.8)
 
 **Audience:** developers and AI coding agents (Codex, Claude Code, …)
 building an app that will be deployed on an OAAP platform.
@@ -26,6 +26,13 @@ a way to see anything of the platform, and the service provider who
 looks after a node is now `support` (RFC-0039). The Handball-Infoboard
 read the old definition and planned to give sponsors `partner`, which
 on a shared node would have shown them every instance on the machine.
+v0.8 (2026-09-22) adds **three more identity headers** (RFC-0040): a
+stable user id that never changes and is never reused, the display
+name, and a verified e-mail address. **If your app stores a reference
+to a person, this changes what you should store** — see rule 1 and the
+"App-internal users and roles" section. It also records that a refused
+request now returns the visitor to the page they asked for after they
+sign in, which makes an invitation link work.
 
 Give this document to your coding agent as a working instruction:
 "Make the app deployable on OAAP according to this contract."
@@ -104,11 +111,44 @@ health:
 ## Rules (MUST)
 
 1. **No own authentication.** Trust the gateway: every request carries
-   the verified identity in the headers `X-OAAP-User` and
-   `X-OAAP-Roles` (comma-separated; standard roles: `support`, `admin`,
-   `keyuser`, `user`, `guest`, `partner`). Authorize inside the app
-   based on these headers — never render a login form. A caller's roles
-   may also include `server_admin` (RFC-0008) if they hold it — it is
+   the verified identity in **five** headers. Authorize inside the app
+   based on them — never render a login form.
+
+   | Header | What it is |
+   | --- | --- |
+   | `X-OAAP-User-Id` | **the person.** A UUID, assigned once, never changed, never reused — **anchor your data on this one** |
+   | `X-OAAP-User` | **their login name.** Unique today, and a *name*: show it, do not build on it |
+   | `X-OAAP-Roles` | comma-separated; standard roles: `support`, `admin`, `keyuser`, `user`, `guest`, `partner` |
+   | `X-OAAP-Display-Name` | their display name; may be empty |
+   | `X-OAAP-Email` | a **verified** address; empty when the platform has none it can vouch for |
+
+   **Anchor on `X-OAAP-User-Id`, display `X-OAAP-User` and
+   `X-OAAP-Display-Name`.** The platform's own rule is that identity is
+   an id and every name a human reads may change (RFC-0026); until
+   RFC-0040 the user record was the one place that rule was not
+   applied, and this document told you the username was the stable join
+   key. It is stable *today* only because the platform has no way to
+   rename or delete a user — a gap, not a promise. If you are starting
+   now, use the id. If you already store the username, you need not
+   change anything yet; add the id alongside it when you next touch
+   that table.
+
+   **All five arrive on every authenticated request**, with an empty
+   value where the platform has none — read empty and absent as the
+   same thing. **`X-OAAP-Display-Name` and `X-OAAP-Email` are
+   percent-encoded** when they are not plain ASCII, so
+   **percent-decode them unconditionally**; that is safe for every
+   value, because a value containing a literal `%` is encoded too.
+   `X-OAAP-User-Id` and `X-OAAP-User` never need decoding.
+
+   **An empty `X-OAAP-Email` does not mean the person has no address** —
+   it means the platform has none it can vouch for. An address the
+   platform has not verified is not sent at all, because an address in
+   a platform header gets believed. If your app needs an address it can
+   only ask for, ask for it yourself and keep it as your own.
+
+   A caller's roles may also include `server_admin` (RFC-0008) if they
+   hold it — it is
    forwarded like any other role, but it is a **platform-only**
    authority (server administration, not app administration) and apps
    MUST NOT treat it as implying anything about their own app-level
@@ -156,10 +196,11 @@ Apps may rely on the following; the reference implementation and every
 conformant provider MUST deliver them (pinned formally in the
 `oaap.apps.runtime` / `oaap.core.gateway` capability specs):
 
-1. **Identity headers cannot be spoofed.** The gateway strips
-   `X-OAAP-User` and `X-OAAP-Roles` from every incoming client request
-   on **all** routes — including `public` ones — and sets them itself
-   after authentication. If the header is present, it is authentic.
+1. **Identity headers cannot be spoofed.** The gateway strips **all
+   five** `X-OAAP-*` identity headers from every incoming client
+   request on **all** routes — including `public` ones — and sets them
+   itself after authentication. If the header is present, it is
+   authentic.
    On a `public` route the gateway does not authenticate at all, so the
    headers are **always absent there — even for a caller who is logged
    in**. A route cannot be "public and additionally roles": as soon as a
@@ -337,7 +378,7 @@ Concretely (SHOULD):
    reaches the app at all; the gateway enforces them. Inside the app,
    authorize against your own model.
 2. **First contact creates an app user — the OAAP role is only a
-   starting hint.** When a yet-unknown `X-OAAP-User` arrives, create
+   starting hint.** When a yet-unknown `X-OAAP-User-Id` arrives, create
    your own user record for it. Either derive an initial business role
    from `X-OAAP-Roles`, or — for sensitive apps — create the account as
    **pending/unassigned** with minimal permissions and show a "please
@@ -352,12 +393,24 @@ Concretely (SHOULD):
    deactivated on the platform is blocked at the gateway and never
    reaches the app again.
 
-Additional guidance: `X-OAAP-User` (the username) is the stable join
-key — store it on your user record; treat display names as changeable.
+Additional guidance: **`X-OAAP-User-Id` is the stable join key** —
+store it on your user record. Store the username next to it if you
+like, but as a label: it is what a human recognises, and the platform
+reserves the right to let it change (RFC-0040, RFC-0026). Treat display
+names and e-mail addresses as changeable too — they arrive on every
+request, so read them fresh rather than keeping a copy in step by hand.
 Do not seed real persons as hard-wired login users; seed them as
 master data without a login and link on first contact. A platform
 service for centrally managed app roles may come later as an opt-in
 capability; this pattern works without any platform support.
+
+**Invitations work (RFC-0040).** A person following a link into a page
+of your app that requires a login is sent to the platform's login form
+and, after signing in, **back to the path and query they asked for**.
+Before this they landed on `/`, which is why an invitation link could
+not carry a token in its query. A **fragment** (`#…`) is a different
+matter: browsers never send it to a server, so whether it survives is
+up to the browser and the platform promises nothing.
 
 ## Working with the platform side
 
@@ -471,6 +524,23 @@ Briefe unveränderlich, sofort pushen) und der **Deploy-Hook** (nach dem
 Push per Bearer-Token die eigene Test-Instanz ausrollen und sofort
 unter Realbedingungen testen; Produktivsetzung bleibt Menschensache mit
 Versions-Bump).
+
+**Neu in v0.8 — die Person hinter dem Namen (RFC-0040):** Es gibt jetzt
+**fünf** Identitäts-Kopfzeilen statt zwei. Neu sind eine **Kennung**
+(`X-OAAP-User-Id`, unveränderlich, nie wieder vergeben), der
+**Anzeigename** und eine **geprüfte E-Mail-Adresse**. Die Regel für
+Apps: **auf die Kennung verankern, den Namen anzeigen.** `X-OAAP-User`
+bleibt Zeichen für Zeichen, wie es war — wer heute darauf verankert,
+muss nichts ändern, sollte die Kennung aber beim nächsten Anfassen
+derselben Tabelle danebenlegen. Alle fünf kommen bei jeder
+angemeldeten Anfrage, leer wo die Plattform keinen Wert hat; Anzeigename
+und Adresse sind **prozentkodiert** (immer dekodieren, das ist für jeden
+Wert richtig). Eine **ungeprüfte Adresse wird gar nicht geschickt** —
+eine leere Adresse heißt „die Plattform kann für keine bürgen", nicht
+„die Person hat keine". Und: Ein **Einladungslink funktioniert** — nach
+der Anmeldung landet man auf dem Pfad samt Query, den man wollte,
+nicht mehr auf `/`. (Das Fragment `#…` schickt kein Browser an einen
+Server; darüber verspricht die Plattform weiterhin nichts.)
 
 **Neu in v0.6 — nachgetragen, was gebaut war, aber hier fehlte:**
 
