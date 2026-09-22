@@ -1,7 +1,7 @@
 # oaap.core.gateway — HTTP Gateway (outline)
 
 - **ID:** `oaap.core.gateway`
-- **Version:** 0.2.9
+- **Version:** 0.2.10
 - **Maturity:** draft (outline — full specification to follow;
   five identity headers instead of two, derived from one list, and a
   login redirect that carries a return target, 2026-09-22 per RFC-0040;
@@ -47,6 +47,15 @@ happened and never see credentials.
   MUST therefore derive every place that names these headers —
   forward-auth copy lists, the strip blocks of unauthenticated routes,
   and the access log's field filter — from **one** list.
+  **One list is not enough on its own.** A route's gateway configuration
+  is generated when the app is deployed and then kept, so a node that
+  updates its platform keeps every site file written under the old list
+  — the constant cannot reach the past. An implementation MUST therefore
+  carry a changed list into the configuration already on disk as part of
+  the update, and MUST NOT require the operator to redeploy each app to
+  close the hole. Measured on `oaap-test` at 0.1.107: the platform
+  update rewrote the node-wide configuration and left all thirteen app
+  routes naming the previous two headers.
 - **A login redirect carries a return target** (RFC-0040 §5): the
   refusal a forward-auth call produces names the path and query the
   caller asked for, so a login returns the visitor there rather than to
@@ -509,3 +518,32 @@ Freigabeschlüssel ins **Fragment** der Adresse (`#…`) legen, das der
 Browser nie an einen Server schickt. Die Prüfung war bdt-hub am 08.08.
 zugesagt und ist erst jetzt eingelöst, als die zweite App dieselbe
 Frage stellte.
+
+## Deutsche Zusammenfassung (v0.2.9/0.2.10 — fünf Kopfzeilen aus einer Liste, und der Weg in die Dateien, die schon liegen)
+
+**Erstens: Es sind jetzt fünf Identitäts-Kopfzeilen, nicht zwei.**
+Neben Anmeldename und Rollen bekommt eine App die unveränderliche
+Kennung, den Anzeigenamen und — nur wenn sie geprüft ist — die
+E-Mail-Adresse. Die Fälschungssicherheit gilt **je Kopfzeile, nicht je
+Paar**: Strippen und Kopieren müssen beide die vollständige Menge
+nennen. Denn geschützt wird nicht durch Weglassen, sondern durch
+**Überschreiben** — eine Kopfzeile, die die Prüfantwort nicht mitbringt,
+hat nichts, was den mitgeschickten Wert ersetzt, und geht durch. Deshalb
+muss eine Umsetzung **alle** Stellen, die diese Namen führen, aus
+**einer** Liste ableiten: die Kopierlisten, die Strip-Blöcke der
+öffentlichen Routen und den Feldfilter des Zugriffsprotokolls. Fehlt
+ein Name im Filter, stehen Name und E-Mail-Adresse einer Person in einer
+Datei, die nicht im Backup liegt und dem Betreiber gehört.
+
+**Zweitens, und das ist der Nachtrag vom 22.09.: Eine Liste allein
+reicht nicht.** Die Gateway-Konfiguration einer Route entsteht **beim
+Ausrollen der App** und bleibt dann liegen. Ein Knoten, der die
+Plattform aktualisiert, behält also jede Datei, die unter der alten
+Liste geschrieben wurde — die Konstante reicht nicht in die
+Vergangenheit. Auf oaap-test nach dem Update auf 0.1.107 gemessen: die
+knotenweite Konfiguration war neu, **alle dreizehn App-Routen standen
+weiter auf zwei Kopfzeilen**. Neu verbindlich: Das Update muss eine
+geänderte Liste in die bereits liegenden Dateien tragen, und es darf
+**nicht** verlangen, dass der Betreiber dafür jede App neu ausrollt.
+Sonst bliebe die Lücke genau so lange offen, wie jemand braucht, um zu
+merken, dass sie da ist.

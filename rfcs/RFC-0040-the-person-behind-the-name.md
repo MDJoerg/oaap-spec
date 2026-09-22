@@ -1,10 +1,12 @@
 # RFC-0040: The Person Behind the Name — A User Identity That Outlives Their Login Name
 
-- **Status:** **Accepted (2026-09-22) and built** — Jörg said "Bau
-  RFC-0040"; all six decisions below were taken as proposed. Reference
-  0.1.107: `oaap.core.identity` 0.4.0, `oaap.core.gateway` 0.2.9, App
-  Deployment Contract v0.8, `test/test_user_identity.py`. Not yet
-  rolled out to the fleet.
+- **Status:** **Accepted (2026-09-22), built and rolling out** — Jörg
+  said "Bau RFC-0040"; all six decisions below were taken as proposed.
+  Reference 0.1.107: `oaap.core.identity` 0.4.0, App Deployment
+  Contract v0.8, `test/test_user_identity.py`. **0.1.108** adds what
+  the rollout found: the update now carries the header list into the
+  site files already on disk (`oaap.core.gateway` 0.2.10) — see
+  "What the rollout found that the build had not".
 - **Date:** 2026-09-21 (accepted and built 2026-09-22)
 - **Authors:** Claude (finding & proposal), Jörg (direction)
 - **Depends on:** RFC-0002 (the two headers), RFC-0022 (tenant as
@@ -331,6 +333,37 @@ appear through incoming traffic.
   verify answer leaves out has nothing to overwrite it. So all five are
   always returned, empty where there is no value.
 
+### What the rollout found that the build had not (0.1.108)
+
+- **One list does not reach the past.** Deriving every *writer* from
+  `appctl.IDENTITY_HEADERS` was the right answer and still left the
+  hole open on every existing node. A route's gateway configuration is
+  generated **when the app is deployed** and then kept; the platform
+  update rewrites the node-wide file and nothing else. Measured on
+  `oaap-test` immediately after the update to 0.1.107: the node-wide
+  configuration named all five, and **all thirteen app routes still
+  named two**.
+- **This was the second consequence, not the first.** Apps not
+  receiving `X-OAAP-User-Id` is a missing feature. A *client-sent*
+  `X-OAAP-User-Id` reaching the app untouched is the spoofing hole
+  itself — the route neither stripped it nor overwrote it. Latent only
+  for as long as no app reads the header, which contract v0.8 is busy
+  telling app authors to do. The gap between shipping the contract and
+  closing the hole was the exposure.
+- **Fixed as a migration step, not as operator instructions**
+  (`oaap migrate-identity-headers`, called from `migrate.sh`, the same
+  shape as the `stream_close_delay` step of 0.1.102): the update
+  rewrites every site file whose header list is out of date, reloads
+  the gateway once, and is silent when there is nothing to carry.
+  `oaap.core.gateway` 0.2.10 now requires this of any implementation
+  and forbids answering it with "redeploy every app".
+- **The prediction this corrects.** The build concluded "no app needs
+  redeploying — no role list and no manifest changes", and that was
+  read as "the generated files need nothing". The generated files
+  embed more than the manifest; the header list is part of them. The
+  question after a platform change is not *did the manifest change*
+  but **what does the generator emit that is already on disk**.
+
 ## Deutsche Zusammenfassung
 
 **Das Prinzip gilt schon — nur nicht für Benutzer.** RFC-0026 hat für
@@ -414,3 +447,32 @@ Umsetzung führte eine Liste von zwei. Und es sind **neun Stellen**, die
 diese Kopfzeilen nennen, nicht zwei — dasselbe Muster wie bei RFC-0039,
 wo die eigene Inventur um vier danebenlag. Die Antwort war nicht mehr
 Sorgfalt, sondern **eine** Liste, aus der sich alle neun ableiten.
+
+**Was das Ausrollen gefunden hat und der Bau nicht (0.1.108):** Eine
+Liste reicht nicht in die Vergangenheit. Jede *schreibende* Stelle aus
+`appctl.IDENTITY_HEADERS` abzuleiten war richtig — und ließ die Lücke
+auf jedem bestehenden Knoten trotzdem offen. Die Gateway-Konfiguration
+einer Route entsteht **beim Ausrollen der App** und bleibt dann liegen;
+das Plattform-Update schreibt die knotenweite Datei neu und sonst
+nichts. Auf oaap-test direkt nach dem Update auf 0.1.107 gemessen:
+knotenweit alle fünf, **alle dreizehn App-Routen weiter auf zwei**.
+
+Und das war die **zweite** Folge, nicht die erste. Dass Apps die
+Kennung nicht bekommen, ist eine fehlende Funktion. Dass eine **vom
+Client geschickte** `X-OAAP-User-Id` unberührt bei der App ankommt, ist
+die Fälschungslücke selbst — die Route hat sie weder gestrippt noch
+überschrieben. Ungefährlich nur so lange, wie keine App die Kennung
+liest, und genau das sagt der Vertrag v0.8 den App-Autoren gerade.
+
+Behoben als Migrationsschritt, nicht als Betriebsanweisung
+(`oaap migrate-identity-headers`, aufgerufen aus `migrate.sh`, in
+derselben Form wie der `stream_close_delay`-Schritt aus 0.1.102): Das
+Update schreibt jede Site-Datei neu, deren Kopfzeilen-Liste veraltet
+ist, lädt das Gateway einmal neu und schweigt, wenn es nichts zu tragen
+gibt. **Die Lehre, die eine falsche Vorhersage korrigiert:** Der Bau
+hatte notiert „keine App muss neu ausgerollt werden — es ändert sich
+keine Rollenliste und kein Manifest". Das stimmte und wurde als „an den
+erzeugten Dateien ist nichts zu tun" gelesen. Die erzeugten Dateien
+enthalten mehr als das Manifest. Die richtige Frage nach einer
+Plattform-Änderung ist nicht *hat sich das Manifest geändert*, sondern
+**was schreibt der Erzeuger, das schon auf der Platte liegt**.
