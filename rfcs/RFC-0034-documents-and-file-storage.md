@@ -489,9 +489,23 @@ Built **after** RFC-0031's steps 1–3 (`oaap.data.store`, `oaap.data.model`,
 `oaap.data.twin`), because the metadata schema and the twin relation
 depend on them. The RFC is written now so the decisions stay warm.
 
-1. **`oaap.data.files`, local only.** Content-addressed store, tenant
-   directories, put/get/verify by hash, in the backup as part of the
-   data directory. Testable alone.
+1. ~~**`oaap.data.files`, local only.**~~ **Gebaut 2026-09-22**
+   (Referenz 0.1.113, `oaap.data.files` 0.1): content-addressed store,
+   tenant directories, put/get/verify by hash, in the backup. Testable
+   alone, and tested alone.
+
+   **What it corrected in this RFC's own words:** §3.3 says the local
+   store "is in the data directory, so it is in the backup today
+   without any new component". That was wrong, and wrong in the
+   familiar way — the reference's backup archives a written **list of
+   paths**, not the directory. A new subdirectory is invisible to a
+   list nobody updated, and invisible in the only way that matters,
+   because the command still succeeds and the archive still restores.
+   The same shape as the 2026-09-05 gap, which was `tenants/` missing
+   from that same list. Now named in the backup, in the restore, in
+   the tenant archive (RFC-0029 D5) and per tenant where a tenant is
+   excluded from the node archive (D5b) — an excluded customer's bytes
+   are that customer's bytes.
 2. **`oaap.data.documents`.** The schema in `oaap.data.store`, the
    document API (§6.1), bindings as grants, needs in the manifest, the
    `has_document` relation in the twin, retention fields with delete
@@ -507,6 +521,105 @@ depend on them. The RFC is written now so the decisions stay warm.
 6. **Retention enforcement** (§10): sweep, evidence, export.
 7. **Readable backing, marked fragile** (§9.2), and outward adapters
    (§6.3) when a consumer asks.
+
+## 14. Stufe 4 as a design, and the load test that asks for it
+
+Written 2026-09-22, ahead of the build, because the video-service
+decision (CURRENT_STATE 152) is waiting on exactly these answers and
+deserves them in writing rather than in a conversation.
+
+### 14.1 What Stufe 4 is
+
+An external backing (`s3` or `smb`) holds a repository's bytes; the
+node holds the metadata. Per §7 the archive then **references** those
+bytes instead of copying them, and carries a **backing manifest**: the
+backing's definition without its credential, plus every version that
+lies there — version id, sha256, size. Three things follow, and the
+third is the one that makes it honest:
+
+1. **The node archive stops growing with the library.** What is copied
+   during the stop-the-apps window is metadata and the small manifest.
+2. **The bytes are then somebody's responsibility, and it is not this
+   platform's.** "Referenced" means "not backed up by us".
+3. **A restore can say what is missing, by document.** `oaap files
+   verify` walks the manifest against the backing and reports which
+   documents are absent or corrupt, by id and title — not "the NAS was
+   not in the backup". Because the metadata is in `oaap.data.store` and
+   therefore always in the archive, **losing an external backing loses
+   bytes, never the knowledge of what existed.**
+
+Point 2 is the same shape RFC-0029 D5b settled for tenants, one level
+down, and it takes the same answer: **what an archive leaves out, it
+must record that it left out.** The backing manifest is that record.
+Who keeps the external store safe is an operator decision; the
+platform's duty is to make the gap impossible to discover by accident.
+
+### 14.2 The load test: a video service
+
+The driver is Jörg's measurement (2026-09-21): the nightly backup stops
+app containers for the copy, and a library around 100 GB turns that into
+hours. The question "does RFC-0034 fix this?" has two answers, and which
+one applies is a **property of the video service we choose**, not of
+this RFC.
+
+**Shape A — the video service keeps its own storage.** PeerTube and
+every comparable product do this: their own directory layout, their own
+database, their own notion of a file. They will not store through
+`oaap.data.documents`, and asking them to is a fork, not an
+integration.
+
+- RFC-0034 buys **nothing** here. The bytes are an instance's ordinary
+  storage volume, under `tenants/<t>/instances/<i>/`, and the nightly
+  copy walks all of it.
+- The answer that does exist is **RFC-0029 D5b, built 2026-09-22**:
+  put the video service in its own tenant and **exclude that tenant
+  from the node archive**, with a recorded reason, and back its storage
+  up separately — a snapshot on the NAS, or the service's own export.
+  The archive then records the omission, the restore names it and
+  leaves those instances dormant, and the tenant reads it in their own
+  audit log. The nightly window goes back to minutes.
+- What this costs, stated plainly: the platform no longer knows what is
+  in that library. There is no per-document verify, because there are
+  no documents — only a directory somebody else is looking after.
+
+**Shape B — the video service stores through the platform.** It speaks
+the S3 face (Stufe 3) against a repository whose default backing is
+external; OAAP holds identity, metadata, retention and the twin
+relation, the NAS or bucket holds the bytes.
+
+- This is what RFC-0034 was written for, and here §7 answers the
+  downtime question directly: the archive carries manifest entries, not
+  gigabytes.
+- It also answers questions Shape A cannot: *which* recording is
+  missing after a disk failure, how long a recording must be kept
+  (§10), what it is attached to in the twin (§5), and what a rehearsal
+  sees (§8, read-only shared bytes).
+- The price is that the service must be one we can point at an S3
+  endpoint and be content with — which narrows the field considerably,
+  and may narrow it to something we would build rather than adopt.
+
+### 14.3 What this means for the choice
+
+The honest summary, and it is a decision criterion rather than a
+recommendation for a product:
+
+- **If the video service is adopted as-is, plan for Shape A**, and the
+  thing that makes it bearable already exists as of today. RFC-0034 is
+  then not on the critical path for video at all, and Stufe 4 can be
+  built when documents need it rather than when video does.
+- **If S3-backed storage is a hard requirement of the choice, say so
+  before the product is chosen**, because it is the single property
+  that decides which of the two worlds we are in — and it is much
+  cheaper to require it at selection time than to retrofit it.
+- **Either way the storage lives outside the node.** Shape A puts it
+  outside our sight; Shape B puts it outside our archive but inside our
+  bookkeeping. The difference between those two is the whole value of
+  Stufe 4, and it is worth naming before the product is chosen rather
+  than after.
+
+Stufe 4 therefore stays where the build order put it — after documents
+— unless the video decision turns out to require it, which is a
+question this section exists to make askable.
 
 ## Decisions
 
@@ -678,3 +791,80 @@ Adapter bei Bedarf.
 **Alle zwölf Entscheidungen stehen (Jörg, 08.09.).** Elf folgen der
 Empfehlung; D9 geht darüber hinaus (Sicht jetzt, fragiles Backing
 später). Nichts gebaut.
+
+## Deutsche Zusammenfassung (§14, 2026-09-22 — Stufe 1 gebaut, Stufe 4 entworfen)
+
+**Gebaut ist Stufe 1**, der reine Byte-Speicher (`oaap.data.files` 0.1,
+Referenz 0.1.113): Inhalte werden über ihre Prüfsumme abgelegt und
+gefunden, je Mandant getrennt, und der Speicher kann gefragt werden, ob
+er noch hält, was er zu halten behauptet. Beim Bauen hat sich dieser
+RFC an einer Stelle selbst korrigiert: §3.3 behauptete, der Speicher sei
+„im Datenverzeichnis, also in der Sicherung". Gesichert wird aber eine
+aufgeschriebene **Liste von Pfaden** — und ein neues Unterverzeichnis ist
+so einer Liste unsichtbar, auf die einzige Art, die zählt: Der Befehl
+gelingt weiter, und das Archiv spielt weiter zurück. Dieselbe Gestalt
+wie die Lücke vom 05.09. Jetzt steht es in Sicherung, Wiederherstellung,
+Mandantenarchiv — und je Mandant, damit es auch mit ausgenommenen
+Mandanten stimmt.
+
+**Und jetzt der Teil, der für die Videoentscheidung zählt.** Die Frage
+war: Die nächtliche Sicherung stoppt die Container fürs Kopieren, und
+100 GB Video machen daraus Stunden. Löst RFC-0034 das? Die Antwort hat
+zwei Hälften, und **welche gilt, entscheidet der Videodienst, den wir
+wählen — nicht dieser RFC.**
+
+**Fall A — der Dienst verwaltet seinen Speicher selbst.** PeerTube und
+jedes vergleichbare Produkt tun das: eigene Verzeichnisse, eigene
+Datenbank, eigener Dateibegriff. Sie werden nicht über OAAP ablegen, und
+sie dazu zu bringen wäre eine Abspaltung, keine Anbindung.
+
+- RFC-0034 bringt hier **nichts**. Die Bytes sind der gewöhnliche
+  Speicher einer Instanz, und die nächtliche Kopie läuft durch alles.
+- Die Antwort, die es trotzdem gibt, ist **RFC-0029 D5b — und die ist
+  seit heute gebaut**: Den Videodienst in einen eigenen Mandanten
+  stellen und **diesen Mandanten aus der Knotensicherung ausnehmen**,
+  mit festgehaltener Begründung, und seinen Speicher getrennt sichern
+  (Schnappschuss auf dem NAS oder der Export des Dienstes selbst). Das
+  Archiv schreibt die Auslassung auf, die Wiederherstellung nennt sie
+  und lässt die Instanzen ruhen, und der Mandant liest es in seinem
+  eigenen Protokoll. Das nächtliche Fenster ist wieder Minuten lang.
+- Der Preis, offen gesagt: Die Plattform weiß dann nicht mehr, was in
+  dieser Mediathek liegt. Es gibt keine Prüfung je Dokument, weil es
+  keine Dokumente gibt — nur ein Verzeichnis, um das sich jemand anders
+  kümmert.
+
+**Fall B — der Dienst legt über die Plattform ab.** Er spricht die
+S3-Fassade (Stufe 3) gegen eine Ablage, deren Standard-Hintergrund
+extern liegt: OAAP hält Identität, Metadaten, Aufbewahrung und den
+Bezug zum Zwilling, das NAS oder der Bucket hält die Bytes.
+
+- Dafür ist dieser RFC geschrieben, und §7 beantwortet die
+  Stillstandsfrage direkt: Ins Archiv wandert ein **Verzeichnis der
+  Kennungen und Prüfsummen**, keine Gigabytes.
+- Er beantwortet außerdem Fragen, die Fall A gar nicht stellen kann:
+  *welche* Aufnahme nach einem Plattenausfall fehlt, wie lange eine
+  Aufnahme aufbewahrt werden muss, woran sie im Zwilling hängt, und was
+  eine Generalprobe davon sieht.
+- Der Preis: Der Dienst muss einer sein, den wir auf einen S3-Endpunkt
+  richten können und mit dem wir dann zufrieden sind — das verengt das
+  Feld erheblich, womöglich auf etwas, das wir eher bauen als
+  übernehmen.
+
+**Was das für die Wahl bedeutet** (ein Entscheidungskriterium, keine
+Produktempfehlung):
+
+- Wird ein Dienst **so übernommen, wie er ist, plane mit Fall A** — und
+  das, was ihn erträglich macht, existiert seit heute. RFC-0034 liegt
+  dann für Video gar nicht auf dem kritischen Pfad, und Stufe 4 wird
+  gebaut, wenn Dokumente sie brauchen, nicht wenn Video sie braucht.
+- Ist **S3-fähige Ablage eine harte Anforderung, muss das VOR der
+  Produktwahl gesagt werden** — es ist die eine Eigenschaft, die
+  entscheidet, in welcher der beiden Welten wir landen, und sie
+  vorher zu fordern ist viel billiger, als sie nachträglich
+  einzubauen.
+- **In beiden Fällen liegt der Speicher außerhalb des Knotens.** Fall A
+  legt ihn außerhalb unserer Sicht, Fall B außerhalb unseres Archivs,
+  aber innerhalb unserer Buchführung. Genau dieser Unterschied ist der
+  ganze Wert von Stufe 4 — und er gehört vor die Produktwahl, nicht
+  dahinter.
+
