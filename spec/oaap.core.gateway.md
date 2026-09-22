@@ -1,10 +1,12 @@
 # oaap.core.gateway — HTTP Gateway (outline)
 
 - **ID:** `oaap.core.gateway`
-- **Version:** 0.2.10
+- **Version:** 0.2.11
 - **Maturity:** draft (outline — full specification to follow;
-  five identity headers instead of two, derived from one list, and a
-  login redirect that carries a return target, 2026-09-22 per RFC-0040;
+  five identity headers instead of two, derived from one list, a
+  login redirect that carries a return target, and open connections
+  that survive a platform update and not only a deployment,
+  2026-09-22 per RFC-0040;
   open streams survive a gateway reload, and the permanent access log
   is filtered like the diagnosis log, 2026-09-18 (reference 0.1.102 /
   0.1.103, from the Handball-Infoboard's first letter);
@@ -278,7 +280,7 @@ instance declares no route for carries no CORS header either. It is the
 same class of problem and deliberately not fixed here — it needs headers
 on the gateway side rather than in identity.
 
-## Open streams survive a gateway reload (0.2.8)
+## Open streams survive a configuration change (0.2.8, sharpened in 0.2.11)
 
 Every deployment of **any** app reloads the gateway configuration. A
 WebSocket or SSE stream opened under the previous configuration MUST NOT
@@ -300,6 +302,33 @@ node.)
   one of the reasons.
 - A node updated from an earlier version rewrites its generated sites
   once, during the update.
+- **A platform update is a configuration change, not an exception**
+  (0.2.11). The rule above says *reload*, and an implementation may
+  read that as leaving it free to **restart** the gateway process when
+  the platform's own configuration changes. It is not: what the
+  operator was promised is that open connections survive, and the
+  mechanism that delivers it — holding a stream on the retired
+  configuration — exists only across a reload. A restart walks past it
+  and cuts every connection on the node. An implementation MUST
+  therefore apply a changed gateway configuration by reloading, on the
+  update path as on the deployment path.
+- **If the reload is refused, the implementation MUST NOT continue
+  quietly.** A refused reload leaves the gateway serving the previous
+  configuration while the files on disk describe another — a node
+  routing by yesterday's rules, which is worse than a cut stream
+  because nothing says so. It MUST either make the new configuration
+  take effect by other means, restart included, or fail loudly; and
+  where it falls back to a restart it MUST say that connections were
+  cut.
+- Not obtainable, and not required: when the gateway's own image or
+  container definition changes, the container is replaced and its
+  connections end with it. The guarantee covers configuration changes.
+
+Found the hard way, 2026-09-22: the reference had honoured this on all
+thirty deployment paths and on none of the update path, so from 0.1.102
+to 0.1.108 every platform update that touched the shipped configuration
+— most of them — cut every open connection on the node, on a promise
+the specification had already made.
 
 ## The permanent access log (0.2.8)
 
@@ -547,3 +576,33 @@ geänderte Liste in die bereits liegenden Dateien tragen, und es darf
 **nicht** verlangen, dass der Betreiber dafür jede App neu ausrollt.
 Sonst bliebe die Lücke genau so lange offen, wie jemand braucht, um zu
 merken, dass sie da ist.
+
+## Deutsche Zusammenfassung (v0.2.11 — ein Update ist keine Ausnahme)
+
+**Die Zusage aus 0.2.8 stand, der Update-Weg hielt sie nicht.** Dort
+steht: Ein **Neuladen** der Gateway-Konfiguration trennt keine offene
+Verbindung. Das ließ sich so lesen, als dürfe die Plattform beim
+eigenen Update den Gateway-Prozess **neu starten** — und genau das tat
+die Referenz von 0.1.102 bis 0.1.108. Ein Neustart geht an der
+12-Stunden-Schonfrist vorbei, die die Verbindung an der alten
+Konfiguration festhält; er trennt alles. Betroffen war fast jedes
+Update, weil sich die ausgelieferte Konfiguration fast immer ändert.
+Gefunden am 22.09. auf oaapx01, wo LiveKit-Signalisierung und die
+Hallendisplays des Handball-Infoboards daran hängen.
+
+Verbindlich ist jetzt: **Eine geänderte Gateway-Konfiguration wird
+neu geladen — auf dem Update-Weg genauso wie beim Ausrollen.**
+
+**Und der zweite Teil ist so wichtig wie der erste:** Wenn das
+Neuladen abgelehnt wird, darf die Umsetzung **nicht stillschweigend
+weitermachen**. Sonst bedient das Gateway weiter die vorige
+Konfiguration, während die Dateien etwas anderes sagen — ein Knoten,
+der nach gestrigen Regeln routet, und niemand erfährt es. Das ist
+schlimmer als eine getrennte Verbindung. Also: entweder die neue
+Konfiguration anders durchsetzen (Neustart eingeschlossen) oder laut
+scheitern — und wo neu gestartet wird, muss gesagt werden, dass
+Verbindungen abgerissen sind.
+
+**Nicht erreichbar und nicht gefordert:** Ändert sich das Abbild des
+Gateways selbst, wird der Container ersetzt und seine Verbindungen
+enden mit ihm. Die Zusage gilt für Konfigurationsänderungen.
