@@ -1,8 +1,13 @@
 # oaap.data.backup — Platform Backup & Restore
 
 - **ID:** `oaap.data.backup`
-- **Version:** 0.3
-- **Maturity:** draft (0.2.1 implements RFC-0029 D2: the state of a
+- **Version:** 0.4
+- **Maturity:** draft (0.4 implements RFC-0029 D5 and D5b: an archive of
+  ONE tenant, which says of itself that it cannot be restored; and a
+  tenant may be left out of the node archive, on three conditions that
+  are not optional -- the archive records what it omitted, the restore
+  says it instead of letting it be discovered, and the tenant reads it
+  in their own audit log; 0.2.1 implements RFC-0029 D2: the state of a
   backup is readable -- running, done, failed, never set up -- and each
   fact appears on the side that can verify it; 0.2 implements RFC-0029 D3: the apps stop for the
   COPY only, compression runs afterwards with them back up -- measured
@@ -92,6 +97,65 @@ with a different failure mode — a tenant export is a customer's
 complete data set in one file — and it arrives with `oaap.core.tenant`
 0.2, together with the roles that decide who may ask for it.
 
+#### 2.1.1 The archive of one tenant (0.4, RFC-0029 D5)
+
+An implementation MAY offer an archive of a **single tenant**: that
+tenant's instance data, its registry entries, its users, its audit log
+and, where the node carries a data store, its own schema — and nothing
+belonging to anybody else.
+
+- It MUST be **distinguishable from a node archive by its manifest**,
+  not merely by its file name. An archive that must not be handed to
+  the installer must not look like one that may, and a restore tool
+  that encounters it MUST say what it is rather than "this is not a
+  backup".
+- It MUST state **in the archive itself** whether it can be restored.
+  Where per-tenant restore is not implemented, that statement is
+  `false` and the reason belongs with it: a whole-node restore
+  *replaces* a machine, restoring one tenant *merges* into a running
+  node that has other customers on it, and the questions that makes
+  hard — an instance that exists now and did not then, a port somebody
+  else has taken, a name another tenant has claimed since, a user who
+  is in both — are unanswered. Answering them badly loses another
+  customer's data while restoring this one's.
+- **What it guarantees is existence, not recovery**, and it MUST say so
+  in those terms. That is worth having on its own: the data is outside
+  the machine.
+- It SHOULD stop only the containers of that tenant, and only for the
+  copy. The other customers on the node have no part in this.
+- The completeness check of 2.2 applies to it unchanged, against that
+  tenant's instances.
+
+#### 2.1.2 Leaving a tenant out of the node archive (0.4, RFC-0029 D5b)
+
+An implementation MAY let the operator **exclude** a tenant from the
+node archive. This changes what the operator's archive *is*: from
+"everything on this machine" to "everything I am responsible for" —
+more honest about the duty, and a smaller blast radius for a stolen
+archive. It is permitted only with all three of the following.
+
+1. **The archive MUST record what it deliberately left out** — the
+   tenants it contains and the tenants it omits *by configuration*,
+   with the reason. Without this, a restore silently produces a node
+   with a customer missing, discovered on the day the original is gone.
+2. **The restore MUST say it, not discover it.** An excluded tenant's
+   instances come back in the registry with no data behind them. The
+   implementation MUST name them and MUST NOT start them as if they
+   were whole: an app that comes up on an empty disk looks wiped, and
+   somebody will believe it. The record stays — an instance silently
+   vanishing from the registry is worse than one that says where its
+   data is.
+3. **The tenant MUST be able to see it.** Exclusion moves the risk onto
+   the customer, which is a contract statement and not a checkbox. The
+   setting MUST carry a reason in the operator's own words and MUST
+   appear in **that tenant's own audit log** (`oaap.core.tenant` 1.7).
+   A customer the operator does not back up must not learn it from the
+   outage. An implementation MUST refuse an exclusion with no reason.
+
+The completeness check of 2.2 MUST be **narrowed, never weakened**: the
+excluded tenant's instances are absent on purpose, every other instance
+still has to be in the archive.
+
 ### 2.2 Creating a backup
 
 `oaap backup create [--to <path>]` — creates the archive and prints its
@@ -175,6 +239,9 @@ state comes from the backup instead of an empty initialization:
    configuration, start.
 4. **No setup wizard, no setup token** — the admin users come from the
    backup. The installer prints the login URL instead.
+5. **Tenants the archive left out are named before anything starts**
+   (0.4, 2.1.2 condition 2), and their instances are left **dormant**
+   with the reason the archive recorded.
 
 Rules:
 
@@ -360,3 +427,56 @@ um. Was zur *Maschine* gehört, bleibt zurück.
   das passiert nicht stillschweigend — die Wiederherstellung nennt das
   Profil, das im Backup stand, und den Befehl, es bewusst wieder zu
   setzen.
+
+## Deutsche Zusammenfassung (2.1.1/2.1.2, v0.4 — wessen Daten ein Archiv trägt)
+
+**Das Archiv eines einzelnen Mandanten** (`oaap backup create --tenant
+<kürzel>`): seine Instanzdaten, seine Registrierungseinträge, seine
+Benutzer, sein Protokoll und, wo der Knoten einen Datenspeicher trägt,
+sein eigenes Schema — und nichts, was jemand anderem gehört. Es stoppt
+nur die Apps dieses Mandanten, und nur für das Kopieren; der Rest des
+Knotens merkt nichts davon.
+
+**Und es sagt von sich selbst, dass es nicht zurückgespielt werden
+kann.** Das ist kein Mangel, den wir verschweigen, sondern der Grund,
+warum es das Archiv überhaupt schon gibt: Eine Wiederherstellung des
+ganzen Knotens **ersetzt** eine Maschine. Einen einzelnen Mandanten
+zurückzuspielen heißt, ihn in einen **laufenden** Knoten
+**hineinzumischen**, auf dem andere Kunden sitzen — und jede Frage, die
+das schwer macht, ist offen: eine Instanz, die es jetzt gibt und damals
+nicht; ein Port, den inzwischen jemand anders hat; ein Name, den sich ein
+anderer Mandant genommen hat; ein Benutzer, den es in beiden gibt. Diese
+Fragen falsch zu beantworten verliert die Daten eines anderen Kunden,
+während man die dieses einen wiederherstellt. Was das Archiv also
+zusichert, ist **Existenz, nicht Wiederherstellung** — die Daten liegen
+außerhalb der Maschine. Das ist für sich genommen etwas wert.
+
+**Einen Mandanten aus der Knotensicherung ausnehmen** ändert, was das
+Betreiberarchiv *ist*: aus „alles auf dieser Maschine" wird „alles,
+wofür ich geradestehe". Auf einem Knoten mit Kunden hält der Betreiber
+heute jeden vollständigen Datenbestand jedes Kunden — dort, wo das
+Sicherungsziel zufällig steht. Erlaubt ist das Ausnehmen nur mit **allen
+drei** Bedingungen:
+
+1. **Das Archiv schreibt auf, was es weglässt** — welche Mandanten drin
+   sind und welche absichtlich nicht, mit Begründung. Ohne das erzeugt
+   eine Wiederherstellung lautlos einen Knoten, dem ein Kunde fehlt;
+   bemerkt an dem Tag, an dem das Original weg ist.
+2. **Die Wiederherstellung sagt es, statt es entdecken zu lassen.** Die
+   Instanzen des ausgenommenen Mandanten kommen zurück, ihre Daten
+   nicht. Sie werden **benannt und nicht gestartet**: Eine App, die auf
+   einer leeren Platte hochkommt, sieht aus wie gelöscht, und jemand
+   wird das glauben. Der Eintrag bleibt aber stehen — eine Instanz, die
+   lautlos aus der Registrierung verschwindet, ist schlimmer als eine,
+   die sagt, wo ihre Daten sind.
+3. **Der Mandant kann es sehen.** Das Ausnehmen verschiebt das Risiko
+   auf den Kunden, und das ist eine Vertragsaussage, kein Häkchen. Also
+   trägt die Einstellung eine Begründung in den Worten des Betreibers
+   und steht im **Protokoll dieses Mandanten**. Ein Kunde, den der
+   Betreiber nicht sichert, darf das nicht aus dem Ausfall erfahren.
+   Ohne Begründung wird das Ausnehmen verweigert.
+
+Die Vollständigkeitsprüfung wird dabei **enger gefasst, nicht
+aufgeweicht**: Die Daten des ausgenommenen Mandanten fehlen absichtlich,
+jede andere Instanz muss weiterhin im Archiv liegen.
+

@@ -363,9 +363,47 @@ is proven — so the order is by what makes the next step cheaper:
    already, so showing comes almost free and gives the write page
    somewhere to land. D1's warning sentence carries the number D3 just
    improved.
-3. **D5, the per-tenant archive.** Buildable since RFC-0026.
-4. **D5b, exclusion**, which reduces to a declaration once D5 exists.
+3. ~~**D5, the per-tenant archive.**~~ **Gebaut 2026-09-22**
+   (Referenz 0.1.112, `oaap.data.backup` 0.4 §2.1.1):
+   `oaap backup create --tenant <kürzel>`. Das Archiv sagt von sich
+   selbst, dass es nicht zurückgespielt werden kann — was es zusichert,
+   ist Existenz, nicht Wiederherstellung.
+4. ~~**D5b, exclusion.**~~ **Gebaut 2026-09-22** (§2.1.2), mit allen
+   drei Bedingungen: `oaap backup exclude <kürzel> --reason "..."`
+   verweigert sich ohne Begründung, das Begleitblatt des Knotenarchivs
+   führt Enthaltene und Ausgelassene, und die Wiederherstellung nennt
+   sie, bevor sie irgendetwas startet, und lässt ihre Instanzen ruhen.
+   Dazu `oaap backup status`, das beides zeigt.
 5. **D6** when the first unreachable node exists — not before.
+   **Bestätigt 2026-09-22** (Jörg): zurückgestellt, wie entschieden.
+   Heute erreicht die Flotte jeden ihrer Knoten per Pull; die Form steht
+   im RFC und wird gebaut, wenn der erste Knoten hinter fremder Firewall
+   wirklich steht. Die Bedingung bleibt unverhandelbar: Das Zugangsrecht
+   eines schiebenden Knotens darf **nur anlegen**.
+
+**Was der Bau von D5/D5b noch hervorgebracht hat** (2026-09-22):
+
+- **Die Reihenfolge D5 vor D5b war richtig, und aus einem Grund, der
+  beim Bauen sichtbarer wurde als beim Entscheiden.** Das Ausnehmen
+  besteht im Code fast nur aus Weglassen; die ganze Substanz der
+  Entscheidung steckt in den drei Bedingungen, und zwei davon (das
+  Begleitblatt, die Wiederherstellung) sind erst sinnvoll, wenn es
+  überhaupt etwas gibt, worauf man den Kunden verweisen kann. Ohne D5
+  hieße Bedingung 3 „Sie sind nicht gesichert" und sonst nichts.
+- **Die Vollständigkeitsprüfung aus 0.1.70 musste enger gefasst werden,
+  nicht aufgeweicht.** Sie fragt das fertige Archiv, ob jede Instanz
+  der Registrierung darin liegt — mit einem ausgenommenen Mandanten
+  schlägt sie sonst zu Recht an. Gelöst, indem die Frage über die
+  *nicht* ausgenommenen Instanzen gestellt wird. Ein `--exclude`-Muster
+  im tar-Aufruf wäre der bequemere Weg gewesen und der falsche: ein
+  Muster, das nichts trifft, ist von einem, das alles trifft, nicht zu
+  unterscheiden, und hier ist der Unterschied die Datensicherung eines
+  Kunden.
+- **Ein Mandantenarchiv darf nicht wie ein Knotenarchiv aussehen.** Der
+  Installer sucht `backup-manifest.json`; das Mandantenarchiv trägt
+  bewusst `tenant-manifest.json`. Und weil „das ist kein OAAP-Backup"
+  falsch und beunruhigend wäre, erkennt der Installer es und sagt, was
+  es wirklich ist.
 
 Deliberately not on this list: per-tenant *restore* (its own round, see
 D5) and anything incremental (D3 decided against it).
