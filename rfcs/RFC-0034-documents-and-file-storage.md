@@ -506,6 +506,19 @@ depend on them. The RFC is written now so the decisions stay warm.
    the tenant archive (RFC-0029 D5) and per tenant where a tenant is
    excluded from the node archive (D5b) — an excluded customer's bytes
    are that customer's bytes.
+
+   **And a second correction, hours later (0.1.114).** This RFC writes
+   `oaap files verify` three times — §11, §12 and the German summary —
+   and that spelling did not work. The command existed and was right;
+   the wrapper at the machine, which routes every other node-wide
+   capability (`backup`, `tenant`, `store`, `data`, …), had not learned
+   this one, so only the undocumented `oaap app files verify` answered.
+   Found while preparing the fleet roll-out, not by a test: every test
+   called the function directly, which is precisely the blind spot.
+   Now routed, named in the help text, and held by a test that counts
+   both ways — each route must appear in the help, each node-wide
+   capability must have a route. `oaap.data.files` 0.1.1 carries it as
+   conformance test 6.
 2. **`oaap.data.documents`.** The schema in `oaap.data.store`, the
    document API (§6.1), bindings as grants, needs in the manifest, the
    `has_document` relation in the twin, retention fields with delete

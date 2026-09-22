@@ -1,7 +1,7 @@
 # oaap.data.files — Where the Bytes Live
 
 - **ID:** `oaap.data.files`
-- **Version:** 0.1
+- **Version:** 0.1.1
 - **Maturity:** draft (0.1 is RFC-0034 Stufe 1 and only that: the
   node's own content-addressed store, `put`/`get`/`verify`, tenant
   isolation by path, and the archive question answered. External
@@ -148,6 +148,14 @@ there.
    (`oaap.data.backup` 2.1.2) it contains the other tenants' bytes and
    not that tenant's; the restore asks the archive whether the store is
    in it.
+6. **Every operation is reachable under the name the documentation
+   uses for it.** Not a formality: in the reference implementation the
+   verification existed and worked, while the spelling RFC-0034 names
+   three times (`oaap files verify`) was refused by the command
+   wrapper, which knew every other node-wide capability and not this
+   one. A capability that answers only to an undocumented spelling is
+   not delivered, and the gap is invisible to every test that calls the
+   function directly.
 
 ## 6. Dependencies
 
@@ -160,7 +168,8 @@ require it.
 
 Draft. Built and tested; not yet exercised on a node with real volume,
 which is the whole point of Stufe 4 and of the video question that
-prompted it.
+prompted it. Conformance test 6 was added after the first build failed
+it (0.1.114).
 
 ## Deutsche Zusammenfassung (v0.1 — der Byte-Speicher, und nur er)
 
@@ -211,3 +220,13 @@ interessanten Fragen. Und **Löschen**: Bytes verschwinden, weil ein
 mit ihren Aufbewahrungsregeln. Eine Byte-Schicht, die von sich aus
 löschen kann, kann etwas löschen, worauf eine Dokumentfassung noch
 zeigt.
+
+**Nachtrag 0.1.1 (22.09.2026), beim Vorbereiten des Flottenlaufs
+gefunden:** Die Pruefung gab es, sie lief, sie war richtig — nur war sie
+unter dem Namen, den RFC-0034 dreimal nennt (`oaap files verify`), nicht
+erreichbar. Der Befehlsaufsatz an der Maschine kannte jede andere
+knotenweite Faehigkeit und diese eine nicht; gegangen waere nur
+`oaap app files verify`, und das steht nirgends. **Eine Faehigkeit, die
+nur auf eine undokumentierte Schreibweise hoert, ist nicht geliefert** —
+und kein Test, der die Funktion direkt aufruft, kann das je bemerken.
+Deshalb ist es jetzt Konformitaetstest 6.
