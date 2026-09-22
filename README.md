@@ -26,6 +26,14 @@ User Choice · Secure by Default · Portable by Default.
     (`python schema/validate.py ../oaap-apps/apps/*/oaap-app.yaml`); the
     schema once fell a whole manifest version behind the runtime without
     anyone noticing, because nothing ran it
+- `check-specs.py` — checks the two indexes against what they point at:
+  every version number in `spec/README.md` against the spec file, every
+  RFC file against `rfcs/README.md`, both ways
+  (`python3 check-specs.py`, `--fix` for the version numbers only).
+  **Run it after every version bump.** On 2026-09-22 eight of fourteen
+  index versions were wrong and one spec was in no index entry at all —
+  a stale index breaks nothing, it only misinforms whoever wanted an
+  overview instead of opening the file
 - `docs/` — supporting, non-normative documentation
 - `adr/` — decisions scoped to this repository
 

@@ -1,7 +1,16 @@
 # oaap.core.tenant — Account and Tenant, the Boundary of Belonging
 
 - **ID:** `oaap.core.tenant`
-- **Version:** 0.4.2 (four audit entries for instance diagnostics —
+- **Version:** 0.5 (RFC-0042 T1/T2 — **the tenant is a place**: it
+  answers at `<label>.<node>`, the slot the naming scheme described and
+  never filled. The platform's own launchpad answers there, scoped to
+  that tenant for everyone who arrives through that host, a
+  `server_admin` included; a host naming a tenant this node does not
+  have serves nothing, on every page. And the guard that had to come
+  first: a tenant label and a default-tenant instance name are ONE
+  namespace, refused in both directions, in the same words either kind
+  of collision already produced. See 2.4, conformance tests 16 and 17;
+  0.4.2 was four audit entries for instance diagnostics —
   `diagnose.opened`/`closed`/`expired` and `instance.restarted`, 1.7,
   RFC-0038 D2/D4: the first entries in this log for an act of READING,
   because a diagnosis window hands somebody the app's own output;
@@ -394,6 +403,40 @@ to fix their DNS.
 Per-instance own hostnames (RFC-0009/RFC-0018) are unaffected: they are
 chosen in full and carry no tenant label.
 
+**The tenant itself answers at `<label>.<node>`** (0.5, RFC-0042 T1/T2).
+That slot was described by the scheme above and never filled: instances
+have always been `<instance>.<label>.<node>`, so the level between them
+and the node was empty. It is not an addition to the scheme; it is the
+part of it that was missing. The default tenant contributes none — its
+label is the absence of a label, so its place IS the node's own address.
+Each unexpired former label answers too, for the reason 1.6 already
+gives.
+
+What answers there MUST be the platform's own launchpad, scoped to that
+tenant — not a second application. A second one would have to re-acquire
+the launchpad, the role filter, the visibility-group filter, the tenant
+boundary and the session, and a rule that lives in two places eventually
+disagrees with itself.
+
+Two requirements come with it, and they are the substance:
+
+- **The host scopes, and it scopes everyone.** A caller reached through
+  `<label>.<node>` sees that tenant's apps and no others, a
+  `server_admin` included. The node-wide view is one hostname away; a
+  page that answers a wider question than the address asked is how an
+  operator mistakes whose screen they are looking at.
+- **A host naming a tenant this node does not have serves nothing.** Not
+  the operator's view, not an empty page that looks like a working one.
+  This is 2.5's second rule applied to an address, and it fails closed
+  for the same reason.
+
+**A tenant label and a default-tenant instance name are one namespace.**
+Both occupy `<x>.<node>`. Creating or renaming either MUST be refused
+when the other holds the name, in both directions, with unexpired
+former labels and former instance names counting as held. The refusal
+says that the name is taken, never by whom — and never which kind of
+thing holds it, or the guard would leak what it exists to protect.
+
 **An instance name belongs to a tenant** (RFC-0025). Two customers may
 both call an instance `viewer`; what keeps their containers, networks,
 directories, deploy tokens and hook addresses apart is a **key**,
@@ -596,6 +639,28 @@ On a node with one tenant: none that anyone can observe, exactly as in
     instance is refused with a message naming the reason, and the host
     refuses the same request when it arrives through the queue with the
     portal check bypassed. A `server_admin` gets it.
+
+16. **The tenant has a place, and the place holds its boundary** (0.5).
+    A tenant labelled `cls` answers at `cls.<node>`. A `server_admin`
+    reaching it sees that tenant's apps and **no others** — the same
+    account at the node's own address still sees everything. An
+    unexpired former label reaches the same place. The default tenant
+    has no such address: its place is the node's own. A host naming a
+    tenant this node does not have answers nothing, **on every page of
+    the portal and not only on the launchpad** — checking it at the
+    launchpad alone would leave an address that does not exist
+    answering everywhere nobody looked.
+
+17. **One namespace, checked both ways** (0.5). With a default-tenant
+    instance called `studio`, creating or renaming a tenant to the
+    label `studio` is refused; with a tenant labelled `studio`,
+    creating or renaming a default-tenant instance to `studio` is
+    refused. Both refusals are **word for word** the refusal that name
+    already gets from its own kind — a caller must not be able to tell
+    from the sentence whether a tenant or an instance holds it.
+    Unexpired former labels and former instance names are held in both
+    directions; an instance of any other tenant holds nothing, because
+    it answers one level deeper.
 
 ## 5. Dependencies
 
@@ -800,3 +865,46 @@ einstehen kann — OAAP-Pakete sind nicht signiert (RFC-0019). An die
 Stelle des Beweises tritt die Aufzeichnung, wer welche Bytes angenommen
 hat. Und sie gehört dem Kunden, in das Protokoll des Kunden.
 
+
+## Deutsche Zusammenfassung (0.5 — der Mandant ist ein Ort)
+
+**Die Adresse.** Ein Mandant antwortet jetzt unter
+`<kürzel>.<knoten>` — also etwa `cls.oaap.joomp.de`. Das ist keine
+Erweiterung des Namensschemas, sondern die Stelle darin, die nie
+gefüllt wurde: Instanzen heißen längst `<instanz>.<kürzel>.<knoten>`,
+die Ebene dazwischen war leer. Der Standard-Mandant bekommt keine —
+sein Kürzel ist die Abwesenheit eines Kürzels, also *ist* sein Ort die
+Wurzel des Knotens. Frühere Kürzel antworten mit, solange ihre
+Schonfrist läuft; ein Verein, der gerade umbenannt wurde, findet seine
+Seite weiter.
+
+**Dort antwortet das Portal, nicht eine zweite Anwendung.** Eine eigene
+App hätte fünf Dinge neu erwerben müssen, die das Portal hat und die
+getestet sind: das Launchpad, den Rollenfilter, den Gruppenfilter, die
+Mandantengrenze und die Sitzung. Genau so entstehen die teuersten
+Fehler dieses Codes.
+
+**Zwei Regeln sind der eigentliche Inhalt:**
+
+- **Der Host verengt, und zwar für jeden.** Wer über `cls.<knoten>`
+  kommt, sieht die Apps dieses Mandanten und keine anderen — auch ein
+  `server_admin`. Die Knotensicht ist einen Hostnamen entfernt. Eine
+  Seite, die mehr beantwortet als die Adresse gefragt hat, ist die
+  Art, wie ein Betreiber verwechselt, auf wessen Bildschirm er
+  gerade schaut.
+- **Ein Host, der einen Mandanten nennt, den es hier nicht gibt,
+  liefert nichts.** Nicht die Betreibersicht, und keine leere Seite,
+  die wie eine funktionierende aussieht. Und das gilt für das **ganze**
+  Portal, nicht nur für das Launchpad — sonst antwortet ein Ort, den es
+  nicht gibt, überall außer dort, wo jemand hingeschaut hat.
+
+**Und die Wache, die vorher kommen musste.** Ein Mandanten-Kürzel und
+der Name einer Instanz des Standard-Mandanten teilen sich denselben
+Adressraum: beide wollen `<x>.<knoten>`. Bisher hat das niemand
+gegeneinander geprüft — folgenlos, solange dort nichts antwortete, und
+ab dieser Fassung nicht mehr. Beide Richtungen werden jetzt abgelehnt,
+frühere Kürzel und frühere Instanznamen zählen mit.
+
+Die Ablehnung ist dabei **wortgleich** mit der, die derselbe Name schon
+von seiner eigenen Art bekommen hätte. Das ist Absicht: Klänge sie
+anders, verriete gerade die neue Wache, was sie schützen soll.

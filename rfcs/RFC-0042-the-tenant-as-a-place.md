@@ -1,9 +1,11 @@
 # RFC-0042: The Tenant as a Place — Its Own Address, Its Own Face
 
 - **Status:** **Accepted (2026-09-22)** — all five decided by Jörg,
-  each as recommended, in the same sitting as RFC-0041's seven. Nothing
-  built. This is the one to build **first**: RFC-0041 K5 needs the
-  tenant address, and nothing here needs Keycloak.
+  each as recommended, in the same sitting as RFC-0041's seven.
+  **Build steps 1 and 2 are built** (reference 0.1.115 and 0.1.116,
+  `oaap.core.tenant` 0.5): the guard of T1, and the address with the
+  host-scoped launchpad of T2. Step 3 (the face, T3) is open, T4 stays
+  deliberately unbuilt, and RFC-0041 now has what its K5 needs.
 - **Date:** 2026-09-22
 - **Authors:** Jörg (the idea and its scope), Claude (design and write-up)
 - **Depends on:** RFC-0022 (tenant as boundary), RFC-0025/RFC-0026
@@ -339,3 +341,65 @@ RFC-0041. Es braucht nichts von Keycloak, und RFC-0041 K5 braucht die
 Mandantenadresse. Die Vereine sehen damit etwas, bevor die
 Identitätsarbeit landet — und die Identitätsarbeit muss die
 Gestaltungsfragen nicht mittragen.
+
+## Nachtrag: gebaut am 22.09.2026 (Schritte 1 und 2)
+
+**Schritt 1, die Wache (0.1.115).** Vor dem Bauen nachgesehen, was
+tatsächlich zusammenläuft: Es gibt **neun Türen** in den Instanz-
+Namensraum — das Ausrollen und das Installieren von der Maschine, das
+Umbenennen, der Artefakt-Zuschlag, das Sideloading, die Generalprobe
+und drei im Portal-Arbeiter. Neun Türen sind acht Gelegenheiten, die
+Regel zu vergessen, und genau diese Form hat dieses Projekt viermal
+in einer Woche produziert.
+
+Also nicht neun Prüfungen, sondern eine Frage an einer Stelle
+(`instance_name_taken`) und die Gegenrichtung ebenfalls an einer
+(`label_is_free`, die jetzt auch die Instanznamen des
+Standard-Mandanten kennt). Und ein Detail, das mehr wert ist als es
+aussieht: **Der Ablehnungssatz entsteht jetzt an genau einer Stelle**
+(`name_taken_msg`). Das ist zählbar, und der Test zählt es — eine
+zehnte Tür, die ihren Satz selbst formuliert, fällt auf, bevor sie die
+Prüfung vergisst. Eine Ausnahmeliste gibt es bewusst nicht; sie wäre
+die nächste Stelle, die auseinanderläuft.
+
+**Wortgleich abgelehnt.** Die Ablehnung bei einer Kollision über die
+Namensraumgrenze hinweg ist buchstäblich dieselbe wie die, die derselbe
+Name von seiner eigenen Art bekommen hätte. Klänge sie anders, verriete
+gerade die neue Wache, was sie schützen soll.
+
+**Schritt 2, die Adresse (0.1.116).** `<kürzel>.<knoten>` antwortet, mit
+dem Portal, mandantenbezogen. Drei Dinge, die beim Bauen über den
+Entwurf hinausgingen:
+
+- **Das Fehlschlagen gehört an die Tür, nicht auf die Seite.** Der
+  erste Entwurf prüfte den unbekannten Ort im Launchpad. Damit hätte
+  eine Adresse, die es nicht gibt, überall geantwortet außer dort, wo
+  jemand hingeschaut hat. Jetzt steht die Prüfung am Eingang des
+  ganzen Portals.
+- **Frühere Kürzel antworten mit.** Das Gateway schreibt ihre Site, also
+  muss das Portal sie auch erkennen — sonst führte die Schonfrist aus
+  RFC-0026 auf eine Seite, die den Verein abweist.
+- **Der Name des Mandanten steht schon jetzt auf der Seite.** T3 nennt
+  ihn einen Anker neben dem Design. Er gehört aber zur Adresse, nicht
+  zum Design: nötig ist er genau dann, wenn die Seite jemandem gehört —
+  und das ist sie ab Schritt 2, nicht erst ab Schritt 3.
+
+**Was der Umstieg tut.** Die Sites sind erzeugt, also trüge ein Knoten,
+der nach dem Update nichts ändert, die Adresse im Code und nirgends auf
+seiner Maschine. `migrate-tenant-places` schreibt sie einmal nach, still
+und wiederholbar, und **lädt das Gateway neu statt es neu zu starten** —
+es wird keine einzige offene Verbindung getrennt (die Lehre aus 0.1.109).
+
+**Was Schritt 2 noch nicht tut, und das soll hier stehen:** Unter
+`<kürzel>.<knoten>` antwortet das *ganze* Portal, nicht nur das
+Launchpad. Die übrigen Seiten verhalten sich dort wie an der Wurzel —
+sie verengen sich nicht am Host. Das ist keine Ausweitung von Rechten
+(jede Seite prüft weiter ihre eigenen), aber es ist auch noch nicht
+fertig gedacht. Gehört zu Schritt 3.
+
+**Ein Nebenbefund beim Nachziehen der Spezifikation:** Der Spec-Index
+lag an **acht von vierzehn** Stellen falsch, eine Spezifikation stand in
+gar keinem Eintrag. Dieselbe Form wie im Katalog von `oaap-apps` einen
+Tag zuvor — eine Angabe an zwei Orten, nur einer wird angefasst.
+Nachgezogen und durch `check-specs.py` abgesichert, das beide Indexe
+gegen das zählt, worauf sie zeigen.
