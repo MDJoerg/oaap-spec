@@ -1,6 +1,9 @@
 # RFC-0042: The Tenant as a Place — Its Own Address, Its Own Face
 
-- **Status:** Draft (2026-09-22) — five decisions await Jörg
+- **Status:** **Accepted (2026-09-22)** — all five decided by Jörg,
+  each as recommended, in the same sitting as RFC-0041's seven. Nothing
+  built. This is the one to build **first**: RFC-0041 K5 needs the
+  tenant address, and nothing here needs Keycloak.
 - **Date:** 2026-09-22
 - **Authors:** Jörg (the idea and its scope), Claude (design and write-up)
 - **Depends on:** RFC-0022 (tenant as boundary), RFC-0025/RFC-0026
@@ -202,6 +205,22 @@ that return to where the visitor was going.
    `oaap.data.files`, the themed login, the two rules it may not break.
 4. Then RFC-0041 K5 has what it needs.
 
+**Confirmed 2026-09-22**, with the decisions taken. Two notes the
+decisions add:
+
+- Step 1 is **not** optional and **not** deferrable behind step 2. The
+  guard is cheap while nothing answers at `<label>.<node>` and becomes
+  a migration the moment something does. The measurement on `oaapx01`
+  (no collision among `cls`, `hbvp`, `pxx` and twelve default-tenant
+  instance names) holds *today*; it is not a property of the system,
+  only of its current contents.
+- Step 3 makes the tenant logo the **first real consumer** of
+  `oaap.data.files` 0.1.1. That is worth saying out loud because it is
+  also the first test of it outside its own test file: a real file,
+  written by a real operator, surviving a backup and a restore.
+
+T4 adds nothing to this list, by decision — which is the point of it.
+
 ## 4. What this makes possible later
 
 Worth naming because it is the reason the address matters more than it
@@ -287,3 +306,36 @@ Infrastrukturaktion zu einem **Adresswechsel**. Die Leute des Vereins
 behalten ihre Seite; es ändert sich das Kürzel vor dem Knotennamen, und
 die Schonfrist für frühere Kürzel aus RFC-0026 hält die alte Adresse so
 lange am Leben, bis es sich herumgesprochen hat.
+
+## Nachtrag: die Entscheidungen vom 22.09.2026
+
+Jörg hat alle fünf entschieden, jede wie vorgeschlagen — anders als
+bei RFC-0041, wo zwei anders ausgingen. Das heißt der Reihe nach:
+
+- **T1:** Der Mandant bekommt `<kürzel>.<knoten>`, **und die Wache
+  kommt mit.** Ein Mandanten-Kürzel darf keinen Namen bekommen, den
+  eine Instanz des Standard-Mandanten hält, und umgekehrt. Die
+  Ablehnung sagt, dass der Name vergeben ist — nie von wem.
+- **T2:** Das **Portal** antwortet dort, mandantenbezogen. Keine zweite
+  Anwendung, die Launchpad, Rollen- und Gruppenfilter, Mandantengrenze
+  und Sitzung noch einmal erwerben müsste. Neu ist nur, dass das Portal
+  lernt: der Host bestimmt, was ich zeige — und wenn der Host einen
+  Mandanten nennt, den dieser Knoten nicht hat, zeigt es **nichts**
+  statt auf die Betreibersicht auszuweichen.
+- **T3:** Titel, zwei Farben, ein Logo. **Kein Stylesheet.** Das Logo
+  ist eine Datei und damit der erste echte Nutzer von
+  `oaap.data.files`. `server_admin`-Flächen bleiben plattformfarben,
+  damit man einer Seite ansieht, dass man dort knotenweite Macht hält.
+- **T4:** Plugin-Richtung festgehalten, **nichts gebaut** — das dritte
+  Mal, dass dieses Muster die richtige Antwort ist. Die Frage davor
+  bleibt unbeantwortet: Was gilt, wenn der Vorschlag einer App und die
+  Anordnung eines Mandanten sich widersprechen?
+- **T5:** Anmeldung nötig. Unangemeldet zeigt die Adresse die
+  Anmeldemaske im Design des Vereins. Die öffentliche Seite eines
+  Vereins bleibt eine normale App auf einer öffentlichen Route.
+
+**Reihenfolge, jetzt beidseitig bestätigt:** Dieses RFC zuerst, dann
+RFC-0041. Es braucht nichts von Keycloak, und RFC-0041 K5 braucht die
+Mandantenadresse. Die Vereine sehen damit etwas, bevor die
+Identitätsarbeit landet — und die Identitätsarbeit muss die
+Gestaltungsfragen nicht mittragen.
