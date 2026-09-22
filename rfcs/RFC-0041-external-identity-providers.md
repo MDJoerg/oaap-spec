@@ -5,6 +5,10 @@
   and **K4 came back refined**: the first-login rule is a per-tenant
   policy, not a platform rule. What that costs the build is written at
   each decision and folded into §5.
+  **Both measurements are done** (2026-09-22, `oaap-test`, Keycloak
+  26.7.4) — see §5.0. The answers are favourable, and they brought one
+  finding nobody asked for: a realm export carries the client secret
+  and the password hashes, so it is a **secret**, not a file.
 - **Date:** 2026-09-22
 - **Authors:** Jörg (direction, the club scenario, the move requirement),
   Claude (design and write-up)
@@ -254,14 +258,19 @@ Three moving parts:
 1. **The tenant** — `oaap backup create --tenant hbvp`, which exists.
    What is missing is the other end: adopting such an archive **into an
    empty node**. That is this RFC's build work, and it is bounded.
-2. **The realm** — Keycloak's own realm export/import. **To be proven
-   before the design leans on it:** whether a realm export preserves
-   user ids (`sub`). If it does, every local binding from K4 survives
-   the move untouched. If it does not, the move needs a re-binding step
-   keyed on something else, and that changes K4. *This is measured on
-   `oaap-test` before anything else is built.*
+2. **The realm** — Keycloak's own realm export/import. This was the
+   open question the design leaned on: does a realm export preserve
+   the identity K4 binds to? **Measured 2026-09-22 on `oaap-test`
+   against 26.7.4: yes** — the `sub` in a real token is the same UUID
+   before the export and after the import into an empty instance
+   (§5.0). So **every binding from K4 survives the move untouched**,
+   and no re-binding step is needed. The measurement also showed that
+   the members' passwords travel with the realm, so nobody has to
+   reset anything — and that the export file is therefore a **secret**
+   (§3).
 3. **The provider object** — one edit: the issuer URL now points at the
-   club's own Keycloak.
+   club's own Keycloak. The client secret travels in the export, so
+   this really is one edit and not a re-registration.
 
 What stays **unpromised**: merging a tenant back into a node that is
 already running other tenants.
@@ -344,6 +353,21 @@ Added by the decisions of 2026-09-22:
   session** (`amr`/`acr`), so an audit entry can say that it happened.
   OAAP does not enforce it and must not claim to.
 
+Added by the measurement of 2026-09-22 (§5.0):
+
+- **A realm export is a secret.** Measured: it carries the OIDC client
+  secret and the users' password hashes. It MUST be written and kept
+  under the same rule as a node backup archive — `0600`, never inside
+  an instance's storage, never readable by an app — and removed once
+  the move it was made for is done. An implementation that offers a
+  realm export through the portal MUST NOT serve it to a browser as an
+  ordinary download.
+- **The binding key is what the token says.** OAAP binds to the `sub`
+  claim, not to whatever an admin API calls the user's id. On 26.7.4
+  these are the same value and the measurement confirmed it end to
+  end; they are the same by *default*, not by guarantee, so the code
+  reads `sub` and nothing else.
+
 ## 4. Non-goals
 
 - **No login built by an app.** Unchanged and load-bearing.
@@ -360,16 +384,66 @@ Updated after the decisions of 2026-09-22. K3 and K7 made it longer;
 the order is chosen so that the two measurements come before anything
 that assumes their answer.
 
-1. **Measure first, twice.**
-   - Does a Keycloak realm export preserve user ids (K6.2)? Everything
-     else assumes it.
-   - Which Keycloak version do we pin, and does its admin API do what
-     K3 now needs (create realm, create client, read back)? K3 turned
-     this from a footnote into a dependency.
-   Both on `oaap-test`, before a line is built.
+### 5.0 The two measurements — done, 2026-09-22
+
+Measured on `oaap-test` against **Keycloak 26.7.4** in throwaway
+containers bound to `127.0.0.1`, removed afterwards. Not the admin
+console's word for it: the full round trip, with a real token.
+
+**M1 — does a realm export preserve the identity K4 binds to? Yes.**
+The chain measured was `create user → obtain a real token → export →
+import into an EMPTY instance → obtain a token again`, and all four
+values are the same UUID:
+
+- the internal user id before the export,
+- the `sub` in a token issued before the export,
+- the id in the export file,
+- the `sub` in a token issued **after** the import.
+
+Two things were deliberately separated here, because collapsing them
+is how an assumption survives a measurement. The first run measured
+only the **internal id**; K4 binds to **`sub`**. That `sub` is the
+internal id is Keycloak's default, and "is the default" is not a
+measurement — a mapper can change it. So a second run obtained an
+actual token, before and after, and read `sub` out of it. Only then is
+K6.2 answered: **every binding from K4 survives the move untouched**,
+and no re-binding step is needed.
+
+**M2 — can the admin API do what K3 now needs? Yes.** Against 26.7.4:
+create a realm (`201`), create an OIDC client (`201`), read the client
+back by `clientId`, and fetch its secret. That is the whole of what K3
+asks for in v1. The server states its own version at
+`/admin/serverinfo` → `systemInfo.version`, which is what makes the
+pinned version checkable rather than merely written down.
+
+**Pinned version: `quay.io/keycloak/keycloak:26.7.4`**, recorded with
+the provider object per K3.
+
+**The finding nobody asked for, and the more important one.** The
+export file carries **the client secret** and **the users' password
+hashes** — verified in the file, and proven by the fact that the user
+could log in on instance B with the same password. That is good news
+for the move (a club's members do not have to reset anything, and the
+provider object keeps working) and it makes the export a **secret**:
+
+> A realm export MUST be treated exactly like a node backup archive
+> (`oaap.data.backup`): `0600`, never in an instance's storage, never
+> in a place an app can read, and never left lying around after the
+> move. It is not a configuration file that happens to contain
+> accounts; it is every credential of that club in one file.
+
+This was not in the design before the measurement. It is now §3 and
+step 7 of the order below.
+
+### 5.1 The order
+
+Step 1 was the measuring, and it is done. What remains:
+
+1. **RFC-0042 first** — its T1 guard, its tenant address. K5 below
+   cannot be built before it, and none of it needs Keycloak.
 2. Keycloak as an OAAP app on `oaap-test` (multi-container, own
-   Postgres), plus the realm recipe — which stays, because K3 says
-   *manage*, not *own*.
+   Postgres), pinned to **26.7.4**, plus the realm recipe — which
+   stays, because K3 says *manage*, not *own*.
 3. The provider object, the OIDC method in `resolve_principal`, first
    login → local record bound to `sub` (K1, K4). The tenant setting
    `first_login` with its default `eingang` and the `server_admin`-only
@@ -379,7 +453,9 @@ that assumes their answer.
 5. The entry point → realm mapping (K5). **Needs RFC-0042 §T1.**
 6. The two tenant settings from K7 — self-registration and 2FA —
    including the refusal of `role` + self-registration.
-7. Adopting a tenant archive into an empty node (K6.1).
+7. The move (K6): adopting a tenant archive into an empty node, the
+   realm export — **handled as a secret, per §5.0** — and the one edit
+   to the provider object.
 8. Then, and only then, `oaapx01` — see §7.
 
 ## 6. Open for later
@@ -508,10 +584,40 @@ Zwei-Faktor gilt zunächst nur für Realm-Anmeldungen; für die eingebaute
 Anmeldung bleibt er offen, sonst hält ein `server_admin` den Knoten für
 geschützt, obwohl nur die eine Hälfte es ist.
 
-**Vor dem Bau stehen jetzt ZWEI Messungen, nicht eine:** ob der
-Realm-Export die Benutzer-Kennungen erhält (sonst ändert sich K4), und
-welche Keycloak-Version wir festnageln und ob deren
-Verwaltungsschnittstelle das kann, was K3 jetzt braucht.
+**Die zwei Messungen sind erledigt (22.09.2026, `oaap-test`, Keycloak
+26.7.4)** — in Wegwerf-Containern, nur an `127.0.0.1` gebunden,
+hinterher restlos entfernt.
+
+**M1 — Bleibt die Kennung erhalten? JA.** Gemessen wurde die ganze
+Kette: Benutzer anlegen → echtes Token holen → exportieren → in eine
+**leere** Instanz importieren → wieder anmelden. Alle vier Werte sind
+dieselbe UUID. **Damit überleben alle Bindungen aus K4 den Umzug
+unverändert**, und es braucht keinen Neubindungs-Schritt.
+
+Eine Feinheit, die den zweiten Lauf nötig machte: Der erste maß die
+**interne Id**; K4 bindet aber an den **`sub`** aus dem Token. Dass
+beide dasselbe sind, ist bei Keycloak die Vorgabe — aber „ist die
+Vorgabe" ist keine Messung, und ein abweichender Mapper wäre genau die
+Art Annahme, die erst beim ersten echten Umzug auffliegt. Also ein
+zweiter Lauf mit einem echten Token, vor und nach dem Umzug.
+
+**M2 — Kann die Verwaltungsschnittstelle, was K3 braucht? JA.** Realm
+anlegen (201), Client anlegen (201), Client zurücklesen, Geheimnis
+abholen. Und der Server nennt seine Version unter `/admin/serverinfo` —
+das ist es, was die festgenagelte Version **prüfbar** macht statt nur
+aufgeschrieben. **Festgenagelt: `quay.io/keycloak/keycloak:26.7.4`.**
+
+**Und der Befund, nach dem niemand gefragt hat — der wichtigere.** Die
+Exportdatei enthält **das Client-Geheimnis und die Passwort-Nachweise
+der Mitglieder**. Nachgewiesen nicht nur in der Datei, sondern dadurch,
+dass sich die Testbenutzerin nach dem Import mit demselben Passwort
+anmelden konnte. Zwei Folgen, eine angenehme und eine unbequeme: Beim
+Umzug muss **niemand** sein Passwort neu setzen und das Anbieter-Objekt
+braucht wirklich nur eine Zeile — aber die Exportdatei ist damit **ein
+Geheimnis wie ein Backup-Archiv**: `0600`, nie im Speicher einer
+Instanz, nie für eine App lesbar, nie als gewöhnlicher Download aus dem
+Portal, und nach dem Umzug gelöscht. Das stand vor der Messung nicht im
+Entwurf.
 
 **Und eine Warnung zur Testmaschine:** `oaapx01` trägt BDT (Test und
 Produktiv), den zahlenden Großkunden, das Hallen-Infoboard, LiveKit und
