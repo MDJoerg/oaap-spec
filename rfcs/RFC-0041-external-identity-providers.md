@@ -1,6 +1,10 @@
 # RFC-0041: External Identity Providers — Keycloak, a Realm per Tenant, and the Way Out
 
-- **Status:** Draft (2026-09-22) — seven decisions await Jörg
+- **Status:** **Accepted (2026-09-22)** — all seven decided by Jörg in
+  one sitting. Five as recommended; **K3 and K7 went the other way**,
+  and **K4 came back refined**: the first-login rule is a per-tenant
+  policy, not a platform rule. What that costs the build is written at
+  each decision and folded into §5.
 - **Date:** 2026-09-22
 - **Authors:** Jörg (direction, the club scenario, the move requirement),
   Claude (design and write-up)
@@ -123,10 +127,42 @@ operator's own `server_admin` keeps a local password, and a tenant may
 keep local users alongside a realm. That is not a fallback bolted on; it
 is RFC-0022 D3's "one or more providers" read literally.
 
-### K3 — OAAP **consumes** a realm; it does not manage Keycloak (in v1)
+### K3 — OAAP **manages** realms through Keycloak's admin API
 
-> **Recommendation: consume, don't manage. A documented realm recipe,
-> not an admin-API integration.**
+> **Decided against the recommendation (Jörg, 2026-09-22): manage.**
+> The recommendation below was *consume, don't manage*; it is kept
+> verbatim because its objection does not disappear by being overruled
+> — it becomes a build requirement.
+
+**What the decision buys.** Creating a club stops being a two-system
+chore: OAAP creates the realm and the client itself, and the operator
+never types four values into two places. It also shortens **K6**, the
+move — on the new, empty node OAAP can create the realm before
+importing into it, instead of asking a human to prepare the target.
+
+**What must come with it, or the objection comes true.** The
+integration ages against somebody else's product across major versions,
+and that kind of ageing is invisible until it breaks:
+
+1. **A pinned Keycloak version**, recorded with the provider object —
+   not "latest". The app is ours to update; the update is then a
+   deliberate act with a test on `oaap-test` first.
+2. **The admin path fails loudly, never silently.** If an admin call
+   returns something this version does not understand, OAAP refuses the
+   operation and says which call and which version — it does not guess
+   and does not half-create a realm.
+3. **Managing is not the same as owning.** A realm OAAP did not create
+   is still usable by hand (the recipe stays in this RFC), and OAAP
+   never deletes a realm it finds. Deleting a tenant does not delete
+   the club's identities.
+4. **The admin credential is an app secret**, scoped to realm
+   administration, never to the master realm.
+
+The portal wizard of §6 is now the *surface* of this, not a separate
+capability.
+
+> **Original recommendation (not taken): consume, don't manage. A
+> documented realm recipe, not an admin-API integration.**
 
 The alternative — OAAP creates and maintains realms through Keycloak's
 admin API — is an integration that ages against somebody else's product
@@ -138,13 +174,42 @@ So v1: the operator creates the realm and an OIDC client by hand,
 following a recipe this RFC ships, and enters four values in OAAP.
 The wizard is named in §6 as the next step, with what it would do.
 
-### K4 — First login creates a record, binds to `sub`, and grants nothing
+### K4 — First login binds to `sub`; what happens next is a **tenant policy**
 
-> **Recommendation: create the local record, bind it one-to-one to the
-> provider's `sub`, give it no role, and show it in an "Eingang".**
+> **Decided with a refinement (Jörg, 2026-09-22):** *"Diese Optionen im
+> Tenant anbieten bei der Konfiguration. Es gibt für alle Vorschläge
+> usecases."* — The binding is a platform rule. The **consequence** of
+> a first login is a setting the tenant carries, because a club that
+> administers its own realm wants something different from a customer
+> whose people the operator admits by hand.
 
-This is Jörg's own Strang B decision of 2026-09-14 (*"neue Benutzer per
-Vorgabe gesperrt im Eingang"*) applied here.
+**Always, in every tenant:** a local record is created and bound
+one-to-one to `(provider, sub)`. That part is not configurable.
+
+**Per tenant, one of three (`first_login`):**
+
+- **`eingang`** — kein Recht, sichtbar im Eingang. **Die Vorgabe.**
+- **`role`** — eine im Mandanten hinterlegte Standardrolle wird vergeben.
+- **`groups`** — zusätzlich greift eine **ausdrücklich geschriebene**
+  Abbildung von Realm-Gruppen auf OAAP-Sichtbarkeitsgruppen.
+
+**K4b — the default and who may change it** (Jörg, as recommended):
+a new tenant starts at `eingang`, and **only `server_admin` may move it**
+off that value. A `tenant_admin` sees the setting and cannot change it.
+The reason is the shared node: a tenant that could open itself would be
+opening a door on a machine that carries other customers, and the
+operator would learn about it afterwards. Every change is an entry in
+**that tenant's** log (`oaap.core.tenant` 1.7), so the customer sees
+what was done in their name.
+
+Even at `groups`, the mapping is a local list the operator writes. A
+realm group never becomes an OAAP **role**, and an unmapped group
+grants nothing — a club cannot widen its own rights by inventing a
+group.
+
+This builds on Jörg's own Strang B decision of 2026-09-14 (*"neue
+Benutzer per Vorgabe gesperrt im Eingang"*), which is now the default
+rather than the only behaviour.
 
 Two rules are security-critical and are **not** negotiable knobs:
 
@@ -201,15 +266,38 @@ Three moving parts:
 What stays **unpromised**: merging a tenant back into a node that is
 already running other tenants.
 
-### K7 — Self-registration and 2FA are named, not built
+### K7 — Self-registration and 2FA are **in v1**
 
-> **Recommendation: out of scope for v1.**
+> **Decided against the recommendation (Jörg, 2026-09-22): both in v1.**
+> The recommendation was *out of scope*. Keycloak brings both, so the
+> cost is not in building them but in deciding who may switch them and
+> what they mean on a shared node.
 
-Keycloak brings both. Whether a club may let members register
-themselves is a **policy decision per tenant**, and 2FA belongs with the
-internet-hardening profile that `oaap.core.identity` already lists as
-open. Naming them here keeps the realm recipe from being written in a
-way that would make them expensive later.
+Both are **per-tenant settings**, and both follow K4b's authority rule:
+the tenant sees them, only `server_admin` changes them, and every
+change lands in that tenant's log.
+
+**Self-registration** is coherent precisely *because* of K4b. Somebody
+registering themselves in the club's realm arrives in a tenant whose
+default is `eingang` — they get an identity and no rights, which is
+what "Anmeldung möglich, Freischaltung nicht" has always meant here.
+A tenant that has been moved to `role` **and** allows self-registration
+is the combination that hands rights to anyone who can reach the page;
+OAAP must therefore **refuse that pair** unless it is set deliberately,
+and say why.
+
+**2FA** is enforced in the realm, not by OAAP — Keycloak decides
+whether a login needs a second factor, and OAAP only learns that the
+login succeeded. Two things follow:
+
+- OAAP MUST record **that** the provider asserted a second factor (the
+  `amr`/`acr` claim) on the session, so an audit entry can say it.
+- 2FA for the **built-in** provider stays out of v1 and stays with the
+  internet-hardening profile. Otherwise a `server_admin` would believe
+  the node is protected when only the realm-backed half is.
+
+What remains in §6 is the **Eingang as a workflow** (Strang B): notify,
+approve, reject with a reason.
 
 ## 3. What an implementation must guarantee
 
@@ -231,6 +319,31 @@ way that would make them expensive later.
   audit entry** (`oaap.core.tenant` 1.7). It changes who can get into the
   tenant, which is exactly what that log exists for.
 
+Added by the decisions of 2026-09-22:
+
+- **Every tenant switch from K4/K7 is `server_admin`-only and audited.**
+  `first_login`, self-registration and 2FA are visible to a
+  `tenant_admin` and changeable only by the operator, each change an
+  entry in that tenant's log. A setting that decides who gets in must
+  not be changeable by the party it lets in.
+- **`first_login: role` together with self-registration is refused**
+  unless it is set deliberately, with a reason that goes into the log.
+  Separately each is defensible; together they grant rights to anyone
+  who can reach the page, and nothing else in the system would notice.
+- **The admin-API integration names its version and fails loudly** (K3).
+  The provider object records the Keycloak version it was built
+  against; an answer the implementation does not understand aborts the
+  operation naming the call and the version, and never leaves a realm
+  half-created.
+- **OAAP never deletes a realm it did not create**, and deleting a
+  tenant never deletes the club's identities. Managing is not owning.
+- **The admin credential is scoped to realm administration**, never to
+  the master realm, and is a secret of the node under the same rule as
+  the client secret above.
+- **A second factor asserted by the provider is recorded on the
+  session** (`amr`/`acr`), so an audit entry can say that it happened.
+  OAAP does not enforce it and must not claim to.
+
 ## 4. Non-goals
 
 - **No login built by an app.** Unchanged and load-bearing.
@@ -243,25 +356,47 @@ way that would make them expensive later.
 
 ## 5. Build order
 
-1. **Measure first:** does a Keycloak realm export preserve user ids?
-   (K6.2). Everything else assumes it.
+Updated after the decisions of 2026-09-22. K3 and K7 made it longer;
+the order is chosen so that the two measurements come before anything
+that assumes their answer.
+
+1. **Measure first, twice.**
+   - Does a Keycloak realm export preserve user ids (K6.2)? Everything
+     else assumes it.
+   - Which Keycloak version do we pin, and does its admin API do what
+     K3 now needs (create realm, create client, read back)? K3 turned
+     this from a footnote into a dependency.
+   Both on `oaap-test`, before a line is built.
 2. Keycloak as an OAAP app on `oaap-test` (multi-container, own
-   Postgres), plus the realm recipe.
+   Postgres), plus the realm recipe — which stays, because K3 says
+   *manage*, not *own*.
 3. The provider object, the OIDC method in `resolve_principal`, first
-   login → local record bound to `sub`, no role (K1, K4).
-4. The entry point → realm mapping (K5). **Needs RFC-0042 §T1.**
-5. Adopting a tenant archive into an empty node (K6.1).
-6. Then, and only then, `oaapx01` — see §6.
+   login → local record bound to `sub` (K1, K4). The tenant setting
+   `first_login` with its default `eingang` and the `server_admin`-only
+   gate (K4b).
+4. The admin-API path (K3): create realm + client, the pinned version,
+   the loud failure, the scoped credential.
+5. The entry point → realm mapping (K5). **Needs RFC-0042 §T1.**
+6. The two tenant settings from K7 — self-registration and 2FA —
+   including the refusal of `role` + self-registration.
+7. Adopting a tenant archive into an empty node (K6.1).
+8. Then, and only then, `oaapx01` — see §7.
 
 ## 6. Open for later
 
-- **The portal wizard** the board has been holding: create a realm,
-  create the client, write the mapping, all from the portal. Everything
-  in v1 is shaped so this is additive.
-- **Self-registration and the Eingang as a workflow** (K7, Strang B).
-- **2FA**, with the internet-hardening profile.
+Shorter than it was: K3 pulled the wizard's substance into v1 and K7
+pulled both feature switches in.
+
+- **The portal wizard** the board has been holding — now only the
+  *surface* of K3's admin path, since the capability itself is in v1.
+- **The Eingang as a workflow** (Strang B): notify, approve, reject
+  with a reason. K7 brought self-registration in; the queue behind it
+  is still a list, not a process.
+- **2FA for the built-in provider**, with the internet-hardening
+  profile. K7's 2FA is the realm's, which is a different thing.
 - **A second provider kind** (SAML, LDAP).
-- **Merge-restore of a tenant** into a running node.
+- **Merge-restore of a tenant** into a running node — the one thing
+  K6 deliberately does not promise.
 
 ## 7. A warning about the test bed
 
@@ -329,6 +464,54 @@ andere ist Kontoübernahme durch Namensgleichheit. Und die Behauptungen
 des Anbieters werden **nie** zu OAAP-Rollen; eine Realm-Gruppe darf
 höchstens auf eine OAAP-Sichtbarkeitsgruppe abgebildet werden, und zwar
 durch eine Zuordnung, die der Betreiber selbst schreibt.
+
+## Nachtrag: die Entscheidungen vom 22.09.2026
+
+Jörg hat alle sieben in einem Durchgang entschieden. Fünf wie
+vorgeschlagen (K1 Identity, K2 Anbieter-URL, K5 der Host entscheidet,
+K6 nur die lösbare Hälfte, K4b Vorgabe Eingang und nur `server_admin`
+stellt um). **Zwei anders, eine verfeinert** — und die drei sind der
+interessante Teil:
+
+**K3: OAAP verwaltet die Realms doch selbst, über Keycloaks
+Verwaltungsschnittstelle.** Das nimmt Dir Handarbeit ab und verkürzt
+sogar den Umzug, weil OAAP den Realm auf dem leeren Zielknoten selbst
+anlegen kann. Mein Einwand bleibt trotzdem stehen, er wird nur zur
+Bauauflage: So eine Anbindung altert gegen ein fremdes Produkt, und sie
+altert **unsichtbar**. Deshalb gehören dazu eine **festgenagelte
+Keycloak-Version** beim Anbieter-Objekt, ein Verhalten, das bei einer
+unverstandenen Antwort **laut abbricht** statt zu raten, und die Regel,
+dass Verwalten nicht Besitzen heißt: OAAP löscht nie einen Realm, den
+es vorgefunden hat, und das Löschen eines Mandanten löscht nicht die
+Identitäten des Vereins.
+
+**K4: Der erste Login wird eine Sache des Mandanten.** Dein Einwand war
+richtig — es gibt für alle drei Wege echte Fälle. Die **Bindung** an
+`(Anbieter, Kennung)` bleibt Plattformregel und ist nicht einstellbar;
+was danach passiert, trägt der Mandant: `eingang` (Vorgabe), `role`
+oder `groups`. Und weil auf einem Knoten mehrere Kunden liegen, darf
+diesen Schalter nur der Betreiber umlegen, nicht der Mandant selbst —
+sonst öffnet jemand eine Tür auf einer Maschine, die ihm nicht allein
+gehört, und Du erfährst es hinterher. Jede Änderung steht im Protokoll
+**dieses** Mandanten.
+
+**K7: Selbstregistrierung und Zwei-Faktor kommen in v1.** Keycloak
+bringt beides mit, der Aufwand liegt nicht im Bauen, sondern im
+Festlegen, wer sie umlegen darf. Beide werden Mandanten-Einstellungen
+nach derselben Regel wie K4b. Selbstregistrierung ist überhaupt nur
+deshalb unbedenklich, **weil** die Vorgabe `eingang` heißt: Wer sich
+selbst registriert, bekommt eine Identität und keine Rechte. Die
+Kombination `role` **plus** Selbstregistrierung verschenkt dagegen
+Rechte an jeden, der die Adresse kennt — die muss OAAP ablehnen, außer
+sie wird ausdrücklich so gesetzt, und dann mit Begründung. Der
+Zwei-Faktor gilt zunächst nur für Realm-Anmeldungen; für die eingebaute
+Anmeldung bleibt er offen, sonst hält ein `server_admin` den Knoten für
+geschützt, obwohl nur die eine Hälfte es ist.
+
+**Vor dem Bau stehen jetzt ZWEI Messungen, nicht eine:** ob der
+Realm-Export die Benutzer-Kennungen erhält (sonst ändert sich K4), und
+welche Keycloak-Version wir festnageln und ob deren
+Verwaltungsschnittstelle das kann, was K3 jetzt braucht.
 
 **Und eine Warnung zur Testmaschine:** `oaapx01` trägt BDT (Test und
 Produktiv), den zahlenden Großkunden, das Hallen-Infoboard, LiveKit und
