@@ -1,7 +1,10 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.27 (a **restart** operation — a recreate, refused
+- **Version:** 0.2.28 (a redeploy **keeps the channel** the instance is
+  on, and data an installed instance is using may not be reported as
+  left behind or deleted as such: sharpened 2.3 and 2.16;
+  0.2.27 (a **restart** operation — a recreate, refused
   during a deployment, audited — and **bounded container logs** as a MUST
   of the reference container shape, plus `oaap app logs`/`oaap app
   restart` at the machine: new 2.17, RFC-0038 D4/D5. Found while writing
@@ -180,9 +183,44 @@ the core never comes from a store (RFC-0001).
 - **Channels**: an instance is marked `production` or `test`.
   Production accepts a new deployment only with a version bump; test
   instances may redeploy the same version in place.
+- **A redeploy keeps the channel the instance is on** (0.2.28). The
+  channel is a property of the **instance**, like its tenant — not an
+  argument of the act of deploying. A default channel MAY exist, but it
+  MUST apply only where there is no instance yet. An implementation
+  whose default reaches an existing instance moves it without being
+  asked to, and what moves with it is not cosmetic: promotion to
+  production drops the deploy token (2.5) and every open artifact grant
+  (RFC-0019).
+- **Changing the channel MUST be an explicit act, and MUST say what it
+  costs.** It stays possible in both directions; it just may not happen
+  by omission. Where the operator asks for it, the implementation MUST
+  name the consequence (the dropped token and grants going up; the
+  regained same-version redeploy coming back down).
+- **The version rule asks about the channel the instance LANDS on**, not
+  the one it currently has. "Same version onto production is refused"
+  protects production from being overwritten; applied to the instance's
+  current channel it also blocks the one command that takes an instance
+  back off production — which turns an accidental promotion into a
+  one-way door.
+
+  *Measured on the reference at 0.1.109: of the four paths that install,
+  three (portal store install, rollback/redeploy, deploy hook) already
+  inherited the instance's channel. The CLI stood alone against them,
+  and its flag defaulted to `production`.*
 - Instances can be stopped, started, reconfigured, and removed
   independently. Removing an instance offers keep-or-purge for its
   storage (mirroring `oaap uninstall` semantics).
+- **Data an installed instance is using MUST NOT be reported as left
+  behind, and MUST NOT be deletable as such** (0.2.28). Where an
+  implementation records what a removal kept — so that reinstalling
+  under the same name recovers it — that record becomes **false** the
+  moment such a reinstall happens, and a false record here is not
+  cosmetic: the deletion it invites is addressed by the very identity
+  the reinstall recovered. The implementation MUST therefore drop the
+  record when the data is taken back into use, and any deletion command
+  MUST refuse by asking **which directory it is about to delete**, not
+  by matching the name it was given against a registry key — on a node
+  with named tenants those two are not the same string.
 - Placement (RFC-0003): an instance MAY be pinned to a node (e.g. a
   test worker); default is the controller.
 
@@ -1821,3 +1859,39 @@ und `oaap app restart <instanz>` gibt es dort ohne Freischaltung: Wer
 an der Maschine steht, hat die Container-Laufzeit ohnehin. Das Fenster
 im Portal existiert, weil das Portal das Log jemandem gibt, der die
 Maschine **nicht** hat.
+
+## Deutsche Zusammenfassung (2.3/2.16, v0.2.28 — der Kanal gehört der Instanz)
+
+Zwei Betriebsdefekte, beide aus dem echten Betrieb gemeldet, beide von
+derselben Sorte: **eine Vorgabe, die für einen neuen Fall gedacht war,
+traf einen bestehenden.**
+
+**Der Kanal gehört der Instanz, nicht dem Befehl.** `oaap app install`
+hatte die Vorgabe `production`, und die galt auch beim erneuten
+Ausrollen. Eine Test-Instanz wurde damit still produktiv — und mit ihr
+gingen ihr Deploy-Token und alle offenen Paket-Freigaben. Genauso wie
+der **Mandant** einer Instanz schon immer gewinnt, gewinnt jetzt ihr
+Kanal: Eine Vorgabe darf nur dort greifen, wo es noch keine Instanz
+gibt. Ein Wechsel bleibt in beide Richtungen möglich — er muss nur
+ausgesprochen werden, und die Plattform sagt, was er kostet.
+
+**Die Versionsregel fragt jetzt nach dem Ziel.** „Dieselbe Version noch
+einmal nach produktiv" bleibt abgelehnt; das schützt die Produktion.
+Aber die Regel fragte nach dem Kanal, auf dem die Instanz *stand*, und
+sperrte damit ausgerechnet den Befehl, der sie da wieder herausholt.
+Aus einem Versehen wurde so eine Einbahnstraße.
+
+**Ein Vermerk über zurückgelassene Daten ist falsch, sobald die Daten
+wieder benutzt werden.** Beim Entfernen ohne Löschen merkt sich die
+Plattform, was liegenbleibt — damit ein erneutes Ausrollen unter
+demselben Namen die Daten wiederfindet. Genau dieses Wiederfinden ließ
+den Vermerk aber stehen: Die Liste lud danach weiter zum Löschen ein,
+und gelöscht wird nach der **Kennung**, die die neue Instanz sich gerade
+zurückgeholt hatte. Zwei Konsequenzen sind jetzt verbindlich: Der
+Vermerk verschwindet, sobald eine installierte Instanz dieselbe Kennung
+trägt; und der Löschbefehl fragt, **welches Verzeichnis er gleich
+löscht**, statt einen Namen mit einem Registrierungsschlüssel zu
+vergleichen — auf einem Knoten mit benannten Mandanten sind das zwei
+verschiedene Zeichenketten, und die alte Frage ließ eine laufende
+Instanz durch.
+
