@@ -1,7 +1,14 @@
 # RFC-0041: External Identity Providers — Keycloak, a Realm per Tenant, and the Way Out
 
-- **Status:** **Accepted (2026-09-22)** — all seven decided by Jörg in
-  one sitting. Five as recommended; **K3 and K7 went the other way**,
+- **Status:** **Accepted (2026-09-22); steps 2, 3 and 5 built
+  (2026-09-23, reference 0.1.120/0.1.121, `oaap.core.identity` 0.5.0,
+  `oaap.core.tenant` 0.7).** Keycloak is an OAAP app, a tenant carries
+  a provider object and a first-login policy, and a member of a club
+  signs in through their own realm at their tenant's address —
+  measured end to end on `oaap-test`. **Open: step 4** (the admin path
+  of K3), **step 6** (the K7 switches beyond the policy), **step 7**
+  (the move, K6) and **step 8** (`oaapx01`). All seven decided by Jörg
+  in one sitting. Five as recommended; **K3 and K7 went the other way**,
   and **K4 came back refined**: the first-login rule is a per-tenant
   policy, not a platform rule. What that costs the build is written at
   each decision and folded into §5.
@@ -437,26 +444,71 @@ step 7 of the order below.
 
 ### 5.1 The order
 
-Step 1 was the measuring, and it is done. What remains:
+Step 1 was the measuring, and it is done. Steps 2, 3 and 5 were built
+on 2026-09-23 and are marked below.
 
-1. **RFC-0042 first** — its T1 guard, its tenant address. K5 below
-   cannot be built before it, and none of it needs Keycloak.
-2. Keycloak as an OAAP app on `oaap-test` (multi-container, own
-   Postgres), pinned to **26.7.4**, plus the realm recipe — which
-   stays, because K3 says *manage*, not *own*.
-3. The provider object, the OIDC method in `resolve_principal`, first
-   login → local record bound to `sub` (K1, K4). The tenant setting
-   `first_login` with its default `eingang` and the `server_admin`-only
-   gate (K4b).
+1. ~~**RFC-0042 first**~~ — **done 2026-09-22/23** (reference
+   0.1.115–0.1.119).
+2. ~~Keycloak as an OAAP app~~ — **done** (`oaap-apps/apps/keycloak`
+   0.1.1): two containers, its own Postgres, pinned to **26.7.4**, and
+   the realm recipe in its README, which stays because K3 says
+   *manage*, not *own*.
+3. ~~The provider object, the OIDC login, the binding, the tenant
+   policy~~ — **done** (0.1.120/0.1.121). One correction of wording:
+   it is not a method in `resolve_principal` but a second way to
+   *establish* the session that method reads — which is why nothing
+   downstream changed at all.
 4. The admin-API path (K3): create realm + client, the pinned version,
-   the loud failure, the scoped credential.
-5. The entry point → realm mapping (K5). **Needs RFC-0042 §T1.**
-6. The two tenant settings from K7 — self-registration and 2FA —
-   including the refusal of `role` + self-registration.
+   the loud failure, the scoped credential. **Next.** The recipe is
+   already executable by hand and was executed on 2026-09-23;
+   `/admin/serverinfo` answered `26.7.4`, so the pinned version is
+   checkable as §5.0 promised.
+5. ~~The entry point → realm mapping (K5)~~ — **done**, and it cost
+   almost nothing once RFC-0042 existed: the same call that decides
+   whose face a page wears decides whose realm a login goes to.
+6. The rest of K7: self-registration as a *realm* setting and the 2FA
+   switch. The policy half is built — the refusal of `role` +
+   self-registration, and the recording of an asserted second factor.
+   What is missing is OAAP turning those on in the realm itself, which
+   is step 4's admin path.
 7. The move (K6): adopting a tenant archive into an empty node, the
    realm export — **handled as a secret, per §5.0** — and the one edit
    to the provider object.
 8. Then, and only then, `oaapx01` — see §7.
+
+### 5.2 What the build added that the design did not have
+
+Three rules came out of building and measuring rather than out of the
+decisions, and they are now in `oaap.core.tenant` 2.8:
+
+- **The channel is the authentication of the issuer.** The identity
+  token is taken over the back channel and its signature is
+  deliberately not verified — OIDC Core 3.1.3.7 allows exactly that,
+  because TLS to the token endpoint already proves who answered. The
+  consequence had to be said out loud: then the transport is not a
+  hardening option, it is the only proof, and an `http` issuer
+  reachable from the internet must be refused. A signature check would
+  not rescue such a setup — a key document fetched over the same open
+  channel is as forgeable as the token it would verify. The one
+  exception is a statement of fact rather than a relaxation: an `http`
+  issuer that cannot be reached from the internet at all.
+- **A name a provider suggests is a suggestion.** A taken name gets a
+  number. Adopting the record that holds it is the account takeover K4
+  refuses one step earlier.
+- **Breaking a binding is not something that can be re-established.**
+  Measured on `oaap-test`: after `oaap user unbind`, the same person
+  signing in again became a *new* record. That is not a defect — the
+  alternative is to recognise somebody by their name — but the
+  consequence had not been drawn: a record without a binding and
+  without a local password is a record with rights and no way in. It is
+  deactivated now, and the command says in three sentences what happens
+  next.
+
+And one thing the design expected to build did not have to be built:
+the app-facing contract needed **no** change, in either direction. An
+address the provider asserted as unverified was stored and kept out of
+`X-OAAP-Email` by the rule RFC-0040 D2 already wrote, without a line
+being added for foreign providers.
 
 ## 6. Open for later
 
@@ -626,3 +678,70 @@ dieses RFC verändert. Empfehlung: erst auf `oaap-test` beweisen, dann auf
 `oaapx01`, und dort zuerst mit `pxx`, nicht mit `hbvp`. Der zweite Verein
 macht das Szenario echt; er muss nicht auch den ersten Versuch echt
 machen.
+
+## Nachtrag: gebaut am 23.09.2026 (Schritte 2, 3 und 5)
+
+**Was jetzt geht.** Ein Verein bekommt einen Realm in einem Keycloak,
+das als gewöhnliche OAAP-App auf dem Knoten läuft. Ein Mitglied ruft
+`<kürzel>.<knoten>` auf, sieht auf der Anmeldeseite einen Knopf mit dem
+Text, den der Betreiber gewählt hat, meldet sich in seinem Verein an
+und landet im Portal seines Mandanten. Auf `oaap-test` von Anfang bis
+Ende gemessen: Anna kam herein und hatte **keine Rechte** — die
+Vorgabe. Danach wurde der Schalter auf `role` gelegt, und Bernd kam mit
+der Rolle `user` herein.
+
+**Die Gestalt, in einem Satz:** Der OIDC-Client ist *Identity*, und es
+ist keine dritte Methode — es ist ein zweiter Weg, die Sitzung
+anzulegen, die Methode 1 ohnehin liest. Deshalb hat sich an `/verify`,
+an den Kopfzeilen, an der Mandantengrenze und an jeder App **nichts**
+geändert. Die Zusage aus RFC-0040 §6, dass eine App den Anbieter nie
+sieht, ist damit strukturell wahr und nicht diszipliniert: Es gibt gar
+nichts, woran eine App den Unterschied merken könnte.
+
+**Ein Urteil in drei Programmen**, wieder: `services/idp.py`, die
+Schwester von `place.py` aus RFC-0042. Identity meldet an, `appctl`
+konfiguriert, das Portal zeigt. Und die beiden Regeln, die keine
+Einstellungen sind, stehen dort als **Funktionen**, nicht als
+Bedingungen an der Aufrufstelle — die Lehre vom Mutationstest des
+Vortags: Eine Regel in einem Zweig kann man nur lesen, eine in einer
+Funktion ausführen.
+
+**K5 hat fast nichts gekostet.** Dieselbe Frage, die entscheidet,
+wessen Gesicht eine Seite trägt, entscheidet, in wessen Realm eine
+Anmeldung geht. Das war der ganze Grund, RFC-0042 vorzuziehen.
+
+**Drei Befunde von der Maschine**, und der dritte ist der wichtigste:
+
+1. *Kein Anbieter ist kein Anbieter namens "".* Die allererste
+   Anbindung eines Mandanten meldete „ISSUER CHANGED, every binding it
+   had is void" — ein beunruhigender Satz über einen Mandanten, der nie
+   einen Anbieter hatte. Schlimmer als die Formulierung: Der leere
+   Schlüssel `oidc|` ist ein Schlüssel, und ein Schlüssel trifft.
+2. *Die Rückkehradresse muss auf das Zeichen stimmen*, und das Schema
+   ist das des **Browsers**, nicht das im Container. Die CLI druckte
+   nur die https-Form und schickte damit jeden Betreiber eines
+   Klartext-Knotens in eine Ablehnung des Anbieters, die keine Ursache
+   nennt.
+3. *Eine gelöste Bindung ist kein Rückweg.* Nach `oaap user unbind`
+   fand die erneute Anmeldung nicht zurück, sie legte einen neuen Satz
+   an (`bernd` → `bernd-2`). Mein eigener Satz hatte „bindet frisch"
+   gesagt. Das Verhalten ist richtig — die Alternative wäre, jemanden
+   an seinem **Namen** wiederzuerkennen —, aber die Folge war nicht
+   gezogen: Ein ungebundener Satz ohne lokales Passwort ist ein Satz
+   mit Rollen und ohne Weg hinein. Der wird jetzt stillgelegt, und der
+   Befehl sagt in drei Sätzen, was als Nächstes passiert.
+
+**Und ein vierter, der gar nichts mit diesem RFC zu tun hat.** Der
+Klicktest nahm zum Prüfen der Launchpad-Kachel einfach die **erste**
+Instanz. Auf `oaap-test` war die erste seit diesem Tag ein
+Hintergrunddienst, der überhaupt keine Kachel hat — drei Prüfungen
+schlugen fehl, ohne dass irgendetwas kaputt war. Eine willkürliche
+Auswahl ist keine Auswahl.
+
+**Was Schritt 2/3/5 ausdrücklich nicht tun.** OAAP legt noch keine
+Realms an (das ist Schritt 4, und das Rezept in der README des
+Keycloak-Pakets ist genau deshalb ausführbar geblieben). OAAP schaltet
+noch keine Selbstregistrierung und keinen Zwei-Faktor **im Realm** ein;
+gebaut ist nur die Hälfte, die OAAP gehört — die Ablehnung der
+gefährlichen Kombination und das Mitschreiben eines behaupteten
+Faktors. Und der Umzug (K6) ist unangetastet.

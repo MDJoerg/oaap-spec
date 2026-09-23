@@ -1,17 +1,25 @@
 # oaap.core.identity — Identity & Roles
 
 - **ID:** `oaap.core.identity`
-- **Version:** 0.4.0 (a user has an identity of its own — an immutable
-  UUID, an e-mail field with a verification state, three further
-  trusted headers, a deep link that survives the login, and a write
-  lock on the user store; RFC-0040)
+- **Version:** 0.5.0 (a **second way to establish a session**: a
+  tenant's own OIDC provider. Not a third method of *resolving* one —
+  everything downstream, `/verify` included, cannot tell the
+  difference, which is how RFC-0040 §6's promise that an app never sees
+  the provider is kept structurally rather than by discipline. See 2.8;
+  RFC-0041 K1/K4)
+- **Previous version:** 0.4.0 (a user has an identity of its own — an
+  immutable UUID, an e-mail field with a verification state, three
+  further trusted headers, a deep link that survives the login, and a
+  write lock on the user store; RFC-0040)
 - **Maturity:** draft
 - **Based on:** RFC-0001, RFC-0002, RFC-0007, RFC-0008, RFC-0026,
   RFC-0036, RFC-0038, RFC-0040
-- **Scope of this version:** built-in minimal identity provider with
-  user management. External identity providers (Keycloak, LDAP, OIDC)
-  are out of scope and must be able to replace this provider later
-  without changing the gateway contract. 0.3.0 adds the `server_admin`
+- **Scope of this version:** the built-in provider with user
+  management, plus — since 0.5.0 — logging in through a tenant's own
+  OIDC provider (`oaap.core.tenant` 2.8). The built-in provider never
+  goes away: the operator keeps a local password, and a tenant may keep
+  local accounts beside a realm. Without that, a node's own login would
+  depend on an app instance. 0.3.0 adds the `server_admin`
   role (RFC-0008) and free-form visibility groups (RFC-0007). 0.3.2
   adds the tenant membership of `oaap.core.tenant` 0.1 — a field and a
   migration, invisible while a node has one tenant. 0.3.3 makes that
@@ -414,6 +422,43 @@ owns — never the widget.
   could never be more than unverified, and would therefore reach no app
   anyway (2.3).
 
+### 2.8 Logging in through a tenant's provider (0.5.0, RFC-0041)
+
+The relying party is **this service**, not the gateway: everything an
+OIDC client needs is already here — the reserved `/auth/*` surface on
+every entry point, the session cookie and its epoch, the login throttle
+and the return target. The gateway owns none of it and would need a
+second notion of a session.
+
+**This is not a third method in the resolution order.** It is a second
+way to establish the session that the first method reads. `/verify`,
+the identity headers, the tenant boundary and every app are unchanged,
+and an app MUST NOT be able to tell how the person authenticated.
+
+- The entry point decides which tenant's provider is offered, and
+  therefore which tenant the principal belongs to
+  (`oaap.core.tenant` 2.8, RFC-0041 K5). A host that names no tenant of
+  this node offers nothing.
+- The authorization request MUST carry `state`, `nonce` and PKCE, and
+  the response MUST be checked against all three, plus the issuer, the
+  audience and the expiry. A redirect on the back channel MUST be
+  refused: on the token endpoint it is a request to send the client
+  secret somewhere else.
+- A provider that cannot be reached refuses the login with a sentence
+  naming which provider and what failed. It MUST NOT fall back to a
+  local password, and MUST NOT create a session on an unverified
+  assertion.
+- A record created this way has **no local password**, and the local
+  login form MUST say so explicitly rather than rely on what a hashing
+  library does with an empty value.
+- The write lock of 0.4.0 §4 becomes load-bearing here: this is the
+  first path on which user records are created by **incoming traffic**
+  rather than by an administrator.
+- An address a provider asserts is carried across with its verification
+  flag and not without it — §2.2's rule is what keeps an unproven
+  address out of `X-OAAP-Email` without anybody adding a line for
+  foreign providers.
+
 ## 3. Configuration
 
 - Session secret and setup token are generated at install time
@@ -716,3 +761,42 @@ Benutzerliste im Portal hat kein Blättern und keine Suche, und die Datei
 liegt je Knoten, nicht je Mandant — die Mandantensicherung erfasst
 Identitäten deshalb nicht. Das gehört zu dem RFC, das den Speicher
 ändert, nicht zu diesem.
+
+## Deutsche Zusammenfassung (0.5.0, RFC-0041 — der zweite Weg zur Sitzung)
+
+Ein Mandant kann seinen **eigenen Anmeldedienst** haben, und der
+OIDC-Client ist *dieser* Dienst, nicht das Gateway: Hier liegt schon
+alles, was ein OIDC-Client braucht — `/auth/*` an jedem Eingang, das
+Sitzungs-Cookie, die Drosselung, das Rücksprungziel.
+
+**Und es ist keine dritte Methode.** Es ist ein zweiter Weg, die
+Sitzung anzulegen, die Methode 1 ohnehin liest. `/verify`, die
+Kopfzeilen, die Mandantengrenze, jede App — alles unverändert. Genau so
+bleibt die Zusage aus RFC-0040 §6 („die App sieht den Anbieter nie")
+**strukturell** wahr und nicht nur diszipliniert: Es gibt gar nichts,
+woran eine App den Unterschied merken könnte.
+
+Der Host entscheidet, welcher Anbieter angeboten wird — und damit,
+welchem Mandanten der Prinzipal gehört. Eine Adresse, die keinen
+Mandanten dieses Knotens nennt, bietet nichts an.
+
+Geprüft werden `state`, `nonce`, PKCE, Aussteller, Empfänger und
+Ablauf. Eine Weiterleitung auf dem Rückkanal wird verweigert: Am
+Token-Endpunkt ist sie die Bitte, das Client-Geheimnis woandershin zu
+schicken.
+
+Ein Satz, den ein Anbieter angelegt hat, hat **kein** lokales Passwort,
+und das Anmeldeformular sagt das ausdrücklich, statt sich darauf zu
+verlassen, was eine Bibliothek mit einem leeren Wert tut.
+
+Die Schreibsperre aus 0.4.0 wird hier erst wichtig: Das ist der erste
+Weg, auf dem Benutzersätze durch **eingehenden Verkehr** entstehen und
+nicht durch einen Verwalter.
+
+Und eine Regel von damals trägt hier ohne Zutun: Eine Adresse, die
+niemand bestätigt hat, wandert nicht in `X-OAAP-Email`. Auf oaap-test
+gemessen — der Anbieter nannte eine unbestätigte Adresse, OAAP hat sie
+gespeichert und keiner App gezeigt.
+
+**Der eingebaute Anbieter verschwindet nie.** Sonst hinge die Anmeldung
+eines Knotens an einer App-Instanz.

@@ -1,7 +1,18 @@
 # oaap.core.tenant — Account and Tenant, the Boundary of Belonging
 
 - **ID:** `oaap.core.tenant`
-- **Version:** 0.6 (RFC-0042 T3 — **the tenant has a face**: a public
+- **Version:** 0.7 (RFC-0041 — **a tenant may name who lets people
+  in**: an OIDC provider object that is a URL and says nothing about
+  where the server runs, plus a policy for what a first login through
+  it BECOMES. The binding is a platform rule and is not configurable:
+  `(provider, subject, tenant)` and nothing else, never an e-mail
+  address and never a name. The consequence is the tenant's, because
+  there are real cases for all three — but only the OPERATOR may move
+  that switch, on a machine that carries other customers. The client
+  secret is not in this record: this file is world-readable and travels
+  in a tenant archive. See 2.8, conformance tests 20 and 21;
+  RFC-0041 K1/K2/K4/K4b/K5/K7)
+- **Previous version:** 0.6 (RFC-0042 T3 — **the tenant has a face**: a public
   title, two colours and a logo, and nothing else. Not a stylesheet: a
   tenant that can ship CSS can move, hide or fake any control on a page
   the platform answers for. The title is a SECOND name field on purpose
@@ -102,6 +113,8 @@ account   (reference only — see 1.3)
 | `created`       | ISO-8601 timestamp                                                          |
 | `former_labels` | previous labels kept as aliases, each with an expiry — see 1.6              |
 | `theme`         | the tenant's face (0.6): `title`, `color_primary`, `color_accent`, `logo`, `logo_type` — see 2.7. Absent means the platform's own look |
+| `idp`           | who lets people in (0.7): `kind`, `issuer`, `client_id`, `version`, `label` — see 2.8. Absent means local accounts only. **Never the client secret** |
+| `idp_policy`    | what a first login through that provider becomes (0.7): `first_login`, `default_role`, `group_map`, `self_registration`, `reason`. Absent means `eingang` |
 
 
 **Everything internal refers to `id`.** Not to the label, and never to
@@ -579,6 +592,102 @@ no face of its own: its place is the node's address, and a node that
 could disguise its own address is the impersonation this section
 forbids.
 
+### 2.8 Who lets people in (0.7, RFC-0041)
+
+A tenant MAY name an **external identity provider**. The provider
+answers *who somebody is*; the platform keeps answering *what they may
+do*. The first kind is OIDC.
+
+**The provider object is a URL.** `kind`, `issuer`, `client_id`, the
+provider `version` it was built against, and a `label` for the button.
+Nothing in it says whether the server runs on this node, on another, or
+at the customer — and an implementation MUST NOT introduce a field that
+does. That one property is what makes a tenant's later move to its own
+node an edit rather than a project.
+
+**The client secret is NOT part of this record.** This file is
+world-readable on the node and travels in a tenant archive, and a
+secret in a backup is a secret in every copy of that backup. It MUST be
+held separately, readable only by the component that performs the
+login, and MUST NOT be reachable by an app or by any surface that
+renders it.
+
+**The channel is the authentication of the issuer.** An implementation
+that obtains the identity token over the back channel MAY rely on
+transport validation in place of verifying the token signature (OIDC
+Core 3.1.3.7) — and then the transport is not a hardening option, it is
+the only thing that proves who answered. An `http` issuer that is
+reachable from the internet MUST therefore be refused. (A signature
+check would not rescue such a setup: a key document fetched over the
+same plain channel is as forgeable as the token it would verify.)
+
+**The binding is a platform rule and is not configurable.** A login
+coming in through a provider is matched to a local record on
+`(provider, subject, tenant)` and on **nothing else**. Matching by
+e-mail address is account takeover by collision; matching by username
+is the same with extra steps. The tenant is part of the key, not a
+consequence of it: the same human arriving in two tenants is two
+principals (RFC-0022 D3), and two tenants naming one realm MUST produce
+two records.
+
+**A name a provider suggests is a suggestion.** If it is taken, the
+implementation MUST create a distinct name rather than adopt the record
+that holds it.
+
+**Breaking a binding does not create a way back.** An implementation
+MUST make the consequence explicit: after a binding is removed, the
+same person signing in through the provider is a **new** record with
+the tenant's first-login rights, because a binding is the only thing
+that says who somebody is. A record left without a binding and without
+a local credential is a record with rights and no way in; an
+implementation SHOULD deactivate it and MUST NOT describe the removal
+as something that can simply be re-established.
+
+**No login through a provider ever falls back to a local password**,
+and no record a provider created has one. An implementation MUST say
+this in code rather than rely on what a hashing library does with an
+empty value.
+
+**What a first login BECOMES is the tenant's**, because a club that
+administers its own realm needs something different from a customer
+whose people the operator admits by hand:
+
+| `first_login` | Meaning |
+| --- | --- |
+| `eingang` | an identity and no rights. **The default.** |
+| `role` | the tenant's `default_role` is granted |
+| `groups` | as `role`, plus realm groups mapped onto visibility groups by an explicit local mapping |
+
+**No claim of a provider ever becomes a role.** A realm group MAY be
+mapped onto a visibility group (RFC-0007) through a mapping the
+operator wrote; an unmapped group grants nothing, so a tenant cannot
+widen its own rights by inventing a group. The roles an
+implementation may grant at a first login MUST be an **allow**-list,
+not a deny-list, and it MUST NOT contain node-wide roles or
+`tenant_admin`: a door that opens on somebody else's assertion must not
+be able to open the node or the whole tenant.
+
+**Only `server_admin` may move these switches** (`first_login`,
+`default_role`, the mapping, self-registration). A `tenant_admin` SEES
+them and cannot change them, and seeing is not a courtesy: it is what
+makes "only the operator changes this" honest instead of merely quiet.
+The reason is the shared node — a tenant that could open itself would
+be opening a door on a machine carrying other customers, and the
+operator would learn about it afterwards. Every change is an entry in
+**that tenant's** log (1.7).
+
+**`role`/`groups` together with self-registration MUST be refused**
+unless it is set deliberately with a reason, and the reason goes into
+the log. Separately each is defensible; together they hand rights to
+anyone who can reach the registration page, and nothing else in the
+system would notice.
+
+**A second factor is recorded, never claimed.** The provider decides
+whether a login needs one; the platform only learns that the login
+succeeded. An implementation MUST record what was asserted (`amr`/
+`acr`) so an audit entry can say it, and MUST NOT present that as
+enforcement of its own.
+
 ### 2.5 Resolution rules
 
 Two rules, and the difference between them is the whole safety
@@ -781,6 +890,33 @@ On a node with one tenant: none that anyone can observe, exactly as in
     and a second refresh changes nothing. Rename the tenant: the copy
     follows the new label and stays under the former one as long as that
     address answers. Remove the logo: the served copy goes with it.
+
+20. **A foreign login binds to a subject, not to a name** (0.7).
+    Configure a provider for one tenant. A first login creates a local
+    record bound to `(provider, subject, tenant)` with exactly the
+    rights the tenant's policy names and no others — in particular no
+    role and no group the provider asserted, including a realm group
+    called `server_admin`. Put a record in the store that matches the
+    incoming person in everything a provider can assert (e-mail,
+    display name, even the username) and lacks only a binding: it is
+    **not** adopted, keeps its own rights, and the new record gets a
+    distinct name. A second login through the same provider finds the
+    first record and creates nothing. The record has no local password
+    and the local login form refuses it. Break the binding: the next
+    login is a **new** record, and the operator was told so.
+
+21. **The switch belongs to the operator, the secret to the node**
+    (0.7). A `tenant_admin` sees `first_login`, the default role and
+    self-registration for their own tenant and cannot change any of
+    them; a `server_admin` can, and each change is in that tenant's
+    log. `first_login: role` with self-registration is refused unless a
+    reason is given, and the reason is in the log. A role that is
+    node-wide, or `tenant_admin`, is refused as a first-login role at
+    every door. The client secret appears in no tenant record, in no
+    tenant archive and on no surface; the component that performs the
+    login is the only one that can read it. An `http` issuer on a host
+    reachable from the internet is refused with a reason naming the
+    channel.
 
 ## 5. Dependencies
 
@@ -1094,3 +1230,71 @@ des Aufrufers und seinem eigenen Mandanten berechnet, an jeder Tür.
 Der Standard-Mandant bekommt kein eigenes Gesicht: Sein Ort ist die
 Adresse des Knotens, und ein Knoten, der seine eigene Adresse verkleiden
 könnte, wäre genau die Nachahmung, die dieser Abschnitt verbietet.
+
+## Deutsche Zusammenfassung (0.7 — der Mandant darf sagen, wer hereinlässt)
+
+Ein Mandant darf einen **eigenen Anmeldedienst** benennen. Der Anbieter
+beantwortet, **wer** jemand ist; OAAP beantwortet weiterhin, **was** er
+darf. Die Apps merken davon nichts.
+
+**Das Anbieter-Objekt ist eine URL.** Nirgends steht „das Keycloak
+hier". Genau diese eine Eigenschaft macht den späteren Umzug eines
+Vereins auf einen eigenen Knoten zu einer Änderung statt zu einem
+Projekt — und deshalb darf keine Fassung dieser Spezifikation ein Feld
+einführen, das sagt, wo der Server steht.
+
+**Das Client-Geheimnis steht NICHT in diesem Satz.** Die Datei ist auf
+dem Knoten für jeden lesbar und reist im Mandantenarchiv mit; ein
+Geheimnis in einer Sicherung ist ein Geheimnis in jeder Kopie dieser
+Sicherung. Es liegt getrennt, und nur der Dienst, der die Anmeldung
+durchführt, kommt daran.
+
+**Der Kanal ist die Beglaubigung des Ausstellers.** Wer das Token über
+den Rückkanal holt, darf sich die Signaturprüfung sparen — das erlaubt
+OIDC Core ausdrücklich, weil TLS zum Token-Endpunkt schon beweist, wer
+geantwortet hat. Dann ist der Kanal aber keine Stellschraube mehr,
+sondern die einzige Beglaubigung: Ein aus dem Internet erreichbarer
+`http`-Aussteller muss abgelehnt werden. Eine Signaturprüfung rettete
+so eine Lage übrigens nicht — ein über denselben offenen Kanal geholtes
+Schlüsseldokument ist genauso fälschbar wie das Token, das es prüfen
+sollte.
+
+**Die Bindung ist Plattformregel und keine Einstellung.** Eine
+eingehende Anmeldung wird an `(Anbieter, Kennung, Mandant)` zugeordnet
+und an sonst nichts. Über die E-Mail-Adresse zuzuordnen ist
+Kontoübernahme durch Namensgleichheit; über den Benutzernamen dasselbe
+mit Zwischenschritt. Der Mandant gehört zum Schlüssel, weil derselbe
+Mensch in zwei Mandanten **zwei** Prinzipale ist.
+
+**Eine gelöste Bindung ist kein Rückweg.** Wer sich danach erneut
+anmeldet, ist ein **neuer** Satz mit den Vorgaberechten — denn eine
+Bindung ist das Einzige, was sagt, wer jemand ist. Das muss man den
+Leuten sagen, statt es sie herausfinden zu lassen. Und ein Satz ohne
+Bindung und ohne lokales Passwort ist ein Satz mit Rollen und ohne Weg
+hinein; der gehört stillgelegt.
+
+**Was ein erster Login BEDEUTET, trägt der Mandant:** `eingang`
+(Vorgabe — eine Identität und keine Rechte), `role` oder `groups`.
+**Umlegen darf den Schalter nur der Betreiber.** Der Mandant sieht ihn,
+und das Sehen ist keine Höflichkeit: Es ist das, was „nur der Betreiber
+ändert das" ehrlich macht statt bloß still. Der Grund ist die geteilte
+Maschine — wer sich selbst eine Tür öffnen könnte, öffnete sie auf
+einer Maschine, die ihm nicht allein gehört, und der Betreiber erführe
+es hinterher.
+
+**Keine Behauptung des Anbieters wird je zu einer Rolle.** Eine
+Realm-Gruppe darf höchstens auf eine Sichtbarkeitsgruppe abgebildet
+werden, durch eine Zuordnung, die der Betreiber selbst schreibt. Und
+die Liste der überhaupt vergebbaren Rollen ist eine **Erlaubnis**-Liste,
+keine Verbotsliste: Eine Rolle, die die Plattform später bekommt, ist
+sonst versehentlich vergebbar.
+
+**`role` zusammen mit Selbstregistrierung wird abgelehnt**, außer es
+wird ausdrücklich mit Begründung gesetzt — und die Begründung steht
+danach im Protokoll. Jedes für sich ist vertretbar; zusammen
+verschenken sie Rechte an jeden, der die Seite erreicht, und nichts
+sonst im System würde es merken.
+
+**Ein zweiter Faktor wird notiert, nicht behauptet.** Keycloak
+entscheidet, ob eine Anmeldung einen braucht; OAAP erfährt nur, dass sie
+geklappt hat, und schreibt auf, was behauptet wurde.
