@@ -1,15 +1,17 @@
 # RFC-0041: External Identity Providers — Keycloak, a Realm per Tenant, and the Way Out
 
-- **Status:** **Accepted (2026-09-22); steps 2, 3, 4 and 5 built
-  (2026-09-23, reference 0.1.120–0.1.122, `oaap.core.identity` 0.5.0,
-  `oaap.core.tenant` 0.8).** Keycloak is an OAAP app, a tenant carries
+- **Status:** **Accepted (2026-09-22); steps 2, 3, 4, 5 and 6 built
+  (2026-09-23, reference 0.1.120–0.1.123, `oaap.core.identity` 0.5.0,
+  `oaap.core.tenant` 0.9).** Keycloak is an OAAP app, a tenant carries
   a provider object and a first-login policy, a member of a club signs
-  in through their own realm at their tenant's address — and **OAAP
-  now creates that realm and that client itself**, through a connector
-  contract of which Keycloak is the first implementation. Measured end
-  to end on `oaap-test`. **Open: step 6** (the K7 switches inside the
-  realm), **step 7** (the move, K6) and **step 8** (`oaapx01`). All
-  seven decided by Jörg in one sitting. Five as recommended; **K3 and K7 went the other way**,
+  in through their own realm at their tenant's address, **OAAP creates
+  that realm and that client itself** through a connector contract of
+  which Keycloak is the first implementation — and **it now moves the
+  two switches inside that realm**, recording what the realm answered
+  rather than what it was told. Measured end to end on `oaap-test`,
+  including a person registering themselves and arriving with no
+  rights. **Open: step 7** (the move, K6) and **step 8** (`oaapx01`).
+  All seven decided by Jörg in one sitting. Five as recommended; **K3 and K7 went the other way**,
   and **K4 came back refined**: the first-login rule is a per-tenant
   policy, not a platform rule. What that costs the build is written at
   each decision and folded into §5.
@@ -472,15 +474,18 @@ on 2026-09-23 and are marked below.
 5. ~~The entry point → realm mapping (K5)~~ — **done**, and it cost
    almost nothing once RFC-0042 existed: the same call that decides
    whose face a page wears decides whose realm a login goes to.
-6. The rest of K7: self-registration as a *realm* setting and the 2FA
-   switch. **Next.** The policy half is built — the refusal of `role` +
-   self-registration, and the recording of an asserted second factor —
-   and step 4 built the path that can now turn them on in the realm.
-   The connector declares this verb (`settings`) and declares it
-   absent, so what is missing is visible rather than merely missing.
+6. ~~The rest of K7: self-registration as a *realm* setting and the
+   2FA switch~~ — **done** (0.1.123, `oaap.core.tenant` 0.9). The
+   connector's fifth verb. What it added to the design is a rule about
+   TRUTH rather than about switches: a setting that lives both in a
+   realm and in OAAP's record is written down from what the realm
+   answered, never from what OAAP asked for. §5.4 has what the
+   measuring changed, including one rule that had to be rewritten
+   after the machine showed it could never fire.
 7. The move (K6): adopting a tenant archive into an empty node, the
    realm export — **handled as a secret, per §5.0** — and the one edit
-   to the provider object.
+   to the provider object. **Next.** The connector names this verb
+   (`export`) and names it absent.
 8. Then, and only then, `oaapx01` — see §7.
 
 ### 5.2 What the build added that the design did not have
@@ -566,6 +571,50 @@ credential may see that a realm exists. The refusal arrives one call
 later, at the clients lookup, which had a bare status code and no
 sentence. A rule worth saying is worth saying at every door it can
 arrive at.
+
+### 5.4 What step 6 measured
+
+Keycloak **26.7.4** on `oaap-test`, 2026-09-23, with the same narrow
+`create-realm` service account as §5.3.
+
+**The credential is wide enough after all — inside its own realm.** The
+open question from §5.3 was whether a credential narrow enough to
+satisfy K3.4 could move anything *inside* a realm. It can, for realms
+it created: the realm update (`registrationAllowed`) and the required
+action (`CONFIGURE_TOTP`) both answered **204**. In a realm it did not
+create, the same reads answered **403** — and the refusal arrives at
+the *second* document, because the realm itself answers 200. That is
+the same door §5.3 found for provisioning, and the sentence now stands
+there too.
+
+**K7 measured end to end.** Self-registration on → Keycloak's login
+page really carries the registration link → a person registered
+themselves → they arrived in OAAP as a record with **no roles and no
+groups**, in the Eingang. That is the whole of what "Anmeldung möglich,
+Freischaltung nicht" was supposed to mean, and it is now a measurement
+rather than a claim.
+
+**A switch's reach is smaller than its name.** With the second factor
+required, a newly registered member is asked to set one up. A member
+who was already in the realm is **not** — Keycloak applies a default
+required action to people who arrive after it. Asking the others would
+mean writing onto each person, which this design does not do (§2.9's
+"managing is not owning"). So the reach is said out loud when the
+switch is moved, rather than discovered by an audit.
+
+**And one rule as first built could never have fired.** K7 asks the
+platform to record what the provider asserted about a second factor;
+step 6 added a note for the case where the realm requires one and the
+login names none. It looked for the provider saying *nothing* — and
+Keycloak answers `acr=1` to an ordinary password login, so it never
+says nothing. Measured with exactly the case the rule was written for:
+a member who was in the realm before the switch was turned on signed
+in without a second factor, and the log said nothing about it.
+
+What is read now is `amr`, which names **methods**. `acr` is still
+recorded and deliberately not judged: an assurance level's meaning is
+configured inside the realm, and a platform that read it as evidence
+would be deciding what somebody else's number means.
 
 ## 6. Open for later
 
@@ -862,3 +911,56 @@ Widersprüche im Entwurf selbst — sie stehen in §5.3:
 Realm ein, und er löscht nichts. Ein von Hand gebauter Realm bleibt
 benutzbar, und das Rezept dafür steht weiter in der README des
 Keycloak-Pakets.
+
+## Nachtrag: gebaut am 23.09.2026 (Schritt 6)
+
+**Was jetzt geht.** Ein Handgriff, und die beiden Schalter im Realm
+stehen dort, wo der Betreiber sie haben will — und der Satz des
+Mandanten sagt dasselbe:
+
+```
+sudo oaap idp settings auth --tenant hbvp --self-registration on
+sudo oaap idp settings auth --tenant hbvp --second-factor required
+sudo oaap idp settings auth --tenant hbvp            # nur nachsehen
+```
+
+Gemessen auf `oaap-test`, von Anfang bis Ende: Selbstregistrierung an,
+Registrieren-Knopf auf der Anmeldeseite des Realms, ein Mensch hat sich
+selbst registriert — und kam bei OAAP **ohne Rollen und ohne Gruppen**
+an, im Eingang. Zweiter Faktor an: Wer neu dazukommt, wird von Keycloak
+zur Einrichtung geschickt.
+
+**Die Regel dieses Schritts.** Ein Schalter, der an zwei Orten steht,
+hat zwei Wahrheiten. Also: geschrieben, nachgelesen, und **die Antwort**
+aufgeschrieben — nie die Anweisung. Sagt der Realm etwas anderes, als
+er zugesagt hat, ist das ein lauter Fehlschlag *und* der Satz wird auf
+die Wirklichkeit gesetzt. Und eine Anweisung, die nicht ankam, wird
+nicht zur Absicht: das Unerledigte bleibt als Unterschied stehen,
+statt vom eigenen Fehlschlag aufgeräumt zu werden.
+
+**Eine Sicherheitsregel, die es vorher nicht geben konnte.** Die
+Registrierungsseite gehört dem Realm. „Rolle beim ersten Login" plus
+Selbstregistrierung wird deshalb auch dann abgelehnt, wenn nur der
+Realm offen ist und unsere Notiz das Gegenteil behauptet — und die
+Ablehnung sagt, welche Hälfte offen ist. Live geprüft.
+
+**Drei Befunde von der Maschine** (§5.4):
+
+1. Die enge Vollmacht aus §5.3 **kann** die Schalter bewegen — in
+   ihren eigenen Realms. In einem fremden nicht, und abgelehnt wird
+   wieder am *zweiten* Dokument, nicht am ersten.
+2. Der zweite Faktor erreicht nur, wer ab jetzt dazukommt. Wer schon
+   da war, wird nicht nachträglich gefragt — gemessen, und seitdem
+   gesagt, bevor jemand es annimmt.
+3. **Eine Regel, die nie hätte feuern können.** Der Hinweis auf einen
+   fehlenden zweiten Faktor wartete auf das Schweigen des Anbieters.
+   Keycloak schweigt nie: es antwortet mit `acr=1`. Gelesen wird jetzt
+   `amr`, das Methoden nennt; `acr` wird weiter aufgeschrieben und
+   nicht bewertet, weil seine Bedeutung im Realm festgelegt wird und
+   nicht hier.
+
+**Was Schritt 6 ausdrücklich nicht tut.** Er erzwingt keinen zweiten
+Faktor — das tut der Realm, und eine Anmeldung, die hier ankommt, hat
+er durchgelassen. Er fasst keine Menschen an: das Verb `users` steht im
+Konnektor unter `never` und nicht unter „noch nicht". Und er löscht
+weiterhin nichts.

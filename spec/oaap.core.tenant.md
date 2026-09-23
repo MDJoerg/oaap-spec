@@ -1,7 +1,7 @@
 # oaap.core.tenant — Account and Tenant, the Boundary of Belonging
 
 - **ID:** `oaap.core.tenant`
-- **Version:** 0.8 (RFC-0041 K3 — **the platform may MAKE that provider, not only name it**; 0.7 — a tenant may name who lets people
+- **Version:** 0.9 (RFC-0041 K7 — **the switches inside that space, and the truth about them**; 0.8 — the platform may MAKE that provider, not only name it; 0.7 — a tenant may name who lets people
   in**: an OIDC provider object that is a URL and says nothing about
   where the server runs, plus a policy for what a first login through
   it BECOMES. The binding is a platform rule and is not configurable:
@@ -114,7 +114,7 @@ account   (reference only — see 1.3)
 | `former_labels` | previous labels kept as aliases, each with an expiry — see 1.6              |
 | `theme`         | the tenant's face (0.6): `title`, `color_primary`, `color_accent`, `logo`, `logo_type` — see 2.7. Absent means the platform's own look |
 | `idp`           | who lets people in (0.7): `kind`, `issuer`, `client_id`, `version`, `label` — see 2.8. Absent means local accounts only. **Never the client secret**. Made by a connector (0.8): `connector`, `space`, and `version_how` — whether that version was read from the server or stated by a human |
-| `idp_policy`    | what a first login through that provider becomes (0.7): `first_login`, `default_role`, `group_map`, `self_registration`, `reason`. Absent means `eingang` |
+| `idp_policy`    | what a first login through that provider becomes (0.7): `first_login`, `default_role`, `group_map`, `self_registration`, `reason`. Absent means `eingang`. Extended in 0.9 by `second_factor` (`off`/`required`) and by `realm` — what the provider's space last ANSWERED about those two switches, with the time it was read (§2.10) |
 
 
 **Everything internal refers to `id`.** Not to the label, and never to
@@ -747,6 +747,59 @@ actually gave.
 > both be had there, and what is kept is the substance: nothing is
 > created against a version nobody has checked.
 
+### 2.10 The switches inside that space (0.9, RFC-0041 K7)
+
+Two of a tenant's settings do not live in this record at all. Who may
+**register themselves**, and whether a **second factor** is asked for,
+are settings of the provider's space: the registration page is the
+realm's page, and the second factor is checked by the realm. K7 puts
+both in v1, and this section is about the one difficulty that follows.
+
+**A switch that exists in two places has two truths.** An
+implementation MAY move these switches through a connector (§2.9), and
+if it does it MUST record **what the space answered afterwards**, never
+what it asked for. The write is followed by a read, and the read is
+what is written down. Where the space answers something other than
+what it was told, the operation MUST fail loudly **and** the record
+MUST be set to what the space actually says: a record that is more
+wrong than before is the one outcome a failure must not produce.
+
+**An instruction that did not take does not become an intention.** The
+record keeps both halves — what somebody chose, and what the space
+last said — and an implementation MUST show where they differ rather
+than resolve the difference silently. A read alone MUST NOT change the
+chosen half; a read that adopted the space's value would erase the
+disagreement in the act of discovering it.
+
+**The open half decides.** Every rule that exists because
+self-registration is dangerous MUST be evaluated against whichever
+half is open. In particular the refusal of §2.8 — `role`/`groups`
+together with self-registration, unless set deliberately with a reason
+— MUST apply when the SPACE has it switched on, whatever this record
+says, and the refusal SHOULD name which half that was.
+
+**OAAP does not enforce a second factor and MUST NOT appear to.** The
+realm decides; a login that arrives has already been let through. What
+an implementation MUST do is record what the provider **named** about
+it, and, where the space is supposed to require one and none was
+named, say so in that tenant's log. It MUST NOT refuse the login on
+that ground: refusing an authentication it did not perform, on the
+strength of a claim it cannot verify, is worse than recording the
+fact.
+
+> What counts as "named" is a reading of the assertion's **methods**,
+> not of its assurance level. Measured at Keycloak 26.7.4 on
+> 2026-09-23: an ordinary password login answers `acr=1`, so a
+> provider is never silent and a rule waiting for silence never fires.
+> An assurance level's meaning is set inside the realm, and a platform
+> that read it as evidence would be judging somebody else's number.
+
+**A switch whose reach is smaller than its name says so once, out
+loud.** Where the product applies a setting only to people who arrive
+after it, an implementation MUST say that when the switch is moved.
+Measured at Keycloak 26.7.4: a newly registered member is asked to set
+up a second factor and a member who was already there is not.
+
 ### 2.5 Resolution rules
 
 Two rules, and the difference between them is the whole safety
@@ -998,6 +1051,24 @@ On a node with one tenant: none that anyone can observe, exactly as in
     at the provider, and the tenants provisioned through it keep
     signing in. The credential is readable by no container, including
     the one that performs logins.
+
+23. **The switch and the record are one thing, or the difference is
+    visible** (0.9). Move self-registration and the second factor
+    through a connector: the space itself changes, and the tenant's
+    record holds what the space answered, read back after the change.
+    Make the space accept the change and report the old value: the
+    operation fails with a sentence, the record is corrected to what
+    the space says, and the instruction that did not take is still
+    shown as an unfinished difference. Change a switch at the
+    provider's own console and read again: the difference is named,
+    and the chosen half is not quietly moved to match. With the space
+    open and the record closed, ask for a first-login policy that
+    grants a role: it is refused, and the refusal names the space.
+    Require a second factor and let somebody in who was already in the
+    space: the login is NOT refused, and that tenant's log says a
+    second factor was expected and none was named — including where
+    the provider stated an assurance level and no method. Ask for the
+    switches with a dry run: nothing at the provider is called.
 
 ## 5. Dependencies
 
@@ -1379,6 +1450,47 @@ sonst im System würde es merken.
 **Ein zweiter Faktor wird notiert, nicht behauptet.** Keycloak
 entscheidet, ob eine Anmeldung einen braucht; OAAP erfährt nur, dass sie
 geklappt hat, und schreibt auf, was behauptet wurde.
+
+## Deutsche Zusammenfassung (0.9 — die Schalter im Raum, und die Wahrheit darüber)
+
+Zwei Einstellungen eines Mandanten liegen gar nicht in diesem Satz:
+**wer sich selbst anmelden darf** und **ob ein zweiter Faktor verlangt
+wird**. Beide gehören dem Anmeldedienst — die Registrierungsseite ist
+seine Seite, und den zweiten Faktor prüft er. 0.9 sagt, wie OAAP damit
+umgeht, dass derselbe Schalter dadurch an zwei Orten steht.
+
+**Was in unserer Konfiguration steht, hat der Raum gesagt — nicht
+wir.** Wer die Schalter über einen Konnektor bewegt, schreibt
+*danach* auf, was der Raum antwortet. Sagt der Raum etwas anderes, als
+er zugesagt hat, ist das ein lauter Fehlschlag **und** der Satz des
+Mandanten wird auf die Wirklichkeit gesetzt. Ein Fehlschlag darf den
+Satz nicht falscher zurücklassen, als er vorher war.
+
+**Eine Anweisung, die nicht ankam, wird nicht zur Absicht.** Beide
+Hälften bleiben stehen — was jemand gewählt hat und was der Raum
+zuletzt sagte — und ein Unterschied wird *benannt*, nicht stillschweigend
+aufgelöst. Ein bloßes Nachlesen darf die gewählte Hälfte nicht
+überschreiben, sonst löscht es den Unterschied in dem Augenblick, in
+dem es ihn findet.
+
+**Die offene Hälfte entscheidet.** Die gefährliche Kombination aus 2.8
+— eine Rolle beim ersten Login *und* Selbstregistrierung — wird auch
+dann abgelehnt, wenn nur der Raum offen ist und unser Satz das
+Gegenteil behauptet. Und die Ablehnung sagt, welche Hälfte es ist.
+
+**OAAP erzwingt keinen zweiten Faktor und darf nicht so tun.** Der Raum
+entscheidet. OAAP schreibt auf, was der Anbieter *genannt* hat, und
+sagt es im Protokoll, wenn der Raum einen verlangen soll und keiner
+genannt wurde. Abgelehnt wird die Anmeldung deswegen nicht — eine
+fremde Anmeldung zu verweigern, die man selbst nicht geprüft hat, ist
+schlechter, als sie festzuhalten. Gelesen werden dabei die *Methoden*
+(`amr`), nicht die Vertrauensstufe (`acr`): Keycloak antwortet auf eine
+gewöhnliche Passwort-Anmeldung mit `acr=1`, und was diese Zahl bedeutet,
+wird im Realm festgelegt und nicht hier.
+
+**Ein Schalter, der weniger erreicht als sein Name verspricht, sagt das
+einmal laut.** Gemessen an Keycloak 26.7.4: Wer neu dazukommt, wird nach
+einem zweiten Faktor gefragt; wer schon da war, nicht.
 
 ## Deutsche Zusammenfassung (0.8 — die Plattform legt die Tür selbst an)
 
