@@ -1,14 +1,15 @@
 # RFC-0041: External Identity Providers — Keycloak, a Realm per Tenant, and the Way Out
 
-- **Status:** **Accepted (2026-09-22); steps 2, 3 and 5 built
-  (2026-09-23, reference 0.1.120/0.1.121, `oaap.core.identity` 0.5.0,
-  `oaap.core.tenant` 0.7).** Keycloak is an OAAP app, a tenant carries
-  a provider object and a first-login policy, and a member of a club
-  signs in through their own realm at their tenant's address —
-  measured end to end on `oaap-test`. **Open: step 4** (the admin path
-  of K3), **step 6** (the K7 switches beyond the policy), **step 7**
-  (the move, K6) and **step 8** (`oaapx01`). All seven decided by Jörg
-  in one sitting. Five as recommended; **K3 and K7 went the other way**,
+- **Status:** **Accepted (2026-09-22); steps 2, 3, 4 and 5 built
+  (2026-09-23, reference 0.1.120–0.1.122, `oaap.core.identity` 0.5.0,
+  `oaap.core.tenant` 0.8).** Keycloak is an OAAP app, a tenant carries
+  a provider object and a first-login policy, a member of a club signs
+  in through their own realm at their tenant's address — and **OAAP
+  now creates that realm and that client itself**, through a connector
+  contract of which Keycloak is the first implementation. Measured end
+  to end on `oaap-test`. **Open: step 6** (the K7 switches inside the
+  realm), **step 7** (the move, K6) and **step 8** (`oaapx01`). All
+  seven decided by Jörg in one sitting. Five as recommended; **K3 and K7 went the other way**,
   and **K4 came back refined**: the first-login rule is a per-tenant
   policy, not a platform rule. What that costs the build is written at
   each decision and folded into §5.
@@ -458,19 +459,25 @@ on 2026-09-23 and are marked below.
    it is not a method in `resolve_principal` but a second way to
    *establish* the session that method reads — which is why nothing
    downstream changed at all.
-4. The admin-API path (K3): create realm + client, the pinned version,
-   the loud failure, the scoped credential. **Next.** The recipe is
-   already executable by hand and was executed on 2026-09-23;
-   `/admin/serverinfo` answered `26.7.4`, so the pinned version is
-   checkable as §5.0 promised.
+4. ~~The admin-API path (K3)~~ — **done** (0.1.122,
+   `oaap.core.tenant` 0.8). Built as a **connector contract** rather
+   than as a Keycloak integration, on Jörg's direction of 2026-09-23:
+   *Keycloak is the first connector with an API; when another SSO
+   product arrives whose settings we also want to make and write back
+   into our own configuration, it should be a file and a row in a
+   table.* Four verbs, one table per product, two rules that run
+   rather than being promised — nothing deletes, and nothing is
+   created before the version has been checked. §5.3 has what the
+   measuring changed.
 5. ~~The entry point → realm mapping (K5)~~ — **done**, and it cost
    almost nothing once RFC-0042 existed: the same call that decides
    whose face a page wears decides whose realm a login goes to.
 6. The rest of K7: self-registration as a *realm* setting and the 2FA
-   switch. The policy half is built — the refusal of `role` +
-   self-registration, and the recording of an asserted second factor.
-   What is missing is OAAP turning those on in the realm itself, which
-   is step 4's admin path.
+   switch. **Next.** The policy half is built — the refusal of `role` +
+   self-registration, and the recording of an asserted second factor —
+   and step 4 built the path that can now turn them on in the realm.
+   The connector declares this verb (`settings`) and declares it
+   absent, so what is missing is visible rather than merely missing.
 7. The move (K6): adopting a tenant archive into an empty node, the
    realm export — **handled as a secret, per §5.0** — and the one edit
    to the provider object.
@@ -509,6 +516,56 @@ the app-facing contract needed **no** change, in either direction. An
 address the provider asserted as unverified was stored and kept out of
 `X-OAAP-Email` by the rule RFC-0040 D2 already wrote, without a line
 being added for foreign providers.
+
+### 5.3 What step 4 measured, and what it cost the design
+
+Two of K3's five requirements turned out to be in tension with each
+other at the product they were written for. Both measurements are from
+`oaap-test`, Keycloak **26.7.4**, 2026-09-23.
+
+**K3.4's credential is possible, and it is narrower than expected.** A
+service account in the server realm holding **`create-realm` and
+nothing else** can create a realm, and can fully administer the realms
+it created. Measured, with the answers:
+
+| asked | answered |
+| --- | --- |
+| create a realm | **201** |
+| administer the realm it created, and its clients | **200** |
+| read the server realm's users | **403** |
+| read the server realm's clients | **403** |
+| read another realm's users | **403** |
+| list every realm on the server | **403** |
+
+K3.4 asked for a credential "scoped to realm administration, never to
+the master realm". Half of that cannot be had: **creating** a realm is
+an act in the server realm. What can be had is the narrowing above —
+no human behind it, one grant, and no way to read anybody's people —
+and where the intention cannot be kept it is now **named** rather than
+quietly dropped: a credential that is a user's login says what it
+costs, every time it is printed.
+
+**K3.1 and K3.4 cannot both be satisfied.** The pinned version is
+checkable only at `/admin/serverinfo`, and that endpoint answers a
+narrow credential with a **trimmed** document — `profileInfo` and
+nothing else, no version. Measured for `create-realm` alone, and for
+`create-realm` + `view-realm`: the second buys no version and costs the
+ability to enumerate every realm on the server, which on a shared node
+is every club on it.
+
+So K3.1 keeps its substance and loses its mechanism in one case:
+nothing is created against a version nobody has checked, but where
+OAAP cannot read it, **a human states it** — once, at the connector —
+and every surface that prints the number says it was *stated* and not
+read. A stated version never overrides one the server gives.
+
+**And one sentence stood at the wrong door.** OAAP must not adopt
+another customer's realm, and the careful refusal for that was written
+at the realm lookup. That call answers **200**: a `create-realm`
+credential may see that a realm exists. The refusal arrives one call
+later, at the clients lookup, which had a bare status code and no
+sentence. A rule worth saying is worth saying at every door it can
+arrive at.
 
 ## 6. Open for later
 
@@ -745,3 +802,63 @@ noch keine Selbstregistrierung und keinen Zwei-Faktor **im Realm** ein;
 gebaut ist nur die Hälfte, die OAAP gehört — die Ablehnung der
 gefährlichen Kombination und das Mitschreiben eines behaupteten
 Faktors. Und der Umzug (K6) ist unangetastet.
+
+## Nachtrag: gebaut am 23.09.2026 (Schritt 4)
+
+**Was jetzt geht.** Zwei Handgriffe am Knoten, und ein Verein hat seine
+Tür — ohne dass jemand vier Werte in zwei Systeme tippt:
+
+```
+sudo oaap idp add auth --url https://auth.<knoten> --admin-id oaap-admin ...
+sudo oaap idp provision auth --tenant hbvp
+```
+
+Gemessen auf `oaap-test`, von Anfang bis Ende: OAAP legte den Realm
+`probe4` und den Client an, holte das Geheimnis, schrieb das
+Anbieter-Objekt — und Anna meldete sich in genau diesem Realm an und
+kam **ohne Rechte** herein (`eingang`). Ihre Bindung nennt den `sub`,
+den Keycloak vergeben hatte, und `password_hash` ist leer.
+
+**Die Gestalt, und sie ist Jörgs.** Am 23.09. gab Jörg die Richtung
+vor: *Keycloak als ersten Connector mit einer API verstehen; kommen
+später weitere SSO-Lösungen, bei denen wir auch die für uns wichtigen
+Einstellungen machen und in unsere Konfiguration schreiben wollen,
+lässt sich das über Apps/Services/Plugins nachrüsten.* Gebaut ist
+deshalb **kein** „Keycloak-Anschluss", sondern ein **Vertrag aus vier
+Verben** mit einer Tabelle je Produkt: Adressen, Version-Stelle,
+Aussteller-Schreibweise und Vollmachtsformen stehen in der Tabelle, die
+zwei produkteigenen Anfragekörper in zwei Funktionen. Ein zweites
+Produkt ist damit eine Datei und zwei Zeilen.
+
+Und was der Konnektor **noch nicht** kann, nennt er: `settings` —
+Selbstregistrierung und zweiter Faktor **im Realm**, Schritt 6. Ein
+genanntes und nicht gebautes Verb ist die kleinere Lüge.
+
+**Zwei Regeln stehen als Funktionen auf dem Weg, nicht als
+Versprechen.** *Nichts löscht* — DELETE kommt gar nicht erst aus dem
+Aufruf heraus, und ein Realm ist die Mitgliederliste eines Vereins.
+*Nichts entsteht halb* — die Fassung wird geprüft, bevor etwas angelegt
+wird, und ein Plan, der früher schreibt, wird abgelehnt. Beides wurde
+sabotiert und beides fiel auf.
+
+**Drei Befunde von der Maschine**, und die ersten beiden sind
+Widersprüche im Entwurf selbst — sie stehen in §5.3:
+
+1. Die enge Vollmacht, die K3.4 wollte, **gibt es** — und sie ist
+   enger als erwartet. Aber „nie der master-Realm" ist nicht zu haben:
+   Einen Realm **anzulegen** ist ein Akt im master-Realm.
+2. **K3.1 und K3.4 gehen nicht zusammen.** Die Fassung steht nur an
+   einer Stelle, und die antwortet einer engen Vollmacht beschnitten.
+   Also: Wo OAAP sie nicht lesen kann, **nennt sie ein Mensch** — und
+   überall steht dabei, dass sie genannt und nicht gelesen wurde.
+3. **Der sorgfältige Satz stand an der falschen Tür.** Den fremden
+   Realm eines anderen Vereins darf OAAP nicht übernehmen; die
+   Ablehnung dafür stand am Realm-Aufruf, und der antwortet mit 200.
+   Abgelehnt wird erst der Blick auf die Clients — und dort stand nur
+   eine nackte Zahl.
+
+**Was Schritt 4 ausdrücklich nicht tut.** Er legt keine Menschen an
+(das bleibt beim Verein oder bei Schritt 6), er schaltet nichts im
+Realm ein, und er löscht nichts. Ein von Hand gebauter Realm bleibt
+benutzbar, und das Rezept dafür steht weiter in der README des
+Keycloak-Pakets.

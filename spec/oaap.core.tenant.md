@@ -1,7 +1,7 @@
 # oaap.core.tenant — Account and Tenant, the Boundary of Belonging
 
 - **ID:** `oaap.core.tenant`
-- **Version:** 0.7 (RFC-0041 — **a tenant may name who lets people
+- **Version:** 0.8 (RFC-0041 K3 — **the platform may MAKE that provider, not only name it**; 0.7 — a tenant may name who lets people
   in**: an OIDC provider object that is a URL and says nothing about
   where the server runs, plus a policy for what a first login through
   it BECOMES. The binding is a platform rule and is not configurable:
@@ -113,7 +113,7 @@ account   (reference only — see 1.3)
 | `created`       | ISO-8601 timestamp                                                          |
 | `former_labels` | previous labels kept as aliases, each with an expiry — see 1.6              |
 | `theme`         | the tenant's face (0.6): `title`, `color_primary`, `color_accent`, `logo`, `logo_type` — see 2.7. Absent means the platform's own look |
-| `idp`           | who lets people in (0.7): `kind`, `issuer`, `client_id`, `version`, `label` — see 2.8. Absent means local accounts only. **Never the client secret** |
+| `idp`           | who lets people in (0.7): `kind`, `issuer`, `client_id`, `version`, `label` — see 2.8. Absent means local accounts only. **Never the client secret**. Made by a connector (0.8): `connector`, `space`, and `version_how` — whether that version was read from the server or stated by a human |
 | `idp_policy`    | what a first login through that provider becomes (0.7): `first_login`, `default_role`, `group_map`, `self_registration`, `reason`. Absent means `eingang` |
 
 
@@ -688,6 +688,65 @@ succeeded. An implementation MUST record what was asserted (`amr`/
 `acr`) so an audit entry can say it, and MUST NOT present that as
 enforcement of its own.
 
+### 2.9 Making that provider, not only naming it (0.8, RFC-0041 K3)
+
+A node MAY hold **connectors**: a product, an address and a credential
+with which the platform creates the space (a Keycloak realm) and the
+client a tenant's provider object then names. This is a capability of
+the **node**, not of a tenant — one identity server usually carries
+every tenant on the machine, and a credential that can create spaces
+belongs to the operator.
+
+A connector is **four verbs and no more**: state the product's version,
+make the space, make the client, and spell the issuer. An
+implementation MUST declare what it cannot yet do rather than omit it,
+so that a missing capability is visible before it is needed.
+
+**Managing is not owning.** An implementation MUST NOT delete anything
+at a provider — not a space, not a client, not a person. A space it
+did not create MUST remain usable and MUST be taken as it is. A client
+it finds MAY be extended by the addresses this node needs and MUST NOT
+otherwise be changed. Removing a tenant, or forgetting a connector,
+MUST NOT touch anything at the provider: the people in a club's space
+are the club's, not the platform's. This rule SHOULD sit on the path
+every call takes rather than in the absence of a call, because absence
+is not enforceable.
+
+**Nothing is half-made.** The version MUST be checked before anything
+is created, and a refusal MUST name the call, both versions and the way
+forward. An implementation that cannot complete an operation MUST stop
+at the first answer it does not understand and MUST NOT leave a space
+behind in a state nobody asked for.
+
+**"Not ours" is not "not there."** An answer that refuses access to a
+space MUST NOT be read as the space being absent. On a shared server
+that space is another customer, and creating over it is the one outcome
+this whole section exists to prevent. The sentence saying so MUST be
+given at **every** call it can arrive at, not only at the first.
+
+**The credential obeys the channel rule of 2.8**, and for a stronger
+reason: it can create spaces. It MUST be held where only the component
+that uses it can read it, and — unlike the client secret of 2.8 — that
+is **not** the component that performs logins. A service that completes
+logins has no business holding a credential that creates spaces.
+
+**Where a pinned version cannot be read, it is stated and said to be
+stated.** An implementation SHOULD read the product's version and
+refuse one it was not built against. Where the product will not state
+its version to a credential as narrow as this section requires, the
+implementation MUST NOT proceed silently: a human states the version,
+and every surface that prints the number MUST say that it was stated
+and not read. A stated version MUST NEVER override one the server
+actually gave.
+
+> This last rule is not a relaxation but the residue of a measurement.
+> At Keycloak 26.7.4 the version lives at an endpoint that returns a
+> trimmed document to any credential that is not a full server
+> administrator — which is exactly the credential this section asks
+> for. "The version is checkable" and "the credential is narrow" cannot
+> both be had there, and what is kept is the substance: nothing is
+> created against a version nobody has checked.
+
 ### 2.5 Resolution rules
 
 Two rules, and the difference between them is the whole safety
@@ -917,6 +976,28 @@ On a node with one tenant: none that anyone can observe, exactly as in
     login is the only one that can read it. An `http` issuer on a host
     reachable from the internet is refused with a reason naming the
     channel.
+
+22. **The platform makes a space and owns none of it** (0.8).
+    Record a connector and provision a tenant through it: the space and
+    the client exist at the provider, the client is confidential, it
+    holds exactly this node's return addresses, and the tenant's
+    provider object names the issuer with the version that was actually
+    established. Run it again: nothing is created a second time, and a
+    space that was already there is used unchanged. Point it at a space
+    that exists and that this credential may not manage: the operation
+    is refused with a sentence saying it is somebody else's, **nothing
+    is created**, and the same sentence appears whichever call the
+    refusal arrives at. Offer a version the implementation was not
+    built against: it is refused before anything is created, and
+    counting at the provider shows zero writes. Offer a server that
+    states no version at all: it is refused likewise, and proceeds only
+    once a human states the version — which then appears as *stated*
+    wherever it is printed, and is overridden the moment the server
+    does state one. No call an implementation makes to a provider uses
+    a method that could delete. Forgetting a connector changes nothing
+    at the provider, and the tenants provisioned through it keep
+    signing in. The credential is readable by no container, including
+    the one that performs logins.
 
 ## 5. Dependencies
 
@@ -1298,3 +1379,45 @@ sonst im System würde es merken.
 **Ein zweiter Faktor wird notiert, nicht behauptet.** Keycloak
 entscheidet, ob eine Anmeldung einen braucht; OAAP erfährt nur, dass sie
 geklappt hat, und schreibt auf, was behauptet wurde.
+
+## Deutsche Zusammenfassung (0.8 — die Plattform legt die Tür selbst an)
+
+Bis 0.7 durfte ein Mandant **sagen**, wer ihn hereinlässt. Seit 0.8
+darf die Plattform diese Tür auch **bauen**: Ein Knoten hält
+*Konnektoren* — ein Produkt, eine Adresse und eine Vollmacht —, und
+damit legt OAAP den Realm und den Client an, die das Anbieter-Objekt
+eines Mandanten danach nennt. Das ist eine Sache des **Knotens**, nicht
+eines Mandanten: Ein Anmeldeserver trägt meist jeden Verein auf der
+Maschine, und eine Vollmacht, die Realms anlegen kann, gehört dem
+Betreiber.
+
+Ein Konnektor ist **vier Verben und keines mehr** (Fassung nennen,
+Raum anlegen, Client anlegen, Aussteller buchstabieren). Was er noch
+nicht kann, muss er **benennen** statt weglassen — eine fehlende
+Fähigkeit soll sichtbar sein, bevor jemand sie braucht.
+
+Die Regeln, die keine Einstellungen sind:
+
+- **Verwalten ist nicht besitzen.** Es wird nichts gelöscht. Nie. Kein
+  Realm, kein Client, kein Mensch. Einen Mandanten zu entfernen oder
+  einen Konnektor zu vergessen rührt beim Anbieter nichts an — die
+  Menschen im Raum eines Vereins gehören dem Verein.
+- **Es entsteht nichts halb.** Die Fassung wird geprüft, **bevor**
+  etwas angelegt wird; bei einer Antwort, die OAAP nicht versteht, wird
+  abgebrochen statt geraten.
+- **„Gehört uns nicht" ist nicht „ist nicht da".** Eine Ablehnung darf
+  nie als Abwesenheit gelesen werden — auf einer geteilten Maschine ist
+  das der Verein von jemand anderem. Und der Satz, der das sagt, muss
+  an **jeder** Tür stehen, durch die er kommen kann, nicht nur an der
+  ersten.
+- **Die Vollmacht liegt bei ihrem Leser und keinen Schritt weiter** —
+  und das ist ausdrücklich **nicht** der Dienst, der die Anmeldungen
+  abschließt.
+- **Wo eine festgenagelte Fassung nicht gelesen werden kann, nennt sie
+  ein Mensch — und überall steht dabei, dass sie genannt wurde.** Das
+  ist keine Lockerung, sondern der Rest einer Messung: Bei Keycloak
+  26.7.4 steht die Fassung an einer Stelle, die einer engen Vollmacht
+  ein beschnittenes Dokument zurückgibt. „Prüfbar" und „eng" gibt es
+  dort nicht zusammen. Was bleibt, ist der Kern: Es entsteht nichts
+  gegen eine Fassung, die niemand geprüft hat. Eine Behauptung schlägt
+  eine Messung dabei nie.
