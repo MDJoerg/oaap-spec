@@ -761,6 +761,37 @@ next `provision` would put it back. It belongs in
 `redirect_uris_for()`, which needs one thing it does not have today:
 whether this node is reached over TLS.
 
+**Fixed in 0.1.125 -- and the missing thing turned out to be already
+known.** A node that has an external name at all is in one of exactly
+two modes, and both of them put TLS in front of the browser:
+
+* *direct* -- this node serves the names on 443 with ACME and writes
+  an explicit `http -> https` redirect for exactly them. Measured on
+  `oaapx01`: `http://pxx.oaap.joomp.de/auth/oidc/callback` answers
+  **301** to the `https` form.
+* *behind edge* -- the edge terminates TLS and redirects there.
+  Measured in the generated `edge.caddy` on the edge node of
+  `oaap-bernd`: `http://oaap-bernd.duckdns.org` and `*.` of it are a
+  permanent redirect to `https`.
+
+And `provision` refuses outright on a node with no external name, so
+there is no third case. The `http` callback was therefore not merely
+unused -- it was **unreachable**: this product's own gateway sends
+that address away. `redirect_uris_for()` now writes `https` alone.
+
+Where it is not true -- a node whose sites this software does not
+generate -- the operator says so with `oaap idp provision
+--plain-callback`, and the CLI prints it as *the operator's word*,
+the same shape K3.1 gave `--accept-version`. The default prints the
+opposite sentence, naming the 301, so neither answer arrives without
+its reason.
+
+**What it does not do:** `add_redirects` extends and never replaces
+(K3.3 -- managing is not owning), so the `http` URI already at
+`oaapx01`'s client stays until somebody removes it. The difference is
+that removing it by hand now *holds*: the next `provision` no longer
+puts it back.
+
 **And one thing the step confirmed rather than found.** The version
 pin is checkable after all — just not by the connector. A full server
 administrator reads `26.7.4` from `/admin/serverinfo`; the narrow
@@ -1230,6 +1261,34 @@ Wirklichkeit*:
    wieder ein. Es gehört in `redirect_uris_for()` — und die braucht
    dafür eine Angabe, die sie heute nicht hat: ob dieser Knoten über
    TLS erreicht wird.
+
+   **Behoben in 0.1.125 — und die fehlende Angabe war längst da.** Ein
+   Knoten, der überhaupt einen externen Namen hat, ist in genau einem
+   von zwei Zuständen, und beide setzen TLS vor den Browser: *direkt*
+   (dieser Knoten bedient die Namen auf 443 mit ACME und schreibt für
+   genau sie eine `http → https`-Umleitung) oder *hinter einer Kante*
+   (die Kante beendet TLS und leitet dort um). Ohne externen Namen
+   verweigert `provision` ohnehin — einen dritten Fall gibt es nicht.
+   Nachgemessen: `http://pxx.oaap.joomp.de/auth/oidc/callback`
+   antwortet auf `oaapx01` mit **301** auf die `https`-Form, und in der
+   erzeugten `edge.caddy` des Kantenknotens steht dieselbe Umleitung
+   für `oaap-bernd.duckdns.org`. Die `http`-Adresse war also nicht
+   bloß ungenutzt, sie war **unerreichbar** — das eigene Gateway
+   dieses Produkts schickt sie weg.
+
+   `redirect_uris_for()` trägt jetzt nur noch `https` ein. Wo das
+   nicht gilt — ein Knoten, dessen Sites diese Software nicht erzeugt
+   —, sagt es der Betreiber mit `oaap idp provision --plain-callback`,
+   und die Befehlszeile druckt es **als Wort des Betreibers**, in
+   derselben Form, die K3.1 dem `--accept-version` gegeben hat. Der
+   Normalfall druckt den Gegensatz und nennt die 301, damit keine der
+   beiden Antworten ohne ihren Grund ankommt.
+
+   **Was es nicht tut:** `add_redirects` erweitert und ersetzt nie
+   (K3.3 — verwalten ist nicht besitzen). Die `http`-Adresse, die am
+   Client auf `oaapx01` schon steht, bleibt also stehen, bis sie
+   jemand entfernt. Der Unterschied ist: Von Hand entfernen **hält**
+   jetzt — der nächste `provision` trägt sie nicht wieder ein.
 
 **Was der Knoten dafür bezahlt hat.** Zwei Container mehr (der Server
 und seine Datenbank), Port 8116, zwei Gigabyte Platte, ein neuer
