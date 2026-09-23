@@ -1,7 +1,7 @@
 # oaap.core.tenant — Account and Tenant, the Boundary of Belonging
 
 - **ID:** `oaap.core.tenant`
-- **Version:** 0.9 (RFC-0041 K7 — **the switches inside that space, and the truth about them**; 0.8 — the platform may MAKE that provider, not only name it; 0.7 — a tenant may name who lets people
+- **Version:** 1.0 (RFC-0041 K6 — **a tenant can leave this node**: the archive carries the tenant's own record, an empty node can adopt one, and the provider it arrives with is carried rather than put in force. See 2.11, conformance tests 24–26; 0.9 — the switches inside that space, and the truth about them; 0.8 — the platform may MAKE that provider, not only name it; 0.7 — a tenant may name who lets people
   in**: an OIDC provider object that is a URL and says nothing about
   where the server runs, plus a policy for what a first login through
   it BECOMES. The binding is a platform rule and is not configurable:
@@ -800,6 +800,82 @@ after it, an implementation MUST say that when the switch is moved.
 Measured at Keycloak 26.7.4: a newly registered member is asked to set
 up a second factor and a member who was already there is not.
 
+### 2.11 Leaving this node (1.0, RFC-0041 K6)
+
+`oaap.data.backup` 2.1.1 produces a tenant archive and deliberately
+does **not** promise to restore one into a running node. This section
+is the complement, not the reversal: an implementation MAY adopt a
+tenant archive into a node that is **empty for that tenant**, and it
+MUST NOT merge one into a node that is not.
+
+**"Empty" is looked for, not assumed.** Before anything is written,
+the implementation MUST look on this node for every name the archive
+carries — the tenant id, the label, every **former** label, every
+instance name, every published port, every user name — and MUST refuse
+naming each collision it found. A node that is not empty enough gets a
+list a person can act on, not a sentence about merging.
+
+**Nothing writes before that looking is done.** An adoption that
+discovered a taken port halfway through would leave a tenant that can
+neither be finished nor undone.
+
+**The archive carries the tenant's own record.** A format that carried
+a tenant's data but not its label, its face, its first-login policy
+and its provider cannot be adopted, and an implementation MUST refuse
+such an archive rather than adopt it with those silently missing. The
+**client secret** MUST still not be in the archive (§3): a secret in a
+backup is a secret in every copy of that backup.
+
+**The provider that arrives is carried, not in force.** Its issuer is
+the address of the node this tenant is LEAVING, and the secret that
+would let this node use it is deliberately absent. The implementation
+MUST keep it visible and MUST NOT let anything authenticate through
+it. A record claiming a tenant signs in somewhere it cannot is the
+same fault as §2.10's: a sentence a reader believes with nothing
+behind it.
+
+**The binding's other half moves with the node.** §2.8 binds a person
+to `(provider, subject, tenant)`. A move preserves the **subject** —
+measured — and changes the **issuer**, because the issuer is the
+address of a node and the node is what moved. An implementation MUST
+therefore re-point the bindings of an adopted tenant when the carried
+provider is replaced, keeping each subject untouched, and MUST record
+that it did.
+
+> This is permitted in exactly one situation: the tenant carries a
+> provider from an adoption, and a new one replaces it. Then the
+> platform knows both halves of the key from its own record. Every
+> other issuer change still voids the bindings — nobody promised that
+> a different authority's subjects name the same people, and
+> re-pointing them would bind a club's members to whoever holds those
+> subjects elsewhere.
+
+**Exporting the space is a separate act, and the file is a secret.**
+Where an implementation offers it (§2.9's connector, the `export`
+verb), the file MUST be written `0600`, never inside the platform's
+own data directory, never over an existing file, and never served to
+a browser as an ordinary download. It carries the OIDC client secret
+and every member's password hash.
+
+**An export is judged by what is in it.** The implementation MUST ask
+the space how many people it holds **before** the file exists, count
+the file afterwards, and discard the file when the two differ.
+
+> Measured at Keycloak 26.7.4 on 2026-09-23, because this rule is not
+> obvious: of three doors to a realm export, two write a file that
+> looks correct and contains **no people at all**, and neither
+> reports an error. The admin API's own export answers 200 and omits
+> every user; the product's export tool, run beside the serving
+> container, finds no database configuration there, falls back to its
+> built-in empty one and writes a flawless export of a realm nobody
+> has ever used. A move built on either would be found out by the
+> club's members.
+
+**The other side is not touched.** Adopting a tenant does not reach
+onto the node it came from, and nothing deletes there. An
+implementation SHOULD say so: until a person lets go on the old node,
+the tenant exists twice.
+
 ### 2.5 Resolution rules
 
 Two rules, and the difference between them is the whole safety
@@ -1069,6 +1145,39 @@ On a node with one tenant: none that anyone can observe, exactly as in
     second factor was expected and none was named — including where
     the provider stated an assurance level and no method. Ask for the
     switches with a dry run: nothing at the provider is called.
+
+24. **An adoption proves the node is empty before it writes** (1.0).
+    Produce a tenant archive and offer it to the node it came from:
+    it is refused, every collision is named — the tenant, its label,
+    each person — and nothing on that node changed. Rename a tenant
+    away from a label and offer an archive carrying that label within
+    the grace: it is refused too, because the node still answers
+    there. Offer an archive of a format that does not carry the
+    tenant's own record: it is refused, and the refusal says what
+    would have been lost. Offer a whole-node archive: it is told what
+    that file is. Offer an archive written by a newer build: it is
+    refused. On a node where nothing collides, ask with a dry run:
+    nothing is written.
+
+25. **What arrives, arrives as what it is** (1.0). Adopt a tenant
+    onto an empty node: its label, its face, its first-login policy
+    and its audit log are there, and its people can be counted. The
+    provider it carried is VISIBLE and nothing authenticates through
+    it. Replace it with a provider of this node: every binding of
+    that tenant is re-pointed, each subject unchanged, and that
+    tenant's log says so. Now change a tenant's issuer that did NOT
+    come from a move: the bindings are void, and nothing is
+    re-pointed.
+
+26. **An export carries the people or it is not kept** (1.0). Export
+    a space with members: the file is `0600`, outside the platform's
+    data directory, and its people count matches what the space says.
+    Ask for it again to the same path: refused. Ask for it into the
+    data directory: refused. Make the export return a file with no
+    people while the space has some: the operation fails and NO file
+    is left behind. Ask for a space this credential may not have: it
+    is refused, nothing is written, and the refusal says the space is
+    somebody else's rather than absent.
 
 ## 5. Dependencies
 
@@ -1533,3 +1642,66 @@ Die Regeln, die keine Einstellungen sind:
   dort nicht zusammen. Was bleibt, ist der Kern: Es entsteht nichts
   gegen eine Fassung, die niemand geprüft hat. Eine Behauptung schlägt
   eine Messung dabei nie.
+
+## Deutsche Zusammenfassung (1.0 — ein Mandant kann diesen Knoten verlassen)
+
+Ein Mandantenarchiv gab es seit RFC-0029 D5, und es sagte selbst, dass
+es nicht zurückgespielt werden kann: einen Mandanten in einen
+**laufenden** Knoten zu verschmelzen heißt, lauter Fragen still falsch
+zu beantworten. 1.0 baut die andere Richtung, und die ist genau
+deshalb lösbar, weil das Ziel **leer** ist.
+
+Womit „leer" das tragende Wort ist — also wird es gesucht und nicht
+behauptet. Vor dem ersten Schreibvorgang sucht die Plattform auf
+diesem Knoten nach jedem Namen, den das Archiv mitbringt: dem
+Mandanten, seinem Namen, **jedem früheren** Namen, jeder Instanz,
+jedem Port, jedem Menschen. Was zusammenstößt, wird beim Namen
+genannt. Ein Knoten, der nicht leer genug ist, bekommt eine Liste, mit
+der jemand etwas anfangen kann, und keinen Satz über das Verschmelzen.
+
+**Beim Bauen des Lesers fiel auf, was das Archiv nie getragen hat:**
+den Datensatz des Mandanten selbst. Sein Name, sein Gesicht, seine
+Regel für die erste Anmeldung, sein Anbieter — alles nicht in der
+Datei, und niemandem aufgefallen, weil es bis jetzt keinen Leser gab.
+Das ist das gewöhnliche Schicksal eines Formats, das niemand
+zurückliest.
+
+**Der Anbieter kommt mit und gilt nicht.** Sein Aussteller ist die
+Adresse des Knotens, den der Mandant **verlässt**, und das Geheimnis,
+mit dem dieser Knoten ihn benutzen könnte, liegt absichtlich nicht im
+Archiv. Also wird er getragen, sichtbar gemacht und ausdrücklich nicht
+in Kraft gesetzt. Ein Satz, den jemand liest und dem nichts entspricht,
+ist derselbe Fehler wie in 0.9 — nur eine Ebene höher.
+
+**Und die zweite Hälfte des Schlüssels zieht mit um.** Eine Person
+hängt an `(Anbieter, Subjekt, Mandant)`. Gemessen: das **Subjekt**
+übersteht den Umzug unverändert — das hatte RFC-0041 §5.0 geprüft —,
+der **Aussteller** nicht, denn der ist die Adresse eines Knotens, und
+der Knoten ist das, was umgezogen ist. Ohne Reparatur wäre jedes
+Mitglied am neuen Knoten ein Fremder gewesen: erste Anmeldung,
+Eingang, Rollen weg. Der Umzug hätte ausgesehen, als hätte er
+funktioniert.
+
+Umgehängt wird deshalb in genau einer Lage und sonst nie: wenn der
+mitgebrachte Anbieter durch einen neuen abgelöst wird. Nur dann kennt
+die Plattform beide Hälften aus dem eigenen Datensatz. Jeder andere
+Wechsel des Ausstellers macht die Bindungen weiterhin ungültig — es
+hat niemand versprochen, dass die Subjekte einer anderen Autorität
+dieselben Menschen benennen.
+
+**Der Export des Raumes ist ein Geheimnis und wird gezählt.** Die
+Datei trägt das Client-Geheimnis und jeden Passwort-Hash: `0600`,
+niemals im Datenverzeichnis der Plattform, niemals über eine
+bestehende Datei, niemals als gewöhnlicher Download. Und sie wird
+nicht geglaubt, sondern gezählt: vorher den Raum fragen, hinterher die
+Datei zählen, bei einer Differenz die Datei wegwerfen.
+
+> Warum diese Regel nicht selbstverständlich ist, hat die Maschine
+> gesagt. Von drei Türen zu einem Realm-Export schreiben **zwei** eine
+> Datei, die tadellos aussieht und **keinen einzigen Menschen**
+> enthält — und keine der beiden meldet einen Fehler.
+
+**Die andere Seite wird nicht angefasst.** Eine Übernahme greift nicht
+auf den Knoten, von dem sie kommt, und löscht dort nichts. Bis ein
+Mensch drüben loslässt, gibt es den Verein zweimal — und das wird
+gesagt, statt es entdecken zu lassen.

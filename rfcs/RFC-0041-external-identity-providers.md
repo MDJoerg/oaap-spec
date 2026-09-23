@@ -1,17 +1,17 @@
 # RFC-0041: External Identity Providers — Keycloak, a Realm per Tenant, and the Way Out
 
-- **Status:** **Accepted (2026-09-22); steps 2, 3, 4, 5 and 6 built
-  (2026-09-23, reference 0.1.120–0.1.123, `oaap.core.identity` 0.5.0,
-  `oaap.core.tenant` 0.9).** Keycloak is an OAAP app, a tenant carries
+- **Status:** **Accepted (2026-09-22); steps 2–7 built (2026-09-23,
+  reference 0.1.120–0.1.124, `oaap.core.identity` 0.5.0,
+  `oaap.core.tenant` 1.0).** Keycloak is an OAAP app, a tenant carries
   a provider object and a first-login policy, a member of a club signs
-  in through their own realm at their tenant's address, **OAAP creates
-  that realm and that client itself** through a connector contract of
-  which Keycloak is the first implementation — and **it now moves the
-  two switches inside that realm**, recording what the realm answered
-  rather than what it was told. Measured end to end on `oaap-test`,
-  including a person registering themselves and arriving with no
-  rights. **Open: step 7** (the move, K6) and **step 8** (`oaapx01`).
-  All seven decided by Jörg in one sitting. Five as recommended; **K3 and K7 went the other way**,
+  in through their own realm at their tenant's address, OAAP creates
+  that realm and that client itself through a connector contract of
+  which Keycloak is the first implementation, it moves the two
+  switches inside that realm recording what the realm answered — and
+  **a club can now leave the node it is on.** Measured end to end,
+  including a real move of a tenant from `oaap-test` to `oaap-demo`,
+  which refuted one of this RFC's own conclusions (§5.5). **Open:
+  step 8** (`oaapx01`). All seven decided by Jörg in one sitting. Five as recommended; **K3 and K7 went the other way**,
   and **K4 came back refined**: the first-login rule is a per-tenant
   policy, not a platform rule. What that costs the build is written at
   each decision and folded into §5.
@@ -273,14 +273,29 @@ Three moving parts:
    the identity K4 binds to? **Measured 2026-09-22 on `oaap-test`
    against 26.7.4: yes** — the `sub` in a real token is the same UUID
    before the export and after the import into an empty instance
-   (§5.0). So **every binding from K4 survives the move untouched**,
-   and no re-binding step is needed. The measurement also showed that
-   the members' passwords travel with the realm, so nobody has to
-   reset anything — and that the export file is therefore a **secret**
-   (§3).
+   (§5.0). The measurement also showed that the members' passwords
+   travel with the realm, so nobody has to reset anything — and that
+   the export file is therefore a **secret** (§3).
+
+   ~~So every binding from K4 survives the move untouched, and no
+   re-binding step is needed.~~ **That conclusion was wrong, and
+   building step 7 found it out** (§5.5). K4 binds to a *pair*, and
+   §5.0 measured only one half of it. The issuer is the other half,
+   and in a move it always changes — it is the address of the node,
+   and the node is what moved. So the move DOES need a re-point, and
+   it is the one situation in which re-pointing is allowed.
 3. **The provider object** — one edit: the issuer URL now points at the
    club's own Keycloak. The client secret travels in the export, so
-   this really is one edit and not a re-registration.
+   this really is one edit and not a re-registration, and no member of
+   the club has to do anything at all.
+
+   Two things measured in step 7 belong to this edit and were not in
+   the design. The new node's OAAP credential has **no rights in an
+   imported realm**: Keycloak grants realm administration to whoever
+   *created* a realm, and nobody created this one — it arrived. And
+   the old node's client stays in the realm afterwards, because OAAP
+   does not delete. Both are a person's work on the new node, and the
+   recipe says so rather than leaving them to be discovered.
 
 What stays **unpromised**: merging a tenant back into a node that is
 already running other tenants.
@@ -482,11 +497,16 @@ on 2026-09-23 and are marked below.
    answered, never from what OAAP asked for. §5.4 has what the
    measuring changed, including one rule that had to be rewritten
    after the machine showed it could never fire.
-7. The move (K6): adopting a tenant archive into an empty node, the
-   realm export — **handled as a secret, per §5.0** — and the one edit
-   to the provider object. **Next.** The connector names this verb
-   (`export`) and names it absent.
-8. Then, and only then, `oaapx01` — see §7.
+7. ~~The move (K6): adopting a tenant archive into an empty node, the
+   realm export and the one edit to the provider object~~ — **done**
+   (0.1.124, `oaap.core.tenant` 1.0). The connector's sixth verb, and
+   the first one that is **not an API call**. Three things came out of
+   the measuring rather than the design, and two of them changed it:
+   an export can be wrong without failing, an imported realm has no
+   administrator, and a binding's issuer does not survive a move.
+   §5.5 has them.
+8. Then, and only then, `oaapx01` — see §7. **Next**, and it needs
+   Jörg's explicit go-ahead.
 
 ### 5.2 What the build added that the design did not have
 
@@ -615,6 +635,73 @@ What is read now is `amr`, which names **methods**. `acr` is still
 recorded and deliberately not judged: an assurance level's meaning is
 configured inside the realm, and a platform that read it as evidence
 would be deciding what somebody else's number means.
+
+### 5.5 What step 7 measured
+
+Keycloak **26.7.4**, 2026-09-23. Not a rehearsal: a tenant with two
+members was really moved from `oaap-test` to `oaap-demo`, and then a
+second one was moved after the repairs, so the fix was measured on
+state that had actually been produced rather than arranged.
+
+**Three doors to a realm export, and two of them lie.** This is the
+finding that shaped the whole step.
+
+| door | carries the people? | fails when it does not? |
+|---|---|---|
+| the admin API's own export (`partial-export`) | **no** — answers 200, carries the clients and the client secret, and not one user | no |
+| the product's export tool beside the serving container | **no** — it finds no `KC_DB_*` there, because the app's entrypoint exports them into its own process, so a `docker exec` never sees them. It falls back to the built-in empty H2 and writes a flawless export of a realm nobody has ever used. It also re-persists that container's configuration on the way past | no |
+| the same tool in a **throwaway** container, on the serving one's network and database | yes, with the password hashes | — |
+
+Two of three produce a file that looks exactly like the third. A move
+built on either would arrive with a realm and no members, and it would
+be found out by the members. So the file is **counted**: the space is
+asked how many people it holds *before* the file exists, the file is
+counted afterwards, and a difference throws the file away. That rule
+does not care how the next door is built, which is why it is a rule
+about files rather than about doors.
+
+**An imported realm has no administrator.** The "one edit" of K6.3
+failed on the new node, at the same second document as §5.3 and §5.4:
+the credential may not look at the clients in that realm. The reason
+is Keycloak's and it is reasonable — a `create-realm` account is given
+administration of the realms it *creates*, through the
+`<realm>-realm` client roles in `master` — and an imported realm was
+created by nobody. So the move needs one act by a person on the new
+node: grant the service account those roles. Measured: after that, the
+one edit is one edit.
+
+**And the conclusion of §5.0 was half a conclusion.** §5.0 asked
+whether a realm export preserves the identity K4 binds to, measured
+the `sub` across an export and import, and concluded that no
+re-binding is needed. K4 binds to `(issuer, sub)`. Measured on the
+tenant that had really been moved: the subject was byte-for-byte the
+same on both nodes, and the provider half still named the node the
+tenant had left.
+
+> An exported realm keeps its **name**. The issuer is not its name —
+> it is `<node>/realms/<name>`, the address of a node — and a move is
+> exactly a change of node.
+
+Without a re-point, every member of the club would have arrived at the
+new node as a stranger: a first login, into the Eingang, with their
+roles gone. The move would have looked like it worked. The two tenants
+moved that night say it in one picture — the one moved before the
+repair has no binding that matches its new provider, and the one moved
+after has all of them, with the subjects untouched.
+
+Re-pointing is also dangerous, so it is permitted in exactly one
+situation: a provider **carried in from an adoption** is replaced by a
+new one. Only then does OAAP know both halves of the key from its own
+record, and only then is the premise the thing §5.0 really measured.
+Any other issuer change still voids the bindings.
+
+**Two things found by building the reader.** A format nobody reads
+back is a format nobody checks: `tenant-0.1` carried a tenant's data
+and not the tenant's own record, unnoticed since 0.1.112. And on a
+node carrying the `store` profile, `oaap backup create --tenant`
+refused for every tenant that had never had a twin, because
+`pg_dump -n` exits the same way for "no such schema" as for "this
+schema is broken".
 
 ## 6. Open for later
 
@@ -964,3 +1051,67 @@ Faktor — das tut der Realm, und eine Anmeldung, die hier ankommt, hat
 er durchgelassen. Er fasst keine Menschen an: das Verb `users` steht im
 Konnektor unter `never` und nicht unter „noch nicht". Und er löscht
 weiterhin nichts.
+
+## Nachtrag: gebaut am 23.09.2026 (Schritt 7)
+
+**Was jetzt geht.** Ein Verein kann den Knoten verlassen, auf dem er
+sitzt:
+
+```
+# auf dem alten Knoten
+sudo oaap idp export auth --tenant hbvp --out /root/hbvp-realm.json
+sudo oaap backup create --tenant hbvp --to /root
+
+# beides hinüber, dann auf dem neuen Knoten
+#   1. den Realm in dessen Keycloak einspielen
+#   2. dem Dienstkonto Rechte AN DIESEM Realm geben  (siehe unten)
+sudo oaap tenant adopt /root/hbvp.tar.gz
+sudo oaap idp provision auth --tenant hbvp
+```
+
+Gemessen, nicht behauptet: ein Mandant mit zwei Mitgliedern ist von
+`oaap-test` nach `oaap-demo` umgezogen, die Menschen kamen mit, ihre
+Bindungen kamen mit, und niemand musste sich neu anmelden.
+
+**Die Richtung, die gebaut wurde, ist die Ergänzung einer Weigerung.**
+`oaap backup create --tenant` verspricht ausdrücklich nicht, einen
+Mandanten in einen **laufenden** Knoten zurückzuspielen. Der Umzug ist
+die andere Richtung, und die ist genau deshalb lösbar, weil das Ziel
+**leer** ist. Also wird „leer" gesucht statt behauptet: Mandant, Name,
+früherer Name, Instanz, Port, Mensch — jeder Zusammenstoß wird beim
+Namen genannt, und vor der Suche wird nichts geschrieben.
+
+**Drei Befunde, und zwei davon haben den Entwurf geändert.**
+
+1. **Zwei von drei Türen zu einem Realm-Export lügen.** Der Export der
+   Verwaltungsschnittstelle antwortet 200 und enthält keinen einzigen
+   Menschen. Das Werkzeug des Produkts, neben dem bedienenden
+   Container ausgeführt, findet dort keine Datenbank-Konfiguration,
+   fällt still auf seine eingebaute leere zurück und schreibt einen
+   tadellosen Export eines Realms, den nie jemand benutzt hat. Beide
+   melden keinen Fehler. Also wird die **Datei gezählt** und nie das
+   Werkzeug geglaubt.
+2. **Ein eingespielter Realm hat keinen Verwalter.** Keycloak gibt die
+   Verwaltung eines Realms dem, der ihn **angelegt** hat — und einen
+   eingespielten hat niemand angelegt. Die „eine Änderung" scheitert
+   deshalb auf dem neuen Knoten, an derselben zweiten Tür wie in
+   Schritt 4 und 6. Ein Mensch muss dem Dienstkonto dort einmal Rechte
+   geben; danach ist die eine Änderung wirklich eine.
+3. **Und eine Schlussfolgerung dieses RFC war eine halbe.** §5.0 hat
+   gemessen, dass ein Realm-Export den `sub` erhält, und daraus
+   geschlossen: kein Neu-Binden nötig. Eine Bindung ist aber ein
+   **Paar**. Der Aussteller ist die andere Hälfte, und der ist die
+   Adresse eines Knotens — und ein Umzug ist genau ein Wechsel des
+   Knotens. Ohne Reparatur wäre jedes Mitglied am neuen Knoten ein
+   Fremder gewesen: erste Anmeldung, Eingang, Rollen weg. Der Umzug
+   hätte ausgesehen, als hätte er funktioniert.
+
+**Der Anbieter, der mitkommt, gilt nicht.** Er zeigt auf den Knoten,
+den der Verein verlässt, und sein Geheimnis liegt absichtlich nicht im
+Archiv. Also wird er getragen, sichtbar gemacht und nicht in Kraft
+gesetzt — dieselbe Regel wie in Schritt 6, eine Ebene höher: ein Satz,
+den jemand liest, muss etwas hinter sich haben.
+
+**Und der alte Knoten behält alles.** OAAP greift nicht auf eine
+Maschine, auf der es nicht läuft, und löscht nichts. Bis drüben ein
+Mensch loslässt, gibt es den Verein zweimal — und das wird gesagt.

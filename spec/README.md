@@ -20,7 +20,7 @@ before the full specification is written.
 - [oaap.data.backup](oaap.data.backup.md) — platform backup, restore & relocation (draft, v0.4)
 - [oaap.fleet.status](oaap.fleet.status.md) — read-only fleet status document & fleet keys (draft, v0.3)
 - [oaap.ai.gateway](oaap.ai.gateway.md) — AI supply behind one keyed, OpenAI-compatible endpoint (draft, v0.2)
-- [oaap.core.tenant](oaap.core.tenant.md) — account and tenant, the boundary of belonging (draft, v0.9)
+- [oaap.core.tenant](oaap.core.tenant.md) — account and tenant, the boundary of belonging (draft, v1.0)
 - [oaap.data.store](oaap.data.store.md) — managed Postgres per node, schema per tenant/purpose (draft, v0.1)
 - [oaap.data.model](oaap.data.model.md) — type registry for the digital twin: object/attribute/group/relation/activity types, origin, binding (draft, v0.1)
 - [oaap.data.files](oaap.data.files.md) — where the bytes live: the node's own content-addressed store, tenant-isolated by path, put/get/verify by hash; external backings are RFC-0034 Stufe 4 and not yet specified (draft, v0.1.1)
