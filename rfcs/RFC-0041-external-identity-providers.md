@@ -505,8 +505,15 @@ on 2026-09-23 and are marked below.
    an export can be wrong without failing, an imported realm has no
    administrator, and a binding's issuer does not survive a move.
    §5.5 has them.
-8. Then, and only then, `oaapx01` — see §7. **Next**, and it needs
-   Jörg's explicit go-ahead.
+8. ~~Then, and only then, `oaapx01` — see §7~~ — **done** (2026-09-23,
+   with Jörg's explicit go-ahead, and for `pxx` as §7 asked).
+   Nothing was built; what was built was installed. Two things
+   came out of the measuring, and both are about a *documented*
+   measurement being narrower than the thing it described:
+   a row of the connector's power table reads differently on a
+   node where the account has already made a realm, and
+   `provision` registers a redirect URI the manual recipe calls
+   conditional. §5.6 has them.
 
 ### 5.2 What the build added that the design did not have
 
@@ -702,6 +709,64 @@ node carrying the `store` profile, `oaap backup create --tenant`
 refused for every tenant that had never had a twin, because
 `pg_dump -n` exits the same way for "no such schema" as for "this
 schema is broken".
+
+### 5.6 What step 8 measured
+
+The first node with a paying customer on it, and the step that built
+nothing: `oaapx01` got the Keycloak app, the service account, the
+connector and a realm for `pxx`. Two findings, and neither is a bug in
+what was built — both are places where something **written down** was
+narrower than what the machine does.
+
+**1. A row of the power table is a different row once the account owns
+a realm.** The table in the app's README (measured on `oaap-test`,
+2026-09-23) says `GET /admin/realms` answers **403** to a service
+account holding only `create-realm`. On `oaapx01` it answers **200**
+— with a list containing exactly one realm, the one this account
+created. The security property the row was making (this credential
+cannot see another club) **holds**; the status code does not. The
+earlier measurement was almost certainly taken before the account had
+created anything, and an empty set and a refusal look alike from the
+outside.
+
+The lesson is the project's own, one level up: a measured table is a
+measurement *of a moment*, and `create-realm` changes what it can see
+by being used. A row that says 403 should say what it is really
+claiming — *it sees only its own realms*.
+
+**2. `provision` registers a redirect URI the manual recipe calls
+conditional.** `redirect_uris_for()` writes both schemes, on purpose
+and for a good reason (RFC-0041's own finding: on a node reached
+without TLS the `http` form is the one that matters, and a provider
+holding only `https` rejects the login without naming a cause). But
+the recipe a human follows prints the `http` line with
+*"(only if this node is reached without TLS)"*, and `provision` has no
+such condition. On an internet node this leaves a plaintext callback
+address registered at the client for a node that is never reached that
+way.
+
+**What it is worth, measured rather than feared:** the client OAAP
+creates is **confidential** (`publicClient: false`,
+`directAccessGrantsEnabled: false`), and the authorization request
+always carries the `https` form plus PKCE. An authorization code
+delivered to the `http` address cannot be redeemed by whoever picked
+it up — redemption needs the client secret, which is `0600` on the
+node. So this is not an open door; it is an unnecessary one, and the
+two halves of the same product disagree about whether it should be
+there.
+
+**Not changed on the node.** Narrowing that one client by hand would
+make the machine disagree with the software that manages it, and the
+next `provision` would put it back. It belongs in
+`redirect_uris_for()`, which needs one thing it does not have today:
+whether this node is reached over TLS.
+
+**And one thing the step confirmed rather than found.** The version
+pin is checkable after all — just not by the connector. A full server
+administrator reads `26.7.4` from `/admin/serverinfo`; the narrow
+account gets the same document with `systemInfo` missing. That is
+exactly what §5.3 said, now measured a second time on a second
+machine, with the same answer.
 
 ## 6. Open for later
 
@@ -1115,3 +1180,68 @@ den jemand liest, muss etwas hinter sich haben.
 **Und der alte Knoten behält alles.** OAAP greift nicht auf eine
 Maschine, auf der es nicht läuft, und löscht nichts. Bis drüben ein
 Mensch loslässt, gibt es den Verein zweimal — und das wird gesagt.
+
+## Nachtrag: gebaut am 23.09.2026 (Schritt 8) — `oaapx01`
+
+**Der Schritt, der nichts gebaut hat.** Auf dem Knoten am Internet
+wurde aufgestellt, was seit der Nacht fertig war: die Keycloak-App
+(`auth`, Fassung 26.7.4 wie festgenagelt), das Dienstkonto
+`oaap-admin` im master-Realm mit genau einem Recht, der Konnektor —
+und ein Realm für **`pxx`**. Genau der Mandant, den §7 vorgeschlagen
+hatte: der, bei dem nichts zu verlieren ist. `hbvp` und `cls` wurden
+nicht angefasst, und das ist nachgemessen, nicht angenommen.
+
+**Was der Verein jetzt hat.** `https://pxx.oaap.joomp.de` zeigt einen
+Knopf „Mit dem Pragmatixx-Konto anmelden"; er führt auf
+`https://auth.oaap.joomp.de/realms/pxx`, und dort antwortet Keycloaks
+eigene Anmeldeseite mit *Sign in to Pragmatixx*. Auf
+`https://hbvp.oaap.joomp.de` steht derselbe Knopf **nicht** — die
+Gegenprobe, ohne die der erste Satz nichts wert wäre.
+
+**Und zwei Befunde, beide von derselben Art.** Nicht *etwas ist
+kaputt*, sondern *etwas Aufgeschriebenes war enger als die
+Wirklichkeit*:
+
+1. **Eine Zeile der Vollmachtstabelle stimmt nur vor dem ersten
+   Realm.** Die Tabelle in der README sagt: alle Realms auflisten →
+   **403**. Auf `oaapx01` antwortet dieselbe Anfrage **200** — und die
+   Liste enthält genau einen Realm, den selbst angelegten. Die
+   *Eigenschaft*, um die es der Zeile ging (diese Vollmacht sieht
+   keinen fremden Verein), gilt weiterhin; die *Zahl* nicht. Die alte
+   Messung entstand offenbar, bevor das Konto etwas angelegt hatte —
+   und eine leere Menge sieht von außen aus wie eine Ablehnung. Die
+   Tabelle ist korrigiert.
+
+2. **`provision` trägt eine Adresse ein, die das Rezept für Menschen
+   als *bedingt* bezeichnet.** Beim Anlegen des Clients werden beide
+   Schreibweisen der Rückkehradresse eingetragen, `https` und `http`.
+   Dafür gibt es einen guten Grund (auf einem Knoten ohne TLS ist
+   `http` die, auf die es ankommt), aber die Zeile, die ein Mensch zu
+   sehen bekommt, sagt dazu *„nur wenn dieser Knoten ohne TLS erreicht
+   wird"* — und `provision` kennt diese Bedingung nicht.
+
+   **Was das wert ist, gemessen statt befürchtet:** Der Client ist
+   **vertraulich**, der Anmeldeweg schickt immer die `https`-Form, und
+   ein Code, der an der `http`-Adresse landet, lässt sich ohne das
+   Client-Geheimnis nicht einlösen — und das liegt `0600` auf dem
+   Knoten. Es ist keine offene Tür, es ist eine **unnötige**. Auf dem
+   Knoten wurde nichts von Hand verengt: das würde die Maschine mit
+   der Software uneins machen, und der nächste `provision` trüge es
+   wieder ein. Es gehört in `redirect_uris_for()` — und die braucht
+   dafür eine Angabe, die sie heute nicht hat: ob dieser Knoten über
+   TLS erreicht wird.
+
+**Was der Knoten dafür bezahlt hat.** Zwei Container mehr (der Server
+und seine Datenbank), Port 8116, zwei Gigabyte Platte, ein neuer
+öffentlicher Name `auth.oaap.joomp.de`. Sonst nichts: die 24 öffentlichen
+Adressen, die es vorher gab, antworten hinterher Zeile für Zeile
+gleich, und kein einziger Container auf der Maschine hat neu gestartet
+(`RestartCount` überall 0). Die Apps des zahlenden Großkunden und die
+beiden BDT-Paare haben von dem Vorgang nichts gemerkt.
+
+**Was ausdrücklich noch nicht gilt.** Im Realm `pxx` ist noch kein
+Mensch. Selbstregistrierung ist **aus**, ein zweiter Faktor ist **aus**
+— die Vorgabe, und auf einem Knoten am Internet die richtige, solange
+niemand sie bewusst umlegt. Die erste Anmeldung bedeutet weiterhin
+`eingang`: eine Identität und keine Rechte.
+
