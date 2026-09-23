@@ -787,10 +787,15 @@ opposite sentence, naming the 301, so neither answer arrives without
 its reason.
 
 **What it does not do:** `add_redirects` extends and never replaces
-(K3.3 -- managing is not owning), so the `http` URI already at
-`oaapx01`'s client stays until somebody removes it. The difference is
-that removing it by hand now *holds*: the next `provision` no longer
-puts it back.
+(K3.3 -- managing is not owning), and OAAP deliberately has **no verb
+at all** for taking a redirect URI away. So the `http` URI already at
+`oaapx01`'s client did not disappear by itself. It was removed by hand
+the same day, with Joerg's word for it (`PUT` on `redirectUris`,
+**204**, one address left) -- and that was the right move only *after*
+this change, because before it the next `provision` would have put it
+back. Measured afterwards: `/auth/oidc/start` still answers 303 with
+the `https` form and PKCE, Keycloak answers 200, and the `http` form
+of the callback still answers 301.
 
 **And one thing the step confirmed rather than found.** The version
 pin is checkable after all — just not by the connector. A full server
@@ -1285,10 +1290,16 @@ Wirklichkeit*:
    beiden Antworten ohne ihren Grund ankommt.
 
    **Was es nicht tut:** `add_redirects` erweitert und ersetzt nie
-   (K3.3 — verwalten ist nicht besitzen). Die `http`-Adresse, die am
-   Client auf `oaapx01` schon steht, bleibt also stehen, bis sie
-   jemand entfernt. Der Unterschied ist: Von Hand entfernen **hält**
-   jetzt — der nächste `provision` trägt sie nicht wieder ein.
+   (K3.3 — verwalten ist nicht besitzen), und OAAP hat für das
+   **Entfernen** einer Rückkehradresse bewusst überhaupt kein Verb.
+   Die `http`-Adresse am Client auf `oaapx01` verschwand also nicht
+   von selbst. Sie wurde am selben Tag mit Jörgs Freigabe von Hand
+   weggenommen (`PUT` auf `redirectUris`, **204**, eine Adresse
+   bleibt) — und das war erst *nach* dieser Änderung richtig, denn
+   vorher hätte der nächste `provision` sie wieder eingetragen.
+   Danach nachgemessen: `/auth/oidc/start` antwortet weiterhin 303
+   mit der `https`-Form und PKCE, Keycloak antwortet 200, und die
+   `http`-Form des Rückwegs antwortet weiterhin 301.
 
 **Was der Knoten dafür bezahlt hat.** Zwei Container mehr (der Server
 und seine Datenbank), Port 8116, zwei Gigabyte Platte, ein neuer
