@@ -1,7 +1,18 @@
 # oaap.core.tenant — Account and Tenant, the Boundary of Belonging
 
 - **ID:** `oaap.core.tenant`
-- **Version:** 0.5 (RFC-0042 T1/T2 — **the tenant is a place**: it
+- **Version:** 0.6 (RFC-0042 T3 — **the tenant has a face**: a public
+  title, two colours and a logo, and nothing else. Not a stylesheet: a
+  tenant that can ship CSS can move, hide or fake any control on a page
+  the platform answers for. The title is a SECOND name field on purpose
+  — the `name` of 1.1 is the Klarname and stays in the house, while a
+  login page needs no login. The logo is content in `oaap.data.files`,
+  projected where the gateway can serve it without a session. Two rules
+  it may not break: node-wide power keeps the platform's own chrome, and
+  the tenant's ADDRESS stands beside its face on every page, because the
+  address cannot be chosen freely and a title can. See 2.7, conformance
+  tests 18 and 19;
+  0.5 RFC-0042 T1/T2 — **the tenant is a place**: it
   answers at `<label>.<node>`, the slot the naming scheme described and
   never filled. The platform's own launchpad answers there, scoped to
   that tenant for everyone who arrives through that host, a
@@ -90,6 +101,7 @@ account   (reference only — see 1.3)
 | `account_name`  | cached display text for the account; never authoritative                    |
 | `created`       | ISO-8601 timestamp                                                          |
 | `former_labels` | previous labels kept as aliases, each with an expiry — see 1.6              |
+| `theme`         | the tenant's face (0.6): `title`, `color_primary`, `color_accent`, `logo`, `logo_type` — see 2.7. Absent means the platform's own look |
 
 
 **Everything internal refers to `id`.** Not to the label, and never to
@@ -481,6 +493,83 @@ published is a name somebody wrote down. The deploy address also
 accepts the instance's **identity**, which never changes at all: an
 agent given that form need never be told about a rename.
 
+### 2.7 The face of a tenant (0.6, RFC-0042 T3)
+
+A tenant MAY choose how its place looks. What it may choose is a closed
+set, and the closedness is the requirement:
+
+| Field | Meaning |
+| --- | --- |
+| `title` | the tenant's **public** name, shown in the header and the tab |
+| `color_primary` | the colour that carries the brand |
+| `color_accent` | the second colour, for states and emphasis |
+| `logo` | a picture, stored as content (`oaap.data.files`) |
+
+**No stylesheet, no custom fonts, no per-tenant templates.** A tenant
+that can ship CSS can move, hide or fake any control on a page the
+platform is responsible for. Four values cannot. An implementation MUST
+therefore turn these into *values* — a set of variable assignments and
+nothing else — and MUST refuse a colour that is not a plain six-digit
+hex value, because a value that can carry a semicolon is not a value.
+
+**`title` is not `name`.** They are two fields on purpose. The `name` of
+1.1 is the Klarname, asked for on a page that promises it stays inside
+the house; the title appears on the login page, which by definition
+requires no login. An implementation MUST NOT use `name` as a fallback
+for a missing title. It falls back to the **label**, which is public by
+construction — it is in the hostname and therefore in the certificate
+transparency log (3.4).
+
+**The logo is content, and it becomes public.** It MUST be stored
+through `oaap.data.files`, addressed by its hash, under the tenant that
+owns it — so it is in the node backup, in the tenant archive and in the
+rehearsal, and so one tenant's picture is not addressable from
+another's. Serving it is a different question: a login page has no
+session, so the bytes MUST also be reachable on a route that needs
+none. An implementation that copies them to such a place MUST treat
+that copy as **derived** — rebuilt from the store after an update, a
+rename and a restore, and never the thing an archive carries. Putting a
+picture on a page anyone can open makes it public; a copy in a public
+directory says so, rather than implying it.
+
+**The type is decided by the content, never by the file name**, and an
+implementation MUST refuse SVG. The picture is served from the
+platform's own origin, and an image that can carry script sits there
+beside every user's session. This is not a judgement about the operator
+who uploads it; it is about what the file becomes once it is a URL
+under the platform's own name.
+
+Two rules a face may not break:
+
+- **Node-wide power keeps the platform's own chrome.** A caller holding
+  a node-wide role (2.3) sees the platform's colours on every address,
+  including a customer's. An operator must be able to tell by looking
+  that they are on a page where they can act on the whole node; a themed
+  node administration is a page that can be mistaken for a customer's.
+  They still see **whose** place they are on, and that they are looking
+  at it as the operator.
+- **A face may not claim to be another tenant or the platform.** The
+  title and the picture are freely chosen; the **address** is not — it
+  is built from the label, which is unique on the node. The address
+  therefore stands beside the face on every page the face applies to,
+  not as decoration but as an anchor, and the platform's own name does
+  not leave the page.
+
+**Legibility is the platform's, the hue is the tenant's.** Two colours
+cannot break a layout, but they can make text vanish into its own
+background. An implementation MUST derive the contrasting values itself
+rather than serving a chosen colour into a role it cannot fill — a light
+header gets dark writing on it, and a pale brand colour is deepened
+where it has to be read as text on white.
+
+Who may set it: a `tenant_admin` for **their own** tenant, and a
+`server_admin` for any (2.3). A request naming a tenant MUST NOT be
+believed on its own; the target is computed from the caller's role and
+their own tenant, wherever the request arrives. The default tenant has
+no face of its own: its place is the node's address, and a node that
+could disguise its own address is the impersonation this section
+forbids.
+
 ### 2.5 Resolution rules
 
 Two rules, and the difference between them is the whole safety
@@ -662,12 +751,34 @@ On a node with one tenant: none that anyone can observe, exactly as in
     directions; an instance of any other tenant holds nothing, because
     it answers one level deeper.
 
+18. **The face is values, and the anchor is not chosen** (0.6). A
+    tenant sets a title, two colours and a logo. Its place and its
+    **login page** carry them; a caller with a node-wide role reaching
+    the same address gets the platform's colours and no foreign logo,
+    and still reads whose place it is. What the theme produces is a set
+    of variable assignments and nothing else — a colour that is not six
+    hex digits is refused, at every door. With no title set, the page
+    shows the **label** and never the tenant's `name`. The tenant's
+    address stands beside its face, and the platform's own name is still
+    on the page. A pale brand colour produces readable text rather than
+    white on white.
+
+19. **The logo is content, and the copy that is served is derived**
+    (0.6). An uploaded picture is stored under the owning tenant in
+    `oaap.data.files` and is not findable from another tenant's store.
+    An SVG is refused — also when it is called `logo.png`, because the
+    content decides — with a reason naming what it would become. Delete
+    the served copy: the next refresh writes it again from the store,
+    and a second refresh changes nothing. Rename the tenant: the copy
+    follows the new label and stays under the former one as long as that
+    address answers. Remove the logo: the served copy goes with it.
+
 ## 5. Dependencies
 
 `oaap.core.identity` (user records, roles, the authorization call),
 `oaap.apps.runtime` (instance registry, hostnames, deploy tokens,
 creation permits), `oaap.core.portal` (surfaces), `oaap.data.backup`
-(per-tenant backup, D7).
+(per-tenant backup, D7), `oaap.data.files` (0.6: where a tenant's logo lives).
 
 ## Zusammenfassung auf Deutsch
 
@@ -908,3 +1019,69 @@ frühere Kürzel und frühere Instanznamen zählen mit.
 Die Ablehnung ist dabei **wortgleich** mit der, die derselbe Name schon
 von seiner eigenen Art bekommen hätte. Das ist Absicht: Klänge sie
 anders, verriete gerade die neue Wache, was sie schützen soll.
+
+## Deutsche Zusammenfassung (0.6 — der Mandant bekommt ein Gesicht)
+
+**Vier Werte, kein Stylesheet.** Ein Mandant darf über seinen Ort vier
+Dinge bestimmen: einen öffentlichen Titel, zwei Farben und ein Bild.
+Mehr nicht — und das *Mehr nicht* ist die Anforderung, nicht eine
+Sparmaßnahme. Wer ein eigenes Stylesheet mitbringen darf, kann jedes
+Bedienelement auf einer Seite verschieben, verstecken oder fälschen, für
+die die Plattform geradesteht. Vier Werte können das nicht. Deshalb darf
+aus einem Design auch nur eine Liste von Werten entstehen, und eine
+Farbe, die kein sechsstelliger Hex-Wert ist, wird abgelehnt: Ein Wert,
+der ein Semikolon tragen kann, ist kein Wert.
+
+**Der Titel ist ein zweites Namensfeld, mit Absicht.** Der `name` aus
+1.1 ist der Klarname, und die Seite, die nach ihm fragt, verspricht
+schriftlich, dass er im Haus bleibt. Der Titel steht auf der
+Anmeldeseite — und die verlangt definitionsgemäß keine Anmeldung. Ohne
+gesetzten Titel steht deshalb das **Kürzel** da, nie der Klarname. Das
+Kürzel ist ohnehin öffentlich: Es steht im Hostnamen und damit im
+Certificate-Transparency-Log, das jeder lesen kann.
+
+**Das Logo ist ein Inhalt.** Es liegt in `oaap.data.files`, über seinen
+Hash adressiert und unter dem Mandanten, dem es gehört — also in der
+Sicherung, im Mandantenarchiv und in der Generalprobe, und für andere
+Mandanten nicht adressierbar. Ausgeliefert wird es aber von einer Route,
+die keine Sitzung verlangt, denn die Anmeldeseite hat keine. Die Kopie
+dort ist **abgeleitet**: Sie wird nach Umstieg, Umbenennen und
+Rückspielung neu geschrieben, und kein Archiv trägt sie. Ein Bild auf
+eine Seite zu stellen, die jeder öffnen kann, macht es öffentlich — ein
+öffentliches Verzeichnis sagt das, statt es anzudeuten.
+
+**Kein SVG**, und entschieden wird nach dem **Inhalt**, nie nach dem
+Dateinamen. Das Bild wird unter der Adresse dieser Plattform
+ausgeliefert, und ein Bild, das ein Skript tragen kann, sitzt dort neben
+der Sitzung jedes Benutzers. Das ist kein Urteil über den Betreiber, der
+es hochlädt — es geht darum, was die Datei wird, sobald sie eine Adresse
+unter unserem eigenen Namen hat.
+
+**Zwei Regeln, die ein Design nicht brechen darf:**
+
+- **Wer knotenweite Macht hält, sieht die Farben der Plattform** — auch
+  am Ort eines Kunden. Man muss einer Seite ansehen können, dass man auf
+  ihr den ganzen Knoten bewegen kann; eine eingefärbte Knotenverwaltung
+  ist eine Seite, die man für die eines Kunden halten kann. Wessen Ort
+  es ist, sieht der Betreiber trotzdem — und dass er als Betreiber
+  darauf schaut.
+- **Ein Design darf nie einen anderen Mandanten oder die Plattform
+  nachahmen.** Titel und Bild sind frei wählbar, die **Adresse** nicht:
+  Sie entsteht aus dem Kürzel und ist auf diesem Knoten eindeutig. Also
+  steht sie neben dem Gesicht, auf jeder Seite, die es trägt — nicht als
+  Zierde, sondern als Anker. Und der Name der Plattform verlässt die
+  Seite nicht.
+
+**Die Farbe wählt der Mandant, die Lesbarkeit die Plattform.** Zwei
+Farben können kein Layout zerstören, aber sie können Text in seinem
+eigenen Hintergrund verschwinden lassen. Zu einer hellen Kopfzeile wird
+die Schrift darauf dunkel, und eine blasse Markenfarbe wird dort
+abgedunkelt, wo sie als Text auf Weiß gelesen werden muss.
+
+**Wer es setzen darf:** ein `tenant_admin` für **seinen eigenen**
+Mandanten, ein `server_admin` für jeden. Einer Anfrage, die einen
+Mandanten nennt, wird dabei nicht geglaubt — das Ziel wird aus der Rolle
+des Aufrufers und seinem eigenen Mandanten berechnet, an jeder Tür.
+Der Standard-Mandant bekommt kein eigenes Gesicht: Sein Ort ist die
+Adresse des Knotens, und ein Knoten, der seine eigene Adresse verkleiden
+könnte, wäre genau die Nachahmung, die dieser Abschnitt verbietet.

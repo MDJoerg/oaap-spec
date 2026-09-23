@@ -2,10 +2,12 @@
 
 - **Status:** **Accepted (2026-09-22)** — all five decided by Jörg,
   each as recommended, in the same sitting as RFC-0041's seven.
-  **Build steps 1 and 2 are built** (reference 0.1.115 and 0.1.116,
-  `oaap.core.tenant` 0.5): the guard of T1, and the address with the
-  host-scoped launchpad of T2. Step 3 (the face, T3) is open, T4 stays
-  deliberately unbuilt, and RFC-0041 now has what its K5 needs.
+  **Build steps 1, 2 and 3 are built** (reference 0.1.115, 0.1.116 and
+  0.1.117, `oaap.core.tenant` 0.6): the guard of T1, the address with
+  the host-scoped launchpad of T2, and the face of T3 — a public title,
+  two colours and a logo, with the logo as the first real consumer of
+  `oaap.data.files`. **T4 stays deliberately unbuilt**, T5 held from
+  step 2 onwards, and RFC-0041 now has what its K5 needs.
 - **Date:** 2026-09-22
 - **Authors:** Jörg (the idea and its scope), Claude (design and write-up)
 - **Depends on:** RFC-0022 (tenant as boundary), RFC-0025/RFC-0026
@@ -403,3 +405,118 @@ gar keinem Eintrag. Dieselbe Form wie im Katalog von `oaap-apps` einen
 Tag zuvor — eine Angabe an zwei Orten, nur einer wird angefasst.
 Nachgezogen und durch `check-specs.py` abgesichert, das beide Indexe
 gegen das zählt, worauf sie zeigen.
+
+## Nachtrag: gebaut am 23.09.2026 (Schritt 3, das Gesicht)
+
+**Drei Felder, nicht vier — und das ist ein Befund, kein Sparen.** T3
+listet `title`, `color_primary`, `color_accent`, `logo`. Beim Bauen
+stellte sich die Frage, ob `title` nicht längst existiert: Der
+Mandantensatz hat ein Feld `name`, den Klarnamen, „z. B. Kunde Meier
+GmbH". Zwei Felder für dieselbe Sache wären genau die Form, die dieses
+Projekt sammelt.
+
+Sie sind aber **nicht** dieselbe Sache, und der Unterschied steht
+wörtlich auf der Seite, die nach dem Klarnamen fragt: *„der Klarname
+daneben bleibt im Haus."* Der Titel steht auf der **Anmeldeseite**, und
+die verlangt definitionsgemäß keine Anmeldung. Hätten wir `name`
+genommen, hätte Schritt 3 ein schriftliches Versprechen gebrochen —
+lautlos, für jeden Kunden, der je einen Klarnamen eingetragen hat. Also
+zwei Felder, absichtlich, und ohne gesetzten Titel steht das **Kürzel**
+da, nie der Klarname. Das Kürzel ist ohnehin öffentlich.
+
+**Ein Urteil in drei Programmen.** Portal, Anmeldedienst und `appctl`
+müssen dieselben zwei Fragen beantworten: *Welchen Mandanten nennt
+dieser Host?* und *Wie sieht er aus?* Zwei Lesarten desselben
+Hostnamens wären eine Anmeldeseite in den Farben des einen Vereins vor
+dem Portal des anderen — also genau die Nachahmung, die T3 in klaren
+Worten verbietet, nur aus Versehen erreicht statt böswillig.
+
+Deshalb `platform/services/place.py`: reine Funktionen, kein
+Dateizugriff, kein Framework. Jeder Dienst liest `tenants.json`
+weiterhin auf seinem eigenen Weg — sie hängen die Datei an
+verschiedenen Stellen ein und taten das immer — und fragt dann dort.
+Geteilt wird das Urteil, nicht die Verrohrung. Der Preis: Die
+Build-Kontexte von Portal und Anmeldedienst wandern von
+`services/<dienst>` auf `services/`, damit dieselbe Datei in beide
+Images kommt. Der Test prüft beides: dass beide Dienste delegieren und
+**keiner den Hostnamen noch einmal selbst zerlegt**, und dass beide
+Dockerfiles `place.py` wirklich mitkopieren — die Sorte Fehler, die das
+Portal am 10.09. in eine Neustart-Schleife geschickt hat.
+
+**Das Logo, und wo es ausgeliefert wird.** Die Bytes liegen
+inhaltsadressiert im Byte-Speicher des Mandanten (`oaap.data.files`) —
+damit in der Sicherung, im Mandantenarchiv und in der Generalprobe, und
+für andere Mandanten nicht adressierbar. Die Anmeldeseite hat aber
+keine Sitzung, kann also nichts lesen, was eine verlangt. Der Weg
+dahin, ohne eine neue Tür aufzumachen: Das Logo wird in ein Verzeichnis
+**projiziert**, das das Gateway innerhalb seines `static`-Ordners
+einhängt — also auf der schon öffentlichen `/platform/*`-Route, deren
+Kommentar seit 0.1 sagt, ein Mandanten-Design ändere „*what is served
+here, never this route*". Keine Änderung am Caddyfile, kein
+Datei-Mount in den Anmeldedienst, keine zweite Auslieferungslogik.
+
+Die Projektion ist **abgeleitet und wegwerfbar**: Löscht man sie, wird
+sie aus dem Speicher neu geschrieben; Umstieg, Umbenennen und
+Rückspielung rufen sie auf. Benannt ist sie nach dem **Kürzel** und
+nicht nach dem Hash — ein Hash-Name wäre eine Datei für zwei Mandanten
+mit demselben Bild, und die mandantenübergreifende Entdoppelung ist
+genau das, was der Byte-Speicher mit Absicht nicht tut.
+
+Und sie ist **öffentlich**, ausdrücklich. Wer ein Bild auf eine Seite
+stellt, die jeder öffnen kann, macht es öffentlich; ein öffentliches
+Verzeichnis sagt das, statt es anzudeuten.
+
+**Kein SVG.** Es würde unter der Adresse dieser Plattform ausgeliefert,
+und ein Bild, das ein Skript tragen kann, sitzt dort neben der Sitzung
+jedes Benutzers. Entschieden wird nach dem **Inhalt**, nie nach dem
+Dateinamen — ein SVG, das `logo.png` heißt, wird genauso abgelehnt. Das
+ist kein Urteil über den Betreiber, der es hochlädt; es geht darum, was
+die Datei wird, sobald sie eine Adresse unter unserem eigenen Namen hat.
+
+**Die zwei Regeln, in Code.** Wer eine knotenweite Rolle hält, sieht
+die Farben der Plattform — auf jeder Adresse, auch auf der eines
+Kunden. Er sieht aber, **wessen** Ort es ist: In der Kopfzeile steht
+der Titel des Mandanten, daneben dessen Adresse, und statt „OAAP" das
+Wort **„Betreibersicht"**. Und der Anker ist die **Adresse**, nicht der
+Titel: Der Titel ist frei wählbar, die Adresse entsteht aus dem Kürzel
+und ist auf diesem Knoten eindeutig. Der Name der Plattform verlässt
+die Kopfzeile nicht.
+
+**Eine Zugabe, die T3 nicht verlangt und die es trotzdem braucht.**
+Zwei Farben können kein Layout zerstören — aber sie können Text in
+seinem eigenen Hintergrund verschwinden lassen. Also: *Die Farbe wählt
+der Mandant, die Lesbarkeit die Plattform.* Zu einer hellen Hauptfarbe
+wird die Schrift der Kopfzeile dunkel statt weiß auf Weiß, und eine
+blasse Markenfarbe wird dort abgedunkelt, wo sie als Text auf weißem
+Grund gelesen werden muss. Berechnet an einer Stelle; Portal und
+Anmeldekarte nennen ihre CSS-Variablen verschieden, die Rechnung ist
+dieselbe.
+
+**Was der Mutationstest gefunden hat.** Wer welchen Ort kleiden darf,
+stand zuerst als Bedingungskette im Worker, und der Test prüfte, dass
+der Satz „a tenant administers only its own place" dort steht. Ändert
+jemand die Bedingung und lässt den Satz stehen, bleibt der Test grün —
+und genau so ist die Mutation durchgerutscht. Jetzt ist es
+`place.face_target()`, eine Funktion, die man aufrufen kann, von beiden
+Türen gefragt und mit echten Argumenten geprüft. Der allgemeine Satz
+dazu: **Eine Regel in einem Zweig kann man nur durch Lesen prüfen; eine
+Regel in einer Funktion kann man ausführen.**
+
+**Was Schritt 3 nicht tut.** Die Frage aus Schritt 2 bleibt offen und
+ist bewusst offen gelassen: Unter `<kürzel>.<knoten>` antwortet das
+ganze Portal, und nur das Launchpad verengt sich am Host. Das Gesicht
+trägt jetzt jede Seite dort — der Anker steht in der Kopfzeile und
+damit überall —, aber die übrigen Seiten zeigen weiterhin, was der
+Rollen der aufrufenden Person entspricht, nicht was die Adresse fragt.
+Keine Rechteausweitung; jede Seite prüft weiter ihre eigenen. Es ist
+eine Frage der Konsequenz, und sie gehört zu dem Tag, an dem ein Verein
+sie stellt.
+
+**Apps bleiben draußen.** RFC-0035 D3 verspricht, dass ein
+Mandanten-Design später ändert, *woher* die Werte unter
+`/platform/theme.css` kommen. Das ist hier nicht eingelöst: Das
+Design gilt für die Seiten, die die Plattform selbst ausliefert —
+Portal und Anmeldung —, nicht für Apps unter
+`<instanz>.<kürzel>.<knoten>`. Eine mandantenabhängige `theme.css`
+bräuchte einen Dienst statt einer statischen Datei, und dafür gibt es
+heute keinen Abnehmer.
