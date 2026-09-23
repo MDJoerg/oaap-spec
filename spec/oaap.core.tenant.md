@@ -532,6 +532,15 @@ rename and a restore, and never the thing an archive carries. Putting a
 picture on a page anyone can open makes it public; a copy in a public
 directory says so, rather than implying it.
 
+**Removing a logo removes the reference, not the bytes.** The byte
+layer has no delete in `oaap.data.files` 0.1, deliberately — content is
+removed because a *document* may be removed, and that is
+`oaap.data.documents`. So clearing a logo MUST drop the reference and
+the served copy, and the content stays in the tenant's store until that
+capability exists. An implementation MUST NOT pretend otherwise: a
+tenant told their picture is gone, whose bytes are still on the node,
+has been told something false.
+
 **The type is decided by the content, never by the file name**, and an
 implementation MUST refuse SVG. The picture is served from the
 platform's own origin, and an image that can carry script sits there

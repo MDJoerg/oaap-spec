@@ -502,6 +502,30 @@ Türen gefragt und mit echten Argumenten geprüft. Der allgemeine Satz
 dazu: **Eine Regel in einem Zweig kann man nur durch Lesen prüfen; eine
 Regel in einer Funktion kann man ausführen.**
 
+**Zwei Befunde von der Maschine, die den Bauplan nicht vorhergesehen
+hat.** Das Update auf 0.1.117 hat das Gateway von `oaap-test` nicht
+mehr starten lassen: Die Logos hängen mit Absicht *innerhalb* des
+schreibgeschützten `static`-Mounts, und Docker kann in einem read-only
+Mount keinen Einhängepunkt anlegen. Jede HTTP-Route des Knotens war
+weg, bis das Verzeichnis im Baum existierte (0.1.118). Und danach:
+`/platform/*` ist zwar seit 0.1 öffentlich — aber nur auf der
+Basis-Site. Jede für einen externen Namen *erzeugte* Site wurde ohne
+die Route geschrieben, also antwortete die Adresse, die die
+Anmeldeseite gerade in sich hineingeschrieben hatte, mit einer
+Weiterleitung auf das Anmeldeformular (0.1.119). Beide gefunden, indem
+genau die URL abgefragt wurde, die die Seite selbst nennt — und der
+zweite Befund ist älter als dieses RFC: Das gemeinsame Stylesheet aus
+RFC-0035 war unter einem externen Namen noch nie erreichbar.
+
+**Und einer, der bleibt:** Ein entferntes Logo verschwindet aus dem
+Mandantensatz und aus der ausgelieferten Kopie — die **Bytes** bleiben
+im Speicher des Mandanten. `oaap.data.files` 0.1 hat mit Absicht kein
+Löschen; Inhalte verschwinden, weil ein *Dokument* verschwinden darf,
+und das ist `oaap.data.documents`. Auf `oaap-test` nachgemessen: nach
+dem Entfernen des Logos hält `klick-probe` weiterhin zwei Dateien. Das
+steht so in der Spezifikation, damit niemandem gesagt wird, sein Bild
+sei weg, während es auf dem Knoten liegt.
+
 **Was Schritt 3 nicht tut.** Die Frage aus Schritt 2 bleibt offen und
 ist bewusst offen gelassen: Unter `<kürzel>.<knoten>` antwortet das
 ganze Portal, und nur das Launchpad verengt sich am Host. Das Gesicht
