@@ -1,6 +1,8 @@
 # RFC-0043: The Instance Tells the App Its Own Names
 
-- **Status:** Draft (2026-09-24) — three decisions open for Jörg (§3)
+- **Status:** **Accepted (2026-09-24)** — N1, N2 and N3 decided by Jörg
+  as recommended, the same evening the question was asked. **Build
+  deferred** on his word ("bau es später"); nothing of §4 is built.
 - **Date:** 2026-09-24
 - **Authors:** Claude (finding & proposal), Jörg (the question that raised it)
 - **Depends on:** RFC-0009 (a public address that belongs to the app),
@@ -14,6 +16,8 @@
   the way to make the answer *yes*.
 
 ## Zusammenfassung für Jörg
+
+_Entschieden am 2026-09-24: N1–N3 wie empfohlen. Bau später._
 
 Eine Instanz trägt auf der Plattform einen Hauptnamen und Aliasse
 (RFC-0018). Die App darin erfährt davon nichts: kein Eintrag in der
@@ -115,7 +119,7 @@ is built together with its first consumer: Wegweiser reads
 platform side is not done until that read has been measured on
 oaap-test with a renamed instance.
 
-## 3. Decisions for Jörg
+## 3. Decisions for Jörg — all three taken as recommended (2026-09-24)
 
 ### N1 — Which names go into the list?
 
