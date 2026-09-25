@@ -13,8 +13,9 @@
   portal shows but does not yet bind. **Stage 2 BUILT 2026-09-25**
   (reference 0.1.129, `oaap.net.connector` 0.1, `oaap.net.destinations`
   0.2), measured between `oaap-test` and `oaap-demo` in both
-  directions — on our LAN, not yet `oaap-demo` inner / `oaapx01` outer
-  as D4 names (that needs Jörg's release for `oaapx01`). Deviations: HTTP
+  directions on our LAN, and then as D4 names it: `oaap-demo` inner,
+  `oaapx01` outer, over the internet with TLS (2026-09-25, released by
+  Jörg). Deviations: HTTP
   only through the tunnel; the outer side logs calls in the tunnel's
   stream log, not in the tenant audit log (§2.4 — it records people's
   decisions, one line per HTTP call would drown them). **§6's "live

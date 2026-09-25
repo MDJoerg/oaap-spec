@@ -281,6 +281,15 @@ inner, `--plain`), then with the roles reversed:
 - an app network cannot resolve the connector service at all; from the
   platform network `/via` without the gateway's key is 403.
 
+The same afternoon, as RFC-0033 D4 names it: `oaap-demo` inner,
+`oaapx01` outer, **over the internet with TLS** (`https://oaap.joomp.de`,
+no `--plain`). The inner node dialled out from the home network's
+public address; a test app on `oaapx01` got the backend's answer in
+30 ms with the destination's credential and none of its forged headers,
+5 MiB down in 1.3 s, 2 MiB up whole and without `Expect`; outside the
+prefix 403, another app's network 403, pause 502. Nothing on `oaapx01`
+changed in public: all nine public names answered as before.
+
 **Two findings changed the code** (both now conformance tests): an
 `Expect: 100-continue` passed through the tunnel stalled every upload
 over 1 MiB for 120 s; and a revoked tunnel answered 403 while the CLI
