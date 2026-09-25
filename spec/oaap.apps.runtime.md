@@ -1,7 +1,16 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.29 (**sideloading**, RFC-0037: on a `sideload` node a
+- **Version:** 0.2.30 (**the instance tells the app its own names**,
+  RFC-0043: `OAAP_INSTANCE_NAMES` in the platform-owned environment —
+  the canonical name first, then the aliases, then the automatic node
+  addresses, each an origin with the scheme the gateway serves it
+  under; information, not authorisation. Every change of names
+  recreates the container; a regeneration of the gateway only
+  refreshes the file and names what is stale — new 2.8.1, and 2.4.3
+  rule 3 now lists the platform-owned set. Found while writing it: an
+  app that publishes its own address had no way to know it;
+  0.2.29 (**sideloading**, RFC-0037: on a `sideload` node a
   `server_admin` may install an uploaded package straight into
   production, after a review the host produces and the person confirms
   — new 2.14.2, a second exception in 2.6, and the CLI's ZIP path gains
@@ -741,7 +750,10 @@ For every instance, the runtime delivers the contract guarantees:
 3. Config as env vars; `secret: true` entries stored protected and
    masked in the portal. `OAAP_APP_SECRET` generated per instance,
    stable across restarts, delivered only as env var, never written
-   into app storage or backups.
+   into app storage or backups. The platform-owned variables —
+   `OAAP_APP_SECRET`, `OAAP_PLATFORM_KEY`, `OAAP_TWIN_URL` and
+   `OAAP_INSTANCE_NAMES` (2.8.1) — are never listed for editing and
+   never settable by an operator (2.8).
 4. Health supervision honoring `startup_grace_seconds`; restart policy
    for crashed services.
 5. App containers attach only to internal networks — no container port
@@ -1069,6 +1081,52 @@ the declared-key model gives it a fixed set of keys and no way to add
 one at runtime. RFC-0013 §5 is the first real case; it deliberately
 defers the general answer until that case is built, rather than
 guessing at the shape.
+
+### 2.8.1 The instance's own names (RFC-0043, 0.2.30)
+
+An instance may own several public names — a canonical name and
+aliases (RFC-0018) — besides the automatic node address every
+instance gets. An app that **publishes** an address (a short link, a
+QR code, an address in a mail) needs the name the operator chose, not
+the `Host` of whichever request is in front of it. The runtime tells
+it:
+
+- **`OAAP_INSTANCE_NAMES`** is set in the container environment of
+  every instance that has at least one public name: comma-separated
+  **origins**, each with scheme and never a path. **Order is
+  meaning**: the canonical name first, then the aliases in the order
+  they were registered, then the automatic node addresses last (the
+  current one first, then the unexpired former ones, 2.4). An app that
+  wants "the" address takes the first entry.
+- **The scheme is the one the gateway serves the name under** —
+  `https` on a node with its own TLS, `http` behind an edge that
+  terminates TLS — so the app never guesses it.
+- **Absent, not blank,** when the instance has no public name at all
+  (no name of its own and a node without an external hostname). The
+  app then falls back to the request's `Host`, as before.
+- **Information, not authorisation.** Whether a name reaches the
+  instance is decided at the gateway and only there. An app MUST NOT
+  refuse a request because its `Host` is missing from the list, and
+  MUST NOT accept one because it is present. The list answers one
+  question: *under which names may I publish myself?*
+- **A change of names recreates the container.** `address set`,
+  `alias-add`, `alias-remove`, `address remove` and a change of the
+  node's external hostname all go through one door, from the CLI and
+  from the portal alike, and that door ends with the container. A
+  regeneration of the gateway that changes no name (a platform
+  update, a tenant rename) refreshes the stored environment but does
+  not restart every app on the node; `oaap app address show` then
+  says which running container still carries old names, and
+  `oaap app restart` hands over the new ones. What the app reads is
+  the **container's** environment — `address show` reports that, not
+  the file.
+- **A rehearsal (2.15) lists its own names,** never the production
+  instance's: the copied environment is scrubbed of the variable and
+  the install computes it afresh.
+- The variable is platform-owned like `OAAP_APP_SECRET` (2.4.3 rule
+  3): never listed, never settable. An app MAY let its administrator
+  add names of its own or choose a default among them; it MUST NOT
+  hide a platform name (RFC-0043 N3).
 
 ### 2.9 Store sources (RFC-0012 §2/§4)
 

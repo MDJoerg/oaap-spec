@@ -1,8 +1,14 @@
 # RFC-0043: The Instance Tells the App Its Own Names
 
-- **Status:** **Accepted (2026-09-24)** — N1, N2 and N3 decided by Jörg
-  as recommended, the same evening the question was asked. **Build
-  deferred** on his word ("bau es später"); nothing of §4 is built.
+- **Status:** **Accepted (2026-09-24), built 2026-09-25** — N1, N2 and
+  N3 decided by Jörg as recommended the evening the question was asked,
+  the build deferred on his word and called the next morning ("baue
+  RFC-0043"). All four steps of §4 are built: `oaap.apps.runtime` 0.2.30
+  (new 2.8.1), reference 0.1.126, Wegweiser 0.4.0 as the first reader,
+  and the measuring on oaap-test read the variable **inside the
+  container** after every one of the five name changes (§6). Rolled to
+  oaap-test from the working copy; the fleet and oaapx01 wait for a push
+  and, for oaapx01, Jörg's go-ahead.
 - **Date:** 2026-09-24
 - **Authors:** Claude (finding & proposal), Jörg (the question that raised it)
 - **Depends on:** RFC-0009 (a public address that belongs to the app),
@@ -175,3 +181,47 @@ two-places problem this RFC exists to remove.
   relay; a restart carries the fact well enough for now.
 - Names of *other* instances. An app learns its own names, nothing
   about its neighbours.
+
+## 6. What was built (2026-09-25)
+
+**Spec.** `oaap.apps.runtime` 0.2.30: new 2.8.1 with the six rules of
+§2, and 2.4.3 rule 3 now lists the platform-owned set.
+
+**Reference 0.1.126.** `instance_names_env()` composes the value from
+the one function that already names an instance's own addresses
+(`instance_names`) and the one that composes its automatic ones
+(`instance_auto_hosts`), so the variable cannot drift from the gateway
+sites. `sync_instance_names()` brings `instance.env` up to date always
+and recreates a container only when told to — and it decides that by
+reading the **container's** environment (`docker inspect`), not the
+file. Every name change goes through one door, `commit_instance_names`:
+the four CLI actions and the four portal-spool actions were eight copies
+of the same three lines and are now eight calls of one function, so
+neither door can forget the last step (zwei Wege, eine Regel).
+`external set/remove` syncs every instance; a regeneration of the
+gateway (platform update, tenant rename) syncs the file and recreates
+nothing — restarting every app on a node for a variable most of them do
+not read yet is not the platform's call. `oaap app address show` prints
+the names **as the app sees them** and says STALE when the container
+carries something else. The rehearsal scrub drops the variable. New
+`test/test_instance_names_env.py` (30 checks, no Docker): the
+arithmetic, the file-always/container-on-request rule, both doors, the
+STALE report, the node rename.
+
+**Wegweiser 0.4.0**, the first reader: platform names first and
+read-only, the administrator's additions after them, a chosen default in
+front (N3 exactly). 182 tests.
+
+**Measured on oaap-test** (0.1.126 from the working copy, no push):
+`address set`, `alias-add`, `alias-remove`, `set` again and `remove` —
+after each one the container was recreated and `docker inspect` showed
+the expected value, including its absence after `remove`. Then
+Wegweiser 0.4.0 was installed and `GET /api/v1/hosts` through the
+gateway, with a day key, answered `"platform": ["https://go.test.example"]`
+— the whole chain from registry to app in one reading. The probe name
+was removed afterwards; the node has no external hostname, so the
+instance carries no names again and the variable is absent, as §2.1
+says.
+
+**Not measured:** a tenant rename and the behind-edge scheme on a real
+node (both covered by the unit test only), and the fleet.
