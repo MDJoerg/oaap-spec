@@ -224,4 +224,16 @@ instance carries no names again and the variable is absent, as §2.1
 says.
 
 **Not measured:** a tenant rename and the behind-edge scheme on a real
-node (both covered by the unit test only), and the fleet.
+node (both covered by the unit test only).
+
+**Fleet run, 2026-09-25 (0.1.126, then 0.1.127).** All five nodes,
+all HEALTHY, no app restarted by the update, `address show` saying
+STALE for every named instance until its next recreate — as designed.
+And the first reader found a bug older than itself: after Wegweiser
+0.4.0 was redeployed on oaapx01 the variable listed the canonical name
+and the node address and **no alias**. The "survives redeploy" block of
+the installer kept the address and dropped the aliases, since RFC-0018;
+nobody had ever read the names back. 0.1.127 keeps them, with a test
+that runs the whole install against Docker stand-ins and fails without
+the fix. This is §2.5 in practice: a format nobody reads is never
+checked.
