@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://oaap.org/schema/oaap-app-0.2.json",
-  "title": "OAAP app manifest (oaap-app.yaml), manifest versions 0.1 to 0.4",
+  "title": "OAAP app manifest (oaap-app.yaml), manifest versions 0.1 to 0.5",
   "$comment": "This schema is an AUTHORING tool: it rejects unknown fields so a typo is caught where it is made. A node in the field reads more tolerantly (RFC-0012 §8.2) — it accepts a higher minor version and ignores what it does not know, because otherwise every extension of the format would be a flag day for the whole fleet. Strict schema, tolerant runtime. The newest schema always validates every manifest version still readable. Until 2026-09-12 it skipped 0.3 (data_model/contributes/consumes, RFC-0031 Schritt 2): appctl.py accepted such manifests while this schema refused them, so every twin-aware app failed its own authoring check. The id keeps its historic '0.2' so existing references do not break. Check changes with 'python schema/validate.py'.",
   "type": "object",
   "required": [
@@ -87,6 +87,28 @@
       }
     },
     {
+      "$comment": "Same rule for the 0.5 field: 'destinations' may only be used by a manifest declaring at least 0.5 (oaap.net.destinations 0.1 §2.2).",
+      "if": {
+        "properties": {
+          "oaap_manifest": {
+            "enum": [
+              "0.1",
+              "0.2",
+              "0.3",
+              "0.4"
+            ]
+          }
+        }
+      },
+      "then": {
+        "not": {
+          "required": [
+            "destinations"
+          ]
+        }
+      }
+    },
+    {
       "$comment": "Two shapes, told apart structurally exactly as appctl.py does (oaap.data.model 0.1 §2.8): a manifest with a 'data_model' section and NO 'services' key is a data_models ARTEFACT — types only, never a container. It has no app.type (that describes how a container is packaged), no routes/endpoints/storage/health (nothing to attach them to) and no contributes/consumes (those bind an INSTANCE, and an artefact never becomes one). Everything else is an app, and needs services, routes, health and app.type.",
       "if": {
         "required": [
@@ -165,9 +187,10 @@
         "0.1",
         "0.2",
         "0.3",
-        "0.4"
+        "0.4",
+        "0.5"
       ],
-      "$comment": "MAJOR.MINOR. A new MINOR only adds; a new MAJOR is the only thing a node may refuse (RFC-0012 §8.2). Deliberately not the semver 0.x reading, where the minor would carry breaking changes. 0.2 adds app.class. 0.3 adds data_model/contributes/consumes (oaap.data.model 0.1 §2.2, RFC-0031 §5) and the data_models artefact shape (§2.8). 0.4 adds the 'launchpad' section (RFC-0036)."
+      "$comment": "MAJOR.MINOR. A new MINOR only adds; a new MAJOR is the only thing a node may refuse (RFC-0012 §8.2). Deliberately not the semver 0.x reading, where the minor would carry breaking changes. 0.2 adds app.class. 0.3 adds data_model/contributes/consumes (oaap.data.model 0.1 §2.2, RFC-0031 §5) and the data_models artefact shape (§2.8). 0.4 adds the 'launchpad' section (RFC-0036). 0.5 adds the 'destinations' section (oaap.net.destinations 0.1, RFC-0033 stage 1)."
     },
     "must_understand": {
       "type": "array",
@@ -352,7 +375,9 @@
             "description": "The value is a LIST. The portal offers one line per entry; on the wire the lines are joined with ';' — so an app parses the single-line form and no entry may itself contain ';'."
           },
           "generate": {
-            "enum": ["token"],
+            "enum": [
+              "token"
+            ],
             "description": "Only for a key whose value THIS app defines: the portal offers to produce it, as 32 random bytes in url-safe base64 (alphabet [A-Za-z0-9_-], no padding) — a value the platform's line-based env file and ';'-separated lists can carry. Do NOT declare it on a key that holds somebody else's credential."
           }
         }
@@ -715,6 +740,76 @@
           "reason": {
             "type": "string",
             "description": "Why this app needs a port past the gateway. Required, because the operator granting it reads this sentence and nothing else — and the schema listed it as required without ever allowing it, so no manifest with an endpoint could validate (found 2026-08-24)."
+          }
+        }
+      }
+    },
+    "destinations": {
+      "type": "array",
+      "description": "Manifest 0.5, oaap.net.destinations 0.1 §2.2 (RFC-0033 stage 1): the destinations this app CAN use. A declaration grants nothing -- an operator binds a tenant's destination to the instance. An http need is reached through OAAP_DESTINATION_<NAME>_URL, and the app never sees the credential. A tcp need is handed over into the environment fields named in 'env', including the credential ('handover' mode).",
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "kind"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9-]{0,38}[a-z0-9]$"
+          },
+          "kind": {
+            "enum": [
+              "http",
+              "tcp"
+            ]
+          },
+          "purpose": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "env": {
+            "type": "object",
+            "description": "tcp only: which environment variable receives which part of the destination. Each value must not collide with a 'config' key or a platform-owned OAAP_* variable.",
+            "additionalProperties": false,
+            "properties": {
+              "host": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_]*$"
+              },
+              "port": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_]*$"
+              },
+              "user": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_]*$"
+              },
+              "password": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_]*$"
+              }
+            }
+          }
+        },
+        "if": {
+          "properties": {
+            "kind": {
+              "const": "tcp"
+            }
+          }
+        },
+        "then": {
+          "required": [
+            "env"
+          ]
+        },
+        "else": {
+          "not": {
+            "required": [
+              "env"
+            ]
           }
         }
       }

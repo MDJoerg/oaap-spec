@@ -82,7 +82,7 @@ print("=== Versionen und Grundform ===")
 case("0.1-App ohne Zusaetze", app("0.1"), True)
 case("0.2-App mit app.class", app("0.2", app=dict(APP["app"], **{"class": "service"})), True)
 case("0.1 darf app.class nicht nutzen", app("0.1", app=dict(APP["app"], **{"class": "service"})), False)
-case("unbekannte Version 0.5 wird beim Schreiben abgelehnt", app("0.5"), False)
+case("unbekannte Version 0.6 wird beim Schreiben abgelehnt", app("0.6"), False)
 case("eine App ohne app.type wird abgelehnt", app("0.2", app={k: v for k, v in APP["app"].items() if k != "type"}), False)
 case("eine App ohne routes wird abgelehnt", {k: v for k, v in app("0.2").items() if k != "routes"}, False)
 
@@ -139,6 +139,19 @@ case("0.2 kann kein Artefakt sein (data_model erst ab 0.3)",
 print("\n=== 0.4: launchpad (RFC-0036) ===")
 case("0.4 mit launchpad", app("0.4", launchpad={"group": "Werkzeuge", "embeddable": False}), True)
 case("0.3 darf launchpad nicht nutzen", app("0.3", launchpad={"group": "Werkzeuge"}), False)
+
+print("\n=== 0.5: destinations (oaap.net.destinations 0.1, RFC-0033 Stufe 1) ===")
+HTTP_NEED = {"name": "erp", "kind": "http", "purpose": "Auftraege nachschlagen"}
+TCP_NEED = {"name": "mail", "kind": "tcp",
+            "env": {"host": "SMTP_HOST", "port": "SMTP_PORT",
+                    "user": "SMTP_USER", "password": "SMTP_PASSWORD"}}
+case("0.5 mit einem http- und einem tcp-Bedarf", app("0.5", destinations=[HTTP_NEED, TCP_NEED]), True)
+case("0.4 darf destinations nicht nutzen", app("0.4", destinations=[HTTP_NEED]), False)
+case("tcp ohne env wird abgelehnt -- nur die Erklaerung nennt die Felder",
+     app("0.5", destinations=[{"name": "mail", "kind": "tcp"}]), False)
+case("http mit env wird abgelehnt -- dort gibt es nichts zu uebergeben",
+     app("0.5", destinations=[dict(HTTP_NEED, env={"host": "X"})]), False)
+case("unbekannte Art wird abgelehnt", app("0.5", destinations=[{"name": "x1", "kind": "smb"}]), False)
 
 files = sys.argv[1:]
 if files:

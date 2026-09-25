@@ -1,8 +1,11 @@
 # oaap.core.gateway — HTTP Gateway (outline)
 
 - **ID:** `oaap.core.gateway`
-- **Version:** 0.2.11
+- **Version:** 0.2.12
 - **Maturity:** draft (outline — full specification to follow;
+  a destination listener on an unpublished port that knows its
+  caller by network, and the internal health listener restricted to
+  the platform network, 2026-09-25 per RFC-0033 stage 1;
   five identity headers instead of two, derived from one list, a
   login redirect that carries a return target, and open connections
   that survive a platform update and not only a deployment,
@@ -384,6 +387,36 @@ permanent per-instance logging.
 - A `Location` keeps its path, because it is what distinguishes "sent to
   the login form" from every other redirect.
 
+## Destination listener (`oaap.net.destinations` 0.1, 0.2.12)
+
+The gateway carries one more internal listener: the path apps call to
+reach a destination they are bound to (`oaap.net.destinations` 2.3).
+
+- **Not published on the host.** Only containers reach it, over the
+  networks the gateway shares with them.
+- **The caller is the network the connection comes from**, matched by
+  the source address against the instance network's ranges
+  (`remote_ip`, never a header: a header is the client's word). The
+  mapping is rewritten whenever an instance network is created or
+  removed, because the container runtime hands a freed range to the
+  next network.
+- Per binding it strips identity and forwarding headers, sets the
+  destination's authentication (replacing whatever the app sent), sets
+  the target's own `Host`, and forwards with the path after
+  `/destinations/<need>` appended to the target's base path.
+- **Order is written, not sorted.** In the reference the steps sit in a
+  Caddy `route` block. Inside a plain `handle`, Caddy orders directives
+  by its own table and runs `rewrite` before `uri strip_prefix` —
+  measured on `oaap-test` 2026-09-25, the target received
+  `/base/destinations/echo/orders/42`.
+- A destination whose secret is missing (after a restore) answers 503
+  with a sentence; it is never called without its credential.
+- Everything unbound answers 403 with a sentence; a rehearsal's network
+  gets its own sentence.
+
+The internal **health** listener (runtime 2.11) follows the same rule
+since 0.2.12: it answers callers from the platform network only.
+
 ## Dependencies
 
 `oaap.core.identity`
@@ -606,3 +639,23 @@ Verbindungen abgerissen sind.
 **Nicht erreichbar und nicht gefordert:** Ändert sich das Abbild des
 Gateways selbst, wird der Container ersetzt und seine Verbindungen
 enden mit ihm. Die Zusage gilt für Konfigurationsänderungen.
+
+## Deutsche Zusammenfassung (v0.2.12 — Destinations-Port und ein Gesundheits-Port, der nur noch dem Portal antwortet)
+
+Das Gateway hat einen weiteren internen Port, **8098**. Über ihn
+erreichen Apps die Destinationen, an die sie gebunden sind. Er wird
+nicht nach außen veröffentlicht. Das Gateway erkennt die aufrufende
+Instanz an der Absenderadresse der Verbindung, also daran, aus welchem
+Instanznetz sie kommt, und nie an einer Kopfzeile. Es entfernt
+Identitäts- und Weiterleitungs-Kopfzeilen, setzt die Anmeldung der
+Destination (die der App wird ersetzt) und leitet an das Ziel weiter.
+
+**Befund beim Messen:** In einem gewöhnlichen `handle`-Block sortiert
+Caddy die Anweisungen selbst und schreibt den Pfad um, *bevor* es das
+Präfix abschneidet. Der erste echte Aufruf kam deshalb unter
+`/base/destinations/echo/orders/42` an statt unter `/base/orders/42`.
+Die Schritte stehen jetzt in einem `route`-Block, der die geschriebene
+Reihenfolge einhält.
+
+Der interne Gesundheits-Port 8099 antwortet seit dieser Version nur
+noch dem Plattformnetz. Vorher war er aus jedem App-Netz erreichbar.

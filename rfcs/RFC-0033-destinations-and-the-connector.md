@@ -3,7 +3,14 @@
 - **Status:** Accepted (2026-09-08) — D1, D2, D3 and D5 decided by Jörg
   in the design round; D4, D6, D8, D9 and D10 the same evening, each
   following the recommendation; **D7 decided differently**: node
-  command and laptop client both ship in stage 3. Nothing is built.
+  command and laptop client both ship in stage 3. **Stage 1
+  BUILT 2026-09-25** (reference 0.1.128, `oaap.net.destinations` 0.1,
+  manifest 0.5), measured end to end on `oaap-test`. Three deliberate
+  deviations, each with its reason in the spec: no encryption at rest
+  (§1.1 — the gateway needs the clear value on the same disk), destinations
+  maintained by `server_admin` only (§1.1 names `tenant_admin` too —
+  a tenant-writable target needs a connect-time check first), and the
+  portal shows but does not yet bind. Stages 2–5 unbuilt.
 - **Date:** 2026-09-08
 - **Authors:** Jörg (the pattern, the direction, the ngrok wish), Claude
   (analysis & proposal)

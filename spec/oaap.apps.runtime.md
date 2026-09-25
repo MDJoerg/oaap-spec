@@ -1,7 +1,14 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.30 (**the instance tells the app its own names**,
+- **Version:** 0.2.31 (**destinations**, `oaap.net.destinations` 0.1 /
+  RFC-0033 stage 1: manifest 0.5 may declare destination needs, a
+  binding puts `OAAP_DESTINATION_<NEED>_URL` or handed-over fields
+  into the platform-owned environment, and a rehearsal gets none —
+  2.15.2 gains a fifth refusal, new 2.8.2. And 2.11's health endpoint
+  is now ENFORCED as platform-network-only: the sentence "apps cannot
+  reach that endpoint" was measured false on oaap-test 2026-09-25;
+  0.2.30 (**the instance tells the app its own names**,
   RFC-0043: `OAAP_INSTANCE_NAMES` in the platform-owned environment —
   the canonical name first, then the aliases, then the automatic node
   addresses, each an origin with the scheme the gateway serves it
@@ -319,8 +326,15 @@ reach them by container name either — including the portal's health
 probe. The health check therefore goes **through the gateway** (the one
 core service on every app network): the gateway exposes an internal,
 platform-network-only endpoint that proxies to each instance's health
-path, and the portal asks it. Apps cannot reach that endpoint (they are
-not on the platform network).
+path, and the portal asks it. **Apps MUST NOT be able to reach that
+endpoint.** Until 0.2.31 this sentence said they *could not*, because
+they are not on the platform network — but the gateway listens on
+every interface it has, and it has one in every instance network.
+Measured on `oaap-test` 2026-09-25: a container on one app's network
+got `200` for another app's health page. The endpoint therefore
+checks the caller's source address against the platform network's
+ranges and answers everything else with 403; when the ranges cannot
+be read, nothing matches.
 
 ### 2.12 Multi-container apps (RFC-0016)
 
@@ -634,7 +648,7 @@ a rehearsal; nothing else in the record distinguishes one.
   extended six times has stopped being temporary, and the count is what
   makes that visible instead of remembered.
 
-#### 2.15.2 The four refusals
+#### 2.15.2 The five refusals
 
 A rehearsal holds a copy of live customer data. Reading it is not what
 makes it dangerous — **acting** is: sending the real dunning e-mail,
@@ -658,6 +672,12 @@ being asked:
    fills in what it actually needs. An app that will not start without
    its secret SHOULD say so loudly — that is the correct outcome; a
    rehearsal that starts quietly and mails real customers is not.
+5. **No destination bindings** (`oaap.net.destinations` 2.6, 0.2.31).
+   The copied environment loses every `OAAP_DESTINATION_*` variable and
+   every handed-over field before a container exists, and they are not
+   offered as "fill this in": the answer to a missing destination is a
+   deliberate binding with `--rehearsal-exception`, which the tenant's
+   log records — never a pasted production credential.
 
 In addition, a rehearsal gets its **own `OAAP_APP_SECRET`**, never the
 original's. An app that encrypted stored data with it finds its own data
@@ -1127,6 +1147,27 @@ it:
   3): never listed, never settable. An app MAY let its administrator
   add names of its own or choose a default among them; it MUST NOT
   hide a platform name (RFC-0043 N3).
+
+### 2.8.2 Destinations (`oaap.net.destinations` 0.1, 0.2.31)
+
+Manifest 0.5 adds a `destinations` section in which an app declares the
+external targets it *can* use. A declaration grants nothing. An
+operator binds a tenant's destination to the instance, and only then
+does the platform-owned environment change:
+
+- an `http` binding sets `OAAP_DESTINATION_<NEED>_URL`, an address on
+  the gateway; the credential stays with the platform;
+- a `tcp` binding fills the fields the declared need names (`host`,
+  `port`, `user`, `password`) — **handover**, said so wherever the
+  binding is shown.
+
+Bindings survive a redeploy like links do. A binding or unbinding
+recreates the container, because the environment is what the app reads.
+Every `OAAP_DESTINATION_*` variable and every handed-over field is
+platform-owned (2.4.3 rule 3): never listed as config, never settable,
+and a manifest whose handed-over field collides with a `config` key or
+an `OAAP_*` name is invalid. The rules themselves live in
+`oaap.net.destinations`.
 
 ### 2.9 Store sources (RFC-0012 §2/§4)
 
@@ -2095,3 +2136,22 @@ während die Übernahme, der andere Weg nach Produktiv, sie seit je
 anzeigt und eine ausdrückliche Bestätigung verlangt. Jetzt gelten für
 beide Wege dieselben Regeln.
 
+## Deutsche Zusammenfassung (v0.2.31 — Destinationen, und der Gesundheits-Port wird zur Regel)
+
+**Destinationen (neu 2.8.2, Generalprobe 2.15.2 Punkt 5).** Mit
+Manifest 0.5 kann eine App erklären, welche Ziele außerhalb sie
+benutzen *kann*, etwa ein ERP (HTTP) oder einen Mailserver (TCP). Die
+Erklärung erlaubt nichts. Erst wenn der Betreiber eine Destination des
+Mandanten an die Instanz bindet, ändert sich die Umgebung: Bei HTTP
+kommt eine Adresse am Gateway hinein, und die Zugangsdaten bleiben bei
+der Plattform. Bei TCP werden Adresse und Zugangsdaten übergeben, und
+das wird überall so genannt. Bindungen überstehen ein Neu-Ausrollen.
+Eine Generalprobe bekommt keine, außer jemand bindet ausdrücklich, und
+dann steht es im Prüfprotokoll.
+
+**Gesundheits-Port (2.11).** Hier stand bisher „Apps können diesen
+Endpunkt nicht erreichen“. Gemessen am 25.09. auf `oaap-test`: Sie
+konnten es. Ein Container im RACI-Netz bekam die Gesundheitsseite von
+Vaultwarden. Das Gateway lauscht in jedem Instanznetz, und der Port
+unterschied nicht. Jetzt prüft das Gateway die Absenderadresse, und nur
+das Plattformnetz bekommt eine Antwort.
