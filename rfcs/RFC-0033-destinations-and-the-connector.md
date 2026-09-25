@@ -10,7 +10,18 @@
   (§1.1 — the gateway needs the clear value on the same disk), destinations
   maintained by `server_admin` only (§1.1 names `tenant_admin` too —
   a tenant-writable target needs a connect-time check first), and the
-  portal shows but does not yet bind. Stages 2–5 unbuilt.
+  portal shows but does not yet bind. **Stage 2 BUILT 2026-09-25**
+  (reference 0.1.129, `oaap.net.connector` 0.1, `oaap.net.destinations`
+  0.2), measured between `oaap-test` and `oaap-demo` in both
+  directions — on our LAN, not yet `oaap-demo` inner / `oaapx01` outer
+  as D4 names (that needs Jörg's release for `oaapx01`). Deviations: HTTP
+  only through the tunnel; the outer side logs calls in the tunnel's
+  stream log, not in the tenant audit log (§2.4 — it records people's
+  decisions, one line per HTTP call would drown them). **§6's "live
+  read, no extra work" did not hold:** the pipe carries the call and
+  identity accepts the key, but `oaap.data.twin` takes the tenant from
+  the local instance registry and refuses a reader from another node —
+  one rule is missing there, a decision for Jörg. Stages 3–5 unbuilt.
 - **Date:** 2026-09-08
 - **Authors:** Jörg (the pattern, the direction, the ngrok wish), Claude
   (analysis & proposal)

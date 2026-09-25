@@ -1,8 +1,10 @@
 # oaap.core.gateway — HTTP Gateway (outline)
 
 - **ID:** `oaap.core.gateway`
-- **Version:** 0.2.12
+- **Version:** 0.2.13
 - **Maturity:** draft (outline — full specification to follow;
+  the public tunnel route `/connect/tunnel` and `via` destinations
+  handed to the connector service, 2026-09-25 per RFC-0033 stage 2;
   a destination listener on an unpublished port that knows its
   caller by network, and the internal health listener restricted to
   the platform network, 2026-09-25 per RFC-0033 stage 1;
@@ -417,6 +419,21 @@ reach a destination they are bound to (`oaap.net.destinations` 2.3).
 The internal **health** listener (runtime 2.11) follows the same rule
 since 0.2.12: it answers callers from the platform network only.
 
+**Since 0.2.13 (`oaap.net.connector` 0.1):**
+
+- A binding to a `via` destination runs the same steps and forwards to
+  the connector service at `/via/<tunnel>/<offer>`, adding three
+  headers of its own — the gateway's key for that service, the calling
+  instance, the destination with its tenant. They are set, never passed
+  through: whatever the app sent under those names is overwritten.
+- **`/connect/tunnel` is a public route** on the `:80` site and on every
+  generated site for a registered name: no session, identity headers
+  stripped, like the deploy hook. Exactly this path — the connector
+  service's `/via` is not reachable from outside. The route survives a
+  reload (`stream_close_delay`), because a tunnel is a held stream. The
+  generated sites are carried forward by an update step, not only by
+  the next change to them (the `/platform/*` lesson of 0.1.117).
+
 ## Dependencies
 
 `oaap.core.identity`
@@ -659,3 +676,20 @@ Reihenfolge einhält.
 
 Der interne Gesundheits-Port 8099 antwortet seit dieser Version nur
 noch dem Plattformnetz. Vorher war er aus jedem App-Netz erreichbar.
+
+## Deutsche Zusammenfassung (v0.2.13 — die Tunnel-Route)
+
+Neu ist die öffentliche Route **`/connect/tunnel`**. Über sie baut ein
+innerer Knoten seinen Tunnel zu diesem Knoten auf (RFC-0033 Stufe 2).
+Sie braucht keine Anmeldung im Portal, weil der Verbindungsdienst den
+Schlüssel selbst prüft. Sie gilt genau für diesen Pfad, und ein
+Neuladen des Gateways trennt den Tunnel nicht. Sie steht auch auf den
+erzeugten Sites für registrierte Namen. Ein Update-Schritt trägt sie
+in bestehende Dateien nach, denn ein innerer Knoten im Internet wählt
+den **Namen** des äußeren Knotens.
+
+Eine Destination mit `via`-Ziel läuft im Gateway durch dieselben
+Schritte wie eine direkte. Weitergeleitet wird aber an den
+Verbindungsdienst, mit drei eigenen Kopfzeilen: dem Schlüssel des
+Gateways, der aufrufenden Instanz und der Destination samt Mandant.
+Was die App unter diesen Namen schickt, wird überschrieben.

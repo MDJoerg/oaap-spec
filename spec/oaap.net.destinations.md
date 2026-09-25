@@ -1,12 +1,12 @@
 # oaap.net.destinations — Reaching Outward Without Holding the Key
 
 - **ID:** `oaap.net.destinations`
-- **Version:** 0.1
-- **Maturity:** draft (0.1 is RFC-0033 stage 1 and only that:
-  destinations with `direct` targets, bindings as grants, the HTTP
-  proxy and the TCP handover, no bindings in a rehearsal. The connector,
-  the tunnel and `via` targets are stage 2; exposures are stage 3. Both
-  are named here as the frontier, not specified)
+- **Version:** 0.2
+- **Maturity:** draft (0.1 was RFC-0033 stage 1: destinations with
+  `direct` targets, bindings as grants, the HTTP proxy and the TCP
+  handover, no bindings in a rehearsal. 0.2 adds stage 2's `via`
+  targets — HTTP through a tunnel, `oaap.net.connector` 0.1. Exposures
+  are stage 3 and named as the frontier, not specified)
 - **Based on:** RFC-0033 (§1, D1, D5), RFC-0016 (instance networks, the
   shape a binding copies from app-to-app links), RFC-0015 (declaration
   is not publication), RFC-0022 / `oaap.core.tenant` (a destination
@@ -40,7 +40,7 @@ within it. Fields:
 | --- | --- |
 | `name` | `[a-z0-9][a-z0-9-]{0,38}[a-z0-9]`, unique per tenant |
 | `kind` | `http` or `tcp` |
-| `target` | `{direct: <address>}` in 0.1; `{via: <connector>/<offer>}` is reserved for stage 2 and MUST be refused until then |
+| `target` | `{direct: <address>}`, or `{via: "<tunnel>/<offer>"}` for an HTTP destination reached through a tunnel this node accepts (0.2, `oaap.net.connector` 2.5) |
 | `auth` | `none`, `basic` (user + secret), `bearer` (secret), `header` (header name + secret); for `tcp` only `none` and `basic` |
 | `created`, `created_by`, `changed` | who and when, as everywhere |
 
@@ -156,6 +156,24 @@ The app sees plain HTTP and no secret. Rules for implementations:
   tenant adopted from another node) yields neither a variable nor a
   route, and is shown as missing. An address that only ever leads to
   a refusal is a worse answer than no address.
+
+**A `via` target (0.2).** Steps 1–3 are the same. Step 4 forwards to
+the node's connector service instead of the target, which carries the
+call into the tunnel (`oaap.net.connector` 2.5): the path after
+`/destinations/<need>` goes behind `/via/<tunnel>/<offer>`, and the
+gateway adds three headers of its own — a key only it holds, the
+calling instance, the destination with its tenant — overwriting
+anything the app sent under those names. `Host` is set on the inner
+side, to the backend's. **The app's variable and the app's call do not
+change**: an app MUST NOT be able to tell a tunnelled destination from a
+direct one (RFC-0033 §8).
+
+- `via` is for `kind: http` only in 0.2. A TCP destination through a
+  tunnel is refused at creation.
+- The tunnel MUST belong to the destination's tenant. Another tenant's
+  tunnel is answered as one that does not exist.
+- A tunnel that is not connected answers 502 with a sentence; an offer
+  the inner side does not offer answers 404 with a sentence.
 
 ### 2.4 Non-HTTP — the handover, said out loud
 
@@ -304,10 +322,11 @@ with the platform's credential, the target's own `Host`, path and
 query intact, and without the `Authorization`, `X-OAAP-User` and
 `X-Forwarded-For` the app had sent; another app's network on the same
 path got 403; the container environment held the address and never
-the secret; unbinding took the variable out of the running container. Stage 2 (connector, tunnel,
-`via`) will extend 2.1 and 2.3 without changing what the app sees: an
-app MUST NOT be able to tell a direct destination from a tunnelled one
-(RFC-0033 §8).
+the secret; unbinding took the variable out of the running container.
+0.2 (`via`) was built in the reference 0.1.129 and measured the same
+way through a tunnel between `oaap-test` and `oaap-demo`
+(`oaap.net.connector` §7): the app's variable and call were the same as
+for a direct destination (RFC-0033 §8).
 
 ## Deutsche Zusammenfassung
 
@@ -359,3 +378,10 @@ ausdrücklich, und es steht im Prüfprotokoll des Mandanten.
    DNS-Namen, der später auf eine interne Adresse zeigt.
 3. **Das Portal zeigt an, ändert aber noch nichts.** Binden geht in
    0.1 über die Kommandozeile.
+
+**Neu in 0.2: `via`-Ziele.** Eine HTTP-Destination kann über einen
+Tunnel laufen (`--target via:<tunnel>/<angebot>`, siehe
+`oaap.net.connector`). Für die App ändert sich nichts: gleiche
+Variable, gleicher Aufruf. Das Gateway reicht den Aufruf an den
+Verbindungsdienst weiter statt an das Ziel. Nur HTTP, und nur über
+einen Tunnel des eigenen Mandanten.
