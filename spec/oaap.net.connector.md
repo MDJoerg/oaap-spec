@@ -293,8 +293,10 @@ inner node had issued. The twin then refused: `'via-demo' is not a
 registered instance`. The twin takes tenant and origin from the LOCAL
 instance registry, and a reader on another node is not in it. RFC-0033
 §6 expected "no extra work"; one rule is missing in `oaap.data.twin` —
-how a remote reader is named and which tenant it reads. That is a
-decision, not a fix, and is recorded rather than taken here.
+how a remote reader is named and which tenant it reads. Jörg decided
+it the same day; `oaap.data.twin` 0.4 §2.14 (reference 0.1.130) adds a
+read-only remote reader, and the live read through the tunnel was
+measured there.
 
 Deliberately left for later, each named in RFC-0033: TCP through the
 tunnel, re-encryption with the platform CA inside the tunnel, payload
@@ -336,11 +338,10 @@ Richtungen. Zwei Befunde haben den Code geändert:
 - Ein widerrufener Tunnel antwortete 403, versprochen war 502. Jetzt
   bekommen „widerrufen“ und „fremder Mandant“ dieselbe Antwort.
 
-**Offen: der Zwilling live.** Die Leitung trägt den Aufruf, und die
-Anmeldung innen nimmt den Schlüssel an. Der Zwilling lehnt dann ab,
-weil er den Mandanten aus der **lokalen** Instanzliste liest, und ein
-Leser auf einem anderen Knoten steht nicht darin. Dafür fehlt eine
-Regel in `oaap.data.twin`. Das ist eine Entscheidung und kein Fix.
+**Der Zwilling live.** Zuerst lehnte der Zwilling ab, weil er den
+Mandanten aus der **lokalen** Instanzliste las. Jörg hat am selben Tag
+entschieden: `oaap.data.twin` 0.4 kennt den **entfernten Leser**, nur
+lesend und nur für die gegebenen Typen. Gemessen durch den Tunnel.
 
 **Die Abweichungen vom RFC**, jeweils mit Grund:
 1. **Nur HTTP in 0.1.** TCP durch den Tunnel bräuchte außen je

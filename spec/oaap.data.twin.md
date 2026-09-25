@@ -1,9 +1,11 @@
 # oaap.data.twin — The Digital Twin
 
 - **ID:** `oaap.data.twin`
-- **Version:** 0.3
+- **Version:** 0.4
 - **Maturity:** draft
-- **Based on:** RFC-0032 (events, states and the unified namespace — 0.3
+- **Based on:** RFC-0033 §6 / D10 (0.4 adds the remote reader, §2.14:
+  a reader on another node, reached through a tunnel,
+  `oaap.net.connector`); RFC-0032 (events, states and the unified namespace — 0.3
   builds its build-order step 2: the outbox relay and the `states`
   table, §2.13; relay decisions of 2026-09-12 recorded there);
   RFC-0031 (data model & digital twin — Twin is Schritt 3
@@ -166,6 +168,12 @@ that already scrubs `OAAP_APP_SECRET` and manifest-declared secrets),
 and the install that follows does not mint a replacement for a
 rehearsal either. The app simply cannot reach `oaap.data.twin` from a
 rehearsal in 0.1 — honestly, not silently.
+
+**0.4: a second kind of caller, `remote:<label>`** — a reader on
+another node (§2.14). Everything above holds for it: it presents an
+RFC-0027 key scoped to `oaap.twin`, and the tenant comes from the
+principal, never from the request. What changes is where the name is
+looked up.
 
 ### 2.3 The model in 0.1
 
@@ -443,6 +451,64 @@ route without person headers: it answers a node-wide operator question
 and returns counts and ages only — never an object, a group or a
 value. It still sits behind the prefix guard (§2.12).
 
+### 2.14 The remote reader (0.4, RFC-0033 §6 / D10)
+
+An app on **another node** reads this node's twin live, through a
+tunnel (`oaap.net.connector`): the inner node offers its own front door
+(`http://gateway:80/twin`), the outer node binds its app to a `via`
+destination, and the destination carries the key this section
+issues. The app on the outer node never sees the key
+(`oaap.net.destinations` 2.3).
+
+Measured before this section existed (2026-09-25, `oaap-test` ↔
+`oaap-demo`): the call went through the tunnel and `identity` accepted
+the key — and this service refused it, because 0.3 looked every caller
+up in the LOCAL instance registry, where a reader on another node is
+not. RFC-0033 §6 had expected "no extra work"; this section is the
+extra work.
+
+- **Created on the node that holds the data, by its operator:**
+  `oaap data twin add-reader <label> --tenant <t> --reads <type>[,<type>…]`.
+  It creates the machine principal `remote:<label>` in that tenant,
+  records the reader, and issues one key scoped to `oaap.twin`
+  (shown once, 90 days by default, at most 365 — RFC-0027 D3). The
+  types named MUST be active for that tenant. There is no default:
+  a reader reads exactly the types listed.
+- **The record** lives next to the instance registry
+  (`twin-readers.json` in the reference): label, tenant, types, who
+  created it and when. It holds no secret. The service resolves
+  `remote:<label>` there exactly as it resolves `instance:<name>` in
+  the registry: the principal name comes from `identity`'s verification,
+  everything else from a file only the operator writes.
+- **Read-only, by construction and said out loud.** A remote reader
+  gets one `consumes` binding per listed type and nothing else, so
+  §2.6 and §2.4 answer it and §2.5 and §2.7 cannot. Both write routes
+  refuse it with their own sentence before they look at bindings.
+  Writing across nodes belongs to the owning side (RFC-0031 §3.3,
+  RFC-0033 §6: a replica never becomes owner), and is not part of 0.4.
+- **Its origin is `remote:<label>`**, wherever an origin is shown.
+- `oaap data twin readers` lists them; `oaap data twin remove-reader
+  <label>` revokes every key of the principal, deactivates it (principals
+  are kept, like keys, for their history) and removes the record — the
+  next call is refused by `identity`, and a key issued earlier that
+  somehow was not revoked would still be refused here, because the
+  record is gone.
+- A rehearsal is not involved: the reader is not an instance.
+
+**Measured** (reference 0.1.130, 2026-09-25): `oaap-test` holding the
+data and offering `http://gateway:80/twin` through its connector,
+`oaap-demo` outer with a `via` destination bound to an app. Through the
+tunnel the app got `GET /types`, and a `Firma` object whole; an object
+of another type → 403; `POST /objects` and `PUT …/groups/core` → 403
+with the read-only sentence; after `remove-reader` the next call → 401
+from `identity`.
+
+**Why not a stand-in instance in the registry.** Registering the remote
+app as a fake local instance would have worked without a line of code
+here, and every other reader of the registry would then have had to
+know that one entry does not run on this node. A second name space with
+its own file keeps the registry true.
+
 ## 3. Configuration
 
 - `apps/twin-secrets.json` (`0600`, root and the `twin` container's
@@ -586,6 +652,15 @@ value. It still sits behind the prefix guard (§2.12).
     refuses is not counted as delivered — the watermark stays, and
     `last_error` names the refusal.
 
+14. **A remote reader reads what it was given, and nothing else:** a
+    key of `remote:<label>` with `--reads a` gets `GET /twin/types`
+    (bindings: `a` as `consumes`) and `GET /twin/objects/{id}` for an
+    object of type `a`; an object of type `b` → 403; `POST
+    /twin/objects` and `PUT …/groups/…` → 403 with a sentence naming
+    read-only; after `remove-reader` the same key → refused.
+15. **A remote reader of tenant A never reads tenant B:** the tenant is
+    the record's, and no request field changes it.
+
 Step 8 of RFC-0031 §9 (the rehearsal's own copy, D8) is the only one
 still out of scope (§1) and not a conformance test here yet.
 
@@ -615,6 +690,34 @@ relays who is asking, §2.12).
 reference platform (`oaap-test`), and step 8 of RFC-0031 §9 (the
 rehearsal's own copy, D8) has its own capability-spec addendum once
 built — the one piece 0.2 still satisfies by refusal alone (§1, §4).
+
+## Deutsche Zusammenfassung (Nachtrag v0.4 — der entfernte Leser)
+
+Eine App auf einem **anderen Knoten** kann den Zwilling dieses Knotens
+live lesen, durch den Tunnel aus RFC-0033 Stufe 2. Bisher schlug der
+Zwilling jeden Aufrufer in der Instanzliste des eigenen Knotens nach,
+und ein Leser von anderswo stand dort nicht. Gemessen am 25.09.: Der
+Tunnel trug den Aufruf, die Anmeldung nahm den Schlüssel an, und der
+Zwilling lehnte ab.
+
+Jetzt legt der Betreiber des Knotens, der die Daten hält, einen
+**entfernten Leser** an:
+`oaap data twin add-reader <label> --tenant <t> --reads <typ,typ>`.
+Das erzeugt den Maschinen-Prinzipal `remote:<label>` im Mandanten und
+eine Eintragung mit den erlaubten Typen, und es stellt einen Schlüssel
+aus. Der Schlüssel wird einmal angezeigt und gehört in die Destination
+auf dem äußeren Knoten, nicht in die App.
+
+- **Nur lesen.** Der Leser bekommt je Typ eine Nutzungs-Bindung und
+  sonst nichts. Beide Schreibwege lehnen ihn mit einem eigenen Satz ab.
+  Schreiben über Knoten hinweg wäre eine eigene Entscheidung, denn die
+  Daten gehören der Seite, die sie hält.
+- **Nur die genannten Typen, nur der eigene Mandant.** Kein Typ ist
+  voreingestellt, und der Mandant kommt aus der Eintragung, nie aus der
+  Anfrage.
+- **Warum keine Schein-Instanz** in der Instanzliste: Jeder andere Leser
+  dieser Liste müsste dann wissen, dass ein Eintrag gar nicht auf diesem
+  Knoten läuft.
 
 ## Deutsche Zusammenfassung (Nachtrag v0.3 — das Ereignis-Relais)
 

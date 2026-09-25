@@ -18,10 +18,12 @@
   only through the tunnel; the outer side logs calls in the tunnel's
   stream log, not in the tenant audit log (§2.4 — it records people's
   decisions, one line per HTTP call would drown them). **§6's "live
-  read, no extra work" did not hold:** the pipe carries the call and
-  identity accepts the key, but `oaap.data.twin` takes the tenant from
-  the local instance registry and refuses a reader from another node —
-  one rule is missing there, a decision for Jörg. Stages 3–5 unbuilt.
+  read, no extra work" did not hold:** the pipe carried the call and
+  identity accepted the key, but `oaap.data.twin` took the tenant from
+  the local instance registry and refused a reader from another node.
+  Jörg decided the same day; `oaap.data.twin` 0.4 adds a read-only
+  **remote reader** (reference 0.1.130), and the live twin read was
+  measured through the tunnel. Stages 3–5 unbuilt.
 - **Date:** 2026-09-08
 - **Authors:** Jörg (the pattern, the direction, the ngrok wish), Claude
   (analysis & proposal)
