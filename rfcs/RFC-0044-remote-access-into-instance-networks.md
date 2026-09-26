@@ -1,6 +1,7 @@
 # RFC-0044: Remote Access Into Instance Networks — A Person Inside, For a While, In One Place
 
-- **Status:** Draft (2026-09-25) — nothing decided, nothing built. Build
+- **Status:** Accepted (2026-09-26) — D1–D10 decided by Jörg, two of them
+  against the recommendation (D2, D9; see "Decided"). Nothing built. Build
   follows RFC-0033 stage 3 (it reuses its laptop client).
 - **Date:** 2026-09-25
 - **Authors:** Jörg (the wish), Claude (analysis & proposal)
@@ -383,9 +384,56 @@ migrated schema before promotion is what rehearsals are for.
 3. **Names for peers** (D6) — the RFC-0005 DNS push, scoped to the
    instance.
 
-## Decisions (open)
+## Decided (2026-09-26)
 
-Each with a recommendation; none decided.
+Jörg decided all ten. Eight follow the recommendation below; two do not:
+
+| | Decision | vs. recommendation |
+| --- | --- | --- |
+| D1 | `server_admin` and the instance tenant's `tenant_admin` | as recommended |
+| D2 | **Both shapes are built together**, not port forward first | **deviates** |
+| D3 | 1 / 8 / 24 h, default 8, no extension | as recommended |
+| D4 | WireGuard listener only on nodes with profile `remote-access` | as recommended |
+| D5 | Access into a rehearsal: yes, same terms as production | as recommended |
+| D6 | Names for WireGuard peers in stage 3 | as recommended |
+| D7 | Audit log: metadata only | as recommended |
+| D8 | The platform hands over no credentials; the page names where it lives | as recommended |
+| D9 | **Field-device access is regulated here**, not in a separate RFC | **deviates** |
+| D10 | The node generates the WireGuard key pair, shows it once, stores the public half | as recommended |
+
+**Consequences of the two deviations**
+
+- **D2 — one stage instead of two.** Staging §11 stages 1 and 2 become one
+  build. The order inside it stays: the access object, portal card, audit
+  entries and sweep come first; the port forward and the WireGuard peer
+  both hang on them. What the recommendation wanted to avoid — the firewall
+  fence of §2.2 measured late — is answered by measuring it first: the
+  fence test on a real node comes before the WireGuard `.conf` is offered
+  anywhere. Names for peers (D6) remain stage 3.
+- **D9 — a device access is a third kind of access.** Jörg's answers to the
+  two follow-up questions: it leads **to the platform (the gateway), never
+  into an instance network**, and it lives **until revoked, with a mandatory
+  expiry after 12 months**, renewed on purpose and listed. It therefore
+  needs its own text; it must not soften the rules above, which stay as
+  written for instance-network accesses:
+  - Rule 1 is unchanged for instance-network accesses. A device access
+    reaches only what the platform publishes; the gateway's address on an
+    instance network stays excluded (§2.1), and an instance network is
+    never on a device's route.
+  - Rule 2's "lasts a chosen time, 1–24 h" applies to instance-network
+    accesses only. A device access is a named device with a holder,
+    revocable at once, expiring after 12 months, listed with its last use.
+  - **Still open, to be decided before this stage is built** (proposals
+    when it is): which credential the device holds (a WireGuard `.conf`
+    again, or an API key per RFC-0027); whether the device path needs the
+    same node profile as D4; what is recorded per device; who may issue
+    one (D1's roles, or only `server_admin`, since it is a standing
+    credential); whether the Fritzbox-WireGuard case (Bernd today) stays
+    out.
+
+## Decisions (as drafted, with recommendations)
+
+Each with the recommendation it was decided against.
 
 - **D1 — Who may open an access?** Options: only `server_admin`; also
   the `tenant_admin` of the instance's tenant. **Recommendation: both**,
@@ -534,3 +582,23 @@ eine eigene Frage (D8).
 
 **Reihenfolge:** Gebaut wird nach RFC-0033 Stufe 3, weil dort der
 Laptop-Client und der Verbindungsendpunkt am Gateway entstehen.
+
+**Entschieden (Jörg, 26.09.2026).** Alle zehn Punkte sind entschieden,
+acht wie empfohlen. Zwei weichen ab:
+
+- **D2:** Portweiterleitung **und** WireGuard werden **zusammen** gebaut,
+  nicht nacheinander. Damit das Risiko der Firewall-Regel nicht spät
+  auffällt, wird sie zuerst an einem echten Knoten gemessen, bevor eine
+  `.conf` irgendwo ausgegeben wird.
+- **D9:** Der dauerhafte Zugang für Geräte (Bernds Tablets) wird **hier**
+  geregelt. Jörgs Antworten: Er führt **auf die Plattform (Gateway), nie
+  in ein Instanznetz**, und lebt **bis zum Widerruf, mit Pflicht-Ablauf
+  nach 12 Monaten**. Die Regeln für Instanznetz-Zugänge (8 Stunden, ein
+  Netz, nie das Gateway) bleiben dafür unverändert; der Gerätezugang ist
+  eine dritte Art mit eigenem Text.
+
+**Noch offen, vor dem Bau der Geräte-Stufe:** Welchen Schlüssel das Gerät
+hält (WireGuard-Datei oder API-Schlüssel), ob dafür dasselbe Knotenprofil
+gilt wie bei D4, was je Gerät protokolliert wird, wer ihn ausstellen darf
+(ein dauerhafter Schlüssel ist heikler als ein 8-Stunden-Zugang) und ob
+Bernds Fritzbox-WireGuard außen vor bleibt.
