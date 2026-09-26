@@ -541,12 +541,31 @@ that catch them were checked to fail without the fix):
 4. The number of calls in the state stayed 0.
 5. `oaap connect exposures` printed `https://` for a zone that is `http`.
 
-**Not measured yet — say so before it is trusted:** the certificate on
-demand (the first handshake for a fresh name against Let's Encrypt, the
-approval by the portal from the real gateway, and the 50-per-week count)
-needs a node with a real public name in direct mode: `oaapx01`. DNS for
-`*.t.oaap.joomp.de` resolves already (`x.t.oaap.joomp.de` →
-`212.132.64.58`, 2026-09-26). A name **one level too deep**
+**The certificate on demand, measured on `oaapx01` (direct mode, real
+public name `t.oaap.joomp.de`) on 2026-09-26, with Jörg's release.** The
+node dialled itself (`--plain`, endpoint `http://gateway:80`) and opened
+two exposures to a throwaway echo server bound to the platform bridge
+only, ten and five minutes, then everything was torn down.
+- **Login exposure:** the first handshake for the fresh name
+  `ri39javp94.t.oaap.joomp.de` took **6.0 s**, the certificate was
+  issued by **Let's Encrypt** for exactly that name, verified by the
+  client (`ssl_verify_result` 0); the gateway log shows the real
+  on-demand order with the `tls-alpn-01` challenge served to Let's
+  Encrypt's validators. The answer was 303 to `/auth/login` **on the same
+  name**. A second request needed **0.09 s** (cached).
+- **`--public` exposure:** a second fresh name, a second certificate
+  (6.4 s), and the request came through the real gateway, the tunnel and
+  the connector to the target: 200 with the target's own content.
+- **A name that is not an exposure** (`zzunknown99.t.…`): the handshake
+  fails and the gateway log holds **no certificate order** for it — the
+  portal's approval refuses it, as 2.8.7 requires.
+- **After the unexposing** (both ways: 5 s wait) the counter read "no live
+  exposures, 2 names in 7 days", and both names answered 404. Nothing was
+  left on the node: no key, no connector, no process, no file, no `app_*`
+  artefact; `HEALTHY` 4/4 and 20/20 throughout.
+- **Not measured:** the 50-per-week limit itself (two of 50 were used),
+  and the behaviour when Let's Encrypt refuses (a rate-limit answer).
+A name **one level too deep**
 (`a.<name>.t.<host>`) is not part of the zone site; on a node it falls to
 whatever else answers that host, exactly as any unknown name does.
 

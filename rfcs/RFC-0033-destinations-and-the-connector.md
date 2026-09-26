@@ -33,8 +33,9 @@
   names under `t.<external host>`, login by default (D6), on-demand
   certificates approved per name (D8), a TTL and a sweep. Measured on
   `oaap-test` (edge mode) with the real client from a laptop; **the
-  certificate on demand against a real name is not measured yet**
-  (`oaapx01`). Deviations, each with its reason in the spec: no
+  certificate on demand was measured on `oaapx01` the same day**
+  (real Let's Encrypt certificate in 6 s, login and `--public`,
+  an unknown name gets no order). Deviations, each with its reason in the spec: no
   WebSocket through the tunnel; the laptop client is one Python file
   (`aiohttp`), not a binary; a laptop may open one only with the role
   `tenant_admin` (an API key cannot carry `server_admin`, so the node
