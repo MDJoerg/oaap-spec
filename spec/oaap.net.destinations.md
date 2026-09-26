@@ -1,12 +1,12 @@
 # oaap.net.destinations — Reaching Outward Without Holding the Key
 
 - **ID:** `oaap.net.destinations`
-- **Version:** 0.2
+- **Version:** 0.3
 - **Maturity:** draft (0.1 was RFC-0033 stage 1: destinations with
   `direct` targets, bindings as grants, the HTTP proxy and the TCP
   handover, no bindings in a rehearsal. 0.2 adds stage 2's `via`
-  targets — HTTP through a tunnel, `oaap.net.connector` 0.1. Exposures
-  are stage 3 and named as the frontier, not specified)
+  targets — HTTP through a tunnel, `oaap.net.connector` 0.1. 0.3 lets
+  the portal bind and unbind, for `tenant_admin` as well — §2.7)
 - **Based on:** RFC-0033 (§1, D1, D5), RFC-0016 (instance networks, the
   shape a binding copies from app-to-app links), RFC-0015 (declaration
   is not publication), RFC-0022 / `oaap.core.tenant` (a destination
@@ -247,8 +247,29 @@ authentication.
   2.1 happens at connection time rather than at creation (§4). Before
   then, a target a tenant can write is a way into the node's own
   networks.
-- **Bindings are maintained by `server_admin`** in 0.1. The portal
-  shows destinations and bindings but cannot change them yet.
+- **Bindings are maintained by `server_admin` and by the `tenant_admin`
+  of the instance's own tenant** (0.3; RFC-0033 §1.2). The portal binds
+  and unbinds; the CLI still can too, and is the only way to bind a
+  need the manifest does not declare (`--as`) or a rehearsal
+  (`--rehearsal-exception`). Why this may open while authoring targets
+  stays with `server_admin`: a binding chooses among objects the tenant
+  already has, and those were written by an operator who ran the check
+  in 2.1. A `tenant_admin` who can bind cannot make the platform call
+  anywhere new.
+  - The **host** decides, not the page: the request is re-checked where
+    it is executed (role from identity's own store, tenant from the
+    instance, kind and need name as on the CLI). A request from another
+    tenant's `tenant_admin` is answered as one for an instance that does
+    not exist. A request from anybody without a maintainer role is
+    refused and written to the tenant's log as `denied`, with the name.
+  - **The portal never binds a rehearsal** (2.6). Unbinding one is
+    allowed: that only makes it more closed.
+  - The portal offers only what the host accepts: declared needs, this
+    tenant's destinations of the same kind. A `tcp` need says **handover**
+    beside the button (2.4).
+  - Binding and unbinding recreate the app's container (the environment
+    changes) and stand **once** in the tenant's log, with the person's
+    name and role.
 
 ## 3. Configuration
 
@@ -307,6 +328,19 @@ internal and not an operator setting.
     network range does not hand over the first one's bindings.
 11. Targets `http://portal:8000/`, `http://localhost/`, and an address
     inside a current instance network are refused.
+12. (0.3) A `tenant_admin` binds an instance of their own tenant to a
+    destination of that tenant; the log has one `destination.bind` line
+    naming them and their role. The same request for another tenant's
+    instance is answered "unknown instance" and binds nothing; naming
+    another tenant's destination is answered "no such destination".
+13. (0.3) A user without `server_admin` or `tenant_admin`, whose request
+    reached the queue by any way, binds and unbinds nothing; the log
+    holds a `denied` line with their name.
+14. (0.3) A request to bind a rehearsal is refused with the sentence
+    that says how it is done on the node. Unbinding a rehearsal works.
+15. (0.3) The page offers a destination for a need only if the need is
+    declared, unbound and the destination has the same kind and the
+    same tenant; on a rehearsal it offers no binding at all.
 
 ## 6. Dependencies
 
@@ -327,6 +361,24 @@ the secret; unbinding took the variable out of the running container.
 way through a tunnel between `oaap-test` and `oaap-demo`
 (`oaap.net.connector` §7): the app's variable and call were the same as
 for a direct destination (RFC-0033 §8).
+0.3 (portal binding) was built in the reference 0.1.132. Tested with
+the real spool worker and forged requests (roles, tenants, kinds,
+rehearsal) and against the real page template, then measured on
+`oaap-test` 2026-09-26 through the real portal container and the real
+worker, on the test instance `wegweiser`: a `server_admin` request bound
+a LAN echo server in about four seconds; the running container then held
+`OAAP_DESTINATION_ECHO_URL`, a call from inside it reached the target
+with the target's own `Host`, and the tenant's log held one
+`destination.bind` line naming the person and the role
+`server_admin`. The instance page then offered "Lösen" and named the
+destination. A `tenant_admin` of another tenant got 404 "instance not
+found" and the binding stood; a plain user got 403 and it stood; the
+`server_admin`'s unbind took the variable out of the running container
+and wrote one `destination.unbind` line. **Not measured:** a
+`tenant_admin` binding an instance of their OWN tenant on a node (no
+instance of a non-default tenant existed there — that path is covered
+by the worker test only), and a real browser session (the requests
+carried the gateway's identity headers directly to the portal).
 
 ## Deutsche Zusammenfassung
 
@@ -376,8 +428,8 @@ ausdrücklich, und es steht im Prüfprotokoll des Mandanten.
    internen Netze des Knotens (etwa über `http://portal:8000/`). Die
    Prüfung beim Anlegen fängt Namen und Adressen ab, aber keinen
    DNS-Namen, der später auf eine interne Adresse zeigt.
-3. **Das Portal zeigt an, ändert aber noch nichts.** Binden geht in
-   0.1 über die Kommandozeile.
+3. ~~**Das Portal zeigt an, ändert aber noch nichts.**~~ Erledigt in
+   0.3, siehe unten.
 
 **Neu in 0.2: `via`-Ziele.** Eine HTTP-Destination kann über einen
 Tunnel laufen (`--target via:<tunnel>/<angebot>`, siehe
@@ -385,3 +437,20 @@ Tunnel laufen (`--target via:<tunnel>/<angebot>`, siehe
 Variable, gleicher Aufruf. Das Gateway reicht den Aufruf an den
 Verbindungsdienst weiter statt an das Ziel. Nur HTTP, und nur über
 einen Tunnel des eigenen Mandanten.
+
+**Neu in 0.3: Binden im Portal.** Ein `server_admin` und der
+`tenant_admin` **des eigenen Mandanten** ordnen im Portal einem
+erklärten Bedarf eine Destination zu und lösen sie wieder. Der
+`tenant_admin` darf das, weil er nur unter Objekten wählt, die der
+Betreiber angelegt und geprüft hat. Ein Ziel selbst anlegen darf er
+weiterhin nicht. Wichtig sind vier Dinge:
+- **Der Knoten entscheidet, nicht die Seite.** Rolle, Mandant, Art und
+  Name werden dort noch einmal geprüft, wo die Anfrage ausgeführt wird.
+  Wer nichts verwalten darf, bindet nichts, und der Versuch steht mit
+  seinem Namen im Protokoll des Mandanten.
+- **Eine Generalprobe bindet das Portal nie.** Das bleibt eine bewusste
+  Handlung am Knoten (`--rehearsal-exception`). Lösen geht.
+- **Bei Übergabe (tcp) steht das Wort neben dem Knopf**, weil die
+  Zugangsdaten danach im Container liegen.
+- **Ein Bedarf, den das Manifest nicht nennt,** und das Anlegen neuer
+  Destinationen bleiben an der Kommandozeile.

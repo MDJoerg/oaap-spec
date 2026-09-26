@@ -10,7 +10,10 @@
   (§1.1 — the gateway needs the clear value on the same disk), destinations
   maintained by `server_admin` only (§1.1 names `tenant_admin` too —
   a tenant-writable target needs a connect-time check first), and the
-  portal shows but does not yet bind. **Stage 2 BUILT 2026-09-25**
+  portal shows but does not yet bind (**built 2026-09-26**, reference
+  0.1.132, `oaap.net.destinations` 0.3: the portal binds and unbinds for
+  `server_admin` and the tenant's own `tenant_admin`; authoring targets
+  stays with `server_admin`). **Stage 2 BUILT 2026-09-25**
   (reference 0.1.129, `oaap.net.connector` 0.1, `oaap.net.destinations`
   0.2), measured between `oaap-test` and `oaap-demo` in both
   directions on our LAN, and then as D4 names it: `oaap-demo` inner,
