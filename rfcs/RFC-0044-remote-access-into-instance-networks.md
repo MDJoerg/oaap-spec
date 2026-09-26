@@ -2,7 +2,10 @@
 
 - **Status:** Accepted (2026-09-26) — D1–D10 decided by Jörg, two of them
   against the recommendation (D2, D9; see "Decided"). Nothing built. Build
-  follows RFC-0033 stage 3 (it reuses its laptop client).
+  follows RFC-0033 stage 3 (it reuses its laptop client) -- **which is built
+  since 2026-09-26** (`oaap-expose.py`, the connect endpoint, reference
+  0.1.131): the client speaks the tunnel and authenticates with the person's
+  API key, and a `forward` verb can be added to it.
 - **Date:** 2026-09-25
 - **Authors:** Jörg (the wish), Claude (analysis & proposal)
 - **Depends on:** RFC-0001 (capability #7 `oaap.net.remote-access`),

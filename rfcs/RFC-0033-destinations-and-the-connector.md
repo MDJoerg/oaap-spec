@@ -24,7 +24,21 @@
   the local instance registry and refused a reader from another node.
   Jörg decided the same day; `oaap.data.twin` 0.4 adds a read-only
   **remote reader** (reference 0.1.130), and the live twin read was
-  measured through the tunnel. Stages 3–5 unbuilt.
+  measured through the tunnel. **Stage 3 BUILT 2026-09-26** (reference
+  0.1.131, `oaap.net.connector` 0.2, `oaap.core.gateway` 0.2.14):
+  exposures — from the inner node and from a laptop client (D7), random
+  names under `t.<external host>`, login by default (D6), on-demand
+  certificates approved per name (D8), a TTL and a sweep. Measured on
+  `oaap-test` (edge mode) with the real client from a laptop; **the
+  certificate on demand against a real name is not measured yet**
+  (`oaapx01`). Deviations, each with its reason in the spec: no
+  WebSocket through the tunnel; the laptop client is one Python file
+  (`aiohttp`), not a binary; a laptop may open one only with the role
+  `tenant_admin` (an API key cannot carry `server_admin`, so the node
+  command is the operator's way); the target never receives the node's
+  session cookie or an API key. Findings: a change to `connect.json`
+  closed every laptop, an exposure the operator closed came back after a
+  restart, and `--ttl 60s` arrived as 59 s. Stages 4–5 unbuilt.
 - **Date:** 2026-09-08
 - **Authors:** Jörg (the pattern, the direction, the ngrok wish), Claude
   (analysis & proposal)

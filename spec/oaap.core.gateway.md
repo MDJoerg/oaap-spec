@@ -1,8 +1,11 @@
 # oaap.core.gateway — HTTP Gateway (outline)
 
 - **ID:** `oaap.core.gateway`
-- **Version:** 0.2.13
+- **Version:** 0.2.14
 - **Maturity:** draft (outline — full specification to follow;
+  the exposure zone `t.<external host>` with on-demand certificates and
+  the public download route `/connect/client`, 2026-09-26 per RFC-0033
+  stage 3;
   the public tunnel route `/connect/tunnel` and `via` destinations
   handed to the connector service, 2026-09-25 per RFC-0033 stage 2;
   a destination listener on an unpublished port that knows its
@@ -434,6 +437,27 @@ since 0.2.12: it answers callers from the platform network only.
   generated sites are carried forward by an update step, not only by
   the next change to them (the `/platform/*` lesson of 0.1.117).
 
+**Since 0.2.14 (`oaap.net.connector` 0.2, exposures):**
+
+- **The exposure zone.** On a node with an external hostname the gateway
+  serves `*.t.<external host>` — one site for every name in it, in the
+  node's direct mode with **on-demand TLS** approved per name (the
+  approval endpoint says yes to exactly a live exposure's name, nothing
+  else under the zone), behind an edge as plain `http` with the edge
+  guard. It carries `/auth/*` to identity like every generated site; every
+  other path is handed to the connector service, which decides who may
+  pass (`forward_auth` to the service, not to identity, because the
+  tenant differs per exposure) and then carries the call into the tunnel.
+  The gateway adds the service's own key and the requested host, set,
+  never passed on. The stream survives a reload like a tunnel does.
+- **`/connect/client` is a public route**, exact, on the `:80` site and on
+  every generated site for a registered name: the laptop client of
+  `oaap.net.connector` 2.8.5 is downloaded from the node it talks to. It
+  is a static file with no secret.
+- The site holds the service's key and is therefore written like the
+  destination listener: 0600, its own file, regenerated with the other
+  generated sites and carried forward by an update step.
+
 ## Dependencies
 
 `oaap.core.identity`
@@ -676,6 +700,18 @@ Reihenfolge einhält.
 
 Der interne Gesundheits-Port 8099 antwortet seit dieser Version nur
 noch dem Plattformnetz. Vorher war er aus jedem App-Netz erreichbar.
+
+## Deutsche Zusammenfassung (v0.2.14 — die Freigabe-Zone)
+
+Auf einem Knoten mit externem Namen bedient das Gateway jetzt
+**`*.t.<Name des Knotens>`**: die Zufallsnamen der Freigaben
+(`oaap.net.connector` 2.8). Zertifikate kommen bei Bedarf, und zwar nur
+für einen Namen, der gerade eine lebende Freigabe ist; dahinter steht
+kein Platzhalter-Zertifikat und kein DNS-Schlüssel auf dem Knoten. Wer
+durchgelassen wird, entscheidet der Verbindungsdienst (Anmeldung des
+Mandanten, oder öffentlich, wenn jemand `--public` gesagt hat).
+Neu ist außerdem die öffentliche Route **`/connect/client`**: Von dort
+lädt man den Laptop-Client herunter.
 
 ## Deutsche Zusammenfassung (v0.2.13 — die Tunnel-Route)
 

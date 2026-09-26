@@ -1,14 +1,18 @@
 # oaap.net.connector — The Inner Node Dials Out, the Outer Node Only Answers
 
 - **ID:** `oaap.net.connector`
-- **Version:** 0.1
-- **Maturity:** draft (0.1 is RFC-0033 stage 2: connect keys on the
+- **Version:** 0.2
+- **Maturity:** draft (0.1 was RFC-0033 stage 2: connect keys on the
   outer node, the connector and its offer list on the inner node, the
   tunnel between them, `via` targets for HTTP destinations, pause and
-  revocation, state on both sides, stream logs. Exposures (stage 3), a
-  whole platform through the tunnel (stage 4) and rendezvous (stage 5)
-  are the frontier, not specified)
-- **Based on:** RFC-0033 (§2, §6, §7, D2, D3, D4, D10), RFC-0021 (the
+  revocation, state on both sides, stream logs. **0.2 is stage 3:
+  exposures** (§2.8) — a random public name for one target, from the
+  inner node's command line or from a laptop client, login by default,
+  a TTL, a sweep. A whole platform through the tunnel (stage 4) and
+  rendezvous (stage 5) are the frontier, not specified)
+- **Based on:** RFC-0033 (§2, §3, §6, §7, D2, D3, D4, D6, D7, D8, D9,
+  D10), RFC-0009 (on-demand TLS under the node's own name), RFC-0010
+  (the brake on a public route), RFC-0021 (the
   direction rule: the inner node connects outward), RFC-0027 (machine
   principals — the tunnel's key), RFC-0022 / `oaap.core.tenant` (a
   tunnel carries one tenant), `oaap.net.destinations` (the object a
@@ -28,6 +32,13 @@ their addresses, and a destination there can point at an offer:
 `via <tunnel>/<offer>`. The app bound to that destination calls it
 exactly as it would call a direct one (`oaap.net.destinations` 2.3) —
 **an app cannot tell a tunnelled destination from a direct one.**
+
+The same tunnel serves a second consumer since 0.2: **a browser or a
+third party on the internet**. An **exposure** (2.8) is one target behind
+one random public name, for a limited time — what many people use ngrok
+for. It is opened from the inner node's command line or from a laptop,
+and it is behind the outer platform's login unless someone says
+`--public`.
 
 In SAP terms: the connector is the SAP Cloud Connector, the offer list
 is its access-control list of "virtual hosts", and a `via` destination
@@ -198,14 +209,190 @@ Backend unreachable → 502 with a sentence; no answer within 120 seconds
   log is capped (5 MB, one predecessor kept) and read with
   `oaap connector log <label>` and `oaap connect log <label>`.
 
+### 2.8 Exposures — a random public name for one target (0.2)
+
+The ngrok case (RFC-0033 §3). An **exposure** is one target, one random
+public name, a time limit. It is not a destination (an app's private
+path to a backend) and not an offer (a name on the tunnel's list): its
+consumer is a **browser or a third party on the internet**.
+
+```
+   https://k3f9x2mh4a.t.oaap.joomp.de  ──▶  outer node  ──tunnel──▶  inner side  ──▶  http://192.168.178.20:3000
+   (a random name under the node's zone)     login by default        the target lives ONLY here
+```
+
+**Two ways to open one, one protocol.**
+
+- **On the inner node**, by `server_admin` (RFC-0033 D9), through a
+  connector: `oaap connector expose <label> <url> [--ttl 8h] [--public]`.
+  The target is any `http(s)` address that node can reach — a LAN
+  laptop, a container, a device — except what §2.3 forbids for an offer
+  (the node's own platform services, loopback).
+- **From a laptop**, by a person, through the **client** (§2.8.5), with
+  the person's own API key (RFC-0027, RFC-0033 D7). The target is
+  whatever the person typed; it never leaves the laptop.
+
+**2.8.1 The name.** `<name>.t.<external host>` — `<name>` is 10 random
+characters from `[a-z0-9]` chosen by the OUTER node, never by the inner
+side (a name someone else picked could be guessed, squatted or made to
+look like a real one). The zone `t.<external host>` exists on a node
+that has an external hostname (`oaap external set`); without one, an
+`expose` is refused with a sentence that says so. Behind an edge
+(RFC-0006) the same names are served over plain `http` and only the edge
+is accepted, exactly as for every other generated site.
+
+**2.8.2 Protocol** (wire version 1, additive to 2.4). The inner side
+asks; the outer side answers; the target address is never sent.
+
+| message | direction | fields |
+| --- | --- | --- |
+| `expose` | inner → outer | `ref` (chosen by the inner side, unique per tunnel, ≤ 40 characters), `ttl` (seconds), `public` (bool), `resume` (a name this `ref` was given before, optional) |
+| `exposed` | outer → inner | `ref`, `name`, `host`, `url`, `expires` (UTC), `public` |
+| `expose-refused` | outer → inner | `ref`, `reason` (a sentence) |
+| `unexpose` | inner → outer | `ref` |
+| `expired` | outer → inner | `ref`, `reason` (`ttl` / `closed` / `revoked`) |
+| `open` | outer → inner | as 2.4, with `exposure` (the `ref`) in place of `offer` and `caller` = the visitor's user name, or `public` |
+
+`resume` makes the name survive a reconnect: the inner side sends every
+live `expose` again after it dials in, and the outer side hands back the
+same name if it is still live, held by no other tunnel and not closed by
+the operator. Otherwise it answers as for a new one.
+
+**2.8.3 Rules the outer node applies**, in this order, before it answers
+`exposed`:
+
+1. the node has an external hostname (2.8.1);
+2. the tunnel is allowed to expose (a connector key: yes; a person's key:
+   §2.8.5);
+3. `public` is allowed for this tunnel (a connector key: yes; a person:
+   only with the role `tenant_admin`, RFC-0033 D6);
+4. `ttl` is at most **7 days**, and at least 1 s; missing means **8
+   hours** (RFC-0033 §3.3). The requester sends the time that is LEFT, so
+   the minimum of a *request* — one minute — is the requester's rule
+   (`oaap connector expose`, the client), not the outer node's: a request
+   for one minute that waited a second for the connector to dial in
+   arrives as 59 seconds and is honoured (found live, 2026-09-26). A `resume` carries the time that is LEFT; only
+   an end **later** than the one the node holds is an **extension** (logged
+   as one, counted from now, never past 7 days from now) — a client that
+   merely reconnects never lengthens or shortens anything;
+5. at most 10 live exposures per tunnel and 100 per node.
+
+**2.8.4 What a visitor meets.**
+
+- **Login by default** (RFC-0033 D6). The gateway asks the connector
+  service who may pass; for a login exposure the service asks identity
+  (`/verify`) with the tunnel's tenant: any signed-in user of that
+  tenant passes, and `server_admin` always does (RFC-0022 D5). A
+  visitor without a session is sent to `/auth/login` on the same name,
+  which every generated site serves. The verified identity headers are
+  handed to the target like to any app; the target may trust them, and
+  nothing a client sent under those names reaches it.
+- **`--public`** is the explicit choice: no login, the identity headers
+  overwritten with empty values, and a brake in the service (RFC-0010's
+  shape): 120 requests per 60 s per client address per exposure, then
+  429 with `Retry-After`.
+- **What only the platform may see does not go to the target.** The
+  target is not a platform app, and a `tenant_admin` who exposes a laptop
+  is not the operator. The node removes, before the call enters the
+  tunnel: the platform's **session cookie** (`oaap_session`) from the
+  `Cookie` header (every other cookie passes) — it is valid on the whole
+  node, so a target that kept it could act as the visitor, and a
+  `server_admin` who followed a link would hand it over — and an
+  `Authorization: Bearer oaapk_…` header (a platform API key). In the
+  other direction a `Set-Cookie` that sets the session cookie is dropped
+  from the target's answer: a target cannot set the node's session.
+- A name that is not a live exposure answers 404 with one sentence; a
+  request carrying `Upgrade` answers 501 (a WebSocket through the tunnel
+  is not part of 0.2).
+- The inner side dials the target with `Host` set to the target's,
+  hop-by-hop headers and `X-Forwarded-*` removed, a path with a `.` or
+  `..` segment or a backslash refused (2.6 step 4), and 502/504 with a
+  sentence as for an offer.
+
+**2.8.5 The laptop client.** One file, `oaap-expose.py`, offered by the
+node at `<endpoint>/connect/client` (a public, exact route on every
+generated site), for Linux, macOS and Windows wherever Python 3.9+ and
+`aiohttp` are. It speaks the same tunnel (2.4) with the person's API
+key: `Authorization: Bearer oaapk_…` and `X-OAAP-Tenant: <tenant>` on
+the WebSocket handshake.
+
+```
+OAAP_KEY=oaapk_… python oaap-expose.py http://localhost:3000 \
+       --server https://oaap.joomp.de --tenant cls --ttl 4h
+```
+
+- The outer node asks identity (`/verify?tenant=<tenant>`) with that
+  key. An unknown, revoked or expired key → 401 (the one indistinguishable
+  answer of 2.4); a key of another tenant, or a principal without the role
+  `tenant_admin` → 403 with a sentence. `server_admin` cannot be carried
+  by a key at all (RFC-0027), so an operator uses the node command.
+- A refusal comes with the node's own sentence: a WebSocket handshake
+  error carries no body, so the client asks the same door once more the
+  plain way and prints what it says.
+- The key is asked again about every 60 s while the tunnel stands
+  (RFC-0027: a revocation counts on the very next request, and a tunnel
+  has none). A key that no longer holds — revoked, expired, or without
+  `tenant_admin` — ends the tunnel **and every exposure its owner opened**,
+  and the client ends with a sentence about the key. The key is held in
+  the service's memory for the life of the tunnel and nowhere else.
+- A person's tunnel **may expose and nothing else** (RFC-0033 D7): it has
+  no offers, cannot be the target of a `via` destination, and its
+  `hello` offers are ignored. Its label is generated by the outer node
+  and never selectable. A person may hold 5 tunnels at once.
+- The client keeps the exposure alive: it re-sends `expose` with
+  `resume` after a reconnect, prints the URL and the expiry, and on
+  Ctrl-C sends `unexpose`. The key comes from `OAAP_KEY` or a hidden
+  prompt, never from an argument, so it does not show in a process list.
+
+**2.8.6 It expires, and it is swept.** A sweep runs at least every 10 s.
+Expiry removes the exposure from routing at once (the next request is a
+404), tells the inner side (`expired`), and is logged. An exposure also
+ends when its tunnel's key is revoked. A tunnel that is merely
+disconnected keeps its exposures until their TTL, so a reconnecting
+client gets its name back. `oaap connect exposure close <name>` is the
+outer operator's action: it ends the exposure and keeps the name from
+being resumed.
+
+**2.8.7 Certificates (RFC-0033 D8).** The names get their certificates
+**on demand**, at the first handshake, approved per name: the gateway
+asks the portal, which approves exactly a live exposure's name under the
+zone (and nothing else under it). No wildcard certificate, so no DNS
+credential on the node. The service counts the names it opened in the
+last 7 days, and `oaap connect exposures` says so next to Let's Encrypt's
+limit of 50 certificates per registered domain per week; from 40 it
+warns. An expired exposure's certificate is left to lapse; nothing
+approves a renewal for it.
+
+**2.8.8 Audit and logs.**
+
+- The **tenant audit log** (RFC-0022 §6) gets one line for each decision
+  of a person: `exposure.open`, `exposure.extend`, `exposure.close`,
+  `exposure.expire`, with who (the person, or the connector's label),
+  the host, `public` or `login`, and the expiry. The target address is
+  **not** in it — the outer node never had it. An exposure opened by a
+  `server_admin` lands in the tenant's log, like every operator action.
+- **Stream logs** (2.7) gain one line per call against the exposure:
+  time, name, visitor (`public` for a public one), method, path without
+  query, status, bytes, duration. Never a header value or a body.
+
+**2.8.9 State.** The service reports per exposure: name, host, tenant,
+tunnel, `public`, opened, expires, who opened it, and calls served —
+never the target. Per connector (inner): each `expose` it holds, with the
+name and URL the outer node gave. The portal shows both.
+
 ## 3. Configuration
 
 - `oaap connect key issue|revoke|list`, `oaap connect offers <label>`,
   `oaap connect log <label>` — outer.
 - `oaap connector add|remove|list|show|pause|resume|log`,
   `oaap connector offer add|remove` — inner.
-- All of it is `server_admin`'s (RFC-0033 D3). The portal shows, and
-  does not change, in 0.1.
+- Exposures (2.8): `oaap connector expose <label> <url> [--ttl] [--public]`,
+  `oaap connector unexpose <label> <ref>`, `oaap connector extend <label>
+  <ref> --ttl` — inner; `oaap connect exposures`,
+  `oaap connect exposure close <name>` — outer.
+- All of it is `server_admin`'s (RFC-0033 D3, D9). The portal shows, and
+  does not change. The laptop client (2.8.5) is the one path of a person
+  who is not `server_admin`, and it can do nothing but `expose`.
 
 ## 4. Security requirements
 
@@ -222,7 +409,20 @@ Backend unreachable → 502 with a sentence; no answer within 120 seconds
   connector service is on the platform network; a caller without the
   gateway's key is refused before anything is looked up.
 - **No payload is logged.** Payload trace (RFC-0021's outlook) is not
-  part of 0.1.
+  part of 0.1 or 0.2.
+- **The outer node chooses every public name.** Random, 10 characters,
+  never proposed by the inner side; the target address never crosses the
+  tunnel (2.8.1, 2.8.2).
+- **An exposure is login-protected unless it says `--public`**, and a
+  person's key may open a public one only with the role `tenant_admin`
+  (2.8.3). A public exposure is braked and always expires.
+- **A person's tunnel exposes and nothing else.** No offers, no `via`
+  target, no selectable label (2.8.5).
+- **Only a live exposure gets a certificate.** The on-demand approval
+  names exactly the live names under the zone (2.8.7); no wildcard
+  certificate and no DNS credential exist on the node.
+- **Nothing a visitor sends passes as identity.** Identity headers are
+  overwritten on every exposure, public ones with empty values (2.8.4).
 - **Everything `oaap.net.destinations` §4 says holds unchanged**:
   caller by network, no credential in the container, a rehearsal has no
   binding.
@@ -255,16 +455,102 @@ Backend unreachable → 502 with a sentence; no answer within 120 seconds
     the backend never sees the `Expect` header.
 12. A gateway reload that changes the configuration does not close a
     connected tunnel.
+13. (Exposures) An `expose` gets a 10-character name under `t.<host>`
+    chosen by the outer node; the outer node's state never contains the
+    target address; an `expose` on a node without an external hostname is
+    refused with a sentence.
+14. A login exposure: a visitor without a session is sent to
+    `/auth/login`; a user of the tunnel's tenant passes and the target
+    receives the five identity headers, none of them as the visitor sent
+    them; a user of another tenant gets 403; `server_admin` passes.
+15. A public exposure: no login, the identity headers arrive empty even
+    if the client forged them, the 121st request within 60 s from one
+    address gets 429.
+16. TTL: past its expiry the next request is 404 within 10 s and the
+    inner side is told (`expired`); `resume` after a reconnect returns the
+    same name; an extension is one audit line and never runs past 7 days.
+17. A laptop key without the role `tenant_admin` → 403; a key of another
+    tenant → 403; an unknown key → 401; a person's tunnel cannot be named
+    in a `via` destination and ignores offers; 5 tunnels per person.
+18. The certificate approval says yes for a live exposure's name and no
+    for any other name under the zone, for the zone itself, and for a
+    name that just expired.
+19. `oaap connect exposure close <name>` ends it at once and the name
+    cannot be resumed; revoking the connect key ends the exposures its
+    tunnel held.
+20. A request with `Upgrade` → 501; a path with `%2e%2e` → 403 and the
+    target receives nothing.
+21. The target never receives the session cookie or a `Bearer oaapk_…`
+    header, receives every other cookie, and cannot set the session
+    cookie in its answer.
+22. A reconnect returns the same name and does not move the end; a later
+    end is one `exposure.extend` line; a pause and a resume of the
+    connector keep the name.
+23. Revoking a laptop's key ends its tunnel and the exposures it opened
+    within 65 s, and the client ends with a sentence about the key.
 
 ## 6. Dependencies
 
 `oaap.net.destinations` (the object and the listener), `oaap.core.gateway`
-(the `/connect/tunnel` route), `oaap.core.tenant` (ownership, audit log),
-`oaap.fleet.status` (attention items).
+(the `/connect/tunnel` and `/connect/client` routes and the exposure
+zone), `oaap.core.identity` (`/verify` for visitors and for a laptop's
+key), `oaap.core.portal` (the certificate approval), `oaap.core.tenant`
+(ownership, audit log), `oaap.fleet.status` (attention items).
 
 ## 7. Maturity
 
-Draft. Built in the reference 0.1.129 and measured on 2026-09-25 between
+Draft. **0.2 (exposures) built in the reference 0.1.131 on 2026-09-26.**
+Two test files hold the rules of 2.8: one for the node's files (the zone
+site and its order, the limits, the audit lines, the certificate
+approval) and one with real processes — an outer service, an inner
+service, the real laptop client, a backend and a stand-in for identity.
+
+**Measured on `oaap-test` on 2026-09-26** (the node stood behind a probe
+name in edge mode, so no certificate was requested): the real client, run
+on a Windows laptop, opened an exposure through the LAN and got
+`http://<10 chars>.t.probe.oaap.invalid/`; a visitor without a session
+was sent to `/auth/login` on that very name, and after signing in as a
+member of the tenant reached the **laptop's** server. The target saw the
+member's identity headers, its own `Host`, its own cookies — and **not**
+the node's session cookie, an API key, a forged `X-OAAP-User`, or any
+header of the gateway or the tunnel; a `Set-Cookie: oaap_session=…` in its
+answer was dropped. A user of another tenant got 403, `server_admin` and
+a tenant member's API key passed. 1 MiB up, `%2e%2e` 403, a WebSocket 501,
+an unknown name 404. A public exposure needed no login, a forged identity
+never reached the target, and the 121st request within a minute from one
+address got 429 with `Retry-After: 60` (another address 200). One minute
+after opening, its next request was a 404 and the log said *expired*.
+`oaap connect exposure close` ended one in 5 s; the laptop client
+redialled by itself through two restarts of the service and kept its
+name; revoking the laptop's API key ended tunnel and exposures 37 s later
+and the client said why. The portal's health page lists the exposures.
+
+**Five findings changed the code** (each is a test now, and the tests
+that catch them were checked to fail without the fix):
+
+1. `--ttl 60s` arrived as 59 s (a second of waiting for the connector) and
+   the outer node refused it: the minimum of a request is the requester's
+   rule, the outer node takes what is left (2.8.3 rule 4).
+2. **Every change to `connect.json` closed every laptop** with "key
+   revoked": reconcile judged all tunnels by the file of connect keys, and
+   a person's key is not in it (2.8.5).
+3. **An exposure the outer operator closed came back under a new name**
+   after a reconnect or a restart of the inner side, because the inner
+   side asked again. An end decided by the other side is now remembered
+   and final, and a `resume` of a closed name is refused (2.8.6).
+4. The number of calls in the state stayed 0.
+5. `oaap connect exposures` printed `https://` for a zone that is `http`.
+
+**Not measured yet — say so before it is trusted:** the certificate on
+demand (the first handshake for a fresh name against Let's Encrypt, the
+approval by the portal from the real gateway, and the 50-per-week count)
+needs a node with a real public name in direct mode: `oaapx01`. DNS for
+`*.t.oaap.joomp.de` resolves already (`x.t.oaap.joomp.de` →
+`212.132.64.58`, 2026-09-26). A name **one level too deep**
+(`a.<name>.t.<host>`) is not part of the zone site; on a node it falls to
+whatever else answers that host, exactly as any unknown name does.
+
+**0.1 was** built in the reference 0.1.129 and measured on 2026-09-25 between
 two nodes of our fleet over the LAN (`oaap-test` outer, `oaap-demo`
 inner, `--plain`), then with the roles reversed:
 
@@ -309,7 +595,9 @@ measured there.
 
 Deliberately left for later, each named in RFC-0033: TCP through the
 tunnel, re-encryption with the platform CA inside the tunnel, payload
-trace, maintenance in the portal.
+trace, maintenance in the portal — and, for exposures, a WebSocket
+through the tunnel (development servers with hot reload need it) and a
+button in the portal.
 
 ## Deutsche Zusammenfassung
 
@@ -361,3 +649,40 @@ lesend und nur für die gegebenen Typen. Gemessen durch den Tunnel.
    entfernt). Eine Zeile je HTTP-Aufruf würde sie darin ertränken.
 3. **Pflege nur über die Kommandozeile.** Das Portal zeigt Tunnel,
    Angebote und Zustand, ändert aber noch nichts.
+
+## Deutsche Zusammenfassung (0.2 — Freigaben)
+
+**Was neu ist.** Über denselben Tunnel läuft jetzt ein zweiter Verbraucher:
+ein **Browser im Internet**. Eine **Freigabe** ist ein Ziel hinter einem
+zufälligen öffentlichen Namen, für begrenzte Zeit — das, wofür viele ngrok
+benutzen. Sie lässt sich auf zwei Wegen öffnen: am **inneren Knoten** per
+`oaap connector expose <label> <url>` (nur `server_admin`) oder vom
+**Laptop** mit dem kleinen Client `oaap-expose.py` und dem eigenen
+API-Schlüssel (nur ein `tenant_admin` des Mandanten).
+
+**Was dabei gilt.**
+- Den Namen wählt der **äußere** Knoten: `<10 Zeichen>.t.<Name des Knotens>`.
+  Die Adresse des Ziels erfährt er nie; sie steht weder in seinem Zustand
+  noch im Prüfprotokoll.
+- Vorgabe ist die **Anmeldung** der Plattform, geprüft für den Mandanten des
+  Tunnels (ein `server_admin` kommt immer durch). Nur mit `--public` gibt es
+  keine Anmeldung — dann sind die Identitäts-Kopfzeilen leer, und pro
+  Adresse werden höchstens 120 Aufrufe in 60 Sekunden angenommen.
+- Eine Freigabe **läuft ab** (Vorgabe 8 Stunden, höchstens 7 Tage). Wer nur
+  neu verbindet, verlängert nichts; ein späteres Ende gilt als Verlängerung
+  und steht im Prüfprotokoll. Der Betreiber kann jede Freigabe schließen:
+  `oaap connect exposure close <name>`.
+- **Was nur die Plattform sehen darf, bekommt das Ziel nicht:** das
+  Sitzungs-Cookie (es gilt auf dem ganzen Knoten — wer es behielte, wäre der
+  Besucher, auch ein `server_admin`) und einen API-Schlüssel. Ein Ziel kann
+  außerdem die Sitzung des Knotens nicht setzen.
+- Der Laptop-Client darf **nur freigeben**, hat keine Angebote und ist kein
+  Ziel einer `via`-Destination. Der Knoten fragt den Schlüssel etwa jede
+  Minute erneut: Ein widerrufener Schlüssel beendet Tunnel und Freigaben.
+- Zertifikate kommen **bei Bedarf** und nur für den Namen einer lebenden
+  Freigabe. Es gibt kein Platzhalter-Zertifikat und keinen DNS-Schlüssel auf
+  dem Knoten. Gezählt wird gegen die Grenze von Let's Encrypt (50 je
+  Domain und Woche); ab 40 gibt es eine Warnung.
+
+**Noch nicht drin:** WebSocket durch die Freigabe (Dev-Server mit Hot Reload
+brauchen es; Antwort heute 501), TCP, und ein Knopf im Portal.
