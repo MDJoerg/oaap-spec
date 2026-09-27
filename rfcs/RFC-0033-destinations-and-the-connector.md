@@ -42,7 +42,17 @@
   command is the operator's way); the target never receives the node's
   session cookie or an API key. Findings: a change to `connect.json`
   closed every laptop, an exposure the operator closed came back after a
-  restart, and `--ttl 60s` arrived as 59 s. Stages 4–5 unbuilt.
+  restart, and `--ttl 60s` arrived as 59 s. **The portal button for
+  exposures BUILT 2026-09-27** (reference 0.1.133, `oaap.net.connector`
+  0.3 §2.8.10): `server_admin` opens, extends, lets go and closes an
+  exposure from the health page on either side, through the same
+  functions and the same rule (2.8.3) the command line already used —
+  unlike the destinations button, not offered to `tenant_admin`, because
+  here the target is authored by the button itself, not chosen among
+  objects an operator already checked. Covered by the worker directly
+  (`test/test_exposures_portal.py`); the rendered page, a real browser
+  and a real outer node's answer are not yet measured. Stages 4–5
+  unbuilt.
 - **Date:** 2026-09-08
 - **Authors:** Jörg (the pattern, the direction, the ngrok wish), Claude
   (analysis & proposal)

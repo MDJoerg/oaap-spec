@@ -1,15 +1,18 @@
 # oaap.net.connector — The Inner Node Dials Out, the Outer Node Only Answers
 
 - **ID:** `oaap.net.connector`
-- **Version:** 0.2
+- **Version:** 0.3
 - **Maturity:** draft (0.1 was RFC-0033 stage 2: connect keys on the
   outer node, the connector and its offer list on the inner node, the
   tunnel between them, `via` targets for HTTP destinations, pause and
   revocation, state on both sides, stream logs. **0.2 is stage 3:
   exposures** (§2.8) — a random public name for one target, from the
   inner node's command line or from a laptop client, login by default,
-  a TTL, a sweep. A whole platform through the tunnel (stage 4) and
-  rendezvous (stage 5) are the frontier, not specified)
+  a TTL, a sweep. **0.3 adds the portal button** (§2.8.10): the inner
+  node's operator opens, extends and lets go an exposure there, and the
+  outer node's operator closes one there, instead of only the command
+  line. A whole platform through the tunnel (stage 4) and rendezvous
+  (stage 5) are the frontier, not specified)
 - **Based on:** RFC-0033 (§2, §3, §6, §7, D2, D3, D4, D6, D7, D8, D9,
   D10), RFC-0009 (on-demand TLS under the node's own name), RFC-0010
   (the brake on a public route), RFC-0021 (the
@@ -380,6 +383,36 @@ tunnel, `public`, opened, expires, who opened it, and calls served —
 never the target. Per connector (inner): each `expose` it holds, with the
 name and URL the outer node gave. The portal shows both.
 
+**2.8.10 The portal opens, extends and ends an exposure (0.3).** On the
+inner node's health page, `server_admin` may open one (target, connector,
+TTL, `--public`), extend or let one go — the same functions the command
+line calls, so the rule is the one rule (2.8.3), not two. On the outer
+node's health page, `server_admin` may close a live one
+(`oaap connect exposure close`, unchanged).
+
+- **`server_admin` only, on both sides — not `tenant_admin`.** The reason
+  is the one 2.1 (`oaap.net.destinations`) already gives for authoring a
+  target: the target is any address this node can reach, so choosing it
+  is a decision about the node's network, not about a tenant. A
+  `tenant_admin` who wants to share something has the laptop client
+  (2.8.5), where the target never leaves the laptop and never reaches the
+  node's registry. This is why the button differs from
+  `oaap.net.destinations` 0.3's binding button, which a `tenant_admin`
+  *may* use — there the operator already authored and checked the target
+  beforehand; here the button IS the authoring.
+- **The host decides, not the page.** The request is queued and answered
+  by the same worker every other portal write goes through; it checks the
+  role again from identity's own store. A request from anybody without
+  `server_admin` opens, extends or ends nothing, and is written to the
+  (node-wide, tenant-less) audit trail as `denied`, with who asked.
+- **A refusal from the outer node is not left waiting.** If `expose`
+  comes back `expose-refused` the request the inner side made is
+  withdrawn at once, so the health page does not go on showing something
+  nobody is waiting for an answer to.
+- **The target address travels in the request that opens it and nowhere
+  else** — not into a URL, not into the audit line, exactly as `expose`
+  never carries it past the inner node's own files (2.8.2).
+
 ## 3. Configuration
 
 - `oaap connect key issue|revoke|list`, `oaap connect offers <label>`,
@@ -390,9 +423,11 @@ name and URL the outer node gave. The portal shows both.
   `oaap connector unexpose <label> <ref>`, `oaap connector extend <label>
   <ref> --ttl` — inner; `oaap connect exposures`,
   `oaap connect exposure close <name>` — outer.
-- All of it is `server_admin`'s (RFC-0033 D3, D9). The portal shows, and
-  does not change. The laptop client (2.8.5) is the one path of a person
-  who is not `server_admin`, and it can do nothing but `expose`.
+- All of it is `server_admin`'s (RFC-0033 D3, D9). The portal shows
+  everything and, since 0.3, opens, extends, lets go and closes an
+  exposure (2.8.10) — nothing else here. The laptop client (2.8.5) is
+  the one path of a person who is not `server_admin`, and it can do
+  nothing but `expose`.
 
 ## 4. Security requirements
 
@@ -488,6 +523,16 @@ name and URL the outer node gave. The portal shows both.
     connector keep the name.
 23. Revoking a laptop's key ends its tunnel and the exposures it opened
     within 65 s, and the client ends with a sentence about the key.
+24. (Portal, 2.8.10) `tenant_admin` and a plain user get "requires
+    server_admin" from the portal's open/extend/let-go/close and nothing
+    changes; the refusal is written `denied`, with who asked.
+25. `server_admin` opens one from the portal with the same rules 2.8.3
+    enforces from the command line (TTL bounds, `--public`, at most 10
+    per connector); the target address is in the request that opens it
+    and in no audit line.
+26. When the outer node refuses an open from the portal, the request is
+    withdrawn on the inner side at once — it does not go on sitting there
+    unanswered.
 
 ## 6. Dependencies
 
@@ -614,9 +659,28 @@ measured there.
 
 Deliberately left for later, each named in RFC-0033: TCP through the
 tunnel, re-encryption with the platform CA inside the tunnel, payload
-trace, maintenance in the portal — and, for exposures, a WebSocket
-through the tunnel (development servers with hot reload need it) and a
-button in the portal.
+trace, and — for exposures — a WebSocket through the tunnel (development
+servers with hot reload need it; the answer today is 501).
+
+**0.3 (the portal button) built in the reference on 2026-09-27,** after
+Jörg's word "Ein Knopf im Portal für Freigaben": `oaap.net.connector`
+0.3 §2.8.10. The portal's spool worker gained one new action
+(`exposure`) that calls the exact functions the command line already
+called (`tunnel_exposure_add/extend/remove`, and a new
+`exposure_close_outer` factored out of the CLI's own close so the two
+paths cannot drift), gated on `server_admin` and re-checked at the
+worker — the button is not the boundary, as every other portal write
+here already is. Covered by unit tests through the real worker
+(`test/test_exposures_portal.py`): the role gate and its `denied` audit
+line, an open that succeeds, one the outer node refuses, extend, let go,
+and closing a live one from the outer side.
+
+**Not yet measured: the rendered health page, a real browser, and the
+outer node's live answer** (the tests drive the worker directly, and
+stand in for the outer node's response the way the pre-existing exposure
+tests already did) — RFC-0033's own instruction is to measure a change
+on the machine before treating it as done, and that has not happened for
+this one yet.
 
 ## Deutsche Zusammenfassung
 
@@ -704,4 +768,34 @@ API-Schlüssel (nur ein `tenant_admin` des Mandanten).
   Domain und Woche); ab 40 gibt es eine Warnung.
 
 **Noch nicht drin:** WebSocket durch die Freigabe (Dev-Server mit Hot Reload
-brauchen es; Antwort heute 501), TCP, und ein Knopf im Portal.
+brauchen es; Antwort heute 501), TCP.
+
+## Deutsche Zusammenfassung (0.3 — der Knopf im Portal)
+
+**Was neu ist.** Bisher zeigte die Gesundheitsseite Freigaben nur an;
+geöffnet, verlängert, beendet oder geschlossen wurde nur an der
+Kommandozeile. Jetzt kann **`server_admin`** das auf beiden Seiten auch
+im Portal: am inneren Knoten öffnen (Ziel, Connector, Frist,
+„öffentlich"), verlängern, loslassen; am äußeren Knoten eine lebende
+Freigabe schließen.
+
+**Warum nur `server_admin`, nicht der `tenant_admin`.** Beim Binden
+einer Destination (`oaap.net.destinations` 0.3) darf der `tenant_admin`
+mitreden, weil dort nur unter **schon geprüften** Zielen gewählt wird.
+Bei einer Freigabe gibt es diese Vorprüfung nicht — der Knopf selbst ist
+die Autorisierung eines beliebigen Ziels, das dieser Knoten erreicht,
+und das bleibt eine Entscheidung über das Netz des Knotens, nicht über
+einen Mandanten. Wer nur den eigenen Laptop teilen will, hat dafür den
+Client (`oaap-expose.py`): dessen Ziel verlässt den Laptop nie.
+
+**Der Knoten entscheidet, nicht die Seite.** Wie bei jedem anderen
+Portal-Formular prüft der Worker die Rolle erneut; ein Versuch ohne
+`server_admin` ändert nichts und steht als `denied` im Protokoll, mit
+dem Namen. Lehnt der äußere Knoten eine Anfrage ab, wird sie auf der
+inneren Seite sofort zurückgenommen — die Seite zeigt keine Anfrage, auf
+deren Antwort niemand mehr wartet.
+
+**Getestet** mit dem echten Worker (`test/test_exposures_portal.py`).
+**Nicht gemessen:** die gerenderte Seite im echten Browser und die
+Antwort eines echten äußeren Knotens — offen für die nächste Session an
+der Maschine.
