@@ -1,25 +1,29 @@
 # oaap.net.remote-access — A Person Inside One Instance Network, For a While
 
 - **ID:** `oaap.net.remote-access`
-- **Version:** 0.2
-- **Maturity:** draft (0.1 was RFC-0044 stage 1, staged by D2's
-  consequence: the access object, its lifecycle, the tenant audit
-  trail and the portal card — no traffic yet. **0.2 adds stage 2's
-  port forward (§4):** a `forward` access now carries real bytes,
-  through the connect service, into the one container:port the
-  access names. A `wireguard` access still opens only the record —
-  §5's WireGuard peer and its host firewall fence are not built, and
-  D2's consequence still requires measuring that fence on a real node
-  before either is offered anywhere.)
-- **Based on:** RFC-0044 (the object, D1–D10, §4 the port forward),
-  RFC-0038 (the diagnosis window and its sweep — the pattern this
-  capability's lifecycle copies exactly, D2 there), RFC-0022 /
-  `oaap.core.tenant` (the tenant audit log, an access belongs to
-  exactly one tenant), RFC-0027 (API keys — the holder's own key is
-  the forward's only credential), RFC-0016 (instance networks — what
-  a forward reaches, and how it is named), RFC-0033 §3.5 (the laptop
-  client `oaap-expose.py`, which grew the `forward` verb this version
-  needed)
+- **Version:** 0.3
+- **Maturity:** draft (0.1: the access object, its lifecycle, the
+  tenant audit trail and the portal card — no traffic yet. 0.2: the
+  port forward of §4 — a `forward` access carries real bytes. **0.3
+  adds the mechanics of §5's WireGuard peer** — key generation, the
+  node's own `wg0` interface (gated by node profile `remote-access`,
+  D4), and the host firewall fence (§5.1) — reachable so far **only
+  from the command line** (`oaap app access open --shape wireguard`),
+  never from the portal. This is deliberate, not partial: D2's
+  consequence requires the firewall fence to be **measured on a real
+  node before a WireGuard file is offered anywhere**, and the portal
+  is "anywhere" — so the portal keeps saying "not built" until that
+  measurement has happened. The CLI path exists so that measurement
+  can be taken at all.)
+- **Based on:** RFC-0044 (the object, D1–D10, §4 the port forward, §5
+  the WireGuard peer), RFC-0038 (the diagnosis window and its sweep —
+  the pattern this capability's lifecycle copies exactly, D2 there),
+  RFC-0022 / `oaap.core.tenant` (the tenant audit log, an access
+  belongs to exactly one tenant), RFC-0027 (API keys — the holder's
+  own key is the forward's only credential), RFC-0016 (instance
+  networks — what an access reaches, and how it is named), RFC-0011
+  (node profiles — `remote-access`, D4), RFC-0033 §3.5 (the laptop
+  client `oaap-expose.py`, which grew the `forward` verb §4 needed)
 
 ## 1. Purpose
 
@@ -30,11 +34,12 @@ Postgres, an admin port, a broker. This capability introduces the
 object that makes looking inside a deliberate, time-boxed, recorded
 act instead of a trip to the machine: an **access**.
 
-0.1 delivered the object and its lifecycle. 0.2 delivers the first of
-its two shapes carrying real traffic: **a port forward** — one
-container, one port, one holder, one WebSocket per TCP connection they
-make. The second shape, a WireGuard peer into the whole instance
-network, is still not built (§7).
+0.1 delivered the object and its lifecycle. 0.2 delivered the first
+shape carrying real traffic: a port forward. 0.3 delivers the second
+shape's mechanics — a WireGuard peer into the whole instance network —
+built and locally tested, but not yet measured on a real node, and
+therefore not yet offered anywhere a person other than the machine's
+own operator can reach.
 
 ## 2. The object
 
@@ -44,7 +49,7 @@ network, is still not built (§7).
   "tenant": "<uuid>",
   "shape": "forward",                          // forward | wireguard
   "target": {"service": "db", "port": 5432,
-            "container": "oaap-app-crm-db"},   // forward only, else {}
+            "container": "oaap-app-crm-db"},   // forward
   "holder": "<name the opener gave, default: themselves>",
   "opened_by": "<who queued the open>",
   "opened": "<ISO instant, UTC>",
@@ -52,6 +57,11 @@ network, is still not built (§7).
   "hours": 8,
   "state": "open" }
 ```
+
+For a `wireguard` access, `target` instead holds
+`{"peer_pubkey", "tunnel_ip", "instance_subnet", "gateway_ip"}` — never
+the peer's private key, which is shown once and kept nowhere on the
+node (D10, §5.3).
 
 - An access belongs to **exactly one instance** and therefore exactly
   one tenant (RFC-0022). `tenant` is resolved from the instance at
@@ -71,12 +81,14 @@ network, is still not built (§7).
   reach — fixed when the access opens, never re-resolved from a
   connection's own request, and never influenced by anything the
   laptop client sends.
-- `holder` is free text, defaulting to the opener. It is **not
-  checked against the tenant's user list when the access opens** — but
-  it IS the exact string every forward connection's identity check
-  compares the caller's key to (§4): a holder that does not name a
-  real, still-active user simply means nobody's key will ever match,
-  which is refused the same way a wrong holder is.
+- `holder` is free text, defaulting to the opener. For `forward` it is
+  **not checked against the tenant's user list when the access
+  opens** — but it IS the exact string every forward connection's
+  identity check compares the caller's key to (§4): a holder that does
+  not name a real, still-active user simply means nobody's key will
+  ever match, which is refused the same way a wrong holder is. For
+  `wireguard`, `holder` is a label only — the `.conf` file is a bearer
+  credential (§5.3); nothing checks who is actually holding it.
 
 ## 3. Lifecycle
 
@@ -84,17 +96,23 @@ network, is still not built (§7).
   exists; `shape` is one of `forward`/`wireguard`; `hours` is one of
   `1`/`8`/`24` (RFC-0044 D3, default `8`, no extension — opening again
   is a new act with a new audit entry); a `forward` access names a
-  service that exists on the instance, and a port. For `forward`, the
-  connect service is joined to the instance's network here too (§4) —
-  refused, with nothing written, if that fails. Writes the record and
-  one tenant-audit line `access.opened` (who, for whom, instance,
-  shape, target if any, hours).
+  service that exists on the instance, and a port; a `wireguard`
+  access requires the node to carry profile `remote-access` (D4) and
+  `wireguard-tools` to be present. For `forward`, the connect service
+  is joined to the instance's network here too (§4). For `wireguard`,
+  a key pair is generated, a tunnel address is allocated, the peer is
+  added to the node's `wg0` and the firewall fence is written (§5) —
+  refused, with nothing written and nothing left half-applied, if any
+  step fails. Writes the record and one tenant-audit line
+  `access.opened` (who, for whom, instance, shape, target if any,
+  hours).
 - **List.** Open, unexpired accesses, optionally filtered by instance
   or tenant.
 - **Close.** Removes the record early. For `forward`, the connect
   service leaves the instance's network too, but only once no other
-  open `forward` access on that same instance still needs it. Writes
-  `access.closed`.
+  open `forward` access on that same instance still needs it. For
+  `wireguard`, the peer is removed from `wg0` and its firewall fence
+  rules are deleted. Writes `access.closed`.
 - **Expire.** The same removal, run by the sweep, once `expires` has
   passed. Writes `access.expired` instead of `access.closed` — same
   shape as RFC-0038's `diagnose.expired` vs `diagnose.closed`.
@@ -154,7 +172,103 @@ laptop                                    node
   binary, opposite verb from `expose`). Reads the key from `OAAP_KEY`
   or a hidden prompt, never an argument — same rule as `expose`.
 
-## 5. Roles (D1)
+## 5. The WireGuard peer (RFC-0044 §5) — mechanics built, not yet offered
+
+Unlike a forward, a WireGuard peer puts a device **inside the instance
+network**, not through one fixed door — so the fence has to be the
+network path itself, not application code. That is exactly the shape
+RFC-0044 §2.2 and D2's consequence are cautious about, and why this
+section is explicit about what has been measured and what has not.
+
+### 5.1 The fence: a host firewall rule, not `AllowedIPs`
+
+A WireGuard peer's own `AllowedIPs` (in its `.conf`) says which
+destinations *that peer* routes into the tunnel — a client-side
+courtesy, editable by whoever holds the file, and irrelevant to what
+the *node* actually forwards once packets arrive decrypted. The
+node-side fence is three `iptables` rules in the `DOCKER-USER` chain
+(the chain Docker itself evaluates before its own per-network
+isolation, and the same chain RFC-0044 §2.2 names), **inserted, in
+this order, ahead of anything already in the chain** — Docker's own
+default in that chain is a trailing `RETURN`, so a rule appended
+instead of inserted would never be evaluated for this peer's packets:
+
+```
+iptables -I DOCKER-USER 1 -s <peer>/32 -d <gateway>/32 -j DROP
+iptables -I DOCKER-USER 1 -s <peer>/32 -d <instance-subnet> -j ACCEPT
+iptables -I DOCKER-USER 1 -s <peer>/32                     -j DROP
+```
+
+read top to bottom after insertion: the gateway's own address on the
+instance network is excluded first (RFC-0044 §2.1 — the gateway
+identifies the calling instance by which network a request arrived
+on, "there is nobody else on it"; a peer that could reach it could use
+the instance's own destinations with their stored credentials), the
+rest of the instance's subnet is allowed, and everything else from
+that peer is dropped. Removed with matching `-D` rules on close —
+order does not matter for deletion.
+
+**This is the rule the spec asks to be measured on a real node before
+any `.conf` is handed to anyone but the operator running the CLI at
+the machine (D2's consequence).** Built and unit-tested against the
+exact `iptables` argument lists produced (mocking the binary — no
+container runtime, no kernel WireGuard, needed to verify the
+*ordering*); **not yet run against a real Docker network, a real
+gateway container and a real peer**. What that measurement must
+confirm, minimum: the peer reaches the instance's other containers;
+the peer cannot reach the gateway's address on that network; the peer
+cannot reach the host, the LAN, another instance's network, or
+`oaap_platform`; removing the access removes the rules and nothing
+else changes.
+
+### 5.2 The node's own interface
+
+- **Gated by node profile `remote-access`** (RFC-0011, D4): adding the
+  profile (`oaap node add-profile remote-access`) generates the node's
+  own key pair once (kept at rest under the platform's data
+  directory, 0600, never shown again — the node's OWN identity, not a
+  peer's), and brings up a `wg0` interface with that identity and a
+  fixed listen port, if not already up. Removing the profile takes it
+  down — refused while any `wireguard` access is still open, the same
+  way `store`'s profile refuses removal while schemas exist.
+- **One interface, one address range for the whole node** (not per
+  instance): peers get individual `/32` tunnel addresses out of it;
+  which INSTANCE a peer may reach is entirely the firewall fence's
+  job, not the interface's.
+- **No port forward needs this profile.** §4 rides the gateway; only
+  §5 needs a UDP listener on the host, exactly as RFC-0044 §4 already
+  says.
+
+### 5.3 The peer
+
+- **The node generates the key pair, not the laptop** (D10): a
+  `wireguard-tools` `wg genkey`/`wg pubkey` pair per access. The
+  private key is placed in the returned `.conf` text and printed
+  **once**, at `oaap app access open --shape wireguard`, in the same
+  breath as RFC-0027 shows a freshly issued API key's secret; the
+  node keeps only the public key, inside the access record.
+  **Not built: showing it from the portal.** The command line is the
+  only door in 0.3, on purpose — a portal flow needs its own one-time
+  display and is a separate, later piece of work, and D2's consequence
+  means it should not exist before the fence itself has been measured
+  live.
+- **The `.conf` is a bearer credential** (RFC-0044 §5): whoever holds
+  the file until it expires is inside; the node cannot tell who that
+  is. Unlike a forward, there is no per-connection identity check.
+- **The tunnel address** is the lowest free `/32` in the node's
+  WireGuard subnet, tracked the same way the connect service's
+  network membership is (§3/§4): by scanning the currently open
+  `wireguard` accesses, no separate counter to drift.
+
+### 5.4 What the laptop needs
+
+An ordinary WireGuard client app and the printed `.conf` — no
+`oaap-expose.py` involved, unlike §4. Its `AllowedIPs` names the
+instance's subnet as a courtesy default (so the peer's own routing
+sends the right traffic into the tunnel); the security boundary is
+§5.1's fence, not this file.
+
+## 6. Roles (D1)
 
 Opening or closing an access requires `server_admin`, or the
 `tenant_admin` of the **instance's own tenant** — never another
@@ -163,9 +277,10 @@ other portal action already runs. An access a `server_admin` opens is
 recorded in the **tenant's** log, not a separate operator log (RFC-0022
 §6: "access by the operator is itself an event"). This governs who may
 **open and close the record**; §4's per-connection check is a separate
-question answered by the holder's own key, not by this role.
+question answered by the holder's own key, not by this role. §5 has no
+equivalent per-connection check (§5.3).
 
-## 6. Interface (CLI)
+## 7. Interface (CLI)
 
 ```
 oaap app access open <instance> [--shape forward|wireguard]
@@ -175,19 +290,21 @@ oaap app access close <access-id>
 oaap app access sweep
 ```
 
-`oaap app access open` prints the record and, for `forward`, the exact
-client command the holder runs next. The portal card offers the same
-actions on the instance page's "Fernzugang" tab — open, the table of
-currently open accesses (with the id, needed to run the client),
-close, and (automatically, unseen) the sweep.
+`oaap app access open` prints the record; for `forward`, the exact
+client command the holder runs next; for `wireguard`, the `.conf`
+text, once. The portal card offers `forward` and its lifecycle on the
+instance page's "Fernzugang" tab; `wireguard` still shows there as
+"not built" (§9) — the command line is the only door until the fence
+is measured on a real node.
 
-## 7. Security requirements
+## 8. Security requirements
 
 - **Default: no access.** No instance has an open access unless a
   person with the right role opened it.
-- **A named holder, checked at connection time.** §2/§4: not checked
-  against the tenant's users when the record is created, but every
-  forward connection's identity check must resolve to that exact name.
+- **A named holder for `forward`, checked at connection time.** §2/§4:
+  not checked against the tenant's users when the record is created,
+  but every forward connection's identity check must resolve to that
+  exact name. `wireguard`'s holder is a label, not a check (§5.3).
 - **Always a TTL**, one of three fixed durations, never extended.
 - **One tenant.** An access belongs to the instance's tenant; the
   cross-tenant check that guards every other portal action guards this
@@ -195,31 +312,53 @@ close, and (automatically, unseen) the sweep.
 - **One fixed target, decided by the operator who opened it, never by
   the connection.** A forward's `target.container`/`target.port` are
   resolved once, at open time, from the instance's own declared
-  services — nothing a laptop client sends can change or widen it.
+  services — nothing a laptop client sends can change or widen it. A
+  WireGuard peer's reach is the firewall fence (§5.1), decided the
+  same way, at open time, from the instance's own network.
+- **The gateway's address on the instance network is excluded from
+  every `wireguard` access** (§5.1) — RFC-0044 §2.1's reason: the
+  gateway identifies the calling instance by which network a request
+  came from, and a peer inside that network could otherwise reach the
+  instance's own destinations and their stored credentials.
 - **Metadata always, payload never** (D7). The audit log records
   opening, closing, expiry and a `access.forward.connected` line per
   connection (who, instance, target) — never the bytes exchanged; the
   connect service does not parse the protocol running over a forward
-  and makes no claim to.
+  and makes no claim to. A `wireguard` access is recorded the same way
+  at open/close/expiry; there is no per-connection record for it (no
+  identity check happens per packet — §5.3).
 - **The spool is data, not trust.** Every open/close check above runs
   again on the host when the portal queues one, exactly as RFC-0038's
   diagnosis window does; every §4 check runs again on the connect
   service for every single connection, not only the first.
+- **The WireGuard listener exists only where a `server_admin` put the
+  profile** (D4, RFC-0011 implementation note) — never as a side
+  effect of anything a tenant does.
 
-## 8. What 0.2 explicitly does not do
+## 9. What 0.3 explicitly does not do
 
-- **No WireGuard.** §5's peer into the whole instance network, its
-  `.conf`/QR issuance and its host firewall fence are not built. D2's
-  consequence still applies: the firewall fence is measured on a real
-  node before any of it is offered anywhere.
-- **No node profile check.** D4's `remote-access` node profile gates
-  the WireGuard listener only, which does not exist yet — a `forward`
-  access needs no profile, exactly as RFC-0044 §4 says ("the port
-  forward needs no profile: it rides the gateway").
+- **No portal issuance of a WireGuard `.conf`.** The command line is
+  the only door (§7) — a deliberate, not accidental, gap: D2's
+  consequence puts the real-node fence measurement before offering
+  this anywhere, and the portal is "anywhere".
+- **The fence is untested on a real node.** §5.1's `iptables` rules
+  are verified as text (the exact argument lists, in the right order)
+  against a mocked binary — never against a real Docker network, a
+  real gateway container, or a real peer sending real packets. This
+  is the single most important line in this document: *do not treat
+  §5 as safe to use until that measurement exists and is recorded.*
+- **No names for peers** (RFC-0044 D6) — a WireGuard peer reaches
+  containers by address; the page/command line list the addresses
+  current at open time, which change on recreate (RFC-0016).
+- **No QR code.** The `.conf` text alone; turning it into a scannable
+  code is unbuilt.
+- **No address-collision warning** (RFC-0044 §5, "Address
+  collisions") — the node does not yet check whether its WireGuard or
+  instance subnets overlap common home ranges.
 - **No device access** (RFC-0044 D9) — a different object, a different
   fence, out of scope here.
 
-## 9. Conformance tests
+## 10. Conformance tests
 
 1. Opening an access on an unknown instance is refused.
 2. Opening an access with a duration other than 1/8/24 hours is
@@ -254,48 +393,71 @@ close, and (automatically, unseen) the sweep.
 14. Closing the last `forward` access of an instance makes the connect
     service leave that instance's network; closing one of several does
     not.
+15. Opening a `wireguard` access without node profile `remote-access`
+    is refused, and nothing is written (§5.2).
+16. Opening a `wireguard` access allocates the lowest free tunnel
+    address, adds the peer to `wg0`, and inserts the three firewall
+    rules of §5.1 in the exact order specified, ahead of the chain's
+    existing content.
+17. Closing a `wireguard` access removes the peer from `wg0` and
+    deletes all three firewall rules; a failed step during open leaves
+    nothing partially applied.
+18. Two simultaneous `wireguard` accesses receive two different
+    tunnel addresses; closing one does not touch the other's peer or
+    rules.
+19. The `.conf` text is returned exactly once, from `access_open`, and
+    is never written to `apps/remote-access.json` or any other file.
+20. Removing node profile `remote-access` while a `wireguard` access
+    is open is refused, mirroring `store`'s own refusal while schemas
+    exist.
 
-## 10. Dependencies
+## 11. Dependencies
 
 RFC-0044, RFC-0038 (window/sweep pattern), RFC-0022 (tenant, audit
-log), RFC-0027 (the holder's own key, checked per connection), RFC-0016
-(instance networks, container naming), RFC-0033 §3.5 (the laptop
-client this version extended).
+log), RFC-0027 (the holder's own key, checked per forward connection),
+RFC-0016 (instance networks, container naming), RFC-0011 (node
+profiles, `remote-access`), RFC-0033 §3.5 (the laptop client §4
+extended).
 
 ## Deutsche Zusammenfassung
 
 **Worum es geht.** RFC-0044 will einen zeitlich begrenzten Zugang eines
 Menschen in genau ein Instanznetz — als eigenes Objekt, „Zugang"
-genannt. Stufe 1 (0.1) baute das Objekt selbst: öffnen, auflisten,
-schließen, automatisch ablaufen, je Ereignis eine Zeile im Audit-Log.
-**Stufe 2 (0.2, diese Fassung) lässt eine Portweiterleitung wirklich
-Verkehr tragen:**
+genannt. Stufe 1 (0.1) baute das Objekt selbst. Stufe 2 (0.2) ließ eine
+Portweiterleitung wirklich Verkehr tragen — der Inhaber-Schlüssel wird
+bei jeder Verbindung erneut geprüft, das Ziel steht fest seit dem
+Öffnen, keine Firewall-Regel nötig.
 
-- Der/die Inhaber:in startet `oaap-expose.py forward --access <Id>
-  --server <Knoten> --local-port <Port>` auf dem eigenen Rechner, mit
-  dem **eigenen** API-Schlüssel (nicht dem der Person, die den Zugang
-  geöffnet hat).
-- Jede lokale Verbindung wird zu einem eigenen WebSocket zum Knoten,
-  das roh, ohne eigene Rahmung, Bytes durchreicht — ein einziger
-  Sprung, nie zwischen zwei Knoten.
-- Der `connect`-Dienst prüft bei **jeder** Verbindung erneut: der
-  Schlüssel gehört zur/zum Inhaber:in, der Zugang lebt noch, die Form
-  ist `forward`. Er wählt das Ziel selbst — Dienst und Port stehen im
-  Zugang, fest, seit dem Öffnen; die Anfrage liefert nur eine Id, nie
-  eine Adresse.
-- Der `connect`-Dienst tritt dem Instanznetz nur bei, solange dort ein
-  offener `forward`-Zugang ist — appctl übernimmt das beim Öffnen und
-  Schließen, kein Docker-Zugriff, keine Firewall-Regel nötig (§4 sagt
-  ausdrücklich: „das Gateway wählt selbst das Ziel", keine
-  Netzwerk-Öffnung wie bei WireGuard).
+**Stufe 3 (0.3, diese Fassung): die WireGuard-Mechanik ist gebaut —
+aber noch NIRGENDS angeboten außer an der Kommandozeile.**
 
-**Weiterhin nicht gebaut:** WireGuard (Form `wireguard`) — die Firewall-
-Regel dafür wird zuerst an einem echten Knoten gemessen, bevor
-irgendwo eine WireGuard-Datei ausgegeben wird (D2). Auch kein
-Knotenprofil `remote-access` — das gehört zur WireGuard-Stufe.
+- **Die Firewall-Regel, nicht die `AllowedIPs`-Zeile, ist der Zaun.**
+  Drei `iptables`-Regeln in der `DOCKER-USER`-Kette, in genau dieser
+  Reihenfolge VOR den bestehenden Inhalt der Kette eingefügt (nicht
+  angehängt — Dockers eigene Vorgabe dort ist ein `RETURN`, ein
+  angehängter Satz käme nie zum Zug): erst die Gateway-Adresse dieses
+  Netzes ausschließen, dann den Rest des Instanznetzes erlauben, dann
+  alles andere von diesem Peer verwerfen.
+- **Genau diese Regel verlangt Jörgs Auflage (D2), an einem echten
+  Knoten zu messen, bevor irgendwo eine WireGuard-Datei an jemand
+  anderen als den Betreiber an der Maschine geht.** Gebaut und
+  getestet ist die TEXTFORM der Regel (die genaue Reihenfolge der
+  Befehle, gegen ein nachgebautes `iptables`) — **nicht** ihr
+  tatsächliches Verhalten an einem echten Docker-Netz, einem echten
+  Gateway-Container, einem echten Peer. Das ist der wichtigste Satz in
+  diesem Dokument.
+- **Neues Knotenprofil `remote-access`** (D4): legt den Schlüssel des
+  KNOTENS selbst an (einmalig, nie wieder gezeigt) und bringt ein
+  `wg0`-Interface hoch — nur dort existiert der UDP-Port überhaupt.
+  Entfernen wird abgelehnt, solange ein `wireguard`-Zugang offen ist
+  (wie beim Profil `store`).
+- **Der Knoten erzeugt den Schlüssel des PEERS** (D10), zeigt die
+  `.conf`-Datei einmal an der Kommandozeile (`oaap app access open
+  --shape wireguard`) — genauso, wie ein frisch ausgestellter
+  API-Schlüssel einmal gezeigt wird. **Die Portal-Anzeige dafür fehlt
+  bewusst**, weil D2 die Messung an einem echten Knoten VOR jedem
+  Angebot verlangt, und das Portal ist „irgendwo".
 
-**Wer darf öffnen/schließen?** `server_admin`, und der `tenant_admin`
-genau des Mandanten, dem die Instanz gehört (D1). Eine andere Frage
-ist, wer eine geöffnete Portweiterleitung tatsächlich BENUTZEN darf —
-das entscheidet allein der Inhaber-Name im Zugang, geprüft bei jeder
-Verbindung.
+**Ausdrücklich nicht gebaut:** Portal-Ausgabe der `.conf`, QR-Code,
+Namensauflösung für Peers (D6), Warnung vor Adressüberlappung mit
+Heimnetzen. Gerätezugang (D9) bleibt ein eigenes Objekt.

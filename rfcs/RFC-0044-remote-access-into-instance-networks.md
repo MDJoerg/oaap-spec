@@ -24,10 +24,25 @@
   chooses the target itself"). Tested end to end with the real client, the
   real connect service and a real TCP target
   (`test/test_forward_tunnel.py`, 12 cases, plus `test/test_access_portal.py`
-  extended to 42). **Still not built:** §5's WireGuard peer and the host
-  firewall fence §2.2 requires — D2's consequence still requires measuring
-  that fence on a real node before either is offered anywhere. Not yet
-  measured on a real node or in a browser; not pushed, not rolled out.
+  extended to 42); pushed, and measured live on oaap-test — a real client on
+  a separate machine reached the real app through the whole chain, the
+  connect service's network membership matched, the audit trail matched. **§5
+  WireGuard mechanics BUILT 2026-09-27** (`oaap.net.remote-access` 0.3,
+  reference 0.1.136): node profile `remote-access` (D4) brings up the node's
+  own `wg0` and generates its key pair once; opening a `wireguard` access
+  generates the peer's key pair (D10), allocates a tunnel address, adds the
+  peer and inserts the host firewall fence of §2.2 as three ordered
+  `iptables` rules in `DOCKER-USER`, ahead of Docker's own default so they
+  are actually evaluated; closing removes all of it; a failed fence rolls
+  the peer back, nothing half-applied. **Reachable only from the command
+  line** (`oaap app access open --shape wireguard`) — the portal worker
+  refuses this shape unconditionally, on purpose: D2's consequence is that
+  the fence is measured on a real node before a WireGuard file is offered
+  *anywhere*, and the portal is "anywhere". Tested locally against the
+  exact `iptables`/`wg` argument sequences (`test/test_wireguard_access.py`,
+  35 cases) — **not against a real kernel, a real Docker network, or a
+  real peer.** That measurement, on a node Jörg names, is the next step,
+  and nothing here should be treated as a working fence until it exists.
 - **Date:** 2026-09-25
 - **Authors:** Jörg (the wish), Claude (analysis & proposal)
 - **Depends on:** RFC-0001 (capability #7 `oaap.net.remote-access`),
