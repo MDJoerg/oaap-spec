@@ -96,6 +96,37 @@
   if it cannot. Full write-up in `oaap.net.remote-access` 0.4 §5.1b.
   Still CLI-only (§9) — a fence that works is not, by itself, a
   decision to offer this from the portal.
+
+  **MEASURED A THIRD TIME, same day, on oaap-test** (`oaap.net.remote-access`
+  0.5) — closing the two gaps §9 (0.4) had left explicitly open: a real
+  `wg-quick` client (not a peer built by hand) against the apparatus,
+  and a real node reboot (`systemctl reboot`) with two of three peers
+  still open. `wg-quick`'s own automatic `AllowedIPs` route worked
+  exactly as specified, no manual step needed. Three more real defects
+  surfaced and were fixed, all found live, none assumed: (1) a rebuild
+  reused a DIFFERENT external port/WAN address than before the
+  reboot — the allocators saw the instance's own not-yet-overwritten
+  state file as "already taken," silently invalidating every `.conf`
+  already issued; (2) a rebuild restored only the ONE peer whose own
+  `access open` triggered it, leaving every other already-open peer of
+  the same instance "open" in the record but invisible to the fresh
+  `wg0` and its fence; (3) closing a peer after a rebuild that had
+  changed the instance's gateway address (a reboot reassigning
+  container addresses — measured: gateway and app container swapped
+  addresses across this exact reboot) left its gateway-DROP rule
+  behind forever, because closing used the address the access record
+  saw at OPEN time, not the one the rebuild had actually fenced
+  against. After all three fixes: all three peers — the two survivors
+  and the new one — completed real handshakes, reached the (freshly
+  addressed) app container with 3/3 pings and a real HTTP 404 each,
+  the (also freshly addressed) gateway confirmed unreachable for all
+  three, `DOCKER-USER`'s counters matching exactly. **Still open, found
+  by this same measurement, not by assumption:** nothing brings an
+  instance's apparatus back after a reboot unless SOME access for that
+  instance is opened again — a peer retrying on its own gets no
+  answer until then; where such a trigger would live (a systemd unit,
+  `oaap update`'s migration step, `access sweep`) is undecided. Full
+  write-up in `oaap.net.remote-access` 0.5 §5.1c.
 - **Date:** 2026-09-25
 - **Authors:** Jörg (the wish), Claude (analysis & proposal)
 - **Depends on:** RFC-0001 (capability #7 `oaap.net.remote-access`),

@@ -1,25 +1,36 @@
 # oaap.net.remote-access — A Person Inside One Instance Network, For a While
 
 - **ID:** `oaap.net.remote-access`
-- **Version:** 0.4
+- **Version:** 0.5
 - **Maturity:** draft (0.1: the access object, its lifecycle, the
   tenant audit trail and the portal card — no traffic yet. 0.2: the
   port forward of §4 — a `forward` access carries real bytes. 0.3
   added the mechanics of §5's WireGuard peer, CLI-only, and a
   real-node measurement on 2026-09-27 found the design as specified
   (one node-wide `wg0`, reached by routing) does not work against a
-  current Docker daemon (29.7.1) — see §5.1a. **0.4 redesigns §5
-  around that finding — each instance gets its own namespace, with
-  the peer arriving as a genuine Docker bridge port instead of being
-  routed in — and a SECOND real-node measurement on 2026-09-27
-  confirms this design carries real traffic end to end AND correctly
-  excludes the gateway, through the built code itself, not by hand.**
-  Two more defects surfaced and were fixed by that same measurement
-  before it passed — see §5.1b. Shape `wireguard` is still CLI-only
-  (§9): a working fence is not, by itself, a decision to offer this
-  from the portal. §4's port forward was unaffected throughout: it
-  does not route into a bridge, it dials into one via `docker network
-  connect`, which none of this restricts.)
+  current Docker daemon (29.7.1) — see §5.1a. 0.4 redesigns §5 around
+  that finding — each instance gets its own namespace, with the peer
+  arriving as a genuine Docker bridge port instead of being routed
+  in — and a SECOND real-node measurement on 2026-09-27 confirms this
+  design carries real traffic end to end AND correctly excludes the
+  gateway, through the built code itself, not by hand. Two more
+  defects surfaced and were fixed by that same measurement before it
+  passed — see §5.1b. **0.5 measures a real `wg-quick` client (not a
+  hand-built peer) against the apparatus, and a real node reboot with
+  peers still open — both on the same node, same day.** Three more
+  real defects surfaced and were fixed: a reboot reused the WRONG
+  external port/WAN address (the allocator saw the instance's own
+  stale state as "taken"); a rebuild restored only the ONE peer that
+  triggered it, silently orphaning every other already-open peer of
+  the same instance; and closing a peer after a rebuild left its
+  gateway-DROP rule behind forever, because closing used the STALE
+  gateway address its own record had seen at open time instead of the
+  current one the rebuild had just fenced against — see §5.1c. Shape
+  `wireguard` is still CLI-only (§9): a working, now reboot-measured
+  fence is not, by itself, a decision to offer this from the portal.
+  §4's port forward was unaffected throughout: it does not route into
+  a bridge, it dials into one via `docker network connect`, which none
+  of this restricts.)
 - **Based on:** RFC-0044 (the object, D1–D10, §4 the port forward, §5
   the WireGuard peer), RFC-0038 (the diagnosis window and its sweep —
   the pattern this capability's lifecycle copies exactly, D2 there),
@@ -390,6 +401,97 @@ and (once it was the last peer of that instance) the entire
 apparatus — namespace, both veth pairs, the DNAT rule, both `FORWARD`
 rules — leaving the node exactly as clean as it started.
 
+### 5.1c The third measurement (2026-09-27, oaap-test): a real `wg-quick` client, and a real reboot
+
+§5.1b's measurement proved the fence works; it did not yet answer two
+things §9 had left explicitly open: whether an ordinary WireGuard
+client app (not a peer built by hand) works against this apparatus at
+all, and whether the design's reboot-survival claim (§5.2: "the
+namespace and interfaces do not survive a reboot, the state ... does,
+and the next access open ... rebuilds the rest") actually holds. Both
+were measured, on the same node, in the same sitting — three peers,
+brought up with real `wg-quick up <conf>` against a namespace standing
+in for "outside" exactly as §5.1b's did, then the node itself
+rebooted (`systemctl reboot`) with two of the three peers still open.
+Three more real, previously unknown defects surfaced, all now fixed:
+
+- **A rebuild reused the WRONG external port and WAN address —
+  `wg_next_external_port()`/`wg_next_wan_index()` saw the instance's
+  OWN stale state file as "already taken by someone else."** After a
+  reboot the namespace is gone but the state file (recording the port,
+  WAN index and bridge address already handed out) is not; the
+  original code asked the same allocator functions again rather than
+  reusing what the file already said, and those functions scan every
+  instance's state file to avoid collisions — including this
+  instance's own, not-yet-overwritten one. The result: every reboot
+  silently moved the instance to a NEW external port, invalidating
+  every `.conf` already printed to a peer, with nothing anywhere
+  saying so. **Fixed:** when a state file exists but its namespace
+  does not, `wg_instance_up()` now reuses its recorded port, WAN index
+  and bridge address exactly rather than asking the allocators again.
+- **A rebuild restored only the ONE peer whose own `access open` call
+  triggered it — every other already-open peer of the same instance
+  came back in `remote-access.json` (state "open", not yet expired)
+  but nowhere else: not in the fresh `wg0`, not in `DOCKER-USER`.**
+  Nothing before this measurement had ever tried two peers of the same
+  instance surviving a reboot together. Measured directly: after a
+  reboot, opening a third peer rebuilt the apparatus but the first two
+  peers' own already-issued `.conf`s stayed silently unusable — reachable
+  by name in the access list, unreachable in fact, with no error
+  anywhere to say so. **Fixed:** every rebuild now re-adds every still
+  open, unexpired `wireguard` access of that instance to the fresh
+  `wg0` and re-applies each one's own fence, not only the peer that
+  happened to trigger the rebuild.
+- **Closing a peer whose instance's gateway address had changed since
+  it was opened left its gateway-DROP rule behind forever.** A reboot
+  restarts every container, and Docker does not promise the same
+  container gets the same address back — measured directly: the
+  gateway and the app container swapped addresses across this same
+  reboot. The rebuild above correctly fences each restored peer
+  against the CURRENT gateway address; but closing that peer used the
+  address its OWN access record had stored at the ORIGINAL `open`
+  time, which no longer matched any installed rule, so the `-D` for
+  the gateway-DROP rule silently matched nothing (the other two rules,
+  which do not name the gateway, were removed correctly). Confirmed
+  live: two stale `DROP ... -j DROP` rules, naming a peer address with
+  no apparatus behind it any more, sat in `DOCKER-USER` after an
+  otherwise-clean teardown. **Fixed:** `access_close()` now re-resolves
+  the gateway's CURRENT address at close time instead of trusting the
+  one its own record saw at open time.
+
+**What the third measurement showed, end to end, after all three
+fixes:** three peers, each a genuine `wg-quick up` client (not a
+hand-built interface) — `wg-quick`'s own automatic `AllowedIPs` route
+worked exactly as §5.4 describes, no manual `ip route add` needed, the
+first time this apparatus had been driven by the real client tool
+instead of by hand. Two of the three peers were already open when the
+node rebooted; neither could reach anything until a third peer's
+`access open` rebuilt the apparatus (confirming §5.2's caveat that
+nothing brings an instance's apparatus back on its own — see below),
+after which all three — the two survivors AND the new one — completed
+real handshakes and reached the (freshly, differently addressed) app
+container with 3/3 pings and a real HTTP 404 each, with the (also
+freshly addressed) gateway confirmed unreachable for all three,
+`DOCKER-USER`'s own counters matching every attempt exactly. The
+external port and the instance's own WireGuard identity (both peers'
+`.conf`s, unmodified since before the reboot) were unchanged from the
+peers' point of view, as §5.2 claims. Closing all three left the node
+exactly as clean as it started — no orphaned rule, namespace, veth or
+key file.
+
+**What this measurement does NOT close:** nothing brings an instance's
+apparatus back after a reboot **unless some access for that instance
+is opened again.** If a peer that was already connected simply retries
+on its own — which a real WireGuard client does — it gets no answer
+until an operator (or some future automatic process) triggers a
+rebuild by opening a new access for that instance; there is no
+boot-time or periodic reconciliation today. This is a real, narrower
+gap than "not measured across a reboot" (§9, 0.4) — it is now measured
+and understood, not merely unmeasured — and closing it fully is a
+separate, later design question (where such a trigger would live: a
+systemd unit, `oaap update`'s own migration step, or `access sweep`)
+that RFC-0044 has not yet decided.
+
 ### 5.2 The apparatus (per instance, not per node)
 
 - **Gated by node profile `remote-access`** (RFC-0011, D4): adding the
@@ -522,20 +624,26 @@ is measured on a real node.
   profile** (D4, RFC-0011 implementation note) — never as a side
   effect of anything a tenant does.
 
-## 9. What 0.4 explicitly does not do
+## 9. What 0.5 explicitly does not do
 
 - **No portal issuance of a WireGuard `.conf`.** The command line is
   the only door (§7) — a deliberate, not accidental, gap: a fence that
   is now measured working is not, by itself, a decision to offer this
   from the portal. That remains a separate, later question.
-- **Not measured against a real client app or `wg-quick`** — the
-  second measurement's peer was built by hand (`ip link add` + `wg
-  set`, §5.4) to control exactly what was being tested; a peer set up
-  the ordinary way (`wg-quick up`, a phone/desktop app) has not yet
-  been tried against this apparatus.
-- **Not measured across a reboot.** §5.2 states that the design
-  should survive one (the persisted state and key rebuild everything
-  else); this has not actually been rebooted and re-measured.
+- **No automatic reconciliation after a reboot** (§5.1c) — the
+  apparatus itself, and the addressing/identity a peer already holds a
+  `.conf` for, do survive a reboot correctly (measured); but nothing
+  brings an instance's apparatus back on its own. A peer that was
+  already connected before the reboot stays unreachable until SOME
+  access is opened for that instance again — there is no boot-time or
+  periodic trigger yet, and deciding where one would live (a systemd
+  unit, `oaap update`'s migration step, `access sweep`) is a separate,
+  later question.
+- **Not measured against a real OUTSIDE peer** — every measurement so
+  far, including the third (§5.1c, a real `wg-quick` client), used a
+  namespace on the SAME node standing in for "outside," to control
+  exactly what was being tested. A genuinely separate device (a phone,
+  a laptop on a different network) has not yet been tried.
 - **No names for peers** (RFC-0044 D6) — a WireGuard peer reaches
   containers by address; the page/command line list the addresses
   current at open time, which change on recreate (RFC-0016).
@@ -612,6 +720,19 @@ is measured on a real node.
 23. Bringing up an apparatus asserts
     `net.bridge.bridge-nf-call-iptables=1` first and refuses outright,
     before creating anything, if that fails (§5.1b).
+24. A rebuild (state file present, namespace not — a reboot, §5.1c)
+    reuses the SAME external port, WAN index and bridge address the
+    state file already records, never asking the allocators for new
+    ones.
+25. A rebuild restores EVERY still open, unexpired `wireguard` access
+    of that instance to the fresh `wg0` and re-applies each one's own
+    fence — not only the peer whose own `access open` triggered it
+    (§5.1c).
+26. Closing a peer re-resolves the instance's CURRENT gateway address
+    to remove its fence, not the address its own record saw at open
+    time — so a peer closed after a rebuild that changed the gateway's
+    address (a reboot reassigning container addresses, §5.1c) still
+    has all three of its rules removed, none left orphaned.
 
 ## 11. Dependencies
 
@@ -717,9 +838,69 @@ mit den `DOCKER-USER`-Zählern als Beleg (genau 3 erlaubt, genau 3
 verworfen). Schließen des letzten Zugangs einer Instanz baut ihre
 gesamte Apparatur wieder vollständig ab.
 
-**Ausdrücklich nicht gebaut/gemessen:** Portal-Ausgabe der `.conf`,
-QR-Code, Namensauflösung für Peers (D6), Warnung vor
-Adressüberlappung mit Heimnetzen, ein echter WireGuard-Client
-(`wg-quick`/App) statt des von Hand gebauten Test-Peers, ein Neustart
-des Knotens mit anschließender erneuter Messung. Gerätezugang (D9)
-bleibt ein eigenes Objekt.
+**Stufe 5 (0.5, diese Fassung): am selben Tag noch zwei offene Lücken
+geschlossen — ein echter `wg-quick`-Client, und ein echter Neustart des
+Knotens, beide auf oaap-test.** Drei Peers, jeder mit dem echten
+`wg-quick up <conf>` aufgebaut (nicht von Hand mit `ip link add`/`wg
+set` wie bei der zweiten Messung) — die automatische `AllowedIPs`-Route
+aus §5.4 griff dabei zum ersten Mal wirklich, ganz ohne manuellen
+Eingriff. Zwei der drei Peers waren schon offen, als der Knoten neu
+gestartet wurde (`systemctl reboot`).
+
+**Dabei drei weitere, echte Fehler gefunden — alle im Code behoben:**
+
+1. **Ein Wiederaufbau vergab einen ANDEREN externen Port als vorher.**
+   Die Zustandsdatei überlebt einen Neustart, der Namensraum nicht;
+   der alte Code fragte beim Wiederaufbau erneut bei den
+   Vergabe-Funktionen nach einem freien Port/WAN-Index — und die sahen
+   die EIGENE, noch nicht überschriebene alte Zustandsdatei der
+   Instanz als „von jemand anderem schon belegt" an. Jeder Neustart
+   hätte damit die schon ausgegebenen `.conf`-Dateien stillschweigend
+   ungültig gemacht. **Behoben:** ein Wiederaufbau übernimmt jetzt
+   Port, WAN-Index und Bridge-Adresse unverändert aus der
+   Zustandsdatei, statt neu zu fragen.
+2. **Ein Wiederaufbau holte nur den EINEN Peer zurück, der ihn selbst
+   auslöste — jeder andere schon offene Peer derselben Instanz blieb
+   in `remote-access.json` „offen", aber im frischen `wg0` unsichtbar.**
+   Gemessen: nach dem Neustart brachte erst ein DRITTER, neu geöffneter
+   Zugang die Apparatur zurück — die beiden ERSTEN, schon vorher
+   offenen `.conf`-Dateien blieben dabei stumm unbrauchbar, ohne
+   jede Fehlermeldung. **Behoben:** ein Wiederaufbau stellt jetzt
+   JEDEN noch offenen, nicht abgelaufenen Zugang dieser Instanz
+   wieder her, nicht nur den auslösenden.
+3. **Schließen eines Peers, dessen Gateway-Adresse sich seit dem
+   Öffnen geändert hatte, ließ dessen Gateway-DROP-Regel für immer
+   stehen.** Ein Neustart startet jede Instanz neu, und Docker
+   verspricht keine gleichbleibenden Adressen dabei — gemessen: Gateway
+   und App-Container tauschten bei diesem Neustart tatsächlich die
+   Adresse. Der Wiederaufbau fesselt korrekt gegen die JETZT aktuelle
+   Gateway-Adresse; aber das Schließen benutzte die Adresse, die der
+   Zugang beim ÖFFNEN einmal sah — und die passte zu keiner
+   installierten Regel mehr. **Behoben:** das Schließen fragt die
+   aktuelle Gateway-Adresse jetzt frisch ab, statt der im Zugang
+   gespeicherten zu vertrauen.
+
+**Nach allen drei Fixes:** alle drei Peers — die zwei Überlebenden UND
+der neue — bauten echte Handschläge auf, erreichten den (nach dem
+Neustart neu adressierten) App-Container mit je 3 von 3 Pings und
+einer echten HTTP-404-Antwort, das (ebenfalls neu adressierte) Gateway
+blieb für alle drei nachweislich unerreichbar, belegt durch
+`DOCKER-USER`s eigene Zähler. Port und Schlüssel blieben aus Sicht der
+Peers unverändert — ihre `.conf`-Dateien von vor dem Neustart
+funktionierten unangetastet weiter. Abbau hinterließ den Knoten wieder
+genauso sauber wie zuvor.
+
+**Was auch damit noch offen bleibt:** Ohne dass FÜR DIESE Instanz
+irgendein Zugang neu geöffnet wird, kommt die Apparatur nach einem
+Neustart nicht von selbst zurück — ein schon verbundener Peer, der
+einfach von sich aus weiter versucht (wie es ein echter Client tut),
+bekommt keine Antwort, bis jemand (oder ein künftiger automatischer
+Anstoß) einen Zugang öffnet. Wo ein solcher Anstoß herkommen würde
+(systemd-Dienst, `oaap update`s eigener Migrationsschritt, `access
+sweep`), ist eine eigene, spätere Frage.
+
+**Weiterhin nicht gemessen:** ein echter Peer von einem WIRKLICH
+anderen Gerät aus (alle drei Messungen simulierten „außen" bisher im
+selben Knoten), Namensauflösung für Peers (D6), Warnung vor
+Adressüberlappung mit Heimnetzen, Portal-Ausgabe der `.conf`, QR-Code.
+Gerätezugang (D9) bleibt ein eigenes Objekt.
