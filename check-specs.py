@@ -34,7 +34,13 @@ SPEC_INDEX = os.path.join(HERE, "spec", "README.md")
 RFC_INDEX = os.path.join(HERE, "rfcs", "README.md")
 
 # `- [id](datei.md) — text (draft, v0.2)` -- die Klammer am Zeilenende
-ROW = re.compile(r"^(- \[([\w.]+)\]\((\S+\.md)\)\s+—\s+.*?\()([^)]*)(\)\s*)$")
+#
+# Die ID darf einen Bindestrich tragen (oaap.net.remote-access, RFC-0044)
+# -- \w allein liess genau diese Zeile durchfallen: nicht "falsch", nur
+# unsichtbar fuer die Pruefung, die dann "steht in keinem Index-Eintrag"
+# meldete, obwohl die Zeile da war. Gefunden 27.09.2026 beim Anlegen
+# dieser Spec.
+ROW = re.compile(r"^(- \[([\w.-]+)\]\((\S+\.md)\)\s+—\s+.*?\()([^)]*)(\)\s*)$")
 VER = re.compile(r"\bv([0-9]+(?:\.[0-9]+)*)\b")
 FILE_VER = re.compile(r"^- \*\*Version:\*\*\s*([0-9]+(?:\.[0-9]+)*)", re.M)
 

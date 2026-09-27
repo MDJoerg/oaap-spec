@@ -1,11 +1,22 @@
 # RFC-0044: Remote Access Into Instance Networks — A Person Inside, For a While, In One Place
 
 - **Status:** Accepted (2026-09-26) — D1–D10 decided by Jörg, two of them
-  against the recommendation (D2, D9; see "Decided"). Nothing built. Build
-  follows RFC-0033 stage 3 (it reuses its laptop client) -- **which is built
-  since 2026-09-26** (`oaap-expose.py`, the connect endpoint, reference
-  0.1.131): the client speaks the tunnel and authenticates with the person's
-  API key, and a `forward` verb can be added to it.
+  against the recommendation (D2, D9; see "Decided"). Build follows RFC-0033
+  stage 3 (it reuses its laptop client) -- **which is built since 2026-09-26**
+  (`oaap-expose.py`, the connect endpoint, reference 0.1.131): the client
+  speaks the tunnel and authenticates with the person's API key, and a
+  `forward` verb can be added to it. **Stage 1 BUILT 2026-09-27**
+  (`oaap.net.remote-access` 0.1, reference 0.1.134): the access object, its
+  lifecycle (open/close/expire), the tenant audit trail, the sweep (the same
+  minutely timer RFC-0038's diagnosis window uses) and the portal card, one
+  new tab "Fernzugang" next to "Diagnose" — server_admin or the instance
+  tenant's own tenant_admin (D1), exactly as D2's consequence staged it:
+  object, card, audit and sweep before the port forward and the WireGuard
+  peer, which both still hang on this. **No traffic yet** — §4's port
+  forward and §5's WireGuard peer, and the host firewall fence §2.2
+  requires, are not built; tested against the real worker (33 cases,
+  `test/test_access_portal.py`), not yet on a real node or in a browser,
+  not pushed, not rolled out.
 - **Date:** 2026-09-25
 - **Authors:** Jörg (the wish), Claude (analysis & proposal)
 - **Depends on:** RFC-0001 (capability #7 `oaap.net.remote-access`),
