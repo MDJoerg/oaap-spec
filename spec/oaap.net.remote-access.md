@@ -1,24 +1,25 @@
 # oaap.net.remote-access — A Person Inside One Instance Network, For a While
 
 - **ID:** `oaap.net.remote-access`
-- **Version:** 0.3
+- **Version:** 0.4
 - **Maturity:** draft (0.1: the access object, its lifecycle, the
   tenant audit trail and the portal card — no traffic yet. 0.2: the
   port forward of §4 — a `forward` access carries real bytes. 0.3
-  added the mechanics of §5's WireGuard peer, CLI-only, pending the
-  real-node measurement D2's consequence requires. **That measurement
-  happened on 2026-09-27, on oaap-test, and it found the fence as
-  specified does not work against a current Docker daemon (29.7.1) —
-  see §5.1a.** The object, the node profile, the key generation and
-  the record-keeping all work exactly as built; what fails is the
-  routing path a WireGuard peer would need to reach a container at
-  all, for a reason that has nothing to do with this capability's own
-  rules and everything to do with a Docker hardening feature §5.1a
-  describes. Shape `wireguard` therefore remains CLI-only and is now
-  additionally known not to carry traffic — a stronger statement than
-  "not yet measured". §4's port forward is unaffected: it does not
-  route into a bridge, it dials into one via `docker network connect`,
-  which is not restricted this way.)
+  added the mechanics of §5's WireGuard peer, CLI-only, and a
+  real-node measurement on 2026-09-27 found the design as specified
+  (one node-wide `wg0`, reached by routing) does not work against a
+  current Docker daemon (29.7.1) — see §5.1a. **0.4 redesigns §5
+  around that finding — each instance gets its own namespace, with
+  the peer arriving as a genuine Docker bridge port instead of being
+  routed in — and a SECOND real-node measurement on 2026-09-27
+  confirms this design carries real traffic end to end AND correctly
+  excludes the gateway, through the built code itself, not by hand.**
+  Two more defects surfaced and were fixed by that same measurement
+  before it passed — see §5.1b. Shape `wireguard` is still CLI-only
+  (§9): a working fence is not, by itself, a decision to offer this
+  from the portal. §4's port forward was unaffected throughout: it
+  does not route into a bridge, it dials into one via `docker network
+  connect`, which none of this restricts.)
 - **Based on:** RFC-0044 (the object, D1–D10, §4 the port forward, §5
   the WireGuard peer), RFC-0038 (the diagnosis window and its sweep —
   the pattern this capability's lifecycle copies exactly, D2 there),
@@ -176,14 +177,17 @@ laptop                                    node
   binary, opposite verb from `expose`). Reads the key from `OAAP_KEY`
   or a hidden prompt, never an argument — same rule as `expose`.
 
-## 5. The WireGuard peer (RFC-0044 §5) — mechanics built, measured, blocked
+## 5. The WireGuard peer (RFC-0044 §5) — built, measured, working (bridge-port design)
 
 Unlike a forward, a WireGuard peer puts a device **inside the instance
 network**, not through one fixed door — so the fence has to be the
 network path itself, not application code. That is exactly the shape
 RFC-0044 §2.2 and D2's consequence are cautious about, and why this
-section is explicit about what has been measured and what has not —
-and, since 2026-09-27, about what the measurement found.
+section is explicit about what has been measured and what has not.
+0.3's design (one node-wide interface, reached by routing) turned out
+not to work at all (§5.1a); 0.4's design (§5.1b onward) is a different
+shape chosen specifically to work with the reason it failed, and has
+been measured carrying traffic end to end.
 
 ### 5.1 The fence: a host firewall rule, not `AllowedIPs`
 
@@ -282,50 +286,136 @@ unaffected: §4's port forward does not route into a bridge at all —
 way for a process to join a bridge, which this Docker protection does
 not restrict.
 
-**Options, not yet decided (this needs Jörg, not a unilateral fix):**
+**Jörg's choice, 2026-09-27: "mit docker arbeiten"** — of the four
+options this measurement raised (bridge the peer in; turn Docker's
+protection off node-wide; drop shape (a) and point at the router
+instead, per D9; or leave §5 exactly as built and stop), he picked
+bridging the peer in: work WITH Docker's own protection, not against
+or around it. §5.1b is the redesign that followed and the second
+measurement that validated it.
 
-- **Bridge the peer in, rather than routing to it.** Run WireGuard
-  (or at least the per-access peer) inside a dedicated network
-  namespace connected to the target bridge by a veth pair whose
-  bridge-side end is an actual member of that bridge — so the
-  packet's `iifname` at Docker's raw-table check genuinely is the
-  bridge, because it entered fresh through a bridge port, not routed
-  in. Works with Docker's protection instead of against it; costs
-  real per-access (or per-instance) network plumbing, closer in shape
-  to what §4's `connect_join_network()` already does, but for a whole
-  subnet instead of one dial target.
-- **Turn the protection off.** Docker's anti-spoofing rule is a
-  daemon-wide hardening feature, not per-network; disabling it (if
-  even possible without patching the daemon or its generated rules)
-  would remove a real protection for every instance on the node, for
-  every container, spoofing risk or not — a much bigger trade than
-  this capability alone should decide.
-- **Do not build shape (a) as routing at all — reconsider it as
-  something else,** e.g. a case `oaap.net.remote-access` declines and
-  points at the router's own WireGuard (RFC-0044 D9's Fritzbox case
-  already does this for devices) rather than the platform's.
-- **Leave §5 exactly as built (object, profile, keys, fence code,
-  CLI) and stop here.** The object and its lifecycle are real and
-  useful independent of whether shape `wireguard` ever carries
-  traffic; nothing forces a decision today.
+### 5.1b The redesign, and the second measurement (2026-09-27, oaap-test)
 
-### 5.2 The node's own interface
+**Each instance that has at least one open `wireguard` access gets its
+own small apparatus, instead of the node carrying one shared `wg0`:**
+
+```
+                          root namespace                      oaap-wg-<instance> namespace
+outside peer  ──UDP:ext──▶ PREROUTING DNAT           ┌───────────────────────────────────┐
+(real client)              --dport <ext> -j DNAT     │ veth (WAN side) ──▶ wg0 (own key,  │
+                            --to <wan-ns-ip>:51820 ──▶│   own listen port 51820 INSIDE)    │
+                                                       │        │ decrypts                  │
+                             veth (bridge side) ◀──────────────┘                            │
+                             root end: real member    └───────────────────────────────────┘
+                             of the instance's OWN
+                             Docker bridge (`master br-...`)
+                                     │
+                                     ▼
+                        the instance's containers, on their own bridge,
+                        exactly as any other container reaches them
+```
+
+- **A WireGuard interface created DIRECTLY inside its target
+  namespace** (`ip netns exec <ns> ip link add wg0 type wireguard`),
+  **never moved there afterwards.** Tried the other way first and it
+  does not work: `ip link set wg0 netns <ns>` moves the interface, but
+  its UDP transport socket does not follow the move correctly — `wg
+  show` inside the namespace claims a listening port, `ss -u -a -n`
+  shows no socket at all, and the handshake never completes. Creating
+  it in-namespace from the start does not have this problem.
+- **The bridge-side veth's root end is a genuine port of the
+  instance's own Docker bridge** (`ip link set <veth> master
+  br-...`), not a routed hop — this is the whole point: traffic
+  arriving this way is bridged, and Docker's raw-table rule (§5.1a)
+  reports the bridge itself as the ingress interface for bridged
+  traffic, which is exactly what the rule accepts. Measured: a
+  simulated peer through this path reached the instance's real app
+  container with 3/3 pings and a real HTTP 404 — the raw-table
+  counters for both the app container's and the gateway's own rule
+  stayed at `0 packets, 0 bytes` throughout, confirming this specific
+  protection is no longer even in the path.
+- **A second veth pair, plus one externally-DNAT'd UDP port per
+  instance**, is how the outside world reaches this namespace's `wg0`
+  at all: `iptables -t nat -A PREROUTING -p udp --dport <external>
+  -j DNAT --to-destination <wan-ns-ip>:51820`. Different instances'
+  peers must be told apart before decryption (the WireGuard packet
+  itself carries nothing legible), so each instance's apparatus claims
+  its own external port, allocated the same way a tunnel address is —
+  by scanning what is already in use, no separate counter to drift.
+- **Two `FORWARD` rules, not one — found missing by the second
+  measurement, not designed in from the start.** The first live test
+  after building this completed a full WireGuard handshake (the
+  server side logged real bytes received) but the peer never received
+  anything back: `FORWARD`'s default policy is `DROP`, and the first,
+  obvious rule (`-d <wan-ns-ip> --dport 51820 -j ACCEPT`) only admits
+  packets INTO the apparatus — the handshake reply and every packet
+  after it, source `<wan-ns-ip>:51820`, matched nothing and was
+  silently dropped. Fixed by adding the mirror rule (`-s <wan-ns-ip>
+  --sport 51820 -j ACCEPT`); both are inserted and removed together.
+- **`net.bridge.bridge-nf-call-iptables` must be `1`, and does not
+  survive a reboot — found missing by the same measurement, the
+  hard way.** With `br_netfilter` not loaded (the state of oaap-test
+  before this was measured), a peer's traffic crosses from one bridge
+  port to another WITHOUT ever reaching `iptables`' `FORWARD` chain at
+  all — the three §5.1 rules exist, are correctly ordered, and simply
+  never see the packet. A first pass of this measurement "succeeded"
+  (the app container answered) for the wrong reason: with the fence
+  chain unreachable, EVERYTHING was reachable, gateway included, and
+  the gateway only happened to fail for an unrelated, unverified
+  reason. Re-running with `net.bridge.bridge-nf-call-iptables=1`
+  explicitly set changed the outcome measurably: the same `DOCKER-USER`
+  rules' packet counters, all zero before, now moved — the ACCEPT rule
+  counted exactly the app-container packets sent, the gateway-DROP
+  rule counted exactly the gateway packets sent. **The build now
+  re-asserts this itself, node-wide, on every apparatus bring-up**
+  (`modprobe br_netfilter` + `sysctl -w
+  net.bridge.bridge-nf-call-iptables=1`), refusing outright if it
+  cannot, because nothing built after it would actually be fenced.
+  This is a permanent, node-wide side effect of carrying this
+  capability at all, not reverted when an apparatus tears down — and,
+  incidentally, the same setting Docker's own documentation recommends
+  for its OWN inter-container isolation features to work at all.
+
+**The measurement that mattered, end to end, through the built code
+itself** (`oaap node add-profile remote-access` →
+`oaap app access open <instance> --shape wireguard --endpoint
+<node's real LAN address> --holder <name>` → the printed `.conf`
+loaded into a real WireGuard interface in a separate simulated-peer
+namespace): a completed handshake, 3/3 pings and a real HTTP 404 from
+the instance's own app container, and the gateway's address
+confirmed unreachable — with `DOCKER-USER`'s own packet counters
+showing exactly 3 accepted and exactly 3 dropped, matching the two
+attempts made. Closing the access removed the peer, its fence rules,
+and (once it was the last peer of that instance) the entire
+apparatus — namespace, both veth pairs, the DNAT rule, both `FORWARD`
+rules — leaving the node exactly as clean as it started.
+
+### 5.2 The apparatus (per instance, not per node)
 
 - **Gated by node profile `remote-access`** (RFC-0011, D4): adding the
-  profile (`oaap node add-profile remote-access`) generates the node's
-  own key pair once (kept at rest under the platform's data
-  directory, 0600, never shown again — the node's OWN identity, not a
-  peer's), and brings up a `wg0` interface with that identity and a
-  fixed listen port, if not already up. Removing the profile takes it
-  down — refused while any `wireguard` access is still open, the same
-  way `store`'s profile refuses removal while schemas exist.
-- **One interface, one address range for the whole node** (not per
-  instance): peers get individual `/32` tunnel addresses out of it;
-  which INSTANCE a peer may reach is entirely the firewall fence's
-  job, not the interface's.
-- **No port forward needs this profile.** §4 rides the gateway; only
-  §5 needs a UDP listener on the host, exactly as RFC-0044 §4 already
-  says.
+  profile only checks the tooling is present (`wg`, `wg-quick`, `ip`).
+  Unlike 0.3, nothing host-wide starts here any more — no apparatus
+  exists until an instance's FIRST `wireguard` access opens. Removing
+  the profile is refused while any `wireguard` access is still open,
+  the same way `store`'s profile refuses removal while schemas exist.
+- **One apparatus per instance, brought up on its first peer, torn
+  down with its last.** Its own network namespace, its own WireGuard
+  identity (generated once, kept at rest, 0600, never shown again —
+  the INSTANCE's own identity, not a peer's), its own externally
+  reachable UDP port, its own bridge-side veth into its own Docker
+  network. A second peer of the SAME instance shares all of this —
+  same namespace, same identity, same external port; a peer of a
+  DIFFERENT instance gets an entirely separate one. Reboot-safe: the
+  namespace and interfaces do not survive a reboot, the state that
+  remembers them (and the instance's own key) does, and the next
+  access open for that instance rebuilds the rest from it, unchanged
+  from the peer's point of view (same identity, same `.conf`).
+- **`net.bridge.bridge-nf-call-iptables=1`, re-asserted node-wide on
+  every apparatus bring-up** (§5.1b) — the one genuinely node-wide
+  side effect of this profile, and the reason the fence (§5.1) sees
+  bridged traffic at all.
+- **No port forward needs any of this.** §4 rides the gateway; only
+  §5 needs a UDP listener reachable from outside the node at all.
 
 ### 5.3 The peer
 
@@ -335,18 +425,20 @@ not restrict.
   **once**, at `oaap app access open --shape wireguard`, in the same
   breath as RFC-0027 shows a freshly issued API key's secret; the
   node keeps only the public key, inside the access record.
-  **Not built: showing it from the portal.** The command line is the
-  only door in 0.3, on purpose — a portal flow needs its own one-time
-  display and is a separate, later piece of work, and D2's consequence
-  means it should not exist before the fence itself has been measured
-  live.
+  **Not built: showing it from the portal** (§9) — the command line
+  is the only door, on purpose.
+- **The `.conf`'s `Endpoint` names THIS instance's own externally-DNAT'd
+  port** (§5.1b), not one fixed port for the whole node — a different
+  instance's peer dials a different port on the same address.
 - **The `.conf` is a bearer credential** (RFC-0044 §5): whoever holds
   the file until it expires is inside; the node cannot tell who that
   is. Unlike a forward, there is no per-connection identity check.
-- **The tunnel address** is the lowest free `/32` in the node's
-  WireGuard subnet, tracked the same way the connect service's
-  network membership is (§3/§4): by scanning the currently open
-  `wireguard` accesses, no separate counter to drift.
+- **The tunnel address** is the lowest free `/32` in this INSTANCE's
+  own WireGuard subnet (isolated per apparatus, so every instance
+  reuses the same range without collision), tracked the same way the
+  connect service's network membership is (§3/§4): by scanning the
+  currently open `wireguard` accesses for this instance, no separate
+  counter to drift.
 
 ### 5.4 What the laptop needs
 
@@ -354,7 +446,14 @@ An ordinary WireGuard client app and the printed `.conf` — no
 `oaap-expose.py` involved, unlike §4. Its `AllowedIPs` names the
 instance's subnet as a courtesy default (so the peer's own routing
 sends the right traffic into the tunnel); the security boundary is
-§5.1's fence, not this file.
+§5.1's fence, not this file. **This courtesy default is load-bearing
+for anyone testing by hand rather than through `wg-quick` or a real
+client app:** both install a kernel route for `AllowedIPs` toward the
+interface automatically from the `.conf`; a bare `ip link add` +
+`wg set` peer (as the second measurement's simulated client used)
+does not, and traffic silently leaves by the wrong interface without
+one — indistinguishable, from the outside, from the fence dropping
+it.
 
 ## 6. Roles (D1)
 
@@ -423,18 +522,20 @@ is measured on a real node.
   profile** (D4, RFC-0011 implementation note) — never as a side
   effect of anything a tenant does.
 
-## 9. What 0.3 explicitly does not do
+## 9. What 0.4 explicitly does not do
 
 - **No portal issuance of a WireGuard `.conf`.** The command line is
-  the only door (§7) — a deliberate, not accidental, gap: D2's
-  consequence puts the real-node fence measurement before offering
-  this anywhere, and the portal is "anywhere".
-- **The fence is untested on a real node.** §5.1's `iptables` rules
-  are verified as text (the exact argument lists, in the right order)
-  against a mocked binary — never against a real Docker network, a
-  real gateway container, or a real peer sending real packets. This
-  is the single most important line in this document: *do not treat
-  §5 as safe to use until that measurement exists and is recorded.*
+  the only door (§7) — a deliberate, not accidental, gap: a fence that
+  is now measured working is not, by itself, a decision to offer this
+  from the portal. That remains a separate, later question.
+- **Not measured against a real client app or `wg-quick`** — the
+  second measurement's peer was built by hand (`ip link add` + `wg
+  set`, §5.4) to control exactly what was being tested; a peer set up
+  the ordinary way (`wg-quick up`, a phone/desktop app) has not yet
+  been tried against this apparatus.
+- **Not measured across a reboot.** §5.2 states that the design
+  should survive one (the persisted state and key rebuild everything
+  else); this has not actually been rebooted and re-measured.
 - **No names for peers** (RFC-0044 D6) — a WireGuard peer reaches
   containers by address; the page/command line list the addresses
   current at open time, which change on recreate (RFC-0016).
@@ -483,21 +584,34 @@ is measured on a real node.
     not.
 15. Opening a `wireguard` access without node profile `remote-access`
     is refused, and nothing is written (§5.2).
-16. Opening a `wireguard` access allocates the lowest free tunnel
-    address, adds the peer to `wg0`, and inserts the three firewall
-    rules of §5.1 in the exact order specified, ahead of the chain's
-    existing content.
-17. Closing a `wireguard` access removes the peer from `wg0` and
-    deletes all three firewall rules; a failed step during open leaves
-    nothing partially applied.
-18. Two simultaneous `wireguard` accesses receive two different
-    tunnel addresses; closing one does not touch the other's peer or
-    rules.
-19. The `.conf` text is returned exactly once, from `access_open`, and
-    is never written to `apps/remote-access.json` or any other file.
-20. Removing node profile `remote-access` while a `wireguard` access
-    is open is refused, mirroring `store`'s own refusal while schemas
-    exist.
+16. An instance's FIRST `wireguard` access allocates the lowest free
+    tunnel address, brings up that instance's own namespace/interface/
+    bridge-veth apparatus (§5.1b), and inserts the three firewall
+    rules of §5.1 AND the two `FORWARD` rules of §5.1b, in the exact
+    order specified, ahead of the chain's existing content.
+17. A SECOND `wireguard` access on the SAME instance shares the first
+    one's apparatus exactly (same namespace, same external port, no
+    new veth pair) and gets its own tunnel address and firewall rules.
+18. Closing a `wireguard` access removes its peer and its three
+    firewall rules; a failed step during open leaves nothing partially
+    applied, INCLUDING a just-created apparatus if this was the
+    instance's first attempted peer.
+19. Closing the LAST open `wireguard` access of an instance tears down
+    its entire apparatus (namespace, both veth pairs, the DNAT rule,
+    both `FORWARD` rules); closing one of several leaves the apparatus
+    and the other peers untouched.
+20. Two simultaneous `wireguard` accesses on the SAME instance receive
+    two different tunnel addresses; on TWO DIFFERENT instances, two
+    different external ports and two different namespaces.
+21. The `.conf` text is returned exactly once, from `access_open`, and
+    is never written to `apps/remote-access.json` or any other file;
+    its `Endpoint` port is that instance's own external port.
+22. Removing node profile `remote-access` while any `wireguard` access
+    is open, on any instance, is refused, mirroring `store`'s own
+    refusal while schemas exist.
+23. Bringing up an apparatus asserts
+    `net.bridge.bridge-nf-call-iptables=1` first and refuses outright,
+    before creating anything, if that fails (§5.1b).
 
 ## 11. Dependencies
 
@@ -560,15 +674,52 @@ davon nicht betroffen** — sie routet nicht in eine Bridge hinein,
 sondern tritt ihr regulär bei (`docker network connect`), genau der
 Weg, den Docker vorsieht.
 
-**Offene Wahl, noch nicht entschieden:** den Peer per Netzwerk-
-Namensraum + veth ECHT als Bridge-Mitglied einbinden (aufwendiger,
-funktioniert MIT Dockers Schutz statt gegen ihn); Dockers Schutz
-knotenweit abschalten (schwächt ihn für JEDEN Container, nicht nur
-diesen Zugang); WireGuard als Plattform-Fähigkeit ganz aufgeben und
-stattdessen auf den Router verweisen (wie beim Gerätezugang, D9); oder
-es einfach hier stehen lassen — das Objekt selbst bleibt nützlich,
-auch wenn diese Form nie Verkehr trägt.
+**Jörgs Entscheidung, 27.09.: „mit Docker arbeiten".** Von vier
+Optionen (Bridge-Einbindung; Dockers Schutz knotenweit abschalten;
+WireGuard ganz aufgeben und auf den Router verweisen wie beim
+Gerätezugang D9; oder es einfach so stehen lassen) fiel die Wahl auf
+die erste: mit Dockers eigenem Schutz arbeiten, nicht gegen ihn.
 
-**Ausdrücklich nicht gebaut:** Portal-Ausgabe der `.conf`, QR-Code,
-Namensauflösung für Peers (D6), Warnung vor Adressüberlappung mit
-Heimnetzen. Gerätezugang (D9) bleibt ein eigenes Objekt.
+**Stufe 4 (0.4, diese Fassung): neu gebaut nach diesem Befund — und
+ein ZWEITES Mal gemessen, diesmal erfolgreich, Ende zu Ende, durch den
+gebauten Code selbst.** Jede Instanz mit mindestens einem offenen
+Zugang bekommt jetzt ihre EIGENE kleine Apparatur statt eines
+gemeinsamen knotenweiten `wg0`: ein eigener Netzwerk-Namensraum, ein
+WireGuard-Interface DIREKT darin angelegt (niemals nachträglich
+hineinverschoben — das zerstört die UDP-Anbindung des Interfaces,
+gemessen), ein Veth-Paar, dessen Knoten-Ende ein ECHTES Mitglied der
+Docker-Bridge dieser Instanz ist (`master br-...`) — genau deshalb
+sieht Dockers `raw`-Tabellen-Regel jetzt die Bridge selbst als
+Eingang, nicht `wg0`, und lässt den Verkehr durch. Ein zweites
+Veth-Paar plus ein je-Instanz-eigener, von außen weitergeleiteter
+UDP-Port sorgen dafür, dass ein echter Peer von außerhalb dieses
+Interface überhaupt erreicht.
+
+Die zweite Messung fand dabei selbst noch zwei echte Fehler im neuen
+Bau, BEVOR sie bestand: erstens fehlte eine zweite `FORWARD`-Regel für
+den RÜCKWEG (der Server empfing den Handschlag, die Antwort kam beim
+Peer nie an — Dockers `FORWARD`-Kette hat als Grundregel `DROP`, und
+nur die Hinrichtung war erlaubt); zweitens war `br_netfilter` auf
+oaap-test gar nicht geladen — ohne dieses Modul sieht `DOCKER-USER`
+gebrücktem Verkehr überhaupt nicht zu, und ein erster, scheinbar
+erfolgreicher Testlauf hatte in Wahrheit GAR KEINEN Zaun geprüft (der
+App-Container war nur erreichbar, weil NICHTS blockierte; dass das
+Gateway trotzdem unerreichbar blieb, war Zufall, kein Zaun). Beide
+Fehler sind jetzt im Code selbst behoben — `appctl.py` erzwingt
+`net.bridge.bridge-nf-call-iptables=1` bei jeder Apparatur-Inbetriebnahme
+selbst, weil dieser Schalter einen Neustart nicht überlebt.
+
+**Der entscheidende Test, mit dem echten Code:** Profil setzen, Zugang
+öffnen, die ausgegebene `.conf` in einen echten (simulierten) Peer
+laden — vollständiger Handschlag, 3 von 3 Pings zum App-Container samt
+echter HTTP-404-Antwort, das Gateway nachweislich weiter unerreichbar,
+mit den `DOCKER-USER`-Zählern als Beleg (genau 3 erlaubt, genau 3
+verworfen). Schließen des letzten Zugangs einer Instanz baut ihre
+gesamte Apparatur wieder vollständig ab.
+
+**Ausdrücklich nicht gebaut/gemessen:** Portal-Ausgabe der `.conf`,
+QR-Code, Namensauflösung für Peers (D6), Warnung vor
+Adressüberlappung mit Heimnetzen, ein echter WireGuard-Client
+(`wg-quick`/App) statt des von Hand gebauten Test-Peers, ein Neustart
+des Knotens mit anschließender erneuter Messung. Gerätezugang (D9)
+bleibt ein eigenes Objekt.

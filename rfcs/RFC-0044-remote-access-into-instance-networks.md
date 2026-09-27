@@ -56,13 +56,46 @@
   routed in from `wg0`, is dropped there, before this capability's own
   rules are ever reached — this is Docker's own protection against
   exactly the technique this shape needs, applied unconditionally.
-  Full write-up, with the options this now raises (bridge the peer in
+  Full write-up, with the options this raised (bridge the peer in
   via netns+veth instead of routing to it; disable Docker's protection
   node-wide; drop shape (a) and point at the router's own WireGuard
   instead per D9's device precedent; or leave the object built and
-  stop here) in `oaap.net.remote-access` 0.3 §5.1a — **not decided**.
-  §4's port forward is unaffected: it joins a bridge via `docker
-  network connect`, which this protection does not restrict.
+  stop here) in `oaap.net.remote-access` 0.3 §5.1a. §4's port forward
+  is unaffected throughout: it joins a bridge via `docker network
+  connect`, which this protection does not restrict.
+
+  **Jörg's choice, same day: "mit docker arbeiten" — bridge the peer
+  in.** §5 REBUILT the same day around a per-instance apparatus
+  (`oaap.net.remote-access` 0.4, reference 0.1.137): each instance
+  with an open `wireguard` access gets its own network namespace, its
+  own WireGuard interface created directly inside it (never moved —
+  moving breaks the interface's UDP socket binding, measured), a
+  bridge-side veth whose ROOT end is a genuine member of that
+  instance's own Docker bridge (so Docker's raw-table rule sees the
+  bridge as ingress, not a routed hop), and a second veth pair plus an
+  externally-DNAT'd UDP port, one per instance, reaching that
+  namespace from outside at all. Node profile `remote-access` now only
+  checks tooling — nothing starts host-wide until an instance's first
+  peer. **MEASURED A SECOND TIME, same day, on oaap-test, end to end
+  through the built code itself** (`oaap node add-profile
+  remote-access` → `oaap app access open --shape wireguard` → the
+  printed `.conf` loaded into a real, separately-built WireGuard
+  peer): full handshake, 3/3 pings and a real HTTP 404 from the
+  instance's app container, gateway confirmed unreachable, with
+  `DOCKER-USER`'s own packet counters (3 accepted, 3 dropped) proving
+  the fence — not an accident — was what decided both outcomes. Found
+  and fixed by this SAME measurement, before it passed: a missing
+  return-path `FORWARD` rule (the handshake reply had nowhere to go),
+  and `net.bridge.bridge-nf-call-iptables` not being enabled at all
+  (without it, bridged traffic never reaches `DOCKER-USER`, and a
+  first "successful" run had in fact tested no fence whatsoever — the
+  app container was reachable only because nothing was blocking
+  anything, and the gateway's continued unreachability was
+  coincidence, not enforcement). The build now re-asserts this sysctl
+  itself, node-wide, on every apparatus bring-up, and refuses outright
+  if it cannot. Full write-up in `oaap.net.remote-access` 0.4 §5.1b.
+  Still CLI-only (§9) — a fence that works is not, by itself, a
+  decision to offer this from the portal.
 - **Date:** 2026-09-25
 - **Authors:** Jörg (the wish), Claude (analysis & proposal)
 - **Depends on:** RFC-0001 (capability #7 `oaap.net.remote-access`),
