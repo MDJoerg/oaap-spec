@@ -40,9 +40,29 @@
   the fence is measured on a real node before a WireGuard file is offered
   *anywhere*, and the portal is "anywhere". Tested locally against the
   exact `iptables`/`wg` argument sequences (`test/test_wireguard_access.py`,
-  35 cases) — **not against a real kernel, a real Docker network, or a
-  real peer.** That measurement, on a node Jörg names, is the next step,
-  and nothing here should be treated as a working fence until it exists.
+  35 cases). **MEASURED ON A REAL NODE 2026-09-27, on oaap-test, with
+  Jörg's explicit permission to damage the node ("es kann dort nichts
+  kaputt gehen … wir bauen dann gemeinsam wieder auf") — and found
+  BLOCKED, by Docker itself, not by a defect in the three rules.** A
+  simulated peer (own network namespace, veth to the real node)
+  completed a real handshake; the three rules applied in the exact
+  specified order and correctly excluded the gateway. But the peer
+  could not reach the instance's own container either — `tcpdump` and
+  `nft list ruleset` showed why: Docker 29.7.1 installs a `raw`-table
+  `PREROUTING` rule per container address, on every network, dropping
+  any packet whose arrival interface is not that container's own
+  bridge — evaluated before `conntrack`, `nat`, and the `filter`-table
+  `DOCKER-USER` chain §2.2/§5.1 rely on. A WireGuard peer's packet,
+  routed in from `wg0`, is dropped there, before this capability's own
+  rules are ever reached — this is Docker's own protection against
+  exactly the technique this shape needs, applied unconditionally.
+  Full write-up, with the options this now raises (bridge the peer in
+  via netns+veth instead of routing to it; disable Docker's protection
+  node-wide; drop shape (a) and point at the router's own WireGuard
+  instead per D9's device precedent; or leave the object built and
+  stop here) in `oaap.net.remote-access` 0.3 §5.1a — **not decided**.
+  §4's port forward is unaffected: it joins a bridge via `docker
+  network connect`, which this protection does not restrict.
 - **Date:** 2026-09-25
 - **Authors:** Jörg (the wish), Claude (analysis & proposal)
 - **Depends on:** RFC-0001 (capability #7 `oaap.net.remote-access`),
