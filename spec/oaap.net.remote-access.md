@@ -1,20 +1,25 @@
 # oaap.net.remote-access — A Person Inside One Instance Network, For a While
 
 - **ID:** `oaap.net.remote-access`
-- **Version:** 0.1
-- **Maturity:** draft (0.1 is RFC-0044 stage 1, as staged by D2's
+- **Version:** 0.2
+- **Maturity:** draft (0.1 was RFC-0044 stage 1, staged by D2's
   consequence: the access object, its lifecycle, the tenant audit
-  trail and the portal card. It carries **no traffic yet** — opening
-  an access records who, for whom, which instance and until when, and
-  it expires by itself, but the port forward of RFC-0044 §4 and the
-  WireGuard peer of §5 are not built. Both hang on this stage, per
-  Jörg's decision to build them together rather than in sequence.)
-- **Based on:** RFC-0044 (the object, D1–D10), RFC-0038 (the diagnosis
-  window and its sweep — the pattern this capability copies exactly,
-  D2 there), RFC-0022 / `oaap.core.tenant` (the tenant audit log, an
-  access belongs to exactly one tenant), RFC-0011 (node profiles —
-  reserved for stage 2's WireGuard listener, not used yet), RFC-0027
-  (API keys — the credential stage 2's port forward will reuse)
+  trail and the portal card — no traffic yet. **0.2 adds stage 2's
+  port forward (§4):** a `forward` access now carries real bytes,
+  through the connect service, into the one container:port the
+  access names. A `wireguard` access still opens only the record —
+  §5's WireGuard peer and its host firewall fence are not built, and
+  D2's consequence still requires measuring that fence on a real node
+  before either is offered anywhere.)
+- **Based on:** RFC-0044 (the object, D1–D10, §4 the port forward),
+  RFC-0038 (the diagnosis window and its sweep — the pattern this
+  capability's lifecycle copies exactly, D2 there), RFC-0022 /
+  `oaap.core.tenant` (the tenant audit log, an access belongs to
+  exactly one tenant), RFC-0027 (API keys — the holder's own key is
+  the forward's only credential), RFC-0016 (instance networks — what
+  a forward reaches, and how it is named), RFC-0033 §3.5 (the laptop
+  client `oaap-expose.py`, which grew the `forward` verb this version
+  needed)
 
 ## 1. Purpose
 
@@ -25,12 +30,11 @@ Postgres, an admin port, a broker. This capability introduces the
 object that makes looking inside a deliberate, time-boxed, recorded
 act instead of a trip to the machine: an **access**.
 
-What 0.1 delivers is the object and its lifecycle — open, list, close,
-expire, and one line per event in the tenant's audit log. It does not
-yet let anyone reach anything: RFC-0044 §7 already says the point of
-an access is "the door", and 0.1 has not built a door, only the record
-that one has been asked for. That is deliberate staging, not an
-oversight — see Maturity above.
+0.1 delivered the object and its lifecycle. 0.2 delivers the first of
+its two shapes carrying real traffic: **a port forward** — one
+container, one port, one holder, one WebSocket per TCP connection they
+make. The second shape, a WireGuard peer into the whole instance
+network, is still not built (§7).
 
 ## 2. The object
 
@@ -39,7 +43,8 @@ oversight — see Maturity above.
   "instance": "<instance name/key>",
   "tenant": "<uuid>",
   "shape": "forward",                          // forward | wireguard
-  "target": {"service": "db", "port": 5432},    // forward only, else {}
+  "target": {"service": "db", "port": 5432,
+            "container": "oaap-app-crm-db"},   // forward only, else {}
   "holder": "<name the opener gave, default: themselves>",
   "opened_by": "<who queued the open>",
   "opened": "<ISO instant, UTC>",
@@ -58,12 +63,20 @@ oversight — see Maturity above.
   not configuration. It is kept in its own file
   (`apps/remote-access.json`), the same way `connect.json` and
   `twin-readers.json` hold acts rather than configuration.
-- `holder` is free text in 0.1, defaulting to the opener. It is **not
-  yet checked** against the tenant's user list — a limitation stated
-  here on purpose, because 0.1 grants no traffic; real enforcement of
-  "never someone outside [the tenant]" (RFC-0044 §1) arrives with
-  stage 2's port forward, which checks the holder's own API key on
-  every connection (RFC-0044 §4).
+- **`target.container` is resolved once, at open time**, from the
+  instance's own service list (RFC-0016): a single-service instance
+  resolves any name (there is nothing to disambiguate); a
+  multi-service instance requires an exact match on the service name,
+  refused otherwise. This is the ONE container:port a forward may ever
+  reach — fixed when the access opens, never re-resolved from a
+  connection's own request, and never influenced by anything the
+  laptop client sends.
+- `holder` is free text, defaulting to the opener. It is **not
+  checked against the tenant's user list when the access opens** — but
+  it IS the exact string every forward connection's identity check
+  compares the caller's key to (§4): a holder that does not name a
+  real, still-active user simply means nobody's key will ever match,
+  which is refused the same way a wrong holder is.
 
 ## 3. Lifecycle
 
@@ -71,12 +84,17 @@ oversight — see Maturity above.
   exists; `shape` is one of `forward`/`wireguard`; `hours` is one of
   `1`/`8`/`24` (RFC-0044 D3, default `8`, no extension — opening again
   is a new act with a new audit entry); a `forward` access names a
-  service and a port. Writes the record and one tenant-audit line
-  `access.opened` (who, for whom, instance, shape, target if any,
-  hours).
+  service that exists on the instance, and a port. For `forward`, the
+  connect service is joined to the instance's network here too (§4) —
+  refused, with nothing written, if that fails. Writes the record and
+  one tenant-audit line `access.opened` (who, for whom, instance,
+  shape, target if any, hours).
 - **List.** Open, unexpired accesses, optionally filtered by instance
   or tenant.
-- **Close.** Removes the record early. Writes `access.closed`.
+- **Close.** Removes the record early. For `forward`, the connect
+  service leaves the instance's network too, but only once no other
+  open `forward` access on that same instance still needs it. Writes
+  `access.closed`.
 - **Expire.** The same removal, run by the sweep, once `expires` has
   passed. Writes `access.expired` instead of `access.closed` — same
   shape as RFC-0038's `diagnose.expired` vs `diagnose.closed`.
@@ -89,16 +107,65 @@ oversight — see Maturity above.
   look is a new access, with its own audit line — the same reasoning
   RFC-0038 D2 gives for its window.
 
-## 4. Roles (D1)
+## 4. The port forward (RFC-0044 §4)
+
+```
+laptop                                    node
+┌──────────────────────┐                ┌───────────────────────────────┐
+│ psql -h localhost      oaap-expose.py  │ gateway  /connect/forward     │
+│      -p 5433  ──────▶  forward         │  1. who? holder's own key     │
+│                      ──WebSocket──────▶│  2. this access: alive,       │
+│                        (one per        │     'forward', not expired?   │
+│                         TCP conn)       │  3. dial the ONE container:  │
+└──────────────────────┘                │     port the access names     │
+                                          └───────────────────────────────┘
+```
+
+- **A single hop, never inter-node.** Unlike `oaap.net.connector`'s
+  tunnel (which crosses to another node), a forward is entirely local
+  to the node the access was opened on: the gateway passes
+  `/connect/forward` to the connect service, exactly as it already
+  passes `/connect/tunnel` (same route shape, own handler).
+- **One WebSocket per TCP connection**, raw bytes both ways, no
+  framing of its own. The laptop client listens on a local port; every
+  connection there opens its own WebSocket, relayed 1:1. There is
+  nothing to multiplex, so nothing is.
+- **Checked on every connection, not once.** The client's
+  `Authorization: Bearer <API key>` is verified against identity
+  (RFC-0027), and the resulting principal must equal the access's
+  `holder` exactly — a key that opens fine but belongs to someone else
+  is refused (403) without saying whose access it actually is. An
+  unknown, non-`forward`, or expired access id answers 404/410, never
+  401 — the request named the wrong access, not a bad key.
+- **The connect service reaches the target because appctl put it
+  there.** It carries no Docker socket and joins no network on its
+  own initiative — the network join happens exactly once, when an
+  access of shape `forward` opens on that instance, and is undone
+  once no such access remains open on it (§3). The dial itself names
+  only `target.container:target.port` — nothing a connection can
+  redirect.
+- **No new node capability.** No listener, no port published, no
+  firewall rule: the fence here is code (the fixed dial target), not
+  configuration — RFC-0044 §4 says so explicitly, which is why this
+  shape did not have to wait for a firewall fence measured on a real
+  node the way §5's WireGuard peer does.
+- **The laptop client:** `oaap-expose.py forward --access <id>
+  --server <node> --local-port <n>` (RFC-0033 §3.5's client, same
+  binary, opposite verb from `expose`). Reads the key from `OAAP_KEY`
+  or a hidden prompt, never an argument — same rule as `expose`.
+
+## 5. Roles (D1)
 
 Opening or closing an access requires `server_admin`, or the
 `tenant_admin` of the **instance's own tenant** — never another
 tenant's `tenant_admin`, refused by the same cross-tenant check every
 other portal action already runs. An access a `server_admin` opens is
 recorded in the **tenant's** log, not a separate operator log (RFC-0022
-§6: "access by the operator is itself an event").
+§6: "access by the operator is itself an event"). This governs who may
+**open and close the record**; §4's per-connection check is a separate
+question answered by the holder's own key, not by this role.
 
-## 5. Interface (CLI)
+## 6. Interface (CLI)
 
 ```
 oaap app access open <instance> [--shape forward|wireguard]
@@ -108,45 +175,58 @@ oaap app access close <access-id>
 oaap app access sweep
 ```
 
-`oaap app access open` prints the record and says plainly that no
-traffic follows in 0.1. The portal card offers the same four actions
-on the instance page — open, the table of currently open accesses,
+`oaap app access open` prints the record and, for `forward`, the exact
+client command the holder runs next. The portal card offers the same
+actions on the instance page's "Fernzugang" tab — open, the table of
+currently open accesses (with the id, needed to run the client),
 close, and (automatically, unseen) the sweep.
 
-## 6. Security requirements
+## 7. Security requirements
 
 - **Default: no access.** No instance has an open access unless a
   person with the right role opened it.
-- **A named holder**, even though 0.1 does not yet check it against
-  the tenant's users (§2).
+- **A named holder, checked at connection time.** §2/§4: not checked
+  against the tenant's users when the record is created, but every
+  forward connection's identity check must resolve to that exact name.
 - **Always a TTL**, one of three fixed durations, never extended.
 - **One tenant.** An access belongs to the instance's tenant; the
   cross-tenant check that guards every other portal action guards this
   one too.
-- **Metadata always, payload never** (D7) — nothing this stage records
-  is content; there is no content yet to record.
-- **The spool is data, not trust.** Every check above runs again on
-  the host when the portal queues an open or a close, exactly as
-  RFC-0038's diagnosis window does.
+- **One fixed target, decided by the operator who opened it, never by
+  the connection.** A forward's `target.container`/`target.port` are
+  resolved once, at open time, from the instance's own declared
+  services — nothing a laptop client sends can change or widen it.
+- **Metadata always, payload never** (D7). The audit log records
+  opening, closing, expiry and a `access.forward.connected` line per
+  connection (who, instance, target) — never the bytes exchanged; the
+  connect service does not parse the protocol running over a forward
+  and makes no claim to.
+- **The spool is data, not trust.** Every open/close check above runs
+  again on the host when the portal queues one, exactly as RFC-0038's
+  diagnosis window does; every §4 check runs again on the connect
+  service for every single connection, not only the first.
 
-## 7. What 0.1 explicitly does not do
+## 8. What 0.2 explicitly does not do
 
-- **No traffic.** Neither shape moves a single byte between a laptop
-  and an instance network yet. §4 and §5 of RFC-0044 (the port forward
-  and the WireGuard peer) are not built.
-- **No firewall fence, no WireGuard listener, no node profile check.**
-  RFC-0044 §2.2's host firewall rule and D4's `remote-access` node
-  profile belong to stage 2, and are measured on a real node before
-  either is offered anywhere (RFC-0044 D2's consequence).
+- **No WireGuard.** §5's peer into the whole instance network, its
+  `.conf`/QR issuance and its host firewall fence are not built. D2's
+  consequence still applies: the firewall fence is measured on a real
+  node before any of it is offered anywhere.
+- **No node profile check.** D4's `remote-access` node profile gates
+  the WireGuard listener only, which does not exist yet — a `forward`
+  access needs no profile, exactly as RFC-0044 §4 says ("the port
+  forward needs no profile: it rides the gateway").
 - **No device access** (RFC-0044 D9) — a different object, a different
   fence, out of scope here.
 
-## 8. Conformance tests
+## 9. Conformance tests
 
 1. Opening an access on an unknown instance is refused.
 2. Opening an access with a duration other than 1/8/24 hours is
    refused, with all three checked from a form value, not trusted.
-3. Opening a `forward` access without a service and a port is refused.
+3. Opening a `forward` access without a port is refused; naming a
+   service the instance does not have is refused by name, not
+   silently substituted.
 4. An opened access appears in `oaap app access list` for its instance
    and disappears once closed.
 5. Closing an unknown access id is refused.
@@ -162,36 +242,60 @@ close, and (automatically, unseen) the sweep.
    cross-tenant guard).
 9. The record written to `apps/remote-access.json` never appears in
    the instance's registry entry, a backup, or a promoted instance.
+10. A `forward` connection with the holder's own key relays bytes
+    exactly, both ways, over one WebSocket per TCP connection.
+11. A `forward` connection with a key that verifies but is not the
+    holder is refused (403), without revealing who the holder is.
+12. A `forward` connection naming an unknown, non-`forward`, or
+    expired access is refused (404/410), never mistaken for a bad key
+    (401).
+13. Two connections to the same `forward` access are independent —
+    one ending does not affect the other.
+14. Closing the last `forward` access of an instance makes the connect
+    service leave that instance's network; closing one of several does
+    not.
 
-## 9. Dependencies
+## 10. Dependencies
 
 RFC-0044, RFC-0038 (window/sweep pattern), RFC-0022 (tenant, audit
-log), RFC-0027 (referenced for stage 2), RFC-0016 (instance networks —
-the thing an access will eventually reach).
+log), RFC-0027 (the holder's own key, checked per connection), RFC-0016
+(instance networks, container naming), RFC-0033 §3.5 (the laptop
+client this version extended).
 
 ## Deutsche Zusammenfassung
 
-**Worum es in dieser Stufe geht.** RFC-0044 will einen zeitlich
-begrenzten Zugang eines Menschen in genau ein Instanznetz — als
-eigenes Objekt, „Zugang" genannt. Diese erste Stufe (0.1) baut das
-Objekt selbst: öffnen, auflisten, schließen, automatisch ablaufen, und
-je Ereignis eine Zeile im Audit-Log des Mandanten. **Sie öffnet noch
-keine wirkliche Verbindung** — wer heute einen Zugang öffnet, bekommt
-einen Datensatz mit Ablaufzeit, aber noch keinen Weg zur Datenbank.
-Das ist Absicht: Jörg hat entschieden, dass Portweiterleitung (b) und
-WireGuard (a) zusammen gebaut werden, nicht nacheinander — aber
-gebaut wird zuerst das Gerüst (Objekt, Portal-Karte, Protokoll,
-Aufräumen), und die Firewall-Regel wird an einem echten Knoten
-gemessen, bevor irgendwo eine WireGuard-Datei ausgegeben wird.
+**Worum es geht.** RFC-0044 will einen zeitlich begrenzten Zugang eines
+Menschen in genau ein Instanznetz — als eigenes Objekt, „Zugang"
+genannt. Stufe 1 (0.1) baute das Objekt selbst: öffnen, auflisten,
+schließen, automatisch ablaufen, je Ereignis eine Zeile im Audit-Log.
+**Stufe 2 (0.2, diese Fassung) lässt eine Portweiterleitung wirklich
+Verkehr tragen:**
 
-**Vorbild ist das Diagnose-Fenster** (RFC-0038): dieselbe Uhr (der
-Minutentimer läuft schon), dieselbe Regel „nie verlängern, neu öffnen
-ist ein neuer Vorgang", dieselbe Prüfung noch einmal auf dem Knoten,
-weil die Warteschlange Daten ist, kein Vertrauen.
+- Der/die Inhaber:in startet `oaap-expose.py forward --access <Id>
+  --server <Knoten> --local-port <Port>` auf dem eigenen Rechner, mit
+  dem **eigenen** API-Schlüssel (nicht dem der Person, die den Zugang
+  geöffnet hat).
+- Jede lokale Verbindung wird zu einem eigenen WebSocket zum Knoten,
+  das roh, ohne eigene Rahmung, Bytes durchreicht — ein einziger
+  Sprung, nie zwischen zwei Knoten.
+- Der `connect`-Dienst prüft bei **jeder** Verbindung erneut: der
+  Schlüssel gehört zur/zum Inhaber:in, der Zugang lebt noch, die Form
+  ist `forward`. Er wählt das Ziel selbst — Dienst und Port stehen im
+  Zugang, fest, seit dem Öffnen; die Anfrage liefert nur eine Id, nie
+  eine Adresse.
+- Der `connect`-Dienst tritt dem Instanznetz nur bei, solange dort ein
+  offener `forward`-Zugang ist — appctl übernimmt das beim Öffnen und
+  Schließen, kein Docker-Zugriff, keine Firewall-Regel nötig (§4 sagt
+  ausdrücklich: „das Gateway wählt selbst das Ziel", keine
+  Netzwerk-Öffnung wie bei WireGuard).
 
-**Wer darf öffnen?** `server_admin`, und der `tenant_admin` genau des
-Mandanten, dem die Instanz gehört (D1) — wie überall sonst im Portal.
+**Weiterhin nicht gebaut:** WireGuard (Form `wireguard`) — die Firewall-
+Regel dafür wird zuerst an einem echten Knoten gemessen, bevor
+irgendwo eine WireGuard-Datei ausgegeben wird (D2). Auch kein
+Knotenprofil `remote-access` — das gehört zur WireGuard-Stufe.
 
-**Noch offen (Stufe 2/3):** die eigentliche Portweiterleitung durch
-das Gateway, der WireGuard-Zugang ins Netz, die Firewall-Regel, die
-das durchsetzt, und der Knotenprofil-Schalter `remote-access`.
+**Wer darf öffnen/schließen?** `server_admin`, und der `tenant_admin`
+genau des Mandanten, dem die Instanz gehört (D1). Eine andere Frage
+ist, wer eine geöffnete Portweiterleitung tatsächlich BENUTZEN darf —
+das entscheidet allein der Inhaber-Name im Zugang, geprüft bei jeder
+Verbindung.

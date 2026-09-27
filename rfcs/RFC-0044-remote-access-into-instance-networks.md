@@ -12,11 +12,22 @@
   new tab "Fernzugang" next to "Diagnose" — server_admin or the instance
   tenant's own tenant_admin (D1), exactly as D2's consequence staged it:
   object, card, audit and sweep before the port forward and the WireGuard
-  peer, which both still hang on this. **No traffic yet** — §4's port
-  forward and §5's WireGuard peer, and the host firewall fence §2.2
-  requires, are not built; tested against the real worker (33 cases,
-  `test/test_access_portal.py`), not yet on a real node or in a browser,
-  not pushed, not rolled out.
+  peer, which both still hang on this. Tested against the real worker (33
+  cases, `test/test_access_portal.py`); pushed and rolled out to the fleet
+  the same day (reference 0.1.134). **Stage 2, same day (§4 port forward)
+  BUILT 2026-09-27** (`oaap.net.remote-access` 0.2, reference 0.1.135): a
+  `forward` access now carries real traffic — the connect service joins
+  the instance's network only while such an access is open, and dials the
+  ONE container:port the access names on every connection a laptop client
+  makes to `/connect/forward`, checked against the holder's own API key
+  every time. No firewall rule needed for this shape (§4: "the gateway
+  chooses the target itself"). Tested end to end with the real client, the
+  real connect service and a real TCP target
+  (`test/test_forward_tunnel.py`, 12 cases, plus `test/test_access_portal.py`
+  extended to 42). **Still not built:** §5's WireGuard peer and the host
+  firewall fence §2.2 requires — D2's consequence still requires measuring
+  that fence on a real node before either is offered anywhere. Not yet
+  measured on a real node or in a browser; not pushed, not rolled out.
 - **Date:** 2026-09-25
 - **Authors:** Jörg (the wish), Claude (analysis & proposal)
 - **Depends on:** RFC-0001 (capability #7 `oaap.net.remote-access`),
