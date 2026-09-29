@@ -122,6 +122,63 @@ belongs to `oaap.core.gateway` regardless of this proposal's fate.
    knobs mean more ways to set them wrong, and one number is the one
    people will actually get right.
 
+## Amendment (2026-09-29): one bucket per route
+
+Decision 3 deferred per-route limits until a need showed up. The need
+arrived with the Handball-Infoboard (letter of 2026-09-28): a sports
+hall runs **display devices** that poll one public route (`/display`)
+and, on match days, **children's phones** that vote on another
+(`/vote`) — all of them in the hall's WLAN, which the internet sees as
+**one** client address. With one bucket per instance and address, the
+votes of sixty phones drain the budget the displays live on, and the
+hall board goes blank in the middle of a match. The per-instance
+override does not help: raising the one number for the votes raises it
+for everything else too.
+
+We got this wrong once before. On 2026-09-26 we told the app's authors
+that their device channels were login-protected and therefore not
+braked, having measured a *different*, protected route. They were
+public. This amendment is measured on the app's real routes.
+
+**The rule (Jörg, 2026-09-29: "ja, wie empfohlen"):**
+
+1. **The bucket is (instance, route, client address).** "Route" is the
+   route the gateway matched — the manifest's declared path prefix,
+   by the same longest-prefix rule that picks the handler. A request
+   to `/vote/app.js` counts under `/vote`; anything only the catch-all
+   `/` matches counts under `/`. An app that wants its page's scripts
+   and images to share the page's budget serves them under the page's
+   own prefix.
+2. **One budget per route across all entry points** — unchanged in
+   spirit: LAN port, node subdomain, own name and aliases still share
+   it, per route.
+3. **The limit is the instance's**, applied to each public route on its
+   own. `server_admin` may **override it per route**: a different
+   value, or off (with the same warning as switching the instance
+   off). An override names a route the manifest declares as `public`;
+   one whose route has disappeared in a redeploy does nothing, and
+   `throttle show` names it. Overrides survive a redeploy, like the
+   instance value.
+4. **The app does not set its own limit.** The manifest gets no field
+   for it. The brake is the operator's control over the platform's
+   exposure, and an app that could raise it would make it decorative.
+5. **Device channels are not exempt** (Jörg, same day). A display that
+   polls is a client like any other; it gets its own route's budget,
+   not a free pass.
+
+**What this costs, said plainly:** a client can now spend the limit
+once per public route, so N public routes admit N times the traffic
+from one address. N is declared in the manifest and small, and
+separating the routes is exactly the point — one route's volume must
+not starve another's. The brake stays what it was: a volume brake,
+not an authentication control.
+
+**Unchanged:** the counter on the health page stays per instance; a
+rehearsal still serves no public route; the check still happens once
+per request, so streams pay at setup only. A site written before this
+amendment carries no route and is counted per instance as before,
+until the platform update rewrites it.
+
 ## Deutsche Zusammenfassung
 
 **Das Problem:** Eine als `public` gekennzeichnete Route bekommt von der
@@ -188,3 +245,21 @@ funktioniert.
    Ausbaustufe **vorgemerkt** (Jörgs Entscheidung). Der Bedarf ist real
    — ein Git-Klon kostet etwas anderes als ein API-Aufruf —, aber mehr
    Stellschrauben heißt auch mehr Gelegenheiten, sie falsch zu setzen.
+
+**Nachtrag (29.09.2026): ein Eimer je Route.** Der Bedarf aus Punkt 3
+ist da. In einer Sporthalle hängen Anzeigegeräte (`/display`) und am
+Spieltag die Handys der Kinder (`/vote`) im selben WLAN, und das Internet
+sieht nur **eine** Adresse. Mit einem Eimer je Instanz leeren sechzig
+abstimmende Handys das Budget, von dem die Anzeige lebt. Deine
+Entscheidung (*„ja, wie empfohlen“*):
+
+- Der Eimer ist **(Instanz, Route, Client-Adresse)**. Route ist das
+  Präfix aus dem Manifest, nach dem das Gateway ohnehin verteilt;
+  `/vote/app.js` zählt unter `/vote`, was nur `/` trifft, zählt unter `/`.
+- Der Grenzwert bleibt der der Instanz und gilt je Route für sich. Der
+  `server_admin` kann ihn **je Route überschreiben** (anderer Wert oder
+  aus, mit Warnung). Die App selbst kann das nicht.
+- Geräte-Kanäle werden **nicht** ausgenommen.
+- Der Preis, offen gesagt: Bei N öffentlichen Routen kommt von einer
+  Adresse N-mal so viel durch. Genau das ist gewollt: Eine Route soll der
+  anderen nichts wegnehmen.

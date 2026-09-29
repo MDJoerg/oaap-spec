@@ -1,8 +1,10 @@
 # oaap.core.gateway — HTTP Gateway (outline)
 
 - **ID:** `oaap.core.gateway`
-- **Version:** 0.2.14
+- **Version:** 0.2.15
 - **Maturity:** draft (outline — full specification to follow;
+  the public-route brake counts per route, not per instance, and
+  may be overridden per route, 2026-09-29 per the RFC-0010 amendment;
   the exposure zone `t.<external host>` with on-demand certificates and
   the public download route `/connect/client`, 2026-09-26 per RFC-0033
   stage 3;
@@ -217,9 +219,20 @@ reached.
 
 - On by default (reference default: 300 requests per 60 s), adjustable
   per instance and switchable off by `server_admin`.
-- **One budget per instance**, shared by every entry point it has (LAN
-  listener, node subdomain, canonical name and every alias) — a limit
-  that can be bypassed by changing entry point is not a limit.
+- **One budget per route** (since 0.2.15, RFC-0010 amendment): the
+  bucket is (instance, route, client address), where the route is the
+  declared path prefix the gateway matched — `/vote/app.js` counts
+  under `/vote`, and what only the catch-all matches counts under `/`.
+  The instance's limit applies to each public route on its own, so
+  one route's volume cannot starve another's.
+- **Per-route override** by `server_admin`: another value, or off (with
+  a warning). It names a route the manifest declares `public`; an
+  override whose route no longer exists has no effect and is reported.
+  Overrides survive a redeploy. The manifest has **no** field for it —
+  an app cannot raise its own brake.
+- Each route's budget is shared by every entry point the instance has
+  (LAN listener, node subdomain, canonical name and every alias) — a
+  limit that can be bypassed by changing entry point is not a limit.
 - The **gateway determines the client address**: the TCP peer in direct
   mode, the address vouched for by the edge in behind-edge mode. A
   client-supplied `X-Forwarded-For` is never used, and the edge
@@ -700,6 +713,17 @@ Reihenfolge einhält.
 
 Der interne Gesundheits-Port 8099 antwortet seit dieser Version nur
 noch dem Plattformnetz. Vorher war er aus jedem App-Netz erreichbar.
+
+## Deutsche Zusammenfassung (v0.2.15 — ein Eimer je Route)
+
+Die Bremse auf öffentlichen Routen zählt jetzt **je Instanz, Route und
+Client-Adresse**, nicht mehr je Instanz und Adresse. Route ist das
+Präfix aus dem Manifest, nach dem das Gateway verteilt. Der Grenzwert
+bleibt der der Instanz und gilt für jede öffentliche Route für sich;
+der `server_admin` kann ihn je Route überschreiben oder abschalten, die
+App selbst nicht. Anlass: In einer Sporthalle teilen sich Anzeigegeräte
+und abstimmende Kinder-Handys eine Adresse, und die Abstimmung darf die
+Anzeige nicht ausbremsen (Nachtrag zu RFC-0010, Jörg 29.09.).
 
 ## Deutsche Zusammenfassung (v0.2.14 — die Freigabe-Zone)
 

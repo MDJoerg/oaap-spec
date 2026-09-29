@@ -15,7 +15,7 @@ before the full specification is written.
 - [oaap.core.updates](oaap.core.updates.md) — one update engine per node, three triggers: a node updates its platform core from its recorded source, shows what would change first, and never touches app instances or user data (draft, v0.1.3)
 - [oaap.core.portal](oaap.core.portal.md) — web portal (draft, v0.3.16)
 - [oaap.core.identity](oaap.core.identity.md) — identity & roles (draft, v0.5.0)
-- [oaap.core.gateway](oaap.core.gateway.md) — HTTP gateway (outline, v0.2.14)
+- [oaap.core.gateway](oaap.core.gateway.md) — HTTP gateway (outline, v0.2.15)
 - [oaap.apps.runtime](oaap.apps.runtime.md) — app runtime: install, instances, contract delivery, remote deployment (draft, v0.2.31)
 - [oaap.data.backup](oaap.data.backup.md) — platform backup, restore & relocation (draft, v0.4)
 - [oaap.fleet.status](oaap.fleet.status.md) — read-only fleet status document & fleet keys (draft, v0.3)

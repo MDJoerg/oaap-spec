@@ -14,7 +14,7 @@ never deleted; superseded RFCs get status `Superseded by RFC-XXXX`.
 - [RFC-0007](RFC-0007-app-visibility-groups.md) — App Visibility Groups (Accepted)
 - [RFC-0008](RFC-0008-server-admin-role.md) — `server_admin`: Separating Platform Administration from App-Facing `admin` (Accepted)
 - [RFC-0009](RFC-0009-instance-public-address.md) — A Public Address That Belongs to the App, Not to the Machine (Accepted)
-- [RFC-0010](RFC-0010-public-route-throttling.md) — A Brake on Public Routes (Accepted)
+- [RFC-0010](RFC-0010-public-route-throttling.md) — A Brake on Public Routes (Accepted; amended 2026-09-29: one bucket per route, per-route override by `server_admin`)
 - [RFC-0011](RFC-0011-node-profiles.md) — Node Profiles: What a Node Is For (Accepted)
 - [RFC-0012](RFC-0012-store-sources-and-list-format.md) — Store Sources and List Format (Accepted)
 - [RFC-0013](RFC-0013-store-editor.md) — The Store Editor: Maintaining a List Without Knowing Git (Accepted)
