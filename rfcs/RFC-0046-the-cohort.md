@@ -377,7 +377,18 @@ that the CLI's functions are its body.
    waiting. Dates on users are set, nothing acts on them (stage 4).
    Not built in this stage: `lifetime.ends` stopping the instances (the
    daily worker), the portal's view of a cohort.
-4. **The daily worker** for the lifetime dates (§5).
+4. **The daily worker** for the lifetime dates (§5). **Built 2026-09-30**
+   (reference 0.1.149, `oaap.apps.runtime` 0.2.34): `oaap cohort sweep`
+   from its own systemd timer beside the rehearsal sweep (04:40,
+   `Persistent=true`, on a fresh install and in `migrate.sh`). Refinements:
+   the stop comes the day *after* `ends` (the last course day runs); it
+   fires once and a manual `start` stands; the sweep acts on every person
+   whose date has come, cohort or not (a date set in the portal must not
+   silently never fire); a fired deactivation date is cleared; a refused
+   deletion is logged once, not daily. Not yet moved by a command: `ends`
+   itself (the dates are movable on the user, the end only by a new
+   template) — a small `oaap cohort extend` is the next step if a course
+   overruns.
 5. **Stage 2** — `oaap.core.management` 0.1 and the key; the cohort as
    an app.
 

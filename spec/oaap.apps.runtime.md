@@ -1,7 +1,10 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.33 (**the cohort**, RFC-0046 stage 3: `oaap cohort`
+- **Version:** 0.2.34 (**the cohort's daily sweep**, RFC-0046 stage 4:
+  `oaap cohort sweep`, run once a day by a systemd timer, stops a cohort's
+  instances after `ends` and deactivates and deletes people on their dates;
+  it never deletes an instance; 2.19; 0.2.33 (**the cohort**, RFC-0046 stage 3: `oaap cohort`
   makes *N* seats — user, group, instance, seeds, material — in one tenant
   from one template file and removes them again; an instance may carry a
   `cohort` note; new 2.19. Nothing changes for a node that never runs the
@@ -403,9 +406,25 @@ remove | secret`; the functions behind it are the body of the stage-2 API
   ends with a table: seat, user, instance, state, address. Checks that
   cost nothing come first: an unstored secret, a user date in the past, an
   unusable handout path all stop the run **before** a user exists.
-- **Dates are data.** With `lifetime.ends`, each user gets `deactivate_at`
+- **The daily sweep** (0.2.34, RFC-0046 §5). `oaap cohort sweep`, from the
+  timer `oaap-cohort-sweep` (04:40, `Persistent=true`: a node that slept
+  still sweeps), does three things and only these. The day **after** `ends`
+  it **stops** the instances of the cohort — once (`ended` is recorded, so a
+  trainer who starts them again is not overruled tomorrow) and without
+  deleting anything. A person whose `deactivate_at` has come and who is
+  still active is **deactivated**, and that date is cleared (it fired; a
+  manual reactivation stands). A person whose `delete_at` has come is
+  **deleted**, but only when their seat holds **no instance**; otherwise the
+  date waits and the log says so once ("waiting for removal"). Identity's
+  refusals (2.4: `server_admin`, the last `tenant_admin`, a valid API key)
+  are reported with their reason, once in the log, and every morning on the
+  screen. The sweep acts on every person whose date has come, cohort or not.
+  Every action is a tenant audit entry `cohort.end` or `cohort.sweep`,
+  actor "cohort sweep". `--dry-run` says what would happen and changes
+  nothing. No date ever deletes an instance or its storage (RFC-0030 D4).
+- **Dates are data until the sweep runs.** With `lifetime.ends`, each user gets `deactivate_at`
   and `delete_at` (`ends` plus the template's periods) and the reason
-  `cohort <name>`. Nothing acts on them yet (stage 4), and no date ever
+  `cohort <name>`. The sweep (above) acts on them, and no date ever
   touches an instance (RFC-0030 D4); `stop` is the only thing that stops
   the instances, and it is a person's command.
 - **Deleting says what it deletes.** `reset` and `remove` name the
@@ -1671,6 +1690,15 @@ stays 2.7/2.10, the operator's decision):
     and per seat even when that seat's install fails; a second call
     refuses; a half-made cohort is finished and lists only the new seats.
 
+54. **The sweep acts on dates and on nothing else** (2.19): nothing on the
+    day `ends` itself, instances stopped the day after and only once, a
+    manual `start` not overruled; deactivation and deletion on their dates,
+    a reactivated person not switched off again; a deletion waits while the
+    seat has an instance and is said once; an identity refusal is named and
+    logged once; no instance and no storage is ever removed by a date; the
+    timer exists on a fresh install and after an update and catches up a
+    missed day.
+
 ## 6. Dependencies
 
 `oaap.core.host`, `oaap.core.gateway`, `oaap.core.identity`,
@@ -2397,3 +2425,20 @@ wird, und verlangt den Namen (oder `--yes`); ohne Terminal verweigert es.
 
 **Grenze dieser Stufe:** die Kommandozeile handelt mit Knotenvollmacht
 (wie `user add`); „der Mandant kommt vom Handelnden“ greift in Stufe 2.
+
+## Deutsche Zusammenfassung (2.19, v0.2.34 — der tägliche Lauf der Kohorte)
+
+`oaap cohort sweep` läuft einmal täglich (Zeitgeber `oaap-cohort-sweep`,
+04:40, holt einen verpassten Tag nach) und tut genau drei Dinge. **Am Tag
+nach `ends`** werden die Instanzen der Kohorte **gestoppt** — einmal
+(vermerkt), ohne etwas zu löschen; startet der Ausbilder sie wieder, wird er
+nicht überstimmt. Wessen **`deactivate_at`** gekommen ist, wird
+**deaktiviert** (das Datum ist damit verbraucht; eine Reaktivierung von
+Hand gilt). Wessen **`delete_at`** gekommen ist, wird **gelöscht** — aber
+nur, wenn sein Platz **keine Instanz** mehr hat; sonst wartet der Termin,
+und das Protokoll sagt es einmal („wartet auf Entfernen“). Verweigert die
+Identität die Löschung (`server_admin`, letzter `tenant_admin`, gültiger
+API-Schlüssel), steht der Grund einmal im Protokoll und jeden Morgen auf dem
+Bildschirm. Jeder Schritt ist ein Protokolleintrag (`cohort.end`,
+`cohort.sweep`, Handelnder „cohort sweep“). `--dry-run` zeigt, was geschähe.
+**Kein Termin löscht je eine Instanz oder ihren Speicher** (RFC-0030 D4).
