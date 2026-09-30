@@ -1,7 +1,11 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.31 (**destinations**, `oaap.net.destinations` 0.1 /
+- **Version:** 0.2.32 (**resource limits per instance**, RFC-0046 §7:
+  an instance may carry `resources: {memory, cpus, pids}`, set by the
+  node's administrator and applied whenever its containers are created —
+  new 2.18. No default, so nothing changes for an instance nobody
+  limited; 0.2.31 (**destinations**, `oaap.net.destinations` 0.1 /
   RFC-0033 stage 1: manifest 0.5 may declare destination needs, a
   binding puts `OAAP_DESTINATION_<NEED>_URL` or handed-over fields
   into the platform-owned environment, and a rehearsal gets none —
@@ -290,6 +294,57 @@ instance's container log (`oaap app logs <instance>`) and the restart
 machine already has the container runtime, and pretending otherwise
 would be theatre. The window in the portal exists because the portal
 hands the log to somebody who does **not** have the machine.
+
+### 2.18 Resource limits per instance (0.2.32, RFC-0046 §7)
+
+An instance MAY carry a `resources` record in its registry entry:
+
+| field    | meaning                                  | accepted                              |
+|----------|------------------------------------------|---------------------------------------|
+| `memory` | hard memory limit of each container      | `<n>m` or `<n>g`, at least `64m`      |
+| `cpus`   | CPU time of each container, in cores     | 0.1 to 256                            |
+| `pids`   | processes and threads of each container  | 16 to 100000                          |
+
+- **Operator-owned, like configuration.** It is set on the machine
+  (`oaap app resources <instance> [--memory …] [--cpus …] [--pids …]
+  [--clear]`) or by the node's `server_admin` on the instance page. A
+  `tenant_admin` does not set it: a limit is the node's protection, and
+  the party the limit is for must not be the one who lifts it. The
+  worker re-checks the role; the spool is data, not trust.
+- **No default.** An instance without the block runs exactly as
+  before, and a platform update MUST NOT invent limits for existing
+  instances.
+- **Applied at (re)creation, from the registry.** The limit is read from
+  the instance's registry entry by the one function that creates
+  containers, **not** from what its caller passes: a configuration save
+  and a restart pass no record, an install passes only the identity, and
+  a limit that depended on the door would be lifted by the first
+  configuration save. Setting or clearing it recreates the containers
+  (the operation of 2.17) and is **refused while a deployment of the
+  instance is queued or running**.
+- **Every service container.** A multi-service app has no single "the"
+  container; each one gets the limit, and the node-wide sum counts it
+  once per service.
+- **Given fields merge.** `--cpus 2` does not drop a memory limit that is
+  already there; only `--clear` removes the block.
+- **Values are checked, twice.** A bad value is refused where it is
+  given. The stored record is checked **again** when a container is
+  built, and a record that no longer parses (a hand-edited registry)
+  yields a container **without** the limit rather than a `docker run` that
+  fails and leaves the instance without a container.
+- **A limit is only a limit if the kernel enforces it.** A machine
+  without the memory cgroup accepts the flag, prints one warning and
+  enforces nothing. The command MUST show that warning, so the sum below
+  is not read as a promise the machine cannot keep.
+- **The sum is a fact on the health page.** The page shows the sum of
+  memory limits against the machine's RAM, states it as a warning when
+  the sum exceeds the RAM, and names the instances **without** a memory
+  limit separately — they are not zero, and "12 seats of 3 GB and three
+  unlimited apps" is a different sentence from "36 GB". The row is
+  absent while no instance has a memory limit. It is a statement about
+  intent, not a reservation: nothing is refused because the sum is high.
+- Every change is a tenant audit entry `instance.resources` naming who,
+  the previous and the new value.
 
 ### 2.11 Instance networks and isolation (RFC-0016)
 
@@ -1509,6 +1564,22 @@ stays 2.7/2.10, the operator's decision):
     same URL, same new tab. The field is accepted and stored, and
     nothing yet reads it.
 
+48. **A limit survives every door** (2.18): with `resources` in the
+    registry, the `docker run` of an install, a configuration save, a
+    restart and a redeploy each carries `--memory`/`--cpus`/`--pids-limit`,
+    before the image name; without the block none of the three appears;
+    a record that does not parse builds a container without them; a
+    redeploy keeps the block in the new entry.
+49. **Setting is safe and recorded** (2.18): values without a unit,
+    below `64m`, or out of range are refused and change nothing; given
+    fields merge and `--clear` removes; a deployment in flight refuses;
+    the audit entry names who, before and after; the portal card and the
+    route exist for `server_admin` only.
+50. **The sum tells the truth** (2.18): a multi-service instance counts
+    per service, an instance without a memory limit is counted apart and
+    not as zero, and twelve seats of 3 GB on an 8 GB machine show the
+    warning before the twelfth container starts.
+
 ## 6. Dependencies
 
 `oaap.core.host`, `oaap.core.gateway`, `oaap.core.identity`,
@@ -2155,3 +2226,33 @@ konnten es. Ein Container im RACI-Netz bekam die Gesundheitsseite von
 Vaultwarden. Das Gateway lauscht in jedem Instanznetz, und der Port
 unterschied nicht. Jetzt prüft das Gateway die Absenderadresse, und nur
 das Plattformnetz bekommt eine Antwort.
+
+## Deutsche Zusammenfassung (2.18, v0.2.32 — Ressourcen-Grenzen je Instanz, RFC-0046 §7)
+
+Eine Instanz kann jetzt Grenzen tragen: Speicher (`3g`), Rechenkerne
+(`1.5`) und Prozesse (`512`), je Container. Der Betreiber setzt sie
+(`oaap app resources <Instanz> --memory 3g …` oder die Karte auf der
+Instanzseite, nur für den `server_admin`) — ein `tenant_admin` nicht,
+denn wer durch die Grenze geschützt werden soll, darf sie nicht selbst
+aufheben. **Ohne Angabe ändert sich nichts**; eine Plattform-Aktualisierung
+erfindet keine Grenzen.
+
+Die Grenze wird dort gelesen, wo Container entstehen, und zwar **aus dem
+Register**, nicht aus dem, was der Aufrufer mitgibt. Das ist der Kern:
+„Konfiguration speichern“ und „Neustart“ geben dem Bauplan gar keinen
+Eintrag mit, und eine Grenze, die von der Tür abhängt, wäre nach dem
+ersten Speichern weg. Gegeben werden Felder zusammengeführt (`--cpus 2`
+lässt die Speichergrenze stehen); nur `--clear` entfernt. Ein Wert wird
+beim Setzen geprüft und beim Bauen noch einmal: ein von Hand kaputt
+bearbeitetes Register ergibt einen Container ohne Grenze, nicht einen
+fehlgeschlagenen Start.
+
+Eine Grenze gilt nur, wenn der Kernel sie durchsetzt — ein Raspberry Pi
+ohne Speicher-cgroup nimmt die Angabe an, warnt einmal und tut nichts.
+Diese Warnung zeigt der Befehl an. Auf der Gesundheitsseite steht die
+**Summe** aller Speichergrenzen gegen den Arbeitsspeicher (je
+Dienst-Container gezählt); übersteigt sie ihn, steht dort eine Warnung —
+*bevor* der zwölfte Platz zu 3 GB auf einer 8-GB-Maschine vom Kernel
+beendet wird. Instanzen ohne Grenze zählen nicht als null, sondern werden
+gesondert genannt. Verweigert wird nichts, weil die Summe hoch ist: sie
+ist eine Aussage über die Absicht, keine Reservierung.

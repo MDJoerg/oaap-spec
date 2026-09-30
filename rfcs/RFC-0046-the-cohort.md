@@ -347,7 +347,17 @@ that the CLI's functions are its body.
    only *data* until the worker of stage 4; a stored date is not
    re-judged as "past" when a form sends it back.
 2. **Runtime 0.2.32** — `resources` per instance, node-wide sum on the
-   health page (§7).
+   health page (§7). **Built 2026-09-30** (reference 0.1.145,
+   `oaap.apps.runtime` 0.2.32, spec 2.18). Refinements found while
+   building: the limit is read from the *registry* where containers are
+   created, not from what the caller passes (a configuration save and a
+   restart pass no record — a limit tied to the door would be lifted by
+   the first save); it is set by the `server_admin` only (a limit the
+   limited party can lift protects nobody); given fields merge, only
+   `--clear` removes; a machine whose kernel lacks the memory cgroup
+   accepts the flag and enforces nothing, so the command shows docker's
+   warning; the sum counts per service container and names unlimited
+   instances apart instead of counting them as zero.
 3. **Cohort CLI** — template, seats, seeding, material, handout,
    reset, export, remove (§2–§4). Measured with the `code-server` app on
    `oaap-test` with three seats, then on `oaapx01` with a real course
