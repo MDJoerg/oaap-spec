@@ -322,6 +322,11 @@ An instance MAY carry a `resources` record in its registry entry:
   configuration save. Setting or clearing it recreates the containers
   (the operation of 2.17) and is **refused while a deployment of the
   instance is queued or running**.
+- **Swap counts.** `memory` limits RAM **and** swap together
+  (`--memory-swap` equal to `--memory`). Docker's default, when only
+  `--memory` is given, is twice the memory: measured on `oaap-test`
+  (2026-09-30), a container limited to 256m held 400 MB without a single
+  OOM event, because the rest went to swap.
 - **Every service container.** A multi-service app has no single "the"
   container; each one gets the limit, and the node-wide sum counts it
   once per service.
