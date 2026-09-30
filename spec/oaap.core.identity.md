@@ -1,19 +1,24 @@
 # oaap.core.identity — Identity & Roles
 
 - **ID:** `oaap.core.identity`
-- **Version:** 0.5.0 (a **second way to establish a session**: a
+- **Version:** 0.6.0 (**a person's lifetime on the node**: users can be
+  created on the node by command, a password somebody else chose must be
+  changed at the first sign-in, a user carries two optional dates for
+  dated deactivation and deletion, and a user can be deleted. See 2.4
+  and 2.9; RFC-0046 §6)
+- **Previous version:** 0.5.0 (a **second way to establish a session**: a
   tenant's own OIDC provider. Not a third method of *resolving* one —
   everything downstream, `/verify` included, cannot tell the
   difference, which is how RFC-0040 §6's promise that an app never sees
   the provider is kept structurally rather than by discipline. See 2.8;
   RFC-0041 K1/K4)
-- **Previous version:** 0.4.0 (a user has an identity of its own — an
+- **Earlier:** 0.4.0 (a user has an identity of its own — an
   immutable UUID, an e-mail field with a verification state, three
   further trusted headers, a deep link that survives the login, and a
   write lock on the user store; RFC-0040)
 - **Maturity:** draft
 - **Based on:** RFC-0001, RFC-0002, RFC-0007, RFC-0008, RFC-0026,
-  RFC-0036, RFC-0038, RFC-0040
+  RFC-0036, RFC-0038, RFC-0040, RFC-0046
 - **Scope of this version:** the built-in provider with user
   management, plus — since 0.5.0 — logging in through a tenant's own
   OIDC provider (`oaap.core.tenant` 2.8). The built-in provider never
@@ -106,6 +111,9 @@ Each user account has at least:
 | `groups`         | free-form visibility tags (RFC-0007), default empty — see 2.6                   |
 | `tenant`         | the tenant this user belongs to (`oaap.core.tenant` 1.1); absent means the default tenant |
 | `active`         | boolean; inactive users cannot sign in and existing sessions stop verifying     |
+| `must_change_password` | boolean (0.6.0); while true a session reaches the password page and nothing else — see 2.9 |
+| `deactivate_at`, `delete_at` | optional moments (0.6.0), UTC; acted on by a worker, never by a request — see 2.9 |
+| `schedule_reason` | optional text, max 80 characters (0.6.0): why the dates exist, e.g. `cohort kurs-2026-10` |
 | password         | stored only as a salted hash; minimum length 8                                  |
 
 **The identity is not the name (0.4.0, RFC-0040 D1).** RFC-0026 settled
@@ -285,9 +293,10 @@ session may go* — see the tenant restriction in 2.3.
 - Operations: **list** users (never exposing password hashes),
   **create** (username, initial password, roles, groups, display name,
   e-mail address), **update** (roles, groups, display name, e-mail
-  address and its verification flag, active flag — not the username
-  and **never** the `id`), **set password** (server_admin sets a new
-  password for any user).
+  address and its verification flag, active flag, the two dates of 2.9
+  — not the username and **never** the `id`), **set password** (an
+  administrator sets a new password for any user they may manage),
+  **delete** (0.6.0, see below).
 - **An address is created unverified (0.4.0).** Create accepts an
   address and stores it with `email_verified` false: an address an
   administrator types is not thereby proven. Asserting it is a
@@ -312,9 +321,40 @@ session may go* — see the tenant restriction in 2.3.
   it stayed admin-only. Every other field of the user record (roles,
   groups, tenant, username, active flag) stays admin-only, unchanged
   — this route touches nothing but the display name.
-- Deleting users is not part of this version — deactivate instead
-  (audit trails in apps may reference the username). Deletion semantics
-  (including GDPR aspects) are an open point for a later version.
+- **Deleting a user (0.6.0, RFC-0046 §6.4).** The open point of 0.5.0
+  is decided for this case: **a user may be deleted.** The record
+  disappears; the audit log keeps the username and the `id` as text
+  (entries already written must stay readable), and an app that stored
+  the username keeps a string that no longer resolves — which is what
+  "the person is gone" should look like. Sessions of the deleted user
+  stop verifying by themselves. The operation MUST be refused, with the
+  reason, when:
+  - the target holds `server_admin` (the node keeps its administrators;
+    give the role away first);
+  - the target is the last user holding `tenant_admin` of their tenant;
+  - the target is the actor (nobody is told what happened afterwards);
+  - the target has an API key that is neither revoked nor expired
+    (revoke it first: deleting the principal would leave a credential
+    naming nobody);
+  - the target belongs to another tenant of a `tenant_admin` actor —
+    answered "not found", as everywhere in this section.
+
+  Whether a person's *instances* are gone is not identity's to know;
+  the caller that owns that rule (the cohort tool, RFC-0046 §5) asks
+  before it calls delete. **A deleted username may be created again**
+  and is then a different person with a new `id` — which is exactly why
+  apps anchor on the `id` (2.2).
+- **Create on the node (0.6.0, RFC-0046 §6.1).** Besides the portal, a
+  user can be created on the machine (`oaap user add <name> --roles …
+  --groups … [--tenant …] [--password-file F | --generate]`) and by the
+  same function from other tools on the node. The rules are the
+  portal's, because it is one function: `tenant_admin` inside their
+  tenant, an address stored unverified, no `server_admin` **by this
+  door** (the node's administrators are made at setup or in the portal).
+  `--generate` prints the password once and stores it nowhere but as a
+  hash. `oaap user delete` and `oaap user schedule` are the matching
+  commands for the operations above and 2.9; `oaap user delete` names
+  what it deletes and asks for the name again unless `--yes`.
 
 ### 2.5 Bootstrap
 
@@ -458,6 +498,55 @@ and an app MUST NOT be able to tell how the person authenticated.
   flag and not without it — §2.2's rule is what keeps an unproven
   address out of `X-OAAP-Email` without anybody adding a line for
   foreign providers.
+
+### 2.9 A person's lifetime (0.6.0, RFC-0046 §6)
+
+**The forced change (D2).** `must_change_password` is set when a human
+account is created and whenever an administrator sets a password for it
+(portal, `oaap user password`); a machine principal has none. A caller
+that really means an initial password to keep says so (`false`; on the
+CLI `--keep-password`). It is cleared by the self-service change and
+nowhere else.
+
+While it stands, **a session** — the browser cookie — reaches the
+password page and nothing else:
+
+- the login answers with a redirect to `/auth/password`, carrying the
+  place the person was going (2.3, the return target rules apply);
+- `/verify` and `/auth/whoami` do not treat the session as a principal:
+  a navigating browser is redirected to the password page, anything else
+  (a script, a WebSocket upgrade) is answered `403` with the reason —
+  never a redirect a script would follow into an HTML page and call
+  success. The rule lives in the one function both read, so no route can
+  forget it;
+- the change MUST produce a *different* password than the one just used —
+  otherwise the flag would fall and the handout's password would stand;
+- the change is recorded (`user.password-changed`).
+
+An **API key** is not a session and is not affected: it was issued
+deliberately by an administrator for a principal, and the forced change
+guards the *browser* way in with a password that another person knows.
+
+**The dates.** `deactivate_at` and `delete_at` are moments, UTC, given as
+`YYYY-MM-DD` (the start of that day) or with a time. Rules:
+
+- settable by whoever may edit the user (2.4), on create and on update;
+  in an update a field **absent** from the request keeps what the record
+  has, and `""` clears it — an edit form that does not send them must
+  not clear them by saying nothing;
+- a moment **not in the future** is refused, not silently fired — except
+  a value the record already holds (a date that has since passed does
+  not make an unrelated edit impossible);
+- `delete_at` MUST be after `deactivate_at` when both are set;
+- a holder of `server_admin` gets no dates (the node's last
+  administrator cannot leave on a timer);
+- every change is recorded, with the reason.
+
+**Nothing in this version acts on the dates.** They are data. The daily
+worker that deactivates and deletes (RFC-0046 §5) is a later step; it
+lives on the host because "an empty seat" (no instance of the person is
+left) is a fact only the host knows, and it uses the operations above,
+so that every refusal of 2.4 applies to it as well.
 
 ## 3. Configuration
 
@@ -616,6 +705,31 @@ and an app MUST NOT be able to tell how the person authenticated.
     through the portal; two concurrent creations of different users
     both survive.
 
+23. **The forced change holds on every way in** (0.6.0, RFC-0046 §6.2)
+    — a user created with the flag signs in and is redirected to
+    `/auth/password`; `/verify` answers a script `403` and a navigation
+    a redirect to the password page with the target; `/auth/whoami`
+    does not answer for the session; changing to the *same* password
+    keeps the flag; a wrong current password keeps it; a different one
+    clears it, records it and lets the session through; a hostile
+    return target ends on `/`. An administrator setting a password sets
+    the flag again and ends the person's existing sessions; a machine
+    principal has no password to set.
+24. **The dates are data, and silence does not clear them** (0.6.0) — a
+    date is stored as the start of its day; a past moment, a deletion
+    not after the deactivation, an unreadable date and any date on a
+    `server_admin` are refused; an update without the date fields keeps
+    them, an explicit `""` clears one; nothing fires on save.
+25. **Deletion refuses what it must** (0.6.0, RFC-0046 §6.4) — a
+    `server_admin`, the last `tenant_admin` of a tenant, the actor
+    themselves and a user with a valid key are refused with the reason;
+    a user of another tenant is "not found"; after the key is revoked
+    the deletion succeeds, the record is gone and the audit line keeps
+    name and `id`.
+26. **One implementation** (0.6.0) — `oaap user add|delete|schedule|
+    password` run the very functions identity itself uses for the
+    portal; `add` refuses `server_admin` at its door.
+
 ## 6. Dependencies
 
 None (foundation; the gateway depends on identity, not vice versa).
@@ -642,10 +756,12 @@ surface (2.7); v0.3.5 extends self-service to the user's own
 `display_name` (RFC-0036 D3); v0.4.0 gives the user record an identity
 of its own, an e-mail field with a verification state, three further
 trusted headers, a login that returns the visitor to where they were
-going, and a lock on the user store (RFC-0040). Open points for later versions: external identity
-providers (Keycloak/LDAP/OIDC), 2FA (required by the internet
-hardening profile), forced password change on first login, user
-deletion/GDPR semantics, per-app service accounts, moving a user
+going, and a lock on the user store (RFC-0040); v0.5.0 adds the second
+way to establish a session (2.8, RFC-0041); v0.6.0 adds create on the
+node, the forced password change, two dates and deletion (2.9,
+RFC-0046). Open points for later versions: 2FA (required by the
+internet hardening profile), the daily worker for the dates (RFC-0046
+§5), per-app service accounts, moving a user
 between tenants (2.2 deliberately has no such operation), managed
 group objects (RFC-0007 kept groups
 free-form deliberately; revisit if renaming-safety or a full overview
@@ -800,3 +916,35 @@ gespeichert und keiner App gezeigt.
 
 **Der eingebaute Anbieter verschwindet nie.** Sonst hinge die Anmeldung
 eines Knotens an einer App-Instanz.
+
+## Deutsche Zusammenfassung (0.6.0, RFC-0046 — die Lebenszeit einer Person)
+
+Die Kohorte (Schulungsplätze aus einer Vorlage) braucht vier Dinge von
+der Anmeldung, die es bisher nicht gab:
+
+1. **Benutzer per Befehl anlegen** — `oaap user add`, mit denselben
+   Regeln wie im Portal (es ist dieselbe Funktion). `server_admin` wird
+   an dieser Tür *nicht* vergeben. `--generate` druckt das Passwort
+   **einmal** und speichert es nirgends außer als Hash.
+2. **Passwortzwang beim ersten Anmelden** (Jörgs D2): Ein von einem
+   anderen vergebenes Passwort ist eines, das ein anderer kennt. Solange
+   der Zwang steht, erreicht eine *Sitzung* nur die Passwortseite —
+   `/verify` und `whoami` lassen sie nicht als Person durch; ein Browser
+   wird zur Passwortseite geleitet (mit dem gemerkten Ziel), ein Skript
+   bekommt `403` mit Grund. Das neue Passwort muss ein *anderes* sein.
+   API-Schlüssel sind keine Sitzungen und bleiben unberührt.
+3. **Zwei Termine je Benutzer** (D3): `deactivate_at` und `delete_at`,
+   mit Grund. Sie sind in dieser Version **nur Daten** — der tägliche
+   Lauf, der sie umsetzt, kommt später und sitzt auf dem Wirt, weil nur
+   der weiß, ob ein Platz „leer" ist. Ein Termin in der Vergangenheit
+   wird abgelehnt statt ausgelöst; ein Speichern *ohne* die Felder lässt
+   sie stehen (das Portal-Formular wusste nichts von ihnen), nur ein
+   ausdrückliches Leer löscht; ein server_admin bekommt keine.
+4. **Löschen** — der offene Punkt aus 2.4 ist damit für diesen Fall
+   entschieden. Der Datensatz verschwindet, das Protokoll behält Namen
+   und Kennung. Verweigert wird es bei server_admin, beim letzten
+   tenant_admin eines Mandanten, beim eigenen Konto und solange ein
+   gültiger API-Schlüssel da ist; ein Benutzer eines fremden Mandanten
+   ist „nicht gefunden". Ein gelöschter Name kann neu vergeben werden —
+   dann ist es eine andere Person mit neuer Kennung, und genau deshalb
+   hängen Apps an der Kennung.

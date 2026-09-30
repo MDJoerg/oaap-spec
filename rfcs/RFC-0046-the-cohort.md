@@ -339,6 +339,13 @@ that the CLI's functions are its body.
 
 1. **Identity 0.6** — `oaap user add`, `must_change_password`,
    `deactivate_at`/`delete_at`, deletion with its refusals (§6).
+   **Built 2026-09-30** (reference 0.1.144, `oaap.core.identity` 0.6.0,
+   spec 2.9). Refinements found while building: the login itself redirects
+   to the password page and `/verify` redirects a *navigation* there (a
+   bare 403 would be the first thing a participant sees), a script still
+   gets the 403; the new password must differ from the old; dates are
+   only *data* until the worker of stage 4; a stored date is not
+   re-judged as "past" when a form sends it back.
 2. **Runtime 0.2.32** — `resources` per instance, node-wide sum on the
    health page (§7).
 3. **Cohort CLI** — template, seats, seeding, material, handout,
