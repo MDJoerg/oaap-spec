@@ -1,7 +1,11 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.32 (**resource limits per instance**, RFC-0046 §7:
+- **Version:** 0.2.33 (**the cohort**, RFC-0046 stage 3: `oaap cohort`
+  makes *N* seats — user, group, instance, seeds, material — in one tenant
+  from one template file and removes them again; an instance may carry a
+  `cohort` note; new 2.19. Nothing changes for a node that never runs the
+  command; 0.2.32 (**resource limits per instance**, RFC-0046 §7:
   an instance may carry `resources: {memory, cpus, pids}`, set by the
   node's administrator and applied whenever its containers are created —
   new 2.18. No default, so nothing changes for an instance nobody
@@ -350,6 +354,74 @@ An instance MAY carry a `resources` record in its registry entry:
   intent, not a reservation: nothing is refused because the sum is high.
 - Every change is a tenant audit entry `instance.resources` naming who,
   the previous and the new value.
+
+### 2.19 The cohort (0.2.33, RFC-0046 §2–§4)
+
+A **cohort** is *N* seats in one tenant, made from one **template** — a
+directory with `cohort.yaml`, the seed files and the course material — and
+removable with one command. The command family is `oaap cohort create |
+add | reset | list | stop | start | material update | handout | export |
+remove | secret`; the functions behind it are the body of the stage-2 API
+(RFC-0046 §8), so nothing is built twice.
+
+- **The template is data, and holds no secret.** A config value that is a
+  credential is `{secret: <name>}`, the name of a secret the tenant stored
+  once (`oaap cohort secret set`); a literal value in a field whose name
+  reads like a credential (`PASS`, `SECRET`, `TOKEN`, `KEY`) is **refused
+  where the template is read**. All problems of a template are reported
+  together. A role `server_admin`, a seed path that is absolute or holds
+  `..`, a seed source outside the template directory, and a name that is
+  too long once composed (user 40, group 40 characters) are refused.
+- **A seat is** the user `<cohort>-<prefix>-<id>` with the group
+  `<cohort>-<id>` **and** the cohort group `<cohort>`; one instance per app
+  `<cohort>-<app>-<id>`, **visible to the seat's group only**; a shared app
+  (`shared: true`) exists once as `<cohort>-<app>` and is visible to the
+  cohort group. There is **no new ownership relation**: the group is the
+  seat's key (RFC-0007).
+- **Configuration, seeds, limits and visibility exist before the first
+  start.** The installer offers a hook between the environment file and
+  the first container: config values (named secrets resolved, a multiline
+  key stored `;`-separated as the portal stores it), seed files and
+  material are written there, owned by the image's user, so the app finds
+  them on its **first** run. Limits (2.18) and the group restriction are in
+  the instance's first registry entry, not applied by a second recreate.
+- **Seeds fill, `reset` replaces.** A seed never overwrites a file that is
+  there (the participant may have changed it); `reset` does. A seed is
+  written below the instance's own storage only, and not through a link
+  the participant made inside it.
+- **The handout is written once.** `create` and `add` write user names and
+  initial passwords to a file that is created exclusively (`O_EXCL`), mode
+  `0600`, **before the first user exists**, row by row and flushed — and
+  **never inside the template's directory** (that is somebody's
+  repository). The node keeps only hashes; `oaap cohort handout` refuses
+  and names `oaap user password <user>` for a seat that lost its own. A
+  seat whose install fails still gets its row: a password exists nowhere
+  else. Users have `must_change_password` (identity 2.9).
+- **Idempotent and reporting.** `create` on a half-made cohort finishes it
+  from the template it was *started* from (the node stores a copy) and
+  says which objects existed; on a complete one it refuses. Every command
+  ends with a table: seat, user, instance, state, address. Checks that
+  cost nothing come first: an unstored secret, a user date in the past, an
+  unusable handout path all stop the run **before** a user exists.
+- **Dates are data.** With `lifetime.ends`, each user gets `deactivate_at`
+  and `delete_at` (`ends` plus the template's periods) and the reason
+  `cohort <name>`. Nothing acts on them yet (stage 4), and no date ever
+  touches an instance (RFC-0030 D4); `stop` is the only thing that stops
+  the instances, and it is a person's command.
+- **Deleting says what it deletes.** `reset` and `remove` name the
+  instances and whether their storage goes, and ask for the seat's or the
+  cohort's name (or `--yes`); without a terminal they refuse. `remove`
+  keeps the storage unless `--purge`, and deletes users only with
+  `--users` (identity refuses `server_admin`, the last `tenant_admin` and
+  a user with a valid API key).
+- **The limit of this stage.** The command line acts with node authority,
+  as `machine add` and `user add` do; "the tenant comes from the actor"
+  (RFC-0046 §4) bites in stage 2, where the actor is a session or a key. A
+  template's `git:` source is taken as written on the node and is
+  restricted there.
+- Every step is a tenant audit entry `cohort.create`, `cohort.add`,
+  `cohort.reset`, `cohort.stop`, `cohort.start`, `cohort.material`,
+  `cohort.export`, `cohort.remove` naming cohort and seat.
 
 ### 2.11 Instance networks and isolation (RFC-0016)
 
@@ -1585,6 +1657,20 @@ stays 2.7/2.10, the operator's decision):
     not as zero, and twelve seats of 3 GB on an 8 GB machine show the
     warning before the twelfth container starts.
 
+51. **A template cannot smuggle a secret or a path** (2.19): a literal
+    value in a credential-named field, an absolute or `..` seed path, a
+    seed source outside the template, `server_admin` in `roles` and an
+    over-long composed name are each refused, all at once.
+52. **A seat exists complete before its first start** (2.19): user with
+    seat and cohort group, password change and dates; instance visible to
+    the seat's group only, with the template's limits in its first record;
+    configuration, seeds and material on disk before the container starts;
+    a seed does not overwrite a participant's file, `reset` does.
+53. **The handout loses no password and leaks none** (2.19): exclusive,
+    `0600`, outside the template directory, written before the first user
+    and per seat even when that seat's install fails; a second call
+    refuses; a half-made cohort is finished and lists only the new seats.
+
 ## 6. Dependencies
 
 `oaap.core.host`, `oaap.core.gateway`, `oaap.core.identity`,
@@ -2261,3 +2347,53 @@ Dienst-Container gezählt); übersteigt sie ihn, steht dort eine Warnung —
 beendet wird. Instanzen ohne Grenze zählen nicht als null, sondern werden
 gesondert genannt. Verweigert wird nichts, weil die Summe hoch ist: sie
 ist eine Aussage über die Absicht, keine Reservierung.
+
+## Deutsche Zusammenfassung (2.19, v0.2.33 — die Kohorte, RFC-0046 §2–§4)
+
+`oaap cohort` baut aus **einer Vorlage** (ein Verzeichnis mit
+`cohort.yaml`, den Saat-Dateien und dem Kursmaterial) *N* Plätze in einem
+Mandanten und räumt sie mit einem Befehl wieder ab: `create`, `add`,
+`reset`, `list`, `stop`, `start`, `material update`, `handout`, `export`,
+`remove` und `secret`.
+
+Ein **Platz** ist ein Benutzer (`kurs-2026-10-tn-07`, Gruppe
+`kurs-2026-10-07` und die Kohortengruppe), dazu je App eine Instanz
+(`kurs-2026-10-ide-07`), die **nur die Platzgruppe** sieht. Eine
+gemeinsame App (ein Forgejo für den Kurs) gibt es einmal. Keine neue
+Besitz-Beziehung: die Gruppe ist der Schlüssel des Platzes.
+
+**Die Vorlage enthält kein Geheimnis:** ein Schlüssel steht als
+`{secret: name}`, der Name eines Geheimnisses, das der Mandant einmal
+hinterlegt hat (`oaap cohort secret set`). Ein Klartextwert in einem Feld,
+das nach Zugangsdaten heißt, wird beim Lesen abgelehnt — ebenso `..` im
+Saat-Pfad, eine Quelle außerhalb der Vorlage, die Rolle `server_admin` und
+zu lange zusammengesetzte Namen; alle Fehler auf einmal.
+
+**Vor dem ersten Start** liegen Konfiguration, Saat (`destinations.json`,
+`SAPUILandscape.xml`, Arbeitsbereich) und Material im Platz, damit die App
+sie beim **ersten** Lauf findet; Grenzen (2.18) und Sichtbarkeit stehen
+schon im ersten Register-Eintrag. Die Saat überschreibt nie, was der
+Teilnehmer geändert hat — nur `reset` ersetzt. Wo etwas hingeschrieben
+wird, bleibt es unter dem Speicher der Instanz, auch über einen Link, den
+der Teilnehmer dort angelegt hat, kommt keine Saat hinaus.
+
+**Das Handout** entsteht einmal: exklusiv angelegt, `0600`, **nicht im
+Vorlagenverzeichnis** (das ist ein Repository), **vor** dem ersten
+Benutzer und Zeile für Zeile. Scheitert die Installation eines Platzes,
+steht sein Passwort trotzdem drin — es existiert sonst nirgends. Ein
+zweiter Aufruf verweigert und nennt `oaap user password`.
+
+**Idempotent:** `create` auf eine halbe Kohorte macht sie fertig — aus der
+Vorlage, mit der sie *begonnen* wurde (der Knoten speichert eine Kopie) —
+und nennt, was schon da war; auf eine fertige lehnt es ab. Was nichts
+kostet, prüft der Befehl zuerst: fehlendes Geheimnis, ein Termin in der
+Vergangenheit, ein unbrauchbarer Handout-Pfad stoppen den Lauf, **bevor**
+ein Benutzer entsteht.
+
+**Termine sind Daten:** mit `lifetime.ends` bekommt jeder Benutzer
+`deactivate_at` und `delete_at`; gehandelt wird darauf erst in Stufe 4,
+und **nie** auf eine Instanz (RFC-0030 D4). Löschen nennt, was gelöscht
+wird, und verlangt den Namen (oder `--yes`); ohne Terminal verweigert es.
+
+**Grenze dieser Stufe:** die Kommandozeile handelt mit Knotenvollmacht
+(wie `user add`); „der Mandant kommt vom Handelnden“ greift in Stufe 2.

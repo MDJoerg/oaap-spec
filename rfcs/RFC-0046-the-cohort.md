@@ -359,9 +359,24 @@ that the CLI's functions are its body.
    warning; the sum counts per service container and names unlimited
    instances apart instead of counting them as zero.
 3. **Cohort CLI** — template, seats, seeding, material, handout,
-   reset, export, remove (§2–§4). Measured with the `code-server` app on
-   `oaap-test` with three seats, then on `oaapx01` with a real course
-   template.
+   reset, export, remove (§2–§4). **Built 2026-09-30** (reference 0.1.148,
+   `oaap.apps.runtime` 0.2.33, spec 2.19) and tested against fakes; **not
+   yet measured** with the `code-server` app on `oaap-test` (three seats),
+   then on `oaapx01` with a real course template. Refinements found while
+   building: the installer gets one hook between the environment file and
+   the first container — seeds must exist for the *first* run, and the
+   image's user has to own them, which is only known once the image is
+   built; limits and the group restriction go into the *first* registry
+   entry; the handout is opened exclusively **before** the first user and
+   written row by row, and a seat whose install fails still gets its row;
+   it may not lie inside the template directory (a repository); `create`
+   on a half-made cohort finishes it from the copy it was *started* from;
+   a named secret store per tenant (`oaap cohort secret`) is needed for
+   `{secret: name}`, and lives beside the destination secrets where only
+   the host reads; confirmation without a terminal refuses instead of
+   waiting. Dates on users are set, nothing acts on them (stage 4).
+   Not built in this stage: `lifetime.ends` stopping the instances (the
+   daily worker), the portal's view of a cohort.
 4. **The daily worker** for the lifetime dates (§5).
 5. **Stage 2** — `oaap.core.management` 0.1 and the key; the cohort as
    an app.
