@@ -1,7 +1,7 @@
 # oaap.core.tenant — Account and Tenant, the Boundary of Belonging
 
 - **ID:** `oaap.core.tenant`
-- **Version:** 1.0.1 (a created tenant's address answers at once, 2.2; 1.0: RFC-0041 K6 — **a tenant can leave this node**: the archive carries the tenant's own record, an empty node can adopt one, and the provider it arrives with is carried rather than put in force. See 2.11, conformance tests 24–26; 0.9 — the switches inside that space, and the truth about them; 0.8 — the platform may MAKE that provider, not only name it; 0.7 — a tenant may name who lets people
+- **Version:** 1.0.2 (a provider-made account outside the default tenant is named `<label>.<suggestion>`, 2.8; 1.0.1: a created tenant's address answers at once, 2.2; 1.0: RFC-0041 K6 — **a tenant can leave this node**: the archive carries the tenant's own record, an empty node can adopt one, and the provider it arrives with is carried rather than put in force. See 2.11, conformance tests 24–26; 0.9 — the switches inside that space, and the truth about them; 0.8 — the platform may MAKE that provider, not only name it; 0.7 — a tenant may name who lets people
   in**: an OIDC provider object that is a URL and says nothing about
   where the server runs, plus a policy for what a first login through
   it BECOMES. The binding is a platform rule and is not configurable:
@@ -656,6 +656,20 @@ as something that can simply be re-established.
 and no record a provider created has one. An implementation MUST say
 this in code rather than rely on what a hashing library does with an
 empty value.
+
+**The local NAME of a provider-made account carries the tenant's label**
+(1.0.2). User names are unique across the whole node, and the provider's
+suggestion (`preferred_username`) is the same word in every customer's
+realm; numbering the second one (`max-2`) gave a name nobody chose and
+told customer B that customer A has a `max`. A first login in any tenant
+except the default one therefore creates `<label>.<suggestion>` (a label
+has no dot, so this can never be another tenant's plain suggestion),
+shortened to fit the 40-character limit, and numbered only when that name
+is taken — which can then only be inside the same tenant. The default
+tenant keeps plain names, and **no existing account is renamed**. The
+name is a name (RFC-0040): after a tenant rename the old label stays on
+the names it gave, and what anything anchors on is the record's id. The
+log entry of the first login names the account.
 
 **What a first login BECOMES is the tenant's**, because a club that
 administers its own realm needs something different from a customer
@@ -1723,3 +1737,13 @@ und sein Protokolleintrag stehen. Vorher gab es bis zum nächsten
 `external set` oder Update einen TLS-Fehler an der neuen Adresse.
 Scheitert das Neuladen, bleibt der Mandant bestehen, und die Antwort sagt
 in einem Satz, was zu tun ist. Ohne externen Namen gibt es nichts zu tun.
+
+## Deutsche Zusammenfassung (1.0.2 — Benutzernamen tragen das Kürzel)
+
+Konten, die beim ersten Login über einen Anbieter entstehen, heißen
+in jedem Mandanten außer dem Standard-Mandanten `<kürzel>.<vorschlag>`
+(`sgl.max`). Vorher bekam der zweite `max` knotenweit ein `-2` — ein Name,
+den niemand gewählt hat, und ein Hinweis an Kunde B, dass es bei Kunde A
+ein `max` gibt. Bestehende Konten bleiben unverändert, der Standard-Mandant
+behält schlichte Namen, nach einer Umbenennung des Mandanten bleibt das
+alte Kürzel stehen: der Name ist nur ein Name, der Anker ist die Kennung.
