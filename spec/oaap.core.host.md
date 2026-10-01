@@ -1,7 +1,7 @@
 # oaap.core.host — Platform Installer & Node Baseline
 
 - **ID:** `oaap.core.host`
-- **Version:** 0.3.5
+- **Version:** 0.3.6
 - **Maturity:** draft (0.2.1 adds the `oaap user` rescue commands, 2.3;
   0.3.0 adds **node profiles** — what a node is for — in 2.5, with the
   wizard question in 2.2 and `oaap node` in 2.3; 0.3.1 adds **wireless
@@ -12,7 +12,7 @@
   the third, **`broker`** (`oaap.events.broker` 0.1, RFC-0032 D2),
   independent of `store`; 0.3.4: `broker` also carries the event relay
   of `oaap.data.twin` 0.3, and installer and update generate its secret
-  `BROKER_RELAY_KEY`)
+  `BROKER_RELAY_KEY`; 0.3.6 registers **`gateway-only`**, 2.5)
 - **Based on:** RFC-0001 (initial capability set), RFC-0002 (bootstrap
   security), RFC-0003 (installer modes, node health), RFC-0008
   (server_admin), RFC-0011 (node profiles)
@@ -298,6 +298,20 @@ Removing it stops the portal offering uploads. Nothing that was
 sideloaded is removed or changed: such instances keep running, can still
 be updated at the machine, and can still be rolled back.
 
+**Defined profile in 0.3.6: `gateway-only`** — on this node the per-
+instance gateway listeners (RFC-0005 level 1, default 8100–8199) are
+**not reachable from the network**; apps are reached through the gateway
+on 80/443 by name. Its effect is exhaustive: the bind address under which
+the node publishes that range changes from all interfaces to loopback.
+The listeners themselves, the routes, 80 and 443 are unchanged. Without
+the profile the range is published on all interfaces, as before.
+Implementations MUST apply it to every way the gateway is (re)created —
+an update included — and MUST NOT depend on a per-caller file set for
+that. A node SHOULD carry it when it has a public address and no host
+firewall in front. It is **not** a firewall: it does not govern 80, 443,
+the `exposed` ports or any other service. Verification MUST happen from
+another machine; a scan from the node itself passes either way.
+
 **Restore** (`oaap.data.backup` 2.3): profiles describe the machine,
 not the service, and are therefore **not** restored from a backup.
 
@@ -546,6 +560,14 @@ und die Verbindung sonst zurückholt.
 Warum das überhaupt Plattformsache ist: Unsere Knoten sind dem Zielbild
 nach **kopflose Geräte** — Werkstattrechner, IoT-Gateway am Standort.
 Dort steht niemand, der ein Passwort nachreicht.
+
+## Deutsche Zusammenfassung (2.5, v0.3.6 — das Profil `gateway-only`)
+
+Ein Knoten mit öffentlicher Adresse soll nur über das Gateway und seine
+Namen erreichbar sein. `sudo oaap node add-profile gateway-only` bindet
+die Instanz-Ports 8100–8199 an Loopback und erzeugt nur das Gateway neu;
+`80` und `443` bleiben. Das ist **keine Firewall** — es schließt genau
+diese Portreihe. Prüfen muss man von einer anderen Maschine aus.
 
 ## Deutsche Zusammenfassung (2.5, v0.3.5 — das Profil `sideload`)
 
