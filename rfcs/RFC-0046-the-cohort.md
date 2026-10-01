@@ -390,7 +390,12 @@ that the CLI's functions are its body.
    `oaap.apps.runtime` 0.2.35): later only, computed dates follow, hand-set
    dates stay, nothing is started or reactivated.
 5. **Stage 2** — `oaap.core.management` 0.1 and the key; the cohort as
-   an app.
+   an app. **Built 2026-10-01** (reference 0.1.153): the API under
+   `/api/v1/tenant/cohorts…` for a `tenant_admin` (session or key), jobs
+   for what takes minutes, the template uploaded as ZIP, the handout as a
+   one-time ZIP with a password the trainer chooses at download (Jörg,
+   2026-10-01). A trainer may name only apps of trusted store sources.
+   Not yet: a portal page for cohorts (the next stage on this API).
 
 ## 12. Decisions (Jörg, 2026-09-30)
 
