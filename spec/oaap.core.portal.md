@@ -1,8 +1,9 @@
 # oaap.core.portal — Web Portal
 
 - **ID:** `oaap.core.portal`
-- **Version:** 0.3.19
-- **Maturity:** draft (0.3.19 adds **Create** (template ZIP, then the
+- **Version:** 0.3.20
+- **Maturity:** draft (0.3.20 adds **Remove a cohort** to the cohorts page —
+  §2.8, RFC-0046 stage 3, fourth form; 0.3.19 adds **Create** (template ZIP, then the
   one-time handout) and **Reset a seat** to the cohorts page — §2.8,
   RFC-0046 stage 3, third form; 0.3.18 gives the cohorts page **Stop, Start and Extend**
   buttons — §2.8, RFC-0046 stage 3, second form; 0.3.17 adds a **read-only cohorts page** — §2.8,
@@ -542,15 +543,15 @@ waits or was refused.
 
 - **Reading comes from a file.** The page reads the file the management
   API's GET calls read (`cohort-view.json`, written by the host).
-- **Five actions, no more.** The cohort's page offers **Stop** (or
-  **Start** when it is stopped), **Extend until <date>** and, per seat,
-  **Reset**; the list offers **Create a cohort**. Each is a form posting
+- **Six actions, no more.** The cohort's page offers **Stop** (or
+  **Start** when it is stopped), **Extend until <date>**, per seat
+  **Reset**, and **Remove the cohort**; the list offers **Create a cohort**. Each is a form posting
   to the portal (`/kohorten/<name>/<stop|start|extend>`,
   `/kohorten/<name>/seats/<id>/reset`, `/kohorten-anlegen`). A form does
   what the API does: it hands the same request to the host-side worker
   through the same spool (`management_api.enqueue`, `start_create`) and the
   host re-checks every rule; the page decides only who may ask. Removing a
-  cohort or a seat stays with the API and `oaap cohort`.
+  single seat stays with the API and `oaap cohort`.
 - **Create** takes a template as a **ZIP** (`cohort.yaml` at its root),
   checked and unpacked by exactly the code the API uses (no `..`, links,
   encrypted entries, more than 5000 entries, 512 MiB unpacked, 256 MiB
@@ -560,6 +561,15 @@ waits or was refused.
 - **Reset** asks for a ticked confirmation and offers "keep files" ticked
   by default; without it everything the participant put in the instances
   is deleted, and the page says so in the same place.
+- **Remove** asks for the cohort's **name typed out** (the API's own
+  `confirm`; a wrong name spools nothing) and offers two ticks, both
+  **off** by default: *delete the instances' storage* (without it the
+  storage stays, and deleting it later is the node operator's) and
+  *delete the users* (without it they stay and their dates still apply).
+  The page says what each tick does before the click. The answer comes
+  back on the list, in the host's words, with no link to the cohort that
+  is gone; a refusal (e.g. a user the identity service will not delete)
+  is shown as an error.
 - **The handout** of a finished create is offered to **the person who
   started it** (or a `server_admin`) on that job's page, once, with an
   optional password of at least eight characters (AES-256 ZIP; without it
@@ -1248,3 +1258,17 @@ Spool, der Knoten prüft jede Regel erneut). Ein zu kurzes Passwort wird
 abgewiesen, **bevor** das Handout verbraucht wird; eine fremde Seite, die
 einen Aufruf einschleusen will (`Origin`/`Sec-Fetch-Site`), bekommt 403.
 Entfernen bleibt bei der API und `oaap cohort`.
+
+## Deutsche Zusammenfassung (Nachtrag 0.3.20 — Kohorte entfernen auf der Seite)
+
+Auf der Seite einer Kohorte gibt es jetzt **Kohorte entfernen**. Man tippt
+zur Bestätigung den **Namen der Kohorte** ein (so wie die API es verlangt;
+ein falscher Name löst nichts aus) und hat zwei Haken, beide **aus**:
+„Speicher der Instanzen mit löschen“ (ohne Haken bleibt er liegen, und ihn
+später zu löschen kann nur der Betreiber des Knotens) und „Benutzer mit
+löschen“ (ohne Haken bleiben sie, ihre Termine gelten weiter). Die Seite
+sagt vor dem Klick, was jeder Haken tut.
+
+Der Auftrag läuft auf dem Knoten; die Liste zeigt die Meldung des Knotens
+(ohne Link zu der entfernten Kohorte), eine Ablehnung steht als Fehler da.
+Einen einzelnen Platz zu entfernen bleibt bei der API und `oaap cohort`.

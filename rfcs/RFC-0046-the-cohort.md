@@ -406,7 +406,10 @@ that the CLI's functions are its body.
    shown; removing stays with the API. **Third form, built 2026-10-01** (reference
    0.1.158, portal 0.3.19): *Create* from a template ZIP, the one-time
    handout (optional password) for the person who started the job, and
-   *Reset a seat*, all through the API's own code.
+   *Reset a seat*, all through the API's own code. **Fourth form, built
+   2026-10-01** (reference 0.1.160, portal 0.3.20): *Remove the cohort*
+   with the name typed out; only a single seat's removal stays with the
+   API.
 
 ## 12. Decisions (Jörg, 2026-09-30)
 

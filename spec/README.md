@@ -13,7 +13,7 @@ before the full specification is written.
 
 - [oaap.core.host](oaap.core.host.md) — platform installer & node baseline (draft, v0.3.5)
 - [oaap.core.updates](oaap.core.updates.md) — one update engine per node, three triggers: a node updates its platform core from its recorded source, shows what would change first, and never touches app instances or user data (draft, v0.1.3)
-- [oaap.core.portal](oaap.core.portal.md) — web portal (draft, v0.3.19)
+- [oaap.core.portal](oaap.core.portal.md) — web portal (draft, v0.3.20)
 - [oaap.core.management](oaap.core.management.md) — the tenant's own hand on the platform as an API: the cohort commands under `/api/v1/tenant`, for a session or an API key, jobs for what takes minutes, a template uploaded as ZIP, the handout as a one-time ZIP with a password the trainer chooses (draft, v0.1)
 - [oaap.core.identity](oaap.core.identity.md) — identity & roles (draft, v0.6.0)
 - [oaap.core.gateway](oaap.core.gateway.md) — HTTP gateway (outline, v0.2.15)
