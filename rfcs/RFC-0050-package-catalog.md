@@ -124,21 +124,31 @@ without the download-and-upload detour.
 - **Rules by condition** ("supply every production promotion of app X to ring
   1") are a later step on top of the manual act, not a replacement for it.
 
-## 6. Questions for Jörg
+## 6. Answers (Jörg, 2026-10-01) and what follows
 
-1. **Per-tenant visibility** (deferred now): does a package ever need to be
-   visible to one tenant only (customer-specific solutions)? If yes, the list
-   needs a tenant filter, and the store source becomes tenant-aware — a
-   change to RFC-0012's "sources are per node".
-2. **Where does the catalog run first:** on the reference node (and recipients
-   pull), or on each recipient node (fed by hand or by §5)? Stage 1 and 2 work
-   either way; §5 assumes the first.
-3. **Does a recipient node need to trust the reference node's catalog as
-   `verified` from the first day,** or should the first install per app need
-   an explicit confirmation (as `unverified` sources do today)?
-4. **The channel dialog:** is "with a test instance / straight to production"
-   one choice per install, or should the tenant administrator set a default
-   per tenant?
+1. **Per-tenant visibility: not ruled out, so not blocked.** First version:
+   "all". The list format and the source resolution MUST leave room for a
+   tenant filter (an optional `visible_to` on an entry and on a version, absent
+   = everybody), so adding it later changes no reader.
+2. **Where the catalog runs.** The catalog is a *function* ("exchange ZIPs
+   with history"), not a place. Usually it runs on the node where the packages
+   are installed (the multi-tenant node itself). Later it may be offered as a
+   shared service, so that **several hosting nodes** (e.g. several
+   multi-tenant nodes for associations) take their newest released versions
+   from **one reference catalog**. Consequences for the design: a catalog is
+   both a *source* (it serves a list) and may itself *be a recipient* of
+   another catalog (§5 pull, per-recipient token), so a local catalog can
+   mirror a central one; a node needs no more than one registered source to
+   reach all of it.
+3. **Trust at the first install: a configuration option.** Default
+   `verified`; an operator may set the catalog source to require explicit
+   confirmation per app (like `unverified` sources) so that he can try every
+   version in his own test portal before it reaches his tenants.
+4. **The channel choice is per installation, not a tenant default.** Examples
+   from Jörg: a link service needs no test instance; a website definitely
+   does; the association portal not necessarily, but it is useful for
+   training. The store dialog therefore asks on each install: *with a test
+   instance* or *straight to production*.
 
 ## 7. Out of scope
 
@@ -165,6 +175,9 @@ Vorproduktiv) steht der Katalog; **registrierte Empfängerknoten** holen sich
 dort, was der Betreiber ausdrücklich für sie bereitgestellt hat (manuell,
 Abholung per Token, kein Zugang des Referenzknotens in die Empfänger). Damit
 entfällt Herunter- und Hochladen über den Arbeitsplatz. Ob und wann ein Mandant
-im Empfänger aktualisiert, regelt die Richtlinie aus RFC-0049. Vier offene
-Fragen in §6 (u. a. Sichtbarkeit je Mandant später, Ort des Katalogs,
-Vertrauensstufe am ersten Tag). Nichts gebaut.
+im Empfänger aktualisiert, regelt die Richtlinie aus RFC-0049. Die vier Fragen sind am 01.10. beantwortet
+(§6): Sichtbarkeit je Mandant ist nicht ausgeschlossen und wird im Format
+offengehalten; der Katalog ist eine Funktion, meist auf dem Installationsknoten,
+später auch als geteilter Referenzkatalog für mehrere Hosting-Knoten; die
+Vertrauensstufe am ersten Tag ist eine Konfigurationsoption; die Wahl
+Testinstanz oder produktiv gilt je Installation. Nichts gebaut.
