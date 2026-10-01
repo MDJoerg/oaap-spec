@@ -411,7 +411,10 @@ that the CLI's functions are its body.
    with the name typed out. **Fifth form, built 2026-10-01** (reference
    0.1.161, portal 0.3.21): *Remove a seat* with `<cohort>-<seat>` typed
    out, and a refused user deletion no longer hides behind the closing
-   line. Only *adding* seats stays with the API.
+   line. **Sixth form, built 2026-10-01** (reference 0.1.162, portal
+   0.3.22): *Add a seat* with that seat's one-time handout. Every call of
+   the API for cohorts is now also on the page; named secrets and a
+   source of one's own stay the operator's.
 
 ## 12. Decisions (Jörg, 2026-09-30)
 

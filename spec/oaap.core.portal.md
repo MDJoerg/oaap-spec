@@ -1,8 +1,10 @@
 # oaap.core.portal — Web Portal
 
 - **ID:** `oaap.core.portal`
-- **Version:** 0.3.21
-- **Maturity:** draft (0.3.21 adds **Remove a seat** to the cohorts page —
+- **Version:** 0.3.22
+- **Maturity:** draft (0.3.22 adds **Add a seat** to the cohorts page, with
+  the new participant's one-time handout — §2.8, RFC-0046 stage 3, sixth
+  form; 0.3.21 adds **Remove a seat** to the cohorts page —
   §2.8, RFC-0046 stage 3, fifth form; 0.3.20 adds **Remove a cohort** to the cohorts page —
   §2.8, RFC-0046 stage 3, fourth form; 0.3.19 adds **Create** (template ZIP, then the
   one-time handout) and **Reset a seat** to the cohorts page — §2.8,
@@ -544,15 +546,16 @@ waits or was refused.
 
 - **Reading comes from a file.** The page reads the file the management
   API's GET calls read (`cohort-view.json`, written by the host).
-- **Seven actions, no more.** The cohort's page offers **Stop** (or
-  **Start** when it is stopped), **Extend until <date>**, **Remove the
-  cohort**, and per seat **Reset** and **Remove the seat**; the list offers **Create a cohort**. Each is a form posting
+- **Eight actions, no more.** The cohort's page offers **Stop** (or
+  **Start** when it is stopped), **Extend until <date>**, **Add a seat**,
+  **Remove the cohort**, and per seat **Reset** and **Remove the seat**; the list offers **Create a cohort**. Each is a form posting
   to the portal (`/kohorten/<name>/<stop|start|extend>`,
   `/kohorten/<name>/seats/<id>/reset`, `/kohorten-anlegen`). A form does
   what the API does: it hands the same request to the host-side worker
   through the same spool (`management_api.enqueue`, `start_create`) and the
-  host re-checks every rule; the page decides only who may ask. Adding
-  seats stays with the API and `oaap cohort`.
+  host re-checks every rule; the page decides only who may ask. Nothing
+  the API offers for cohorts is left out of the page except a named secret
+  and a source of one's own, which stay the operator's.
 - **Create** takes a template as a **ZIP** (`cohort.yaml` at its root),
   checked and unpacked by exactly the code the API uses (no `..`, links,
   encrypted entries, more than 5000 entries, 512 MiB unpacked, 256 MiB
@@ -579,6 +582,12 @@ waits or was refused.
   (`seat 02 of cohort 'x' removed`); **a user the identity service would
   not delete is added to that sentence**, never hidden behind a closing
   line that says "done" (this holds for removing a cohort as well).
+- **Add a seat** takes an optional participant name (at most 80
+  characters; without one the next number is used) and creates one user
+  and the template's instances for that seat. The answer names the seat
+  (`seat berta added to cohort 'x'`). The seat's **handout** — one row —
+  is offered on the cohort's page exactly as a create's is, to the person
+  who started the job, once.
 - **The handout** of a finished create is offered to **the person who
   started it** (or a `server_admin`) on that job's page, once, with an
   optional password of at least eight characters (AES-256 ZIP; without it
@@ -1293,3 +1302,18 @@ Identity einen Benutzer nicht löschen wollte, steht das in der Meldung**
 und verschwindet nicht hinter einem „fertig“. Das gilt jetzt auch beim
 Entfernen einer ganzen Kohorte. Plätze hinzufügen bleibt bei der API und
 `oaap cohort`.
+
+## Deutsche Zusammenfassung (Nachtrag 0.3.22 — einen Platz hinzufügen auf der Seite)
+
+Auf der Seite der Kohorte gibt es **Platz hinzufügen**: ein Feld für den
+Namen des Teilnehmers (frei lassen, dann wird die nächste Nummer genommen)
+und ein Knopf. Der Knoten legt einen Benutzer und die Instanzen aus der
+Vorlage an; die Meldung nennt den neuen Platz. Die **Zugangsdaten dieses
+einen Teilnehmers** gibt es einmalig auf derselben Seite, wie beim
+Anlegen der Kohorte — für den, der den Auftrag gestartet hat, mit
+Passwort Deiner Wahl oder als offenes ZIP, das als solches gekennzeichnet
+ist.
+
+Damit ist alles, was die Verwaltungs-API für Kohorten kann, auch auf der
+Seite — bis auf benannte Geheimnisse und eigene Quellen, die dem
+Betreiber vorbehalten bleiben.
