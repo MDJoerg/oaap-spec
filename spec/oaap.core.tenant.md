@@ -1,7 +1,7 @@
 # oaap.core.tenant — Account and Tenant, the Boundary of Belonging
 
 - **ID:** `oaap.core.tenant`
-- **Version:** 1.0 (RFC-0041 K6 — **a tenant can leave this node**: the archive carries the tenant's own record, an empty node can adopt one, and the provider it arrives with is carried rather than put in force. See 2.11, conformance tests 24–26; 0.9 — the switches inside that space, and the truth about them; 0.8 — the platform may MAKE that provider, not only name it; 0.7 — a tenant may name who lets people
+- **Version:** 1.0.1 (a created tenant's address answers at once, 2.2; 1.0: RFC-0041 K6 — **a tenant can leave this node**: the archive carries the tenant's own record, an empty node can adopt one, and the provider it arrives with is carried rather than put in force. See 2.11, conformance tests 24–26; 0.9 — the switches inside that space, and the truth about them; 0.8 — the platform may MAKE that provider, not only name it; 0.7 — a tenant may name who lets people
   in**: an OIDC provider object that is a URL and says nothing about
   where the server runs, plus a policy for what a first login through
   it BECOMES. The binding is a platform rule and is not configurable:
@@ -342,6 +342,15 @@ is shown.
   rules, say the same two sentences before the act, and file the same
   audit entry — a difference between the doors is a difference in what
   a tenant *is*.
+
+  **The address answers when the command returns** (1.0.1). On a node
+  with an external name, both doors write the generated gateway sites
+  and reload the gateway AFTER the record and its audit entry exist, so
+  `<label>.<node host>` has a site and a certificate without a further
+  `external set` or update. A failed reload never undoes the tenant: the
+  answer says in one sentence what to run. The output names the address
+  and that the certificate takes a few seconds. A node without an
+  external name has nothing to publish and says nothing.
 
   Why this one may leave the machine while a node profile (RFC-0011)
   may not: a new tenant is **empty**. No user, no instance, no permit,
@@ -1705,3 +1714,12 @@ Datei zählen, bei einer Differenz die Datei wegwerfen.
 auf den Knoten, von dem sie kommt, und löscht dort nichts. Bis ein
 Mensch drüben loslässt, gibt es den Verein zweimal — und das wird
 gesagt, statt es entdecken zu lassen.
+
+## Deutsche Zusammenfassung (1.0.1 — die Adresse antwortet sofort)
+
+Nach `tenant create` (Maschine und Portal) schreibt die Plattform jetzt
+selbst die Gateway-Sites und lädt das Gateway neu, sobald der Datensatz
+und sein Protokolleintrag stehen. Vorher gab es bis zum nächsten
+`external set` oder Update einen TLS-Fehler an der neuen Adresse.
+Scheitert das Neuladen, bleibt der Mandant bestehen, und die Antwort sagt
+in einem Satz, was zu tun ist. Ohne externen Namen gibt es nichts zu tun.
