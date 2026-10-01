@@ -1,8 +1,11 @@
 # oaap.core.portal — Web Portal
 
 - **ID:** `oaap.core.portal`
-- **Version:** 0.3.22
-- **Maturity:** draft (0.3.22 adds **Add a seat** to the cohorts page, with
+- **Version:** 0.3.23
+- **Maturity:** draft (0.3.23 shows the **Cohorts menu entry to every
+  administrator**, not only where a cohort exists, and puts a **step-by-step
+  guide and a downloadable example template** on the create page — §2.8;
+  0.3.22 adds **Add a seat** to the cohorts page, with
   the new participant's one-time handout — §2.8, RFC-0046 stage 3, sixth
   form; 0.3.21 adds **Remove a seat** to the cohorts page —
   §2.8, RFC-0046 stage 3, fifth form; 0.3.20 adds **Remove a cohort** to the cohorts page —
@@ -556,6 +559,15 @@ waits or was refused.
   host re-checks every rule; the page decides only who may ask. Nothing
   the API offers for cohorts is left out of the page except a named secret
   and a source of one's own, which stay the operator's.
+- **The create page teaches.** It carries the steps (get the example,
+  unpack, edit, pack, upload, fetch the handout), a table of what a
+  template may say, and a link to the **example template**
+  (`GET /kohorten-beispiel.zip`): three seats, one Code-Server app per
+  seat, a seed file, a material folder, every line of `cohort.yaml`
+  explained. The example is **built by the portal** with `ends` four
+  weeks from today, so it is never out of step with what the node
+  accepts or in the past; it is tested against the portal's archive check
+  and the host's own template check. It holds no secret.
 - **Create** takes a template as a **ZIP** (`cohort.yaml` at its root),
   checked and unpacked by exactly the code the API uses (no `..`, links,
   encrypted entries, more than 5000 entries, 512 MiB unpacked, 256 MiB
@@ -607,8 +619,11 @@ waits or was refused.
   `Origin` names another host, or that a browser marks `Sec-Fetch-Site:
   cross-site`, is `403`; a date that is not `YYYY-MM-DD`
   never reaches the spool.
-- **A missing view is an empty list, not an error**, and the menu entry
-  `Kohorten` shows only where the caller has at least one cohort to see.
+- **A missing view is an empty list, not an error.** The menu entry
+  `Kohorten` shows for everyone who may use the page — **not only where a
+  cohort exists** (0.3.23): the first one is made from this very page, and
+  an entry that appeared after it would hide the way to it. A caller
+  without the role, or a `tenant_admin` without a tenant, does not see it.
 - A mixed instance state (`running,exited`) is never shown as healthy.
 
 ## 3. Configuration
@@ -1317,3 +1332,17 @@ ist.
 Damit ist alles, was die Verwaltungs-API für Kohorten kann, auch auf der
 Seite — bis auf benannte Geheimnisse und eigene Quellen, die dem
 Betreiber vorbehalten bleiben.
+
+## Deutsche Zusammenfassung (Nachtrag 0.3.23 — Menüpunkt, Anleitung, Beispiel)
+
+Zwei Dinge fielen vor dem ersten Test von Hand auf. Erstens: der
+Menüpunkt „Kohorten“ erschien erst, **wenn es schon eine Kohorte gab** —
+die erste hätte man nur über die Adresse gefunden. Jetzt sieht ihn jeder
+Verwalter (`tenant_admin` mit Mandant, `server_admin`), jeder andere nicht.
+Zweitens: die Vorlage (`cohort.yaml`) musste man sich irgendwoher
+beschaffen. Jetzt steht auf der Seite „Kohorte anlegen“ eine Anleitung in
+sechs Schritten, eine Tabelle dessen, was in der Vorlage stehen darf, und
+ein Knopf, der eine **fertige Beispiel-ZIP** lädt (drei Plätze, eine
+Code-Server-Instanz je Platz, Willkommensdatei, Kursunterlagen; jede Zeile
+erklärt). Das Beispiel erzeugt das Portal selbst, mit dem Ende vier Wochen
+voraus, damit es nie veraltet oder vergangen ist.

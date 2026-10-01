@@ -414,7 +414,11 @@ that the CLI's functions are its body.
    line. **Sixth form, built 2026-10-01** (reference 0.1.162, portal
    0.3.22): *Add a seat* with that seat's one-time handout. Every call of
    the API for cohorts is now also on the page; named secrets and a
-   source of one's own stay the operator's.
+   source of one's own stay the operator's. **Before the first hands-on test
+   (2026-10-01, reference 0.1.163, portal 0.3.23, management 0.1.1):** the
+   menu entry shows without a cohort, the create page carries a step-by-step
+   guide and a downloadable example template, and the API takes a ZIP with
+   one wrapper folder.
 
 ## 12. Decisions (Jörg, 2026-09-30)
 

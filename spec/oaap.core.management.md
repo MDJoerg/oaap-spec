@@ -1,8 +1,9 @@
 # oaap.core.management — The Tenant's Own Hand on the Platform, as an API
 
 - **ID:** `oaap.core.management`
-- **Version:** 0.1
-- **Maturity:** draft (0.1 is RFC-0046 stage 2: the cohort commands as a
+- **Version:** 0.1.1
+- **Maturity:** draft (0.1.1 accepts a ZIP that holds the template in ONE
+  folder (§2.4), the way an explorer packs a folder; 0.1 is RFC-0046 stage 2: the cohort commands as a
   tenant-scoped JSON API, the job model they need, and the handout as a
   download. Users and single instances follow in later versions under the
   same prefix)
@@ -111,6 +112,14 @@ with `{"job": "<id>", "status_url": "/api/v1/tenant/jobs/<id>"}`.
 seeds, material) **as a ZIP**: `Content-Type: application/zip`, the
 body is the archive, `cohort.yaml` at its root. (ZIP rather than a Git
 address: a trainer's repository is usually private, RFC-0019.)
+
+- **One wrapper folder is tolerated** (0.1.1): when `cohort.yaml` is not
+  at the root but is directly inside the **only** top-level folder, that
+  folder is taken off on extraction — the way "send folder to ZIP" packs
+  (Windows, macOS; `__MACOSX/` beside it is ignored). Exactly one level,
+  and a template is never searched for: two folders, or `cohort.yaml`
+  two levels down, are refused. Every other rule below applies unchanged,
+  to the paths as they are in the archive.
 
 - Extraction MUST refuse: a path outside the target (`..`, absolute,
   drive letters, backslashes), a symbolic or hard link, a device or
@@ -251,3 +260,13 @@ Umsetzung auf.
   Auftrag, Protokoll oder Audit.
 - **Nicht in 0.1:** Benutzer und Einzelinstanzen als API-Objekte, Geheimnisse
   anlegen, eine Portal-Seite (kommt als nächste Stufe auf dieser API).
+
+## Deutsche Zusammenfassung (v0.1.1 — ein Ordner im ZIP)
+
+Wer unter Windows oder macOS „Ordner als ZIP senden“ wählt, bekommt ein
+Archiv, in dem alles in **einem** Ordner liegt. Das nimmt die API jetzt an:
+liegt `cohort.yaml` nicht oben, aber direkt in dem einen obersten Ordner,
+wird dieser Ordner beim Entpacken abgenommen (`__MACOSX/` daneben wird
+übergangen). Genau eine Ebene: zwei Ordner oder `cohort.yaml` zwei Ebenen
+tief werden weiter abgelehnt — es wird nie gesucht. Alle anderen Prüfungen
+gelten unverändert.
