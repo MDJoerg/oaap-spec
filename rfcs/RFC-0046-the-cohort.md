@@ -396,6 +396,11 @@ that the CLI's functions are its body.
    one-time ZIP with a password the trainer chooses at download (Jörg,
    2026-10-01). A trainer may name only apps of trusted store sources.
    Not yet: a portal page for cohorts (the next stage on this API).
+6. **Stage 3, first form: the portal page.** **Built 2026-10-01**
+   (reference 0.1.155, `oaap.core.portal` 0.3.17): `/kohorten` and
+   `/kohorten/<name>`, read-only, on the file the API's GET calls read. No
+   change from the page yet; creating, extending and removing stay with
+   the API and the CLI.
 
 ## 12. Decisions (Jörg, 2026-09-30)
 

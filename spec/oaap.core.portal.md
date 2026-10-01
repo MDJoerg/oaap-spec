@@ -1,8 +1,10 @@
 # oaap.core.portal — Web Portal
 
 - **ID:** `oaap.core.portal`
-- **Version:** 0.3.16
-- **Maturity:** draft (0.3.16 adds **instance diagnostics** to the object
+- **Version:** 0.3.17
+- **Maturity:** draft (0.3.17 adds a **read-only cohorts page** — §2.8,
+  RFC-0046 stage 3, the first form on top of `oaap.core.management` 0.1;
+  0.3.16 adds **instance diagnostics** to the object
   page — RFC-0038: container state always visible with a restart-loop
   finding above the tabs, an explicitly opened and audited **diagnosis
   window** of 15/30/60 minutes carrying the app's log and the gateway's
@@ -526,6 +528,28 @@ portal no reach the `server_admin` did not grant.
 `Einstellungen` (settings), `Store` (app store), `Studio` are reserved
 navigation points (design guidelines section 5); implementations MUST
 NOT use these routes for other purposes.
+
+### 2.8 Cohorts (RFC-0046, read-only)
+
+`GET /kohorten` lists the cohorts of one tenant, `GET /kohorten/<name>`
+shows one: state, the three dates (`ends`, users deactivated, users
+deleted — each as the exact date and the days to it), and every seat with
+its user, its instances, their state and address, and a note where a seat
+waits or was refused.
+
+- **It only reads.** The page reads the file the management API's GET
+  calls read (`cohort-view.json`, written by the host) and contains no
+  form but the header's sign-out. It names the way to change something —
+  the API and `oaap cohort` — and does not offer one. The handout is never
+  on this page; it is the one-time download of the API.
+- **Same doors as the API's GET calls.** `tenant_admin` sees their own
+  tenant, `server_admin` the tenant the host names (or their own); an
+  address naming another tenant is `403` for a `tenant_admin`, a cohort of
+  another tenant is `404`, anyone else `403`.
+- **A missing view is an empty list, not an error**, and the menu entry
+  `Kohorten` shows only where the caller has at least one cohort to see —
+  a node that never made a cohort shows no new word.
+- A mixed instance state (`running,exited`) is never shown as healthy.
 
 ## 3. Configuration
 
@@ -1142,3 +1166,20 @@ gerade einen Fehler sucht.
 Neuer Konformitätstest 23 prüft all das, einschließlich der beiden
 Verwechslungen, die es nicht geben darf: „unbekannt" gegen „läuft nicht",
 und „abgelaufen" gegen „noch offen".
+
+## Deutsche Zusammenfassung (Nachtrag 0.3.17 — die Kohorten-Seite)
+
+Das Portal hat jetzt eine **Seite für Kohorten**, vorerst nur zum
+Ansehen. `Kohorten` im Menü (nur wenn es welche gibt) führt zu einer
+Liste mit Zustand, Plätzen und Enddatum; ein Klick zeigt die Termine
+(Ende, Benutzer deaktiviert, Benutzer gelöscht — jeweils mit Datum und
+Tagen bis dahin) und jeden Platz mit Benutzer, Instanzen, Zustand und
+Adresse. Ein Platz, der wartet oder abgelehnt wurde, fällt mit einem
+Satz auf.
+
+Die Seite **ändert nichts**: sie liest dieselbe Datei wie die
+Verwaltungs-API und sagt, dass man über die API oder `oaap cohort`
+verlängert, anhält oder entfernt. Das Handout steht nie hier. Wer sie
+sehen darf, ist wie bei der API: der `tenant_admin` im eigenen Mandanten,
+der `server_admin` am Mandantenort; eine fremde Kohorte ist 404. Fehlt die
+Datei, ist die Liste leer statt kaputt.
