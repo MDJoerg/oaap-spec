@@ -385,10 +385,10 @@ that the CLI's functions are its body.
    fires once and a manual `start` stands; the sweep acts on every person
    whose date has come, cohort or not (a date set in the portal must not
    silently never fire); a fired deactivation date is cleared; a refused
-   deletion is logged once, not daily. Not yet moved by a command: `ends`
-   itself (the dates are movable on the user, the end only by a new
-   template) — a small `oaap cohort extend` is the next step if a course
-   overruns.
+   deletion is logged once, not daily. `ends` itself moves
+   by `oaap cohort extend` (built 2026-10-01, reference 0.1.151,
+   `oaap.apps.runtime` 0.2.35): later only, computed dates follow, hand-set
+   dates stay, nothing is started or reactivated.
 5. **Stage 2** — `oaap.core.management` 0.1 and the key; the cohort as
    an app.
 

@@ -1,7 +1,9 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.34 (**the cohort's daily sweep**, RFC-0046 stage 4:
+- **Version:** 0.2.35 (**`oaap cohort extend`**, RFC-0046 §5: the end of a
+  course moves later and the dates computed from it move with it; 2.19;
+  0.2.34 (**the cohort's daily sweep**, RFC-0046 stage 4:
   `oaap cohort sweep`, run once a day by a systemd timer, stops a cohort's
   instances after `ends` and deactivates and deletes people on their dates;
   it never deletes an instance; 2.19; 0.2.33 (**the cohort**, RFC-0046 stage 3: `oaap cohort`
@@ -422,6 +424,16 @@ remove | secret`; the functions behind it are the body of the stage-2 API
   Every action is a tenant audit entry `cohort.end` or `cohort.sweep`,
   actor "cohort sweep". `--dry-run` says what would happen and changes
   nothing. No date ever deletes an instance or its storage (RFC-0030 D4).
+- **Moving the end** (0.2.35). `oaap cohort extend <cohort> <date>` moves
+  `lifetime.ends` in the stored template **later** (an earlier or equal date
+  is refused) and moves the people's dates with it, but only a date that is
+  still the one the template computed: a date a trainer set by hand for
+  somebody stays theirs, and the command says so. It forgets that the cohort
+  "ended" (so the sweep stops it again at the new end) and that a deletion was
+  waiting or refused. It starts nothing and reactivates nobody — that stays
+  the trainer's call (`start`, the user's own switch); the command points at
+  `oaap cohort start`. New dates not in the future are refused. Audit entry
+  `cohort.extend`; `--dry-run` shows what would move.
 - **Dates are data until the sweep runs.** With `lifetime.ends`, each user gets `deactivate_at`
   and `delete_at` (`ends` plus the template's periods) and the reason
   `cohort <name>`. The sweep (above) acts on them, and no date ever
@@ -1699,6 +1711,12 @@ stays 2.7/2.10, the operator's decision):
     timer exists on a fresh install and after an update and catches up a
     missed day.
 
+55. **Extending moves the end and what was computed from it** (2.19): a
+    later end only; computed dates move by the same days, a hand-set date
+    stays and is named; the "ended" mark is forgotten so the sweep stops the
+    cohort at the new end; nothing is started or reactivated; refused when a
+    new date would not be in the future; nothing changes under `--dry-run`.
+
 ## 6. Dependencies
 
 `oaap.core.host`, `oaap.core.gateway`, `oaap.core.identity`,
@@ -2442,3 +2460,15 @@ API-Schlüssel), steht der Grund einmal im Protokoll und jeden Morgen auf dem
 Bildschirm. Jeder Schritt ist ein Protokolleintrag (`cohort.end`,
 `cohort.sweep`, Handelnder „cohort sweep“). `--dry-run` zeigt, was geschähe.
 **Kein Termin löscht je eine Instanz oder ihren Speicher** (RFC-0030 D4).
+
+## Deutsche Zusammenfassung (2.19, v0.2.35 — `oaap cohort extend`)
+
+`oaap cohort extend <Kohorte> <Datum>` schiebt `lifetime.ends` im
+gespeicherten Template **nach hinten** (ein früheres oder gleiches Datum wird
+abgelehnt) und zieht die Termine der Teilnehmer mit — aber nur die, die noch
+der berechnete Termin sind; ein von Hand gesetztes Datum bleibt, und der
+Befehl nennt es. Der Vermerk „beendet“ wird vergessen, damit der tägliche Lauf
+die Kohorte am neuen Ende wieder stoppt. Der Befehl **startet nichts und
+reaktiviert niemanden** — das bleibt Sache des Ausbilders (er verweist auf
+`oaap cohort start`). Liegt ein neuer Termin nicht in der Zukunft, wird
+abgelehnt. Protokolleintrag `cohort.extend`; `--dry-run` ändert nichts.
