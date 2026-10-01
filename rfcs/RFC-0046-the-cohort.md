@@ -408,8 +408,10 @@ that the CLI's functions are its body.
    handout (optional password) for the person who started the job, and
    *Reset a seat*, all through the API's own code. **Fourth form, built
    2026-10-01** (reference 0.1.160, portal 0.3.20): *Remove the cohort*
-   with the name typed out; only a single seat's removal stays with the
-   API.
+   with the name typed out. **Fifth form, built 2026-10-01** (reference
+   0.1.161, portal 0.3.21): *Remove a seat* with `<cohort>-<seat>` typed
+   out, and a refused user deletion no longer hides behind the closing
+   line. Only *adding* seats stays with the API.
 
 ## 12. Decisions (Jörg, 2026-09-30)
 

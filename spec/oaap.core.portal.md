@@ -1,8 +1,9 @@
 # oaap.core.portal — Web Portal
 
 - **ID:** `oaap.core.portal`
-- **Version:** 0.3.20
-- **Maturity:** draft (0.3.20 adds **Remove a cohort** to the cohorts page —
+- **Version:** 0.3.21
+- **Maturity:** draft (0.3.21 adds **Remove a seat** to the cohorts page —
+  §2.8, RFC-0046 stage 3, fifth form; 0.3.20 adds **Remove a cohort** to the cohorts page —
   §2.8, RFC-0046 stage 3, fourth form; 0.3.19 adds **Create** (template ZIP, then the
   one-time handout) and **Reset a seat** to the cohorts page — §2.8,
   RFC-0046 stage 3, third form; 0.3.18 gives the cohorts page **Stop, Start and Extend**
@@ -543,15 +544,15 @@ waits or was refused.
 
 - **Reading comes from a file.** The page reads the file the management
   API's GET calls read (`cohort-view.json`, written by the host).
-- **Six actions, no more.** The cohort's page offers **Stop** (or
-  **Start** when it is stopped), **Extend until <date>**, per seat
-  **Reset**, and **Remove the cohort**; the list offers **Create a cohort**. Each is a form posting
+- **Seven actions, no more.** The cohort's page offers **Stop** (or
+  **Start** when it is stopped), **Extend until <date>**, **Remove the
+  cohort**, and per seat **Reset** and **Remove the seat**; the list offers **Create a cohort**. Each is a form posting
   to the portal (`/kohorten/<name>/<stop|start|extend>`,
   `/kohorten/<name>/seats/<id>/reset`, `/kohorten-anlegen`). A form does
   what the API does: it hands the same request to the host-side worker
   through the same spool (`management_api.enqueue`, `start_create`) and the
-  host re-checks every rule; the page decides only who may ask. Removing a
-  single seat stays with the API and `oaap cohort`.
+  host re-checks every rule; the page decides only who may ask. Adding
+  seats stays with the API and `oaap cohort`.
 - **Create** takes a template as a **ZIP** (`cohort.yaml` at its root),
   checked and unpacked by exactly the code the API uses (no `..`, links,
   encrypted entries, more than 5000 entries, 512 MiB unpacked, 256 MiB
@@ -570,6 +571,14 @@ waits or was refused.
   back on the list, in the host's words, with no link to the cohort that
   is gone; a refusal (e.g. a user the identity service will not delete)
   is shown as an error.
+- **Remove a seat** is the same removal for one seat, in that seat's row
+  (folded away until opened): the same two ticks, both off, and the word
+  to type is `<cohort>-<seat>` — the CLI's own — so that the habit of
+  typing the cohort's name does not remove a seat. The host is given the
+  cohort's name as the API's check wants it. The answer is a sentence
+  (`seat 02 of cohort 'x' removed`); **a user the identity service would
+  not delete is added to that sentence**, never hidden behind a closing
+  line that says "done" (this holds for removing a cohort as well).
 - **The handout** of a finished create is offered to **the person who
   started it** (or a `server_admin`) on that job's page, once, with an
   optional password of at least eight characters (AES-256 ZIP; without it
@@ -1272,3 +1281,15 @@ sagt vor dem Klick, was jeder Haken tut.
 Der Auftrag läuft auf dem Knoten; die Liste zeigt die Meldung des Knotens
 (ohne Link zu der entfernten Kohorte), eine Ablehnung steht als Fehler da.
 Einen einzelnen Platz zu entfernen bleibt bei der API und `oaap cohort`.
+
+## Deutsche Zusammenfassung (Nachtrag 0.3.21 — einen Platz entfernen auf der Seite)
+
+In der Zeile jedes Platzes gibt es **Platz entfernen** (zugeklappt, bis
+man es öffnet). Dieselben zwei Haken wie bei der Kohorte, beide aus
+(Speicher mitlöschen, Benutzer mitlöschen). Zur Bestätigung tippt man
+`<Kohorte>-<Platz>` ein, also **nicht** den Namen der Kohorte — so entfernt
+niemand aus Gewohnheit einen Platz. Die Meldung ist ein Satz; **wenn
+Identity einen Benutzer nicht löschen wollte, steht das in der Meldung**
+und verschwindet nicht hinter einem „fertig“. Das gilt jetzt auch beim
+Entfernen einer ganzen Kohorte. Plätze hinzufügen bleibt bei der API und
+`oaap cohort`.
