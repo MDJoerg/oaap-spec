@@ -403,8 +403,10 @@ that the CLI's functions are its body.
    the API and the CLI. **Second form, built 2026-10-01** (reference
    0.1.156, portal 0.3.18): *Stop/Start* and *Extend* as buttons on the
    cohort's page, through the same spool as the API, with the host's answer
-   shown; creating, removing, resetting a seat and the handout stay with
-   the API.
+   shown; removing stays with the API. **Third form, built 2026-10-01** (reference
+   0.1.158, portal 0.3.19): *Create* from a template ZIP, the one-time
+   handout (optional password) for the person who started the job, and
+   *Reset a seat*, all through the API's own code.
 
 ## 12. Decisions (Jörg, 2026-09-30)
 

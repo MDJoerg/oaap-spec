@@ -1,8 +1,10 @@
 # oaap.core.portal — Web Portal
 
 - **ID:** `oaap.core.portal`
-- **Version:** 0.3.18
-- **Maturity:** draft (0.3.18 gives the cohorts page **Stop, Start and Extend**
+- **Version:** 0.3.19
+- **Maturity:** draft (0.3.19 adds **Create** (template ZIP, then the
+  one-time handout) and **Reset a seat** to the cohorts page — §2.8,
+  RFC-0046 stage 3, third form; 0.3.18 gives the cohorts page **Stop, Start and Extend**
   buttons — §2.8, RFC-0046 stage 3, second form; 0.3.17 adds a **read-only cohorts page** — §2.8,
   RFC-0046 stage 3, the first form on top of `oaap.core.management` 0.1;
   0.3.16 adds **instance diagnostics** to the object
@@ -540,13 +542,31 @@ waits or was refused.
 
 - **Reading comes from a file.** The page reads the file the management
   API's GET calls read (`cohort-view.json`, written by the host).
-- **Three actions, no more.** The cohort's page offers **Stop** (or
-  **Start** when it is stopped) and **Extend until <date>**, as forms
-  posting to `/kohorten/<name>/<stop|start|extend>`. A form does what the
-  API does: it hands the same request to the host-side worker through the
-  same spool (`management_api.enqueue`) and the host re-checks every rule;
-  the page decides only who may ask. Creating, removing, resetting a seat
-  and the handout stay with the API and `oaap cohort`.
+- **Five actions, no more.** The cohort's page offers **Stop** (or
+  **Start** when it is stopped), **Extend until <date>** and, per seat,
+  **Reset**; the list offers **Create a cohort**. Each is a form posting
+  to the portal (`/kohorten/<name>/<stop|start|extend>`,
+  `/kohorten/<name>/seats/<id>/reset`, `/kohorten-anlegen`). A form does
+  what the API does: it hands the same request to the host-side worker
+  through the same spool (`management_api.enqueue`, `start_create`) and the
+  host re-checks every rule; the page decides only who may ask. Removing a
+  cohort or a seat stays with the API and `oaap cohort`.
+- **Create** takes a template as a **ZIP** (`cohort.yaml` at its root),
+  checked and unpacked by exactly the code the API uses (no `..`, links,
+  encrypted entries, more than 5000 entries, 512 MiB unpacked, 256 MiB
+  upload). Without a Git address and without a named secret: a trainer
+  names apps of trusted sources only. A refused archive is told on the
+  form and nothing is spooled.
+- **Reset** asks for a ticked confirmation and offers "keep files" ticked
+  by default; without it everything the participant put in the instances
+  is deleted, and the page says so in the same place.
+- **The handout** of a finished create is offered to **the person who
+  started it** (or a `server_admin`) on that job's page, once, with an
+  optional password of at least eight characters (AES-256 ZIP; without it
+  the ZIP is plain and the response carries `X-OAAP-Handout: unencrypted`).
+  It is the API's handout, claimed by the same atomic rename, shredded
+  after the read and noted in the audit log; a second call finds nothing.
+  A password that is too short is refused **before** the handout is taken.
 - **The answer is shown.** The page redirects to
   `/kohorten/<name>?job=<id>` and shows the job: waiting, running (the
   page reloads itself every three seconds), then the host's own message —
@@ -556,7 +576,8 @@ waits or was refused.
   tenant, `server_admin` in the tenant the host names (or their own); an
   address naming another tenant is `403` for a `tenant_admin`, a cohort
   of another tenant is not found, anyone else `403`. A `POST` whose
-  `Origin` names another host is `403`; a date that is not `YYYY-MM-DD`
+  `Origin` names another host, or that a browser marks `Sec-Fetch-Site:
+  cross-site`, is `403`; a date that is not `YYYY-MM-DD`
   never reaches the spool.
 - **A missing view is an empty list, not an error**, and the menu entry
   `Kohorten` shows only where the caller has at least one cohort to see.
@@ -1210,3 +1231,20 @@ etwa ein früheres Enddatum, steht als Fehler da, in den Worten des
 Knotens. Ein Auftrag eines anderen Mandanten zeigt sein Ergebnis nie.
 Ein `POST` von einer fremden Herkunft wird abgewiesen, ein Datum, das
 keins ist, kommt gar nicht erst in den Spool.
+
+## Deutsche Zusammenfassung (Nachtrag 0.3.19 — Anlegen und Zurücksetzen auf der Kohorten-Seite)
+
+Auf der Liste gibt es **Kohorte anlegen**: eine Vorlage als ZIP hochladen,
+die Seite zeigt den Auftrag (wartet, läuft, fertig). Ist er fertig, gibt es
+**einmalig** die Zugangsdaten als ZIP — für den, der den Auftrag gestartet
+hat — mit einem Passwort Deiner Wahl (mindestens acht Zeichen, sonst ein
+offenes ZIP, das als solches gekennzeichnet ist). Auf der Seite der Kohorte
+hat jeder Platz **Zurücksetzen**: mit Bestätigung, und „Dateien behalten“
+ist vorgewählt; ohne es gehen die Dateien des Teilnehmers verloren, und die
+Seite sagt das dort.
+
+Alles läuft über dieselbe Prüfung wie die API (gemeinsamer Code, derselbe
+Spool, der Knoten prüft jede Regel erneut). Ein zu kurzes Passwort wird
+abgewiesen, **bevor** das Handout verbraucht wird; eine fremde Seite, die
+einen Aufruf einschleusen will (`Origin`/`Sec-Fetch-Site`), bekommt 403.
+Entfernen bleibt bei der API und `oaap cohort`.
