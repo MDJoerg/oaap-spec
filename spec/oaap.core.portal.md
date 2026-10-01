@@ -1,8 +1,9 @@
 # oaap.core.portal — Web Portal
 
 - **ID:** `oaap.core.portal`
-- **Version:** 0.3.17
-- **Maturity:** draft (0.3.17 adds a **read-only cohorts page** — §2.8,
+- **Version:** 0.3.18
+- **Maturity:** draft (0.3.18 gives the cohorts page **Stop, Start and Extend**
+  buttons — §2.8, RFC-0046 stage 3, second form; 0.3.17 adds a **read-only cohorts page** — §2.8,
   RFC-0046 stage 3, the first form on top of `oaap.core.management` 0.1;
   0.3.16 adds **instance diagnostics** to the object
   page — RFC-0038: container state always visible with a restart-loop
@@ -529,7 +530,7 @@ portal no reach the `server_admin` did not grant.
 navigation points (design guidelines section 5); implementations MUST
 NOT use these routes for other purposes.
 
-### 2.8 Cohorts (RFC-0046, read-only)
+### 2.8 Cohorts (RFC-0046)
 
 `GET /kohorten` lists the cohorts of one tenant, `GET /kohorten/<name>`
 shows one: state, the three dates (`ends`, users deactivated, users
@@ -537,18 +538,28 @@ deleted — each as the exact date and the days to it), and every seat with
 its user, its instances, their state and address, and a note where a seat
 waits or was refused.
 
-- **It only reads.** The page reads the file the management API's GET
-  calls read (`cohort-view.json`, written by the host) and contains no
-  form but the header's sign-out. It names the way to change something —
-  the API and `oaap cohort` — and does not offer one. The handout is never
-  on this page; it is the one-time download of the API.
-- **Same doors as the API's GET calls.** `tenant_admin` sees their own
-  tenant, `server_admin` the tenant the host names (or their own); an
-  address naming another tenant is `403` for a `tenant_admin`, a cohort of
-  another tenant is `404`, anyone else `403`.
+- **Reading comes from a file.** The page reads the file the management
+  API's GET calls read (`cohort-view.json`, written by the host).
+- **Three actions, no more.** The cohort's page offers **Stop** (or
+  **Start** when it is stopped) and **Extend until <date>**, as forms
+  posting to `/kohorten/<name>/<stop|start|extend>`. A form does what the
+  API does: it hands the same request to the host-side worker through the
+  same spool (`management_api.enqueue`) and the host re-checks every rule;
+  the page decides only who may ask. Creating, removing, resetting a seat
+  and the handout stay with the API and `oaap cohort`.
+- **The answer is shown.** The page redirects to
+  `/kohorten/<name>?job=<id>` and shows the job: waiting, running (the
+  page reloads itself every three seconds), then the host's own message —
+  a refusal (e.g. an earlier end date) is shown as an error, in the host's
+  words. A job of another tenant never shows its result.
+- **Doors.** Same as the API: `tenant_admin` sees and acts in their own
+  tenant, `server_admin` in the tenant the host names (or their own); an
+  address naming another tenant is `403` for a `tenant_admin`, a cohort
+  of another tenant is not found, anyone else `403`. A `POST` whose
+  `Origin` names another host is `403`; a date that is not `YYYY-MM-DD`
+  never reaches the spool.
 - **A missing view is an empty list, not an error**, and the menu entry
-  `Kohorten` shows only where the caller has at least one cohort to see —
-  a node that never made a cohort shows no new word.
+  `Kohorten` shows only where the caller has at least one cohort to see.
 - A mixed instance state (`running,exited`) is never shown as healthy.
 
 ## 3. Configuration
@@ -1183,3 +1194,19 @@ verlängert, anhält oder entfernt. Das Handout steht nie hier. Wer sie
 sehen darf, ist wie bei der API: der `tenant_admin` im eigenen Mandanten,
 der `server_admin` am Mandantenort; eine fremde Kohorte ist 404. Fehlt die
 Datei, ist die Liste leer statt kaputt.
+
+## Deutsche Zusammenfassung (Nachtrag 0.3.18 — Schaltflächen auf der Kohorten-Seite)
+
+Die Seite einer Kohorte hat jetzt **Anhalten** (bei einer angehaltenen
+Kohorte **Starten**) und **Verlängern bis <Datum>**. Die Schaltflächen
+tun dasselbe wie die API: sie geben den Auftrag über denselben Spool an
+den Knoten, der jede Regel noch einmal prüft; die Seite entscheidet nur,
+wer fragen darf. Anlegen, Entfernen, Platz zurücksetzen und das Handout
+bleiben bei der API und `oaap cohort`.
+
+Nach dem Klick zeigt die Seite den Auftrag: wartet, läuft (sie lädt sich
+alle drei Sekunden neu), dann die Meldung des Knotens — eine Ablehnung,
+etwa ein früheres Enddatum, steht als Fehler da, in den Worten des
+Knotens. Ein Auftrag eines anderen Mandanten zeigt sein Ergebnis nie.
+Ein `POST` von einer fremden Herkunft wird abgewiesen, ein Datum, das
+keins ist, kommt gar nicht erst in den Spool.

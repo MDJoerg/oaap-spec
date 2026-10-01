@@ -400,7 +400,11 @@ that the CLI's functions are its body.
    (reference 0.1.155, `oaap.core.portal` 0.3.17): `/kohorten` and
    `/kohorten/<name>`, read-only, on the file the API's GET calls read. No
    change from the page yet; creating, extending and removing stay with
-   the API and the CLI.
+   the API and the CLI. **Second form, built 2026-10-01** (reference
+   0.1.156, portal 0.3.18): *Stop/Start* and *Extend* as buttons on the
+   cohort's page, through the same spool as the API, with the host's answer
+   shown; creating, removing, resetting a seat and the handout stay with
+   the API.
 
 ## 12. Decisions (Jörg, 2026-09-30)
 
