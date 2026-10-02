@@ -156,7 +156,7 @@ A node that has just been updated has little history; the chart says
 1. Sampler, tiered store and the format (§2–§4), with tests on a
    simulated clock (a month of samples in seconds).
 2. The chart block on the health page (§6).
-3. The outbound queue (§5, writing only).
+3. The outbound queue (§5, writing only) — **built** (reference 0.1.175): numbered lines in `outbox.jsonl`, bounded by age and size with the loss counted, `queue_ack` deletes what a sender has delivered, `oaap metrics queue` shows it, `oaap metrics queue-purge --yes` empties it (counted as `purged`, numbering goes on).
 4. *Later, own RFC:* the sender to an MQTT node.
 
 ## 9. Out of scope
