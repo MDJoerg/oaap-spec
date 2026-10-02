@@ -72,9 +72,12 @@ key management (portal "Zugänge", `oaap key …`) with the new kinds.
    adds. `exposed` is RFC-0015's profile for ports that bypass the
    gateway; the broker borrowed it instead of inventing a second grant.
 6. **Certificates**: the gateway (Caddy) obtains and renews them and
-   keeps them under `data/gateway/caddy-data` on the host; the platform
-   has its own CA (RFC-0005) for names no public authority serves. The
-   broker mounts none of it and has **no TLS listener**.
+   keeps them under `data/gateway/caddy-data` on the host. **The platform
+   CA of RFC-0005 is accepted as an RFC but not built** (nothing in the
+   code issues or serves it; the gateway only does on-demand ACME, and a
+   LAN name gets no certificate). The broker mounts none of it and has
+   **no TLS listener**. (An earlier draft of this RFC counted on that CA
+   for LAN nodes; stage 3 corrected it, §2.)
 7. **Measured on `oaap-test`, 2026-10-02 (stage 1)**, with Mosquitto
    2.0.18 and the plugin as the node runs them:
    - **A denied publish arrives as reason code `0x87`** in the `PUBACK`:
@@ -118,10 +121,21 @@ published port is **8883**: a platform service is not bound to the
 
 - On a node **with** an external host name the certificate is the
   public one, and a client needs no extra file.
-- On a node **without** one (the LAN nodes) the certificate comes from
-  the platform CA, and a client is given the CA certificate once
-  (`oaap metrics sender set --ca FILE`). The CA file is offered where the
-  keys are managed.
+- On a node **without** one (the LAN nodes) the gateway has nothing to
+  give, so **the node issues its own**: a CA of its own, made once by
+  `oaap broker sync` (its key in `data/broker-ca/`, mounted nowhere), and
+  a server certificate signed by it, valid 397 days and renewed at 30
+  left. It names `broker` (the platform-network name an in-platform client
+  uses), the host name, the external name if any, and the LAN address; a
+  change of the address issues a new one from the **same** CA, so no client
+  must be given anything again. A client is given the CA certificate once:
+  `oaap broker ca > ca.crt`, then `oaap metrics sender set --ca ca.crt`.
+- **The source is chosen on every run**: if the gateway holds a
+  certificate for the node's external name it is used (and a switch from
+  the node's own to the gateway's needs only a `SIGHUP`); otherwise the
+  node's own. The first certificate of all needs a **restart** of the
+  broker (a listener cannot be added by a reload — Mosquitto's rule); every
+  later change, a `SIGHUP`.
 - The renewal is the copy step above plus `SIGHUP` (measured, §1.7); no
   restart.
 - 8883 is published to the host on a node that carries `broker` **and**
@@ -219,8 +233,10 @@ Decided (Jörg, 2026-10-02): **extend the platform, no parallel broker**;
    private address, refused on a node without one (§3)? Recommended: yes.
    Alternatives: a setting beside the profiles (a new concept), or
    keeping `exposed` as the switch (then 1883 stays on all interfaces).
-2. **Certificate from the gateway's storage, read-only**, and the platform
-   CA for LAN nodes (§2)? Recommended: yes.
+2. **Certificate from the gateway's storage, copied**, and a CA of the
+   node's own for nodes the gateway gives nothing (§2)? Recommended: yes.
+   **Decided in the build (stage 3)**, because the platform CA it first
+   named does not exist (§1.6).
 3. **8883 is published under the existing rule** (`broker` + `exposed`),
    not under a new one (§2)? Recommended: yes.
 4. **Node and operator keys are issued by `server_admin` only** (§5)?
@@ -260,9 +276,14 @@ including a plain Mosquitto; this RFC is how an OAAP node meets it.
    Tests of the tenant boundary first (an old key behaves as before; no
    tenant key matches the root), then the new rules; `oaap key issue
    --kind node|operator`.
-3. **The listeners** (§2, §3): 8883 with the gateway's certificate; the
-   profile `broker-plain` and the overlay on the private address; the
-   check of which nodes change.
+3. **BUILT (reference 0.1.179).** **The listeners** (§2, §3): 8883
+   with the broker's certificate (the gateway's copied, or the node's own
+   CA), the TLS listener only when a certificate is in place; the profile
+   `broker-plain` and an overlay on the private address that makes Compose
+   REFUSE without one (`${BROKER_PLAIN_BIND:?…}`) instead of publishing on
+   every interface; `oaap broker sync|show|ca`, a step of the minutely job
+   that also follows a changed LAN address. 8883 now replaces 1883 in the
+   `exposed` overlay (no node was affected, §3).
 4. **Management** (§7.5): the new kinds and a grant editor in "Zugänge".
 5. **The sender against this broker** — RFC-0052 stage 3: the
    conformance tests of its §6.4 (anonymous refused, wrong key refused,
@@ -294,7 +315,7 @@ Es gibt sogar schon ein Konto außerhalb der Mandanten (das Relais).
 
 **Was ihm fehlt und gebaut wird:**
 - **TLS auf 8883** mit dem Zertifikat, das der Gateway ohnehin verwaltet
-  (eine Stelle für Zertifikate; LAN-Knoten: Plattform-CA, die der Client
+  (eine Stelle für Zertifikate; LAN-Knoten: eine CA des Knotens selbst — die Plattform-CA aus RFC-0005 gibt es nicht —, die der Client
   einmal bekommt).
 - **Rechte als Liste am Schlüssel** (Themenfilter + lesen/schreiben).
   Heute **ignoriert** die Prüfung, ob gelesen oder geschrieben wird.
@@ -333,5 +354,6 @@ Schlüssel nur durch `server_admin`, Verwaltung in der vorhandenen
 Schlüsselseite, die Wurzel als Einstellung des Broker-Knotens.
 
 **Stand:** Entwurf, Richtung entschieden; Stufe 1 (Messung) gemacht,
-Stufe 2 (Rechte in der Prüfung, Knoten- und Betreiberschlüssel) gebaut und
+Stufe 3 (Listener, Zertifikat, Profil `broker-plain`) gebaut und getestet, noch auf
+keinem Knoten; Stufe 2 (Rechte in der Prüfung, Knoten- und Betreiberschlüssel) gebaut und
 getestet, noch auf keinem Knoten.
