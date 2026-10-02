@@ -152,9 +152,14 @@ in-platform publisher need no host port).
 - It **replaces** today's rule that `exposed` alone publishes 1883 on
   all interfaces. That is a behaviour change on every node that carries
   `broker` and `exposed` today; stage 3 lists them first and moves each
-  explicitly. **Which nodes carry both profiles today is not yet
-  looked at**; the stage reads it from `oaap node show` on each node
-  before it changes anything.
+  explicitly. **Read on 2026-10-02 (`oaap node show`):**
+  `raspberrypi` and `oaap-bernd` carry no profile; `oaap-demo` and
+  `oaapx01` carry `dev` and `exposed` but not `broker`; `oaap-test`
+  carries `broker`, `dev` and `store` but not `exposed`. **No node
+  carries `broker` and `exposed` together, so port 1883 is published on
+  no node today and the change touches none.** (`oaapx02` is the
+  operator's own and was not read; stage 3 asks before it moves
+  anything.)
 
 ## 4. Rights as a list
 
@@ -250,7 +255,7 @@ including a plain Mosquitto; this RFC is how an OAAP node meets it.
    revoked afterwards). Two of three answers confirmed the design
    (`0x87`, reload on `SIGHUP`); one **changed** it (a copy instead of a
    mount, §2).
-2. **BUILT (reference 0.1.178), not yet on a node.** **Rights in the check** (§4–§6): grants on keys, the access type
+2. **BUILT (reference 0.1.178), measured on `oaap-test` (2026-10-02):** with a real node key and a real operator key against the real broker — a node key publishes only under its own name (another node's name and any other tree: `0x87`), its subscriptions, even to its own branch, are refused (`SUBACK 0x87`); an operator key publishes and subscribes on its granted tree (including a `+` filter inside the grant), is refused on the metrics branch for writing, on a tenant tree and on `#` and `$SYS/#` for subscribing, but may read the metrics branch; both keys are refused on an HTTP path with 403. Keys revoked afterwards. **Rights in the check** (§4–§6): grants on keys, the access type
    respected, the node and operator kinds, the metrics-branch rule.
    Tests of the tenant boundary first (an old key behaves as before; no
    tenant key matches the root), then the new rules; `oaap key issue
