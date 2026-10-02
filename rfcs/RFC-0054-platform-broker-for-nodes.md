@@ -75,18 +75,44 @@ key management (portal "Zugänge", `oaap key …`) with the new kinds.
    keeps them under `data/gateway/caddy-data` on the host; the platform
    has its own CA (RFC-0005) for names no public authority serves. The
    broker mounts none of it and has **no TLS listener**.
-7. **Not measured yet:** that Mosquitto can read Caddy's certificate
-   files as stored, and whether it picks up a renewed certificate on
-   `SIGHUP` or needs a restart; that a denied publish comes back to an
-   MQTT 5 client as reason code `0x87` through the go-auth plugin. Stage
-   1 and stage 3 measure these; nothing below is claimed before then.
+7. **Measured on `oaap-test`, 2026-10-02 (stage 1)**, with Mosquitto
+   2.0.18 and the plugin as the node runs them:
+   - **A denied publish arrives as reason code `0x87`** in the `PUBACK`:
+     a key published inside its own tenant tree and got a clean
+     acknowledgement; the same key publishing on `oaap-node/…` and on
+     another tenant's tree got `0x87` each time. The metrics sender's
+     client (MQTT 5, written for RFC-0052) worked against the real
+     broker on the first try (CONNECT, PUBLISH QoS 1, PUBACK).
+   - **A wrong login arrives as `CONNACK` `0x87`** (not `0x86`): a wrong
+     password, a wrong user name and a malformed password all gave it.
+     The sender treats `0x86`, `0x87` and `0x8a` as a refusal.
+   - **Caddy's storage cannot be mounted as it is.** Caddy keeps the
+     certificate files with mode `0600`, owner root. Mosquitto drops to
+     its own user (uid 1000) and **refuses to start**: `Unable to load
+     server key file … Permission denied`. A copy is needed (§2).
+   - **A renewed certificate is picked up on `SIGHUP`, without a
+     restart.** With the key readable by uid 1000, a replaced
+     certificate (serial 1001 → 2002) was served after `SIGHUP`; the
+     process kept running (measured with the key at mode 640 group 1000
+     and at 600 owner 1000).
+   - **Not measured:** TLS with a certificate Caddy really obtained
+     (`oaap-test` has none; `oaapx01` was not touched), the platform CA
+     for a LAN name, the plain port from outside the platform network.
 
 ## 2. The TLS listener
 
 A third listener on **8883**, `tls_version tlsv1.2` or later, with the
-certificate and key of the node's external host name, taken **read-only
-from the gateway's certificate storage** (the one place certificates are
-managed — RFC-0015's shape 1, built for this service first). The
+certificate and key of the node's external host name, **copied from the
+gateway's certificate storage** (the one place certificates are obtained
+and renewed — RFC-0015's shape 1, built for this service first). **A
+copy, not a mount** (§1.7: Caddy's files are root-only and Mosquitto
+runs as uid 1000): a step of the minutely host job compares the
+modification time of Caddy's certificate with the copy's, and on a
+change writes the pair into a directory only the broker's user reads
+(mode 0600, owner uid 1000) and sends the broker `SIGHUP`, which
+re-reads it without a restart (§1.7). The private key therefore exists
+twice on the node, once in each owner's directory; that is the price of
+not making Caddy's own storage readable to a broker. The
 published port is **8883**: a platform service is not bound to the
 8200–8299 range that an app's fixed endpoint is.
 
@@ -96,9 +122,8 @@ published port is **8883**: a platform service is not bound to the
   the platform CA, and a client is given the CA certificate once
   (`oaap metrics sender set --ca FILE`). The CA file is offered where the
   keys are managed.
-- The renewal follows what stage 1 measures (§1.7): a reload if Mosquitto
-  takes one, otherwise a restart of the broker after the gateway has
-  renewed.
+- The renewal is the copy step above plus `SIGHUP` (measured, §1.7); no
+  restart.
 - 8883 is published to the host on a node that carries `broker` **and**
   `exposed` — the existing rule (§1.5), unchanged: an operator decides
   that a port bypasses the gateway.
@@ -220,10 +245,11 @@ including a plain Mosquitto; this RFC is how an OAAP node meets it.
 
 ## 9. Stages
 
-1. **Measure the open facts** (§1.7) on `oaap-test`: Mosquitto reading
-   the certificate as Caddy stores it and what it does on renewal; the
-   reason code of a denied publish through the plugin. No code kept
-   unless it is the TLS listener itself.
+1. **BUILT, as measurement (2026-10-02):** the open facts of §1.7 on
+   `oaap-test`, with a throwaway key and throwaway containers (the key
+   revoked afterwards). Two of three answers confirmed the design
+   (`0x87`, reload on `SIGHUP`); one **changed** it (a copy instead of a
+   mount, §2).
 2. **Rights in the check** (§4–§6): grants on keys, the access type
    respected, the node and operator kinds, the metrics-branch rule.
    Tests of the tenant boundary first (an old key behaves as before; no
@@ -285,14 +311,21 @@ im Klartext im LAN annimmt. Das ändert die heutige Regel, nach der
 `exposed` allein 1883 auf allen Schnittstellen veröffentlicht; die Stufe
 prüft zuerst, welche Knoten betroffen sind.
 
-**Was ich nicht gemessen habe (§1.7):** ob Mosquitto Caddys Zertifikatsdateien
-so lesen kann und was bei einer Erneuerung passiert; ob eine verbotene
-Veröffentlichung durch das Plugin als Code `0x87` beim Client ankommt. Das
-messen Stufe 1 und Stufe 5.
+**Gemessen (Stufe 1, 02.10., auf oaap-test):** Eine verbotene
+Veröffentlichung kommt durch das Plugin als Code **`0x87`** beim Client an,
+ein falsches Passwort als `CONNACK 0x87`; der Sender-Client funktionierte
+gegen den echten Broker auf Anhieb. Ein erneuertes Zertifikat wird mit
+**`SIGHUP` ohne Neustart** übernommen. **Aber:** Caddys Dateien (Modus 0600,
+Eigentümer root) kann Mosquitto nicht lesen und startet dann nicht — es
+braucht eine **Kopie** (ein Schritt im minütlichen Host-Lauf, der bei
+Änderung kopiert und `SIGHUP` schickt), keinen Einhängepunkt. **Nicht
+gemessen:** TLS mit einem echten Caddy-Zertifikat, die Plattform-CA für
+einen LAN-Namen, der Klartext-Port von außen.
 
 **Zu entscheiden (§7):** das Profil `broker-plain`, Zertifikat aus dem
 Gateway-Speicher, 8883 unter der bestehenden Regel (`broker` + `exposed`),
 Schlüssel nur durch `server_admin`, Verwaltung in der vorhandenen
 Schlüsselseite, die Wurzel als Einstellung des Broker-Knotens.
 
-**Stand:** Entwurf, Richtung entschieden, nichts gebaut.
+**Stand:** Entwurf, Richtung entschieden; Stufe 1 (Messung) gemacht,
+nichts gebaut.
