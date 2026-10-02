@@ -284,7 +284,7 @@ including a plain Mosquitto; this RFC is how an OAAP node meets it.
    every interface; `oaap broker sync|show|ca`, a step of the minutely job
    that also follows a changed LAN address. 8883 now replaces 1883 in the
    `exposed` overlay (no node was affected, §3).
-4. **Management** (§7.5): the new kinds and a grant editor in "Zugänge".
+4. **Management** (§7.5): the new kinds and a grant editor in "Zugänge". **Specified in §9.2**, not built.
 5. **MEASURED (2026-10-02, reference 0.1.179 measured, 0.1.180 fixes).** **The sender against this broker** — RFC-0052 stage 3: the
    conformance tests of its §6.4 (anonymous refused, wrong key refused,
    a node key under another name refused with the reason code and the
@@ -328,6 +328,111 @@ account with a smart-home tree over the network (both measured against
 the broker itself in stage 1), the Pi's sender after a reboot **with**
 the fix (the Pi is on 0.1.179; the fix is covered by test only), an
 outage longer than the 7-day bound.
+
+### 9.2 Stage 4 — management in the portal (specification, 2026-10-02)
+
+Decision 5 stands: **no page of its own**, the existing "Zugänge" gets the
+new kinds. What exists today (read in the code): the portal page
+`/keys` is open to `server_admin` **and** `tenant_admin`
+(`require_user_admin`); identity's `GET /internal/keys` already hides
+node and operator keys from everyone but a `server_admin`
+(`_key_visible`) and returns `kind`, `node`, `grants`; `POST
+/internal/keys` needs a **principal** and cannot make a broker key —
+broker keys are issued only by the CLI (`issue_broker_key`). Revoking
+works for a `server_admin` on every kind already.
+
+**1. Identity — one new route.** `POST /internal/keys/broker`, body
+`{kind, name, node, grants, label, days, actor}`.
+
+- Only a `server_admin` (checked against the actor's record, as the other
+  routes do — never against anything in the request); anybody else gets
+  403 and nothing is created.
+- It calls `issue_broker_key` — **the same function the CLI calls**, so
+  there is one validation of names, node names, grants and days, not two.
+  `ValueError` becomes 400 with the message.
+- The secret is in the 201 response and nowhere else, as for every key.
+- Audit entry `key.issue` with kind, name, and for an operator key the
+  **grants** (what a key may do belongs in the audit trail); the secret
+  never.
+
+**2. One rule moves into issuing.** Today `parse_grants` refuses a filter
+that reaches the tenant trees (`oaap/…`, or `#`/`+` first) but **accepts a
+write right on the metrics branch** — the check (`decide`) then ignores
+it for everybody but the node, so the grant is stored and never
+effective. A key whose list says something the broker will never do is a
+trap for the person reading it later. Stage 4 therefore gives
+`parse_grants` the root and **refuses a `write` or `readwrite` grant that
+overlaps `<root>/#`** (reading stays allowed). The check in `decide`
+stays as it is — it is the rule; this is the early, honest message. Keys
+issued before stay valid and unchanged.
+
+**3. Portal — the list.** The table of `/keys` gets a **kind** badge
+(`Mandant` — today's keys — / `Knoten` / `Betreiber`) and, in the
+"Gilt für" column, for a node key the **topic** it may write
+(`<root>/<node>/#`), for an operator key the **number of grants**.
+Broker keys have no principal and no roles; those columns show `–`.
+A tenant administrator sees no broker key, because identity does not
+send it (the portal does not filter, §5).
+
+**4. Portal — issuing.** `/keys/new` gets a first choice **"Wofür"**:
+*Zugang zur Plattform* (today's form, unchanged), *Knoten (Metriken
+senden)*, *Betreiber (MQTT-Rechte)*. The two new choices are **shown only
+to a `server_admin`**; for a `tenant_admin` the page is exactly what it
+is today (the route refuses anyway, the page does not offer what would
+be refused).
+
+- *Knoten:* the node's name on the wire (required), a note, validity.
+  The page **states the one right** the key will have: "darf nur unter
+  `<root>/<name>/` schreiben, nichts lesen", with the root as identity
+  has it configured.
+- *Betreiber:* a name, a note, validity, and the **grant editor**.
+
+**5. The grant editor.** A list of rows, each *topic filter* + *right*
+(`read` / `write` / `readwrite`, shown as *lesen* / *schreiben* / *lesen
+und schreiben*), add and remove a row (repeated form fields, the form
+submits without script). The rules are **shown next to the field**:
+
+- a filter may use `+` and `#` as MQTT does, `#` only at the end;
+- a filter reaching `oaap/…` is refused (the tenants' trees);
+- the metrics branch can be **read**, never written (§2 above).
+
+The portal does **not re-implement these rules**: it sends the rows and
+shows identity's message next to the form, content kept (the pattern of
+`keys_create`). The hint text names the rules; it decides nothing.
+
+**6. Portal — detail.** `/keys/<id>` for a broker key shows kind, and the
+node or the **grant table** (filter, right), instead of principal and
+roles, plus the existing revoke block unchanged (type the id, effective
+at once). Grants are **not editable** after issuing: a different right is
+a new key and the old one revoked — the rule for a lost secret already
+("neuen ausstellen, diesen entziehen"), and the audit trail stays a list
+of keys, not of edits.
+
+**7. The secret page.** `KEY_SHOWN_BODY` gets, for the two kinds, the
+connection data instead of the HTTP hint: **user name** (the key id), the
+**password** (the token, shown once), the broker host the operator set
+(or a note that the node needs `exposed`), and for a node key the
+**command** to run on the sending node (`oaap metrics sender set --url
+mqtts://<broker> --user <id> --ca <file>`, the secret on standard input)
+with how the CA is fetched (`oaap broker ca`). **Nothing is written into
+a URL or a redirect**, as today.
+
+**8. Out of this stage.** Editing grants; a reader kind of its own (an
+operator key with a read grant is one); a QR code; rotation; a view of
+the live connections of the broker; the broker's CA in the portal
+(`oaap broker ca` stays CLI).
+
+**Acceptance (what the test must show):**
+
+| # | Check |
+|---|---|
+| 1 | A `server_admin` issues a node key and an operator key from the portal; the same records appear in `oaap key list` |
+| 2 | A `tenant_admin` posting to the new route gets 403 and no key exists afterwards; the page does not offer the new kinds |
+| 3 | What identity refuses (bad name, `#` mid-filter, a filter inside `oaap/`, a write grant on the metrics root) comes back as its message, form content kept, nothing issued |
+| 4 | The secret appears once, in the response page, and in no URL, no redirect, no log line, no audit entry |
+| 5 | List and detail show kind and grants; a tenant administrator's list holds none |
+| 6 | Revoking from the portal stops the key at the broker at the next check (measured against the real broker, as in stage 1) |
+| 7 | The page in a real browser (the open item since the health page) |
 
 ## 10. Out of scope
 
@@ -394,3 +499,20 @@ Schlüsselseite, die Wurzel als Einstellung des Broker-Knotens.
 Stufe 3 (Listener, Zertifikat, Profil `broker-plain`) gebaut und getestet, noch auf
 keinem Knoten; Stufe 2 (Rechte in der Prüfung, Knoten- und Betreiberschlüssel) gebaut und
 getestet, noch auf keinem Knoten.
+
+**Stufe 4 (Portal), kurz — Spezifikation §9.2:** Keine eigene Seite,
+sondern „Zugänge“ bekommt die zwei neuen Arten. Identity bekommt **eine**
+neue Route, die **dieselbe Funktion** ruft wie die Kommandozeile (also
+eine einzige Prüfung der Regeln) und nur für `server_admin` gilt. Die
+Liste zeigt die Art (Mandant / Knoten / Betreiber); „Ausstellen“ fragt
+zuerst „Wofür“, und die beiden neuen Antworten sieht **nur** ein
+`server_admin`. Der Rechte-Editor ist eine Liste aus Themenfilter und
+Recht; die Regeln prüft **identity**, das Portal zeigt nur die Antwort.
+**Eine kleine Änderung nebenbei:** heute wird ein Schreibrecht auf den
+Metrik-Zweig beim Ausstellen **angenommen** und von der Prüfung nur nie
+befolgt — künftig wird es beim Ausstellen **abgelehnt**, damit in einem
+Schlüssel nichts steht, was der Broker nie tut. Rechte lassen sich nach
+dem Ausstellen **nicht ändern** (anderes Recht = neuer Schlüssel, alter
+entzogen). Die Geheimnis-Seite zeigt Benutzername, einmaliges Passwort
+und für Knoten den fertigen `sender set`-Befehl. Sieben
+Abnahmeprüfungen stehen im Abschnitt, zuletzt der echte Browser.
