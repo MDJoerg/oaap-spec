@@ -284,7 +284,7 @@ including a plain Mosquitto; this RFC is how an OAAP node meets it.
    every interface; `oaap broker sync|show|ca`, a step of the minutely job
    that also follows a changed LAN address. 8883 now replaces 1883 in the
    `exposed` overlay (no node was affected, §3).
-4. **Management** (§7.5): the new kinds and a grant editor in "Zugänge". **Specified in §9.2**, not built.
+4. **Management** (§7.5): the new kinds and a grant editor in "Zugänge". **BUILT (reference 0.1.181, on oaap-test), specified in §9.2.**
 5. **MEASURED (2026-10-02, reference 0.1.179 measured, 0.1.180 fixes).** **The sender against this broker** — RFC-0052 stage 3: the
    conformance tests of its §6.4 (anonymous refused, wrong key refused,
    a node key under another name refused with the reason code and the
@@ -433,6 +433,13 @@ the live connections of the broker; the broker's CA in the portal
 | 5 | List and detail show kind and grants; a tenant administrator's list holds none |
 | 6 | Revoking from the portal stops the key at the broker at the next check (measured against the real broker, as in stage 1) |
 | 7 | The page in a real browser (the open item since the health page) |
+
+**Built and measured (2026-10-02, reference 0.1.181 on oaap-test).** Acceptance 1–5 by test
+(`test_mqtt_acl`, `test_key_pages`); the rule of §2 moved into `parse_grants` (the old
+operator-key test had granted a write on the metrics root, now `read`). **6 measured on the
+running identity:** a node key issued through the new route, login at the real broker OK,
+revoked through the route, the next login refused (`0x87`). **7 not done:** the page in a real
+browser needs a login, which is the operator's to type.
 
 ## 10. Out of scope
 
