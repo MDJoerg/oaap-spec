@@ -471,4 +471,4 @@ nur für den Metrik-Zweig (§6.4). Dazu eine Berichtigung aus dem Code:
 Konfiguration und Passwort liegen in `data/metrics-sender/`, nicht in
 `data/metrics/`, weil das Portal Letzteres für die Diagramme einliest.
 
-**Stand:** angenommen, Stufen 1 und 2 gebaut.
+**Stand:** angenommen, Stufen 1 und 2 gebaut; Stufe 3 (gegen einen echten Broker) gemessen 02.10., siehe RFC-0054 §9.1 (zwei Fehler gefunden, Fix 0.1.180).

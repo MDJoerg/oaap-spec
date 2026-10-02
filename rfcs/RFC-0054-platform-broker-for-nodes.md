@@ -285,12 +285,49 @@ including a plain Mosquitto; this RFC is how an OAAP node meets it.
    that also follows a changed LAN address. 8883 now replaces 1883 in the
    `exposed` overlay (no node was affected, §3).
 4. **Management** (§7.5): the new kinds and a grant editor in "Zugänge".
-5. **The sender against this broker** — RFC-0052 stage 3: the
+5. **MEASURED (2026-10-02, reference 0.1.179 measured, 0.1.180 fixes).** **The sender against this broker** — RFC-0052 stage 3: the
    conformance tests of its §6.4 (anonymous refused, wrong key refused,
    a node key under another name refused with the reason code and the
    queue **not** deleted, a reader that cannot write the branch, an
    operator granted a smart-home tree who can, a revoked key refused),
    an outage with a real backlog, a real reboot in the middle of a run.
+
+### 9.1 Stage 5 measurement (oaap-test broker, Raspberry Pi sender, over the LAN)
+
+Setup: the broker on oaap-test with `exposed` (8883 published), a node key
+for `raspberrypi`, the node's CA copied to the Pi, the real sender on the
+Pi, unchanged from the fleet (0.1.179).
+
+- **Normal run:** 300 values delivered over TLS with verification, queue 0.
+- **Outage with a real backlog:** the broker container stopped for four
+  minutes. The sender kept sampling, the queue grew to 4, the back-off ran
+  60 s → 120 s (`ConnectionRefusedError`, never a crash, the unit never
+  failed). After the broker came back the next try delivered everything:
+  queue 0, numbers 302–307 acknowledged, nothing lost.
+- **A node key under another name:** the sender configured as `otherbox`
+  with the key of `raspberrypi`: the broker answered PUBACK `0x87`; the
+  sender reported *the broker refused this publish … reason 0x87*, waited
+  15 minutes, and the **queue was not deleted**.
+- **A revoked key:** `sender test` → *the broker refused the login (0x87)*.
+- **A real reboot of the Pi** (`systemctl reboot`): the queue (4 values),
+  the numbering and the back-off wait survived it.
+
+**Two faults found, both fixed in 0.1.180:**
+
+1. `--ca /tmp/ca.crt` stored a **path**. `/tmp` is a tmpfs on the Pi; the
+   reboot removed the file and the sender could never verify the broker
+   again (data stayed queued, nothing leaked, but nothing flowed). The
+   sender now **copies** the CA into its own directory
+   (`data/metrics-sender/ca.crt`).
+2. A **corrected** sender (right key after a wrong one) still waited out
+   the old back-off. Setting a sender now **resets** its state: failures
+   and wait of the old target say nothing about the new one.
+
+Not measured: the reader that cannot write the branch and the human
+account with a smart-home tree over the network (both measured against
+the broker itself in stage 1), the Pi's sender after a reboot **with**
+the fix (the Pi is on 0.1.179; the fix is covered by test only), an
+outage longer than the 7-day bound.
 
 ## 10. Out of scope
 
