@@ -2,7 +2,9 @@
 
 - **Status:** **Accepted (2026-10-02)** — Jörg took all recommendations
   of §8 as proposed and added the security requirements of §6.4 for the
-  receiving broker. Nothing built.
+  receiving broker, then two changes: the topic root is configuration
+  (§2), and human accounts may write on other trees (§6.4 point 2).
+  Stage 1 in progress.
 - **Date:** 2026-10-02
 - **Authors:** Jörg (the wish: send the real-time data buffered, through
   a queue, to an MQTT node), Claude (facts measured in the reference
@@ -86,6 +88,17 @@ TLS handshake a minute. If that proves too much, the sender may wait
 and send every 5 minutes instead; that changes a constant, not the
 design.
 
+**The topic root is configuration** (Jörg, 2026-10-02). The topic is
+`<root>/<node-id>/metrics/<series>`; the **default root is `oaap-node`**,
+which is what RFC-0051 §5 fixed, and `--root` changes it
+(`oaap metrics sender set --root home/nodes`). A root is one or more
+levels of `[a-z0-9][a-z0-9._-]*` separated by `/`; it carries no
+wildcard (`+`, `#`), no leading or trailing `/`, does not begin with
+`$` (the broker's own tree) and is at most 64 characters. It lets the
+operator place the branch inside a broker that serves other things too
+(§6.4). Everything in this RFC that says `oaap-node/…` means
+`<root>/…`.
+
 **Order and the retained message.** A backlog is sent oldest first, so
 the last message of a series on the broker is the newest. A late
 subscriber reads the current value from the retained message and the
@@ -138,14 +151,15 @@ different secrecy:
 
 | What | Where | Mounted into a container? |
 |------|-------|----------------------------|
-| Target and node-id: `mqtts://host:port`, user, node-id, optional CA file | `DATA_DIR/data/metrics/sender.json` | no |
-| The secret (password) | `DATA_DIR/data/metrics/sender.secret`, mode 0600, root only | **never** |
+| Target, node-id, topic root, user, optional CA file | `DATA_DIR/data/metrics-sender/sender.json` | no |
+| The secret (password) | `DATA_DIR/data/metrics-sender/sender.secret`, mode 0600, root only | **never** |
 | Run state: last success, last error, backoff | `DATA_DIR/data/metrics/sender-state.json` | read-only into the portal (§7) |
 
 Commands (root, like every command that changes the node):
 
 ```text
-oaap metrics sender set --url mqtts://host:8883 --user NAME [--node ID] [--ca FILE]
+oaap metrics sender set --url mqtts://host:8883 --user NAME [--node ID]
+                        [--root TOPIC-ROOT] [--ca FILE] [--allow-plain]
                         (the secret is read from standard input, not from the line)
 oaap metrics sender show      target, node-id, whether a secret is set, the state
 oaap metrics sender test      connect, publish nothing, say why or why not
@@ -157,7 +171,13 @@ oaap metrics sender remove    deletes configuration, secret and state; the queue
 - **No sender configured is a normal state.** The queue keeps filling to
   its bounds, as today. `oaap metrics queue` says "no sender
   configured".
-- **The secret file is excluded from `oaap backup` by default.** It is
+- **The configuration and the secret live in their own directory**,
+  `data/metrics-sender/`, **not** in `data/metrics/`: the portal mounts
+  the latter read-only for the charts (RFC-0051 §6), and a secret
+  in a directory a container can read is a secret a container can read.
+- **The secret file is excluded from `oaap backup` by default** — the
+  backup takes an explicit list of directories (`apps`, `data/identity`,
+  `tenants`, `data/audit`, `files`), and this one is not on it. It is
   node-specific and cheap to enter again; a backup that carries a
   node's login to the operator's broker is a second place that must be
   guarded.
@@ -174,11 +194,27 @@ oaap metrics sender remove    deletes configuration, secret and state; the queue
 
 ### 6.1 Protocol
 
-MQTT **3.1.1**, written in the reference **without a library**: the
+MQTT **5**, written in the reference **without a library**: the
 sender needs `CONNECT` (with user and password), `PUBLISH` at QoS 1,
 `PUBACK`, `DISCONNECT`, nothing else — a few hundred lines on the
 standard library's `socket` and `ssl`, tested against an in-process fake
-broker. Reason: fact 3. A library would be one more thing every node
+broker.
+
+**Why 5 and not 3.1.1 — a correction made while building stage 1.** In
+MQTT 3.1.1 a `PUBLISH` that the broker's access list denies is
+**acknowledged and dropped**: the `PUBACK` carries no verdict. A node
+whose account may not write to its branch would receive a clean
+acknowledgement for every sample, delete it from the queue, and nobody
+would ever see a value — the exact failure §6.4's permissions exist to
+make visible, hidden by the protocol. MQTT 5 puts the verdict in the
+`PUBACK`'s **reason code** (`0x87` not authorized), so the sender can
+refuse to delete, class the run as an authorization refusal (§5) and
+say so. The cost is a broker that speaks MQTT 5; Mosquitto has done so
+since 1.6, and a broker that does not answers `CONNACK` with `0x84`,
+which the sender reports as "the broker does not speak MQTT 5". Earlier
+drafts of this RFC and §10 of RFC-0051 named 3.1.1 and left 5 out of
+scope; both are superseded by this paragraph. **Not yet measured against
+a real Mosquitto** — stage 3. Reason: fact 3. A library would be one more thing every node
 must carry; a protocol this small does not earn it. A node that gets a
 library later can switch without changing a byte on the wire.
 
@@ -219,16 +255,26 @@ installation, an OAAP app, or an OAAP service):
 1. **No anonymous access.** `allow_anonymous false`. A connection
    without a credential is refused at `CONNECT`, before any topic is
    looked at.
-2. **Only named accounts, of two kinds.**
-   - a **machine account per node**, bound to **one** node-id. It may
-     **publish** under `oaap-node/<its node-id>/#` and nothing else. It
-     may **not subscribe** to anything — a stolen node credential must
-     not read other nodes — and may not publish under another node's
-     name (§4);
-   - a **human (or reader) account per person or tool**, bound to a set
-     of node-ids or to all. It may **subscribe** to
-     `oaap-node/<id>/#`, and may **not publish** anywhere.
-   No account can do both. There is no shared account.
+2. **Only named accounts, with rights per topic tree.** Rights are
+   given on **trees**, and this RFC fixes them for one tree only —
+   the metrics branch `<root>/#` (the root is configuration, §2):
+   - a **node account**, bound to **one** node-id, may **publish** under
+     `<root>/<its node-id>/#` and **nothing else on that tree**. It may
+     **not subscribe** to anything, so a stolen node credential cannot
+     read other nodes, and it may not publish under another node's name
+     (§4). A node account has **no rights on any other tree**;
+   - **every other account** (people, tools, other services) may
+     **read** the metrics branch if it is granted that, and **nobody
+     but the node itself may write** on it — an operator's account
+     included, so that a value on the branch is always a value the node
+     sent;
+   - **on every other tree** (smart home, events, the twin) the broker's
+     operator grants whatever those uses need: **a person's account may
+     write there**. Nothing in this RFC forbids it, and the broker is
+     not a read-only mirror. (An earlier draft of this section said
+     human accounts never write; that held for the metrics branch only
+     and is corrected here.)
+   There is no shared account.
 3. **Topic permissions are enforced by the broker**, in its ACL, not by
    the good behaviour of the client. With Mosquitto that is an ACL file
    with one `user` block per account, so that a node block reads
@@ -253,9 +299,13 @@ installation, an OAAP app, or an OAAP service):
 settings: an anonymous connection is refused; a wrong password is
 refused; a node account publishing under another node's name is
 refused (and the sender classes it as an authorization refusal, §5); a
-node account that subscribes receives nothing and is refused; a reader
-account subscribes and receives retained values, and a publish by it is
-refused; a removed account is refused on the next connect; a broker
+node account that subscribes receives nothing and is refused; a node
+account cannot publish on any tree but its own branch; a reader account
+subscribes to the branch and receives retained values, and **a publish
+by any account but the node's own on the branch is refused**; a person's
+account granted a smart-home tree **can** publish there (the broker is
+not locked to metrics); a removed account is refused on the next
+connect; a broker
 started with a missing ACL file does not start; the plain port does not
 answer from outside.
 
@@ -334,8 +384,8 @@ people and tenants alike.
    real backlog caught up, and a real reboot of the node in the middle
    of a run.
 4. **The receiver as an OAAP app** (§6.4): Mosquitto with generated
-   password and ACL files, two kinds of account (node, reader),
-   commands to add and revoke them, TLS only, and the conformance tests
+   password and ACL files, node accounts and accounts with per-tree
+   grants for people and tools, commands to add and revoke them, TLS only, and the conformance tests
    of §6.4 measured against it.
 5. *Later, own step:* node and reader keys as principals of
    `oaap.events.broker` (§6.3, §6.4), so that one set of accounts can
@@ -345,7 +395,7 @@ people and tenants alike.
 
 Alerts and thresholds on the received data; dashboards on the receiving
 side; per-instance or per-tenant series (RFC-0051 §9); forwarding
-anything but the three node series; MQTT 5; a bridge between brokers;
+anything but the three node series; a bridge between brokers;
 retention and storage on the broker.
 
 ---
@@ -367,9 +417,14 @@ einen MQTT-Knoten weiterreicht.
   **mindestens einmal**: nach einem Absturz zwischen Bestätigung und
   Löschen kommt sie ein zweites Mal; der Empfänger erkennt sie an
   `(Knoten, Reihe, Minute)`.
-- Ohne Bibliothek: ein **eigener, kleiner MQTT-3.1.1-Client** (Connect,
+- Ohne Bibliothek: ein **eigener, kleiner MQTT-5-Client** (Connect,
   Publish, Bestätigung, Trennen), getestet gegen einen Schein-Broker.
-  Grund: der Wirt hat kein MQTT-Paket und soll keins brauchen.
+  Grund: der Wirt hat kein MQTT-Paket und soll keins brauchen. **MQTT 5
+  statt 3.1.1** (Berichtigung beim Bauen): in 3.1.1 wird ein vom Broker
+  **verbotenes** Veröffentlichen trotzdem bestätigt und verworfen — der
+  Knoten würde die Daten löschen, die nie jemand bekam. MQTT 5 meldet das
+  Verbot im Bestätigungscode, der Sender löscht dann nichts. Mit einem
+  echten Mosquitto noch nicht gemessen.
 - **TLS ist Pflicht**; Klartext nur mit ausdrücklicher Erlaubnis und nur
   in privaten Adressen. Ein nicht prüfbares Zertifikat stoppt den Lauf.
 - Der **Knotenname** auf dem Draht ist ein vom Betreiber gewählter Name
@@ -396,8 +451,12 @@ minütlich oder alle fünf Minuten.
 Empfänger ein Mosquitto, der auch als OAAP-App laufen soll — mit
 Sicherheitsvorgaben (neu, §6.4): **kein anonymer Zugang**; nur benannte
 Konten, und zwar ein **Maschinenkonto je Knoten** (darf nur unter
-`oaap-node/<eigener Name>/#` schreiben, nichts lesen) und ein
-**Lesekonto je Mensch oder Werkzeug** (darf lesen, nie schreiben);
+`oaap-node/<eigener Name>/#` schreiben, nichts lesen) und
+**Konten für Menschen und Werkzeuge**, deren Rechte je Themenbaum
+vergeben werden: auf dem Metrik-Zweig darf nur der Knoten selbst
+schreiben, alle anderen höchstens lesen — **auf anderen Bäumen
+(Smarthome, Ereignisse, Zwilling) dürfen Menschen schreiben**, der Broker
+ist keine Nur-Lese-Anzeige;
 Themenrechte erzwingt der Broker in seiner ACL, erzeugt aus der
 Kontenliste; nur TLS; Konten einzeln sperrbar; ohne lesbare Passwort-
 oder ACL-Datei startet der Broker nicht; Passwörter nur als Hash. Ob der
@@ -405,4 +464,11 @@ Empfänger eine eigene OAAP-App oder der vorhandene `broker`-Dienst mit
 neuen Schlüsselarten ist, bleibt für Stufe 4 offen; Empfehlung: erst die
 App.
 
-**Stand:** angenommen, nichts gebaut.
+**Zwei Änderungen (Jörg, 02.10.2026):** Das **Wurzel-Thema ist
+Konfiguration** (`--root`, Vorgabe `oaap-node`, in §2 beschrieben); und
+Menschenkonten sind **nicht** grundsätzlich schreibgeschützt — das gilt
+nur für den Metrik-Zweig (§6.4). Dazu eine Berichtigung aus dem Code:
+Konfiguration und Passwort liegen in `data/metrics-sender/`, nicht in
+`data/metrics/`, weil das Portal Letzteres für die Diagramme einliest.
+
+**Stand:** angenommen, Stufe 1 in Arbeit.
