@@ -1,6 +1,6 @@
 # RFC-0054: The Platform Broker for Nodes and Operators — Extending `oaap.events.broker` Instead of Building a Second One
 
-- **Status:** **Draft (2026-10-02)** — direction decided by Jörg
+- **Status:** **Draft (2026-10-02)** — stages 1 and 2 done; direction decided by Jörg
   (extend the platform, no parallel path; the plain port only optional,
   for the intranet); §7 for the rest. Nothing built. **Replaces the
   first draft of this RFC** (an `mqtt-broker` app with its own accounts,
@@ -250,7 +250,7 @@ including a plain Mosquitto; this RFC is how an OAAP node meets it.
    revoked afterwards). Two of three answers confirmed the design
    (`0x87`, reload on `SIGHUP`); one **changed** it (a copy instead of a
    mount, §2).
-2. **Rights in the check** (§4–§6): grants on keys, the access type
+2. **BUILT (reference 0.1.178), not yet on a node.** **Rights in the check** (§4–§6): grants on keys, the access type
    respected, the node and operator kinds, the metrics-branch rule.
    Tests of the tenant boundary first (an old key behaves as before; no
    tenant key matches the root), then the new rules; `oaap key issue
@@ -328,4 +328,5 @@ Schlüssel nur durch `server_admin`, Verwaltung in der vorhandenen
 Schlüsselseite, die Wurzel als Einstellung des Broker-Knotens.
 
 **Stand:** Entwurf, Richtung entschieden; Stufe 1 (Messung) gemacht,
-nichts gebaut.
+Stufe 2 (Rechte in der Prüfung, Knoten- und Betreiberschlüssel) gebaut und
+getestet, noch auf keinem Knoten.
