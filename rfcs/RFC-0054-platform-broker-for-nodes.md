@@ -276,7 +276,7 @@ including a plain Mosquitto; this RFC is how an OAAP node meets it.
    Tests of the tenant boundary first (an old key behaves as before; no
    tenant key matches the root), then the new rules; `oaap key issue
    --kind node|operator`.
-3. **BUILT (reference 0.1.179).** **The listeners** (§2, §3): 8883
+3. **BUILT (reference 0.1.179), measured on `oaap-test` (2026-10-02):** the first `oaap broker sync` made the node's CA and a certificate (names `broker`, `oaap-test`, `10.10.10.96`) and restarted the broker, which then listened on 8883; the real sender (RFC-0052) published three queued samples over TLS verifying that CA, and an operator key read all three back as retained values; **without the CA the handshake failed (`SSLCertVerificationError`), nothing was sent and the sample stayed queued**; a certificate for a changed address was picked up on `SIGHUP` (serial and names changed, the broker's start time did not) and the real `broker sync` path did the same; `exposed` published 8883 on all interfaces and a client verified the certificate against the CA from outside the platform network; `broker-plain` published 1883 on `10.10.10.96` only (not `0.0.0.0`), `oaap node show` carried the warning line, removing both closed both ports and dropped the address from `.env`. Not measured: a certificate Caddy really obtained, the plain port with a real device, an update with `broker-plain` held. **BUILT (reference 0.1.179).** **The listeners** (§2, §3): 8883
    with the broker's certificate (the gateway's copied, or the node's own
    CA), the TLS listener only when a certificate is in place; the profile
    `broker-plain` and an overlay on the private address that makes Compose
