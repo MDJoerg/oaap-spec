@@ -4,7 +4,7 @@
   of §8 as proposed and added the security requirements of §6.4 for the
   receiving broker, then two changes: the topic root is configuration
   (§2), and human accounts may write on other trees (§6.4 point 2).
-  Stage 1 in progress.
+  Stages 1 and 2 built.
 - **Date:** 2026-10-02
 - **Authors:** Jörg (the wish: send the real-time data buffered, through
   a queue, to an MQTT node), Claude (facts measured in the reference
@@ -370,14 +370,14 @@ people and tenants alike.
 
 ## 9. Stages
 
-1. **The client and the run, against a fake broker** (§2, §6.1–6.2, §5
+1. **BUILT (reference 0.1.176).** **The client and the run, against a fake broker** (§2, §6.1–6.2, §5
    state and backoff): `metrics.py` or a sibling file for the packets,
    `oaap metrics sender set|show|test|remove`, the step in the unit.
    Tests: acknowledgement before deletion, a crash between `PUBACK` and
    `queue_ack` resends, an unreachable broker backs off and loses
    nothing, a refused login waits the long time, a certificate error
    sends nothing, the secret never appears in any output.
-2. **Showing it** (§7): the lines in `oaap metrics queue` and on the
+2. **BUILT (reference 0.1.177).** **Showing it** (§7): the lines in `oaap metrics queue` and on the
    health page.
 3. **A real broker**: measured against a Mosquitto with TLS on our own
    network, including an outage of the broker and of the network with a
@@ -471,4 +471,4 @@ nur für den Metrik-Zweig (§6.4). Dazu eine Berichtigung aus dem Code:
 Konfiguration und Passwort liegen in `data/metrics-sender/`, nicht in
 `data/metrics/`, weil das Portal Letzteres für die Diagramme einliest.
 
-**Stand:** angenommen, Stufe 1 in Arbeit.
+**Stand:** angenommen, Stufen 1 und 2 gebaut.
