@@ -1,10 +1,13 @@
 # oaap.core.authorization — Business Authorization
 
 - **ID:** `oaap.core.authorization`
-- **Version:** 0.1
+- **Version:** 0.2 (**the provider's groups**, §2.9: a tenant maps a group of its
+  realm to a role collection; evaluated at every login; RFC-0045 stage 3)
+- **Previous version:** 0.1 (declaration, roles, collections, assignments,
+  `effective`, client)
 - **Maturity:** draft
 - **Based on:** RFC-0045 (business authorization: the app declares, the tenant
-  grants, the data holder checks — stages 1 and 2); RFC-0056 §4 (groups of the
+  grants, the data holder checks — stages 1, 2 and 3); RFC-0056 §4 (groups of the
   provider as a later source); RFC-0027 (API keys, scopes); RFC-0040 (the person
   behind the name); RFC-0004 (manifest)
 - **Runs in:** the identity service (`oaap.core.identity`), decided by Jörg
@@ -173,14 +176,49 @@ body (`authority(actor)` decides the tenant, never the request):
 `partnerverwaltung` declares objects over its own types (`organisation`,
 `person`) and templates, as the first consumer (RFC-0045 stage 2).
 
-### 2.8 Reserved — accepted and stored, not built in 0.1
+### 2.8 Reserved — accepted and stored, not built
 
-`may_grant` delegation (RFC-0045 §4, stage 3b), the provider's group mapping
-(RFC-0045 §5, stage 3, built next), `concept:` value sources (semantic types,
+`may_grant` delegation (RFC-0045 §4, stage 3b), `concept:` value sources (semantic types,
 own RFC), the check of a context against the twin, the default collection for
 self-registered people (A6), derivation rules (A1), twin-side enforcement
 (§8.3). A manifest that uses a reserved key is **accepted** and the key is kept;
 nothing enforces it, and the admin list says so.
+
+### 2.9 The provider's groups (0.2, RFC-0045 §5)
+
+The provider says **who** a person is; OAAP says **what** they may do. A group
+of the tenant's realm can stand for a role collection through a **mapping**
+the tenant writes (`tenant_admin`, never more than the tenant): `{group,
+collection}`. A group nobody mapped grants nothing.
+
+- **By path.** The token carries the group's **path** (`Verein/Hallenwart`,
+  leading slash removed) and nothing else — measured 2026-10-03: the product's
+  mapper offers no id. A renamed group therefore stops granting at the next
+  login (**fails closed**: nothing is given, nothing else is lost).
+- **Read at every login**, first login included. The person's assignments with
+  `source: idp` are brought in line with the groups the provider asserts
+  *now*: a group newly held gives a new assignment (`granted_by: idp:<group>`,
+  `via: <group>`); a group no longer held ends it (`ended_by: login: …`, the
+  record stays). The effect is **weaker than a direct assignment** (which counts
+  on the next request); the admin page and the CLI say "read again at every
+  sign-in". No `groups` claim at all counts as no groups.
+- **Only what it made.** A right somebody gave by hand is never touched by a
+  login. Removing a mapping ends, at once, the assignments it gave.
+- **Never a platform role.** Nothing in this capability can name one; `server_admin`,
+  `support` and `tenant_admin` are not reachable from a group — a group called
+  `tenant_admin` is a group called that.
+- **Not everything can be given by a group:** a collection that needs a
+  **context** (a group says "is a trainer", not "of team mB") and a collection
+  with a `may_grant` role (a delegation chain must not start in the provider's
+  console) cannot be mapped.
+- **A failure never blocks the login:** the sync is reported and retried at the
+  next login.
+- The connector puts a group-membership mapper on the client OAAP makes
+  (`oaap.net`/RFC-0056 §5); without it no `groups` reach OAAP.
+
+Routes: `GET/POST /internal/authz/mappings`, `DELETE
+/internal/authz/mappings/<id>`; CLI `oaap authz mappings|map-add|map-remove`.
+Log actions: `authz.mapping-add`, `authz.mapping-remove`, `authz.idp-sync`.
 
 ## 3. Configuration
 
@@ -231,7 +269,22 @@ install), `oaap.core.tenant`.
 Draft. Stages 1 and 2 of RFC-0045 (declaration; roles, collections, assignments,
 `effective`, client; first consumer `partnerverwaltung`). Nothing of §2.8.
 
-## Deutsche Zusammenfassung
+## Deutsche Zusammenfassung (0.2: Gruppen des Anbieters)
+
+Ein Mandant kann eine **Gruppe seines Realms** einer **Rollensammlung**
+zuordnen (`oaap authz map-add`). Der Anbieter sagt, wer jemand ist; OAAP sagt,
+was er darf. **Nach Pfad:** das Token trägt nur den Pfad der Gruppe
+(`Verein/Hallenwart`), keine ID — eine umbenannte Gruppe gibt deshalb nichts
+mehr (sicher: es wird nichts vergeben). **Bei jeder Anmeldung** gelesen, auch
+beim ersten: Wer in der Gruppe ist, bekommt die Zuordnung, wer sie verlässt,
+verliert sie beim nächsten Login (die Zeile bleibt als beendet stehen). Von
+Hand gegebene Rechte fasst ein Login nie an; eine entfernte Abbildung beendet
+sofort, was sie gegeben hat. **Nie** eine Plattformrolle. Nicht abbildbar sind
+Sammlungen, die einen **Kontext** brauchen oder `may_grant` enthalten. Ein
+Fehler beim Abgleich sperrt die Anmeldung nicht aus. Der Konnektor setzt dafür
+einen Gruppen-Mapper am Client (ohne ihn kommen keine `groups` an).
+
+## Deutsche Zusammenfassung (0.1)
 
 Die Fähigkeit `oaap.core.authorization` beantwortet, was jemand **in** einer App
 darf — getrennt von den Plattformrollen, die nur den Zutritt regeln. Sie läuft im

@@ -105,7 +105,15 @@ or with an issuer that does not look like `…/realms/<space>`, shows nothing.
 The page says plainly that the person must be in the group `oaap-verwalter`
 (or hold equivalent roles) — OAAP does not create that person.
 
-## 4. What this does not do
+## 4. The group claim (added 2026-10-03)
+
+The client the connector makes now carries a group-membership mapper
+(`oaap-groups`: claim `groups`, full path, ID and access token); `provision`
+adds it to a client it **found**, only if missing, and refuses with a sentence
+if a mapper of that name does something else. Before this, the token carried no
+groups at all. See `oaap.core.authorization` 0.2 §2.9.
+
+## 5. What this does not do
 
 - It does not map groups to OAAP roles (that is RFC-0045 stage 3, with the
   rules decided 2026-10-03: evaluated at every login; mapped by group **path**,

@@ -8,7 +8,7 @@
   RFC (§6.1). This RFC's steps 1–4 do not wait for it — a manifest
   `values:` list covers them, and §6.5 records what was checked so that
   nothing here blocks that RFC. **Stages 1 and 2 built 2026-10-03** (§11.1);
-  stage 3 (the provider's groups) not built.
+  **stage 3 built 2026-10-03** (§11.2).
 - **Date:** 2026-09-28
 - **Authors:** Jörg (the idea, the SAP/BTP comparison, the club and CRM
   cases), Claude (design and write-up)
@@ -610,6 +610,17 @@ explicitly); `may_grant` and the context check against the twin are accepted
 and stored, **not enforced**; the first consumer **declares and does not yet
 check** — enforcing would take every user's right to edit away until roles
 exist, and that is a decision for the next stage.
+
+### 11.2 Stage 3 built (2026-10-03): the provider's groups
+
+`oaap.core.authorization` 0.2 §2.9. Mapping by **path** (the token carries
+no group id — measured), read at **every** login (first included), only what
+a login made is ever changed, a removed mapping ends its assignments at once,
+and nothing a group says can name a platform role. Two limits decided while
+building and recorded in the spec: a collection that needs a **context** and a
+collection with `may_grant` cannot be mapped. The connector now puts a
+group-membership mapper on the client OAAP makes (and adds it to one it found,
+if missing) — before that, no `groups` claim reached OAAP at all.
 
 ## Decided (2026-09-28, before the draft)
 
