@@ -1,8 +1,8 @@
 # oaap.core.portal — Web Portal
 
 - **ID:** `oaap.core.portal`
-- **Version:** 0.3.25
-- **Maturity:** draft (0.3.25 adds **invitations and requests** — the prospect's public form and the operator's list, §2.10, RFC-0055 stage 4; 0.3.24 adds the **tenant build pages** — a wizard over the operator API, §2.9, RFC-0055 stage 3; 0.3.23 shows the **Cohorts menu entry to every
+- **Version:** 0.3.26
+- **Maturity:** draft (0.3.26 adds **profile upload, download and delete** and tick boxes for `bool` parameters on the build pages — §2.11, RFC-0055 §14; 0.3.25 adds **invitations and requests** — the prospect's public form and the operator's list, §2.10, RFC-0055 stage 4; 0.3.24 adds the **tenant build pages** — a wizard over the operator API, §2.9, RFC-0055 stage 3; 0.3.23 shows the **Cohorts menu entry to every
   administrator**, not only where a cohort exists, and puts a **step-by-step
   guide and a downloadable example template** on the create page — §2.8;
   0.3.22 adds **Add a seat** to the cohorts page, with
@@ -728,6 +728,36 @@ their own: they hang off `Aufbau`):
   build and is never written into its state.
 
 A missing view is an empty list. No JavaScript is needed.
+
+### 2.11 Profiles in and out (RFC-0055 §14)
+
+The build pages (2.9) take profiles in and give them out. As everywhere in
+2.9, the pages **write nothing themselves**: an upload or a delete is a request
+in the spool (action `tenant-profile`, ops `put` and `delete`), `server_admin`
+only, which the host judges again from the actor's own record.
+
+- **Download.** `/aufbau/vorlage.json` hands out a commented template profile;
+  `/aufbau/profile/<id>.json` hands out a profile as the node holds it (the
+  view file carries the whole document). Both are attachments, `no-store`. An id
+  that is no id, an unknown profile and one the host refused answer `404`.
+- **Upload.** A multipart form with one file. The page checks only what it can
+  without the node — a file was sent, at most 64 KB, UTF-8, valid JSON — and
+  puts the **text** in the request. **The host judges the whole profile before one
+  byte is written:** the format and every rule of `oaap.tenant-profile/1`, and,
+  because the file came through a web page, three more: an `app.install` step
+  names an app of the catalogue (`app`) and **never** a `source`, `path` or
+  `ref`; each named app is listed in a configured store source; and if no
+  source can be read the upload is refused rather than stored unchecked. A
+  file with the id of an existing profile replaces it; builds already started
+  keep the file they began with (they pinned its digest).
+- **Delete.** Only a profile the view lists, and not while an unfinished build
+  uses it. Every put and delete is audited (`tenant.profile.put|delete`).
+- **Tick boxes.** A parameter of kind `bool` is a checked-by-default box on the
+  start form and on the prospect's form (2.10); an unticked box is sent as an
+  explicit `false`. The step list names the tick a step depends on (`when`).
+- Doors as in 2.9: `403` for anyone but the operator, `404` at a tenant's
+  place, `403` for a foreign origin, nothing in the spool for a request the
+  page can already refuse.
 
 ## 3. Configuration
 

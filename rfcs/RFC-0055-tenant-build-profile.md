@@ -1,7 +1,8 @@
 # RFC-0055: The Tenant Build Profile — Setting Up a Tenant From One Description
 
 - **Status:** **Accepted (2026-10-03)** — Jörg decided the four open questions
-  of idea I-33 one by one (§9). **Stages 1–4 built (2026-10-03, §10–§13).**
+  of idea I-33 one by one (§9). **Stages 1–4 built (2026-10-03, §10–§13); profile upload and
+  app choice §14.**
 - **Date:** 2026-10-03
 - **Authors:** Jörg (the wish: build tenants from portal or app), Claude
   (survey of today's steps, write-up)
@@ -420,6 +421,53 @@ first sat in the URL path (`/anfrage/<link>`); the gateway's access log strips
 the query of every request but keeps a path, so the link is now the query value
 `/anfrage?t=<link>` and stays out of that log.
 
+## 14. Profiles that steer apps, and come in through the portal (2026-10-03)
+
+Requested by the product owner: a profile should control which apps a tenant
+gets, and the portal should offer upload, download and a template.
+
+**The profile language grows by three things, and by nothing that runs code.**
+
+1. A parameter of kind **`bool`** (`true`/`false`, `yes`/`no`, `1`/`0`, `on`/`off`;
+   anything else is a refusal, not a quiet "no"). Absent means the profile's
+   default, or false.
+2. A step key **`when`** naming a `bool` parameter. A step whose parameter is
+   not `true` is **skipped**: decided before the step is even rendered, so a
+   value only that step needs cannot fail the build, and a skipped step is
+   neither run, nor checked, nor rolled back. The plan leaves it out.
+3. `app.install` takes **`app`** — an id in a configured store source —
+   **or** `source`, exactly one. `app` is resolved on the host the way the
+   store's one-click install resolves it (`_store_lookup`, highest trust class
+   first) and installed with the source recorded. **A source that needs a human's
+   confirmation (`unverified`) is never served from a profile:** nobody is
+   there to confirm, and the confirmation is the one thing that source asks
+   for. The step fails with that reason.
+
+**Upload.** Decided: an uploaded profile may name **only catalogue apps** (the
+product owner accepted my restriction). A path typed into a web page is not an
+entry a `server_admin` chose to trust; a catalogue entry is. So the host
+refuses an uploaded profile that has `source`, `path` or `ref` on an
+`app.install`, or an `app` that no configured source lists, or any `app` at all
+when no source can be read (an unchecked upload is not stored). A profile put on
+the node by hand keeps all its freedom — that is the operator at a shell. The
+file travels as text in a request, is judged whole by the host
+(`tenant_profile_job`) and written atomically; the same id replaces; delete is
+refused under an unfinished build. Download reads the view, which now carries the
+whole document. Specified in `oaap.core.portal` 0.3.26 §2.11.
+
+**Measured:** `test_tenant_profile.py` — the new language, the catalogue
+install with a faked catalogue and installer (the arguments the installer
+receives; unverified source refused; unknown app refused), the worker door
+(four kinds of non-operator; eleven malformed or forbidden files, none of which
+writes anything; replacement; deletion under an open build), and two **real
+builds**, one with the tick and one without. `test_tenant_profile_page.py` — the
+template, both downloads, `403`/`404` at every new door, every upload the page
+must not queue, the tick box on both forms. Five mutations against the tests
+(upload rules removed, unverified allowed, `when` ignored, template open to
+anyone, upload unchecked) were all caught. **Not measured:** an upload and a
+build with a real catalogue app on a node, the pages in a browser, and the
+container image was not rebuilt for this stage when this was written.
+
 ## Zusammenfassung für Jörg (Deutsch)
 
 **Was das ist:** Ein **Profil** ist eine kleine Datei auf dem Knoten. Sie sagt,
@@ -499,3 +547,12 @@ erzeugt einen Antrag, und erst die Freigabe durch einen angemeldeten
 gespeichert, nur sein Prüfwert; abgelehnte Anträge verlieren die Adresse sofort,
 entschiedene verschwinden nach 30 Tagen. **Nicht gemessen:** die Seiten im
 Browser und der Weg durch das echte Gateway auf einem Knoten.
+
+**Profile steuern Apps (03.10., §14):** ein Parameter der Art `bool` wird zum
+Haken, ein Schritt mit `"when"` läuft nur bei gesetztem Haken, und `app.install`
+nennt eine **App des Katalogs** statt eines Pfads. Profile lassen sich im Portal
+hochladen, herunterladen und löschen, mit einer Vorlage als Anfang. Auf Jörgs
+Entscheidung darf ein **hochgeladenes** Profil nur Apps des Katalogs nennen, nie
+einen Pfad; der Knoten prüft die ganze Datei, bevor er sie ablegt. Eine
+Katalogquelle, die eine Bestätigung verlangt, bedient ein Profil nie.
+**Nicht gemessen:** der Weg mit einer echten Katalog-App an einem Knoten.
