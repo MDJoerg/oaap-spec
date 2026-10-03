@@ -1,8 +1,8 @@
 # oaap.core.portal — Web Portal
 
 - **ID:** `oaap.core.portal`
-- **Version:** 0.3.24
-- **Maturity:** draft (0.3.24 adds the **tenant build pages** — a wizard over the operator API, §2.9, RFC-0055 stage 3; 0.3.23 shows the **Cohorts menu entry to every
+- **Version:** 0.3.25
+- **Maturity:** draft (0.3.25 adds **invitations and requests** — the prospect's public form and the operator's list, §2.10, RFC-0055 stage 4; 0.3.24 adds the **tenant build pages** — a wizard over the operator API, §2.9, RFC-0055 stage 3; 0.3.23 shows the **Cohorts menu entry to every
   administrator**, not only where a cohort exists, and puts a **step-by-step
   guide and a downloadable example template** on the create page — §2.8;
   0.3.22 adds **Add a seat** to the cohorts page, with
@@ -666,6 +666,69 @@ queues (`management.enqueue`, action `tenant-build`), re-checked by the host.
 - A missing view is an empty list. No JavaScript is needed (the colour
   field and the auto-reload are conveniences).
 
+### 2.10 Invitations and requests — the prospect's form (RFC-0055 stage 4)
+
+A prospect builds nothing. They receive an **invitation link** and fill in a
+form; what comes out is a **request** that a signed-in `server_admin` approves
+or rejects. Only the approval starts a build, with the **approver's own
+role** (the operator API takes no key, RFC-0055 §11.1). The portal **writes
+nothing itself**: invitation, approval, rejection and revocation are requests
+in the spool (action `tenant-request`); the prospect's submission is one
+(`tenant-request-submit`). The host judges every one again.
+
+**The public page `/anfrage?t=<link>`** — the one route of the portal that
+answers without a session besides the setup, the deploy hook and the fleet
+status. The gateway sends it through without identity headers, like those.
+
+- **The link is the only proof.** It is a random token of at least 32
+  characters; the host stores **only its SHA-256**, never the link, and no
+  file on the node (store, spool, view) contains it. The link is shown **once**,
+  in the response that creates it, which is not cached. It is a **query**
+  value, not a path: the gateway's access log strips the query of every
+  request, so the link is not left in it.
+- **One profile, one use, one expiry.** An invitation names the profile; the
+  form is made from **that** profile's parameters and nothing in the request
+  can pick another one. It is valid for 1–60 days (default 14), can be used
+  **once**, and can be revoked. A link that is unknown, malformed, used,
+  revoked or expired gets **the same answer** (`404`, one sentence that says
+  nothing about which); so does any link at a **tenant's place**: the page
+  exists at the node's own address only.
+- **The form** asks for every parameter of the profile (the label with the
+  sentence that it is public), plus **one e-mail address** to answer to — the
+  only personal datum, stored with the request and removed as below. The page
+  has no menu and shows no identity; it is `no-store`, `noindex`, and sends no
+  referrer.
+- **Doors against abuse.** A required field missing, a label in the wrong
+  form, an address that is none, a body over 8 KB (`413`) or another origin
+  (`403`) never reach the spool. A link that was just sent is not sent again
+  within 15 minutes (the host spends it with the first request anyway);
+  more than **ten submissions per minute and portal process** are answered
+  `429` (the portal runs several processes; the host's single use, not this
+  brake, is what keeps a link single-use). The answer to a sent form says that a person will check it and reply;
+  it cannot say more, because the host decides later (a label that became
+  taken meanwhile is audited and answered by the operator, not by the page).
+- **Retention.** A rejected request loses its address at once. An approved one
+  keeps it (the person who sets up the first administrator needs it) and, like
+  every decided request, disappears after 30 days; an invitation that is not
+  open disappears 7 days after it closed.
+
+**The operator's pages** (`server_admin` at the node's own address, `403` for
+anyone else, `404` at a tenant's place — the rule of 2.9; no menu entry of
+their own: they hang off `Aufbau`):
+
+- **`/aufbau/anfragen`** (list report): requests with their entries and
+  address, `Freigeben und aufbauen`, `Ablehnen` (with an optional reason);
+  the form **Neue Einladung** (profile, a note for oneself, days); the
+  invitations with their state and `Widerrufen`. Buttons exist only for what
+  is open; the host refuses the rest again. The list page of builds links
+  here with the number of open requests.
+- **Approve** starts the build with the approver's role; if the host refuses
+  (the label is taken meanwhile, the profile is gone) the request **stays
+  pending** and the banner says why. The address is **not** a parameter of the
+  build and is never written into its state.
+
+A missing view is an empty list. No JavaScript is needed.
+
 ## 3. Configuration
 
 None beyond the platform version passed at start. Appearance
@@ -693,6 +756,10 @@ configuration is a later stage (2.2).
    2.6) are only ever queued to the host-side worker, never applied
    in-process, so a compromised portal container cannot itself rewrite
    the registry or gateway configuration.
+6. A **public** route (setup, deploy hook, fleet status, and since 0.3.25
+   `/anfrage`) is a route without a session: its proof is something the
+   route itself checks, and **what it can cause is bounded by that proof**.
+   `/anfrage` can cause one request waiting for a human, nothing else.
 
 ## 5. Conformance tests (described)
 

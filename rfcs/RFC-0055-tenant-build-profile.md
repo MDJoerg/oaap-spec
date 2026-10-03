@@ -1,8 +1,7 @@
 # RFC-0055: The Tenant Build Profile — Setting Up a Tenant From One Description
 
 - **Status:** **Accepted (2026-10-03)** — Jörg decided the four open questions
-  of idea I-33 one by one (§9). **Stages 1–3 built (2026-10-03, §10–§12);**
-  stage 4 not built.
+  of idea I-33 one by one (§9). **Stages 1–4 built (2026-10-03, §10–§13).**
 - **Date:** 2026-10-03
 - **Authors:** Jörg (the wish: build tenants from portal or app), Claude
   (survey of today's steps, write-up)
@@ -352,6 +351,75 @@ A defect this stage would have shipped: the portal image copies its Python
 files **by name** (`Dockerfile`, CURRENT_STATE 132) — a new module left out of
 that list is a container in a restart loop. `build_view.py` is in the list.
 
+## 13. Stage 4: the prospect's form (2026-10-03)
+
+Decided by the product owner on 2026-10-03, three questions:
+
+| | Decision |
+|---|---|
+| Who may fill it in | **Only with an invitation link** the operator issues (one use, an expiry, one profile). Not public to the world: no spam, no strangers' data, almost no surface. |
+| Where a request waits | **In the portal**, under `Aufbau` — a file on the node, a list next to the builds. Not an add-on app: an app could not start the build, and the approval would run in the portal anyway. |
+| What the prospect may state | **The profile's parameters and one e-mail address.** Nothing else. |
+
+The finding of §11.1 fixes the shape: **the form cannot drive a build**, so it
+writes a **request**, and a signed-in `server_admin` approves it; the build
+then runs with that person's authority, exactly like `Aufbau starten`.
+
+**Parts.** `services/tenant_request.py` (pure: invitations and requests as
+files in `data/tenant-requests/`, mode 0600, one file each), the worker
+actions `tenant-request` (invite, revoke, approve, reject — needs
+`server_admin`, derived from the actor's own record) and
+`tenant-request-submit` (the prospect: **names nobody**, carries the link as its
+only proof, checked on the host against the stored hash; it is therefore listed
+in `SPOOL_ACTIONS_WITHOUT_ACTOR`, next to the other requests that bring their own
+proof), the view
+`request-view.json`, the public route `/anfrage` through the gateway (the
+base Caddyfile **and** the generated external sites — the `/platform/*`
+mistake of CURRENT_STATE 132 is the reason both are named), and the operator's
+pages. Specified in `oaap.core.portal` 0.3.25 §2.10.
+
+**Rules the tests hold.**
+
+1. The link is **never stored**, only its SHA-256; a scan of the whole data
+   directory after an invitation finds it nowhere (spool included).
+2. The submission is **re-judged on the host**: the profile comes from the
+   invitation, the parameters through the same engine as a build
+   (`param_values`: unknown parameter, bad label, taken label, label held by an
+   open build or another waiting request), the address by its own rule. A
+   refusal leaves the link **unspent**.
+3. Approval is **`server_admin` only**, derived from the actor's record; a
+   tenant administrator, a member, nobody, and a user who does not exist get
+   nothing built and the request stays pending. A second approval and a
+   rejection of an approved request are refused.
+4. The address is **not a build parameter** and is not in the build's state.
+5. Rejection removes the address at once; decided requests expire after 30
+   days.
+
+**Measured:** `test_tenant_request.py` (the core and the real worker — the
+real tenant store, spool and user store in a throwaway directory; baits at the
+door; one request goes through to a **real tenant created by the approval**)
+and `test_tenant_request_page.py` (the public page: identical answers for dead,
+short and invented links, `404` at a tenant's place, the form from the link's
+profile, every bait of the submission, the brake at ten per minute; the
+operator's pages: `403`/`404`, the link shown once and nowhere else, each
+button's request and every one that must not be sent). Two mutations were run
+against the tests and both were caught: the portal accepting any well-formed
+link, and the host accepting a used or revoked one. One defect the tests
+found: a validity of `0` days silently became the default of 14.
+
+**Not measured:** the pages in a browser against a running portal; the route
+through the **real gateway** on a node (the Caddyfile and the generated sites
+carry it and `test_user_identity.py` counts it — nine public routes now — but
+no request has gone through a running Caddy); the container image was not
+rebuilt for this stage when this was written. **Limits, stated:** the prospect
+gets no automatic reply by e-mail (OAAP sends none), and a refusal that only
+the host can judge (a label taken meanwhile) is audited and shown to the
+operator, not to the prospect; the brake of ten submissions per minute is per
+portal process (four), not per portal. **Changed while building:** the link
+first sat in the URL path (`/anfrage/<link>`); the gateway's access log strips
+the query of every request but keeps a path, so the link is now the query value
+`/anfrage?t=<link>` and stays out of that log.
+
 ## Zusammenfassung für Jörg (Deutsch)
 
 **Was das ist:** Ein **Profil** ist eine kleine Datei auf dem Knoten. Sie sagt,
@@ -420,3 +488,14 @@ mit eigenem Haken). Die Seiten schreiben nichts selbst, jede Schaltfläche
 stellt dieselbe Anfrage wie die API. Der Text eines Menschenschritts und sein
 `done_when` stehen jetzt im Zustand des Aufbaus. **Nicht gemessen:** die Seiten
 im Browser am laufenden Portal.
+
+**Stufe 4 gebaut (03.10.):** das Interessentenformular. Entscheidungen von
+Jörg: ein Interessent kommt **nur mit Einladungslink** (einmal benutzbar, mit
+Ablauf, an ein Profil gebunden) — nicht offen im Netz; der Antrag liegt **im
+Portal** unter „Aufbau“, nicht in einer Zusatz-App; gefragt werden **nur die
+Parameter des Profils plus eine E-Mail-Adresse**. Das Formular baut nichts: es
+erzeugt einen Antrag, und erst die Freigabe durch einen angemeldeten
+`server_admin` startet den Aufbau — mit dessen Rolle. Der Link wird nie
+gespeichert, nur sein Prüfwert; abgelehnte Anträge verlieren die Adresse sofort,
+entschiedene verschwinden nach 30 Tagen. **Nicht gemessen:** die Seiten im
+Browser und der Weg durch das echte Gateway auf einem Knoten.
