@@ -297,9 +297,27 @@ started again): start, a second start refused, confirm, two rollbacks with
 purge, a request naming nobody refused, the view file 0644 and following each
 step.
 
-**Not measured:** the API against the **running portal** (the portal image
-was not rebuilt on `oaap-test`: that needs `oaap update` from Git), the realm
-and a real address (as in stage 1).
+**Measured on the running portal** (`oaap-test` updated to 0.1.183 with
+`oaap update`, 8/8 core services, 16/16 apps): the portal container carries
+the new routes; at the gateway an anonymous call is a `303` to the login (as
+for every other route); inside the portal container an anonymous call is a
+`403` from the gate, not a `404`, so the routes are registered and refuse.
+
+**Not measured:** an **authenticated** call through the running portal. It
+needs a signed-in human `server_admin`, and entering a password is not
+something the measuring session may do; Jörg tries it (§11.1). The realm and a
+real address are not measured either (as in stage 1).
+
+### 11.1 Finding: the operator API is for humans, not for keys
+
+RFC-0027 **refuses `server_admin` for a machine principal** (`oaap machine
+add` says so). The operator routes need `server_admin`, so **a key can never
+call them**; only a signed-in person (session with `X-OAAP-API: 1`) can. That
+is consistent with "approval stays a human's" and it corrects decision (a):
+the prospect's form (stage 4) **cannot** drive the build with an operator key.
+It must instead write a **request** that a person approves in the portal
+(which then starts the build with the person's own authority). Stage 4 is
+designed with that in mind; no change to stages 1-3.
 
 ## Zusammenfassung für Jörg (Deutsch)
 
