@@ -1,8 +1,8 @@
 # RFC-0055: The Tenant Build Profile — Setting Up a Tenant From One Description
 
 - **Status:** **Accepted (2026-10-03)** — Jörg decided the four open questions
-  of idea I-33 one by one (§9). **Stage 1 built and measured on `oaap-test`
-  (2026-10-03, §10);** stages 2–4 not built.
+  of idea I-33 one by one (§9). **Stages 1 and 2 built (2026-10-03, §10, §11);**
+  stages 3–4 not built.
 - **Date:** 2026-10-03
 - **Authors:** Jörg (the wish: build tenants from portal or app), Claude
   (survey of today's steps, write-up)
@@ -263,6 +263,44 @@ publish/probe"); the realm; the Operator API and the portal action (stage 2,
 where the rule "a test must reach all three doors" starts to apply — today
 there is one door).
 
+## 11. Stage 2: operator API and portal action (2026-10-03)
+
+**Portal action:** the worker action `tenant-build` (`start`, `continue`,
+`confirm`, `rollback`). Who may ask comes from the **actor's own record** in
+the user store, never from the request; a request that claims a role, names
+nobody, or names a person who is not a server_admin is refused by the host.
+**Operator API** (`oaap.core.management`, beside the tenant routes):
+`GET /api/v1/operator/tenant-profiles`, `GET …/tenant-builds`, `GET
+…/tenant-builds/<id>`, `POST …/tenant-builds {profile, params}`, `POST
+…/tenant-builds/<id>/continue|confirm|rollback`. Gate: `server_admin` only,
+and only at the node's own address (at a tenant's place the routes answer
+404); a session needs `X-OAAP-API: 1`, a key does not. Answers to GET come
+from a **view file the host writes** after every step
+(`apps/build-view.json`), so no call waits behind a build; a POST answers
+`202` with a job whose status is the usual `/api/v1/tenant/jobs/<id>` (it
+names the build). `purge_instances` is true only for the literal JSON
+`true`: a string is not consent to delete data.
+
+**One defect found while testing the doors, and fixed in the cohort routes
+too:** a request the worker refuses before its branch (nobody signed in
+behind it) wrote only the classic results file, so its job was neither
+queued, running nor done and the caller polling it was told "no such job"
+for ever. `job_result_fill` now gives every management job an answer.
+
+**Measured:** `test_tenant_build_doors.py` — the same baits (bad label,
+unknown step type, bad colour, changed digest, second build for a label)
+at the CLI, the worker action and the API, a forged role, an actor who does
+not exist, a plain member, and a whole build through the API with the view
+following it. On `oaap-test` the worker action ran against the **real
+spool and user store** (the path unit stopped for the minutes it took, then
+started again): start, a second start refused, confirm, two rollbacks with
+purge, a request naming nobody refused, the view file 0644 and following each
+step.
+
+**Not measured:** the API against the **running portal** (the portal image
+was not rebuilt on `oaap-test`: that needs `oaap update` from Git), the realm
+and a real address (as in stage 1).
+
 ## Zusammenfassung für Jörg (Deutsch)
 
 **Was das ist:** Ein **Profil** ist eine kleine Datei auf dem Knoten. Sie sagt,
@@ -310,3 +348,14 @@ Rückbau erhalten, außer man sagt ausdrücklich `--purge-instances`; sonst
 verhindern sie das Entfernen des Mandanten, und der Rückbau sagt, warum.
 **Nicht gemessen:** Realm-Einrichtung und echte Adresse (oaap-test hat keinen
 Außennamen), API und Portal-Aktion (Stufe 2).
+
+**Stufe 2 gebaut (03.10.):** Portal-Aktion (Spool-Aktion `tenant-build`) und
+Betreiber-API (`/api/v1/operator/tenant-builds …`) auf demselben Kern. Wer
+fragen darf, entscheidet der Host aus dem Benutzerspeicher, nicht die
+Anfrage; die API gibt es nur für `server_admin` und nur an der Adresse des
+Knotens selbst. Gefunden und behoben: eine vom Worker abgelehnte Anfrage
+ohne angemeldeten Benutzer hinterließ keinen Job-Status, der Aufrufer
+bekam für immer „no such job“ (galt auch für die Kohorten-Routen).
+Gemessen: dieselben Köder an CLI, Aktion und API im Test; am echten Spool
+von `oaap-test` die Aktion. **Nicht gemessen:** die API am laufenden Portal
+(Portal-Image nicht neu gebaut).
