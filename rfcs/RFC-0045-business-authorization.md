@@ -7,7 +7,8 @@
   Description, which is a change to `oaap.data.model` and gets its own
   RFC (§6.1). This RFC's steps 1–4 do not wait for it — a manifest
   `values:` list covers them, and §6.5 records what was checked so that
-  nothing here blocks that RFC. Nothing built.
+  nothing here blocks that RFC. **Stages 1 and 2 built 2026-10-03** (§11.1);
+  stage 3 (the provider's groups) not built.
 - **Date:** 2026-09-28
 - **Authors:** Jörg (the idea, the SAP/BTP comparison, the club and CRM
   cases), Claude (design and write-up)
@@ -587,6 +588,28 @@ data the app-side check reads today.
    collections, contexts, and who granted what.
 5. *(reserved)* derivation rules from twin relations (A1).
 6. *(reserved)* twin-side enforcement per person (§8.3).
+
+### 11.1 What was built (2026-10-03)
+
+`oaap.core.authorization` 0.1 (`oaap-spec/spec/oaap.core.authorization.md`),
+**inside the identity service** (Jörg's decision of 2026-10-03: identity
+holds the user id, the tenant, the keys and the login — stage 3 must run
+there): manifest 0.6 with the `authorization` section, registration at
+install with the additive/destructive comparison and `--confirm-authorization`,
+roles, collections and assignments (`oaap authz …`, `/internal/authz/*`),
+`GET /authz/effective` authenticated by identity itself with a key of scope
+`oaap.authz`, the reference client `platform/authz_client.py` that fails
+closed, and `partnerverwaltung` 0.1.3 as the first consumer. Measured on
+`oaap-test` (CURRENT_STATE 257).
+
+Differences from the draft, each a decision made while building and recorded
+in the spec: the unrestricted field means "not named in the grant"; a grant
+restricted to a context only matches when the caller **names** that context
+(a question without the team has no safe answer — `may_any` says "some"
+explicitly); `may_grant` and the context check against the twin are accepted
+and stored, **not enforced**; the first consumer **declares and does not yet
+check** — enforcing would take every user's right to edit away until roles
+exist, and that is a decision for the next stage.
 
 ## Decided (2026-09-28, before the draft)
 

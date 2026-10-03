@@ -1,7 +1,13 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.35 (**`oaap cohort extend`**, RFC-0046 §5: the end of a
+- **Version:** 0.2.36 (**business authorization**, `oaap.core.authorization`
+  0.1 / RFC-0045 stages 1+2: manifest 0.6 may declare an `authorization`
+  section; the install registers it with identity BEFORE any image is
+  built, stops on a destructive change unless `--confirm-authorization`,
+  and puts `OAAP_AUTHZ_URL` / `OAAP_AUTHZ_KEY` into the platform-owned
+  environment — never for a rehearsal; new 2.8.3;
+  0.2.35 (**`oaap cohort extend`**, RFC-0046 §5: the end of a
   course moves later and the dates computed from it move with it; 2.19;
   0.2.34 (**the cohort's daily sweep**, RFC-0046 stage 4:
   `oaap cohort sweep`, run once a day by a systemd timer, stops a cohort's
@@ -1331,6 +1337,23 @@ platform-owned (2.4.3 rule 3): never listed as config, never settable,
 and a manifest whose handed-over field collides with a `config` key or
 an `OAAP_*` name is invalid. The rules themselves live in
 `oaap.net.destinations`.
+
+### 2.8.3 Business authorization (`oaap.core.authorization` 0.1, 0.2.36)
+
+Manifest 0.6 adds an `authorization` section: the objects, activities,
+fields and role templates an app can have *allowed* inside it. A
+declaration grants nothing; a tenant builds roles from it (`oaap authz`).
+At install, **before any image is built**, the declaration is registered
+with identity and compared with the registered one (additive, destructive,
+unchanged). A destructive change names the roles and assignments that would
+lose something and stops the install unless the operator passes
+`--confirm-authorization`. A package that no longer has the section
+after it had one is the same kind of change.
+
+The instance receives `OAAP_AUTHZ_URL` and `OAAP_AUTHZ_KEY` — platform-owned
+like the twin's (2.4.3 rule 3), minted once, scoped to `oaap.authz`, never
+for a rehearsal (it would read the production tenant's grants). The rules
+live in `oaap.core.authorization`.
 
 ### 2.9 Store sources (RFC-0012 §2/§4)
 

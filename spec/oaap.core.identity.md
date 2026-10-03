@@ -1,7 +1,11 @@
 # oaap.core.identity — Identity & Roles
 
 - **ID:** `oaap.core.identity`
-- **Version:** 0.6.0 (**a person's lifetime on the node**: users can be
+- **Version:** 0.6.1 (**business authorization lives here**,
+  `oaap.core.authorization` 0.1: one more state file and the routes
+  `/internal/authz/*` and `/authz/effective`, 2.10; nothing changes for a
+  node nobody grants anything on;
+  0.6.0 (**a person's lifetime on the node**: users can be
   created on the node by command, a password somebody else chose must be
   changed at the first sign-in, a user carries two optional dates for
   dated deactivation and deletion, and a user can be deleted. See 2.4
@@ -547,6 +551,27 @@ worker that deactivates and deletes (RFC-0046 §5) is a later step; it
 lives on the host because "an empty seat" (no instance of the person is
 left) is a fact only the host knows, and it uses the operations above,
 so that every refusal of 2.4 applies to it as well.
+
+### 2.10 Business authorization (0.6.1, `oaap.core.authorization` 0.1)
+
+Identity holds the state of what a person may do *inside* an app: the
+declarations apps registered, the tenant's roles, collections and
+assignments, in `authorization.json` (atomic write, its own lock). It does
+not touch the platform roles: no function of this section can read or write
+`roles` of a user.
+
+- `/internal/authz/*` — internal key plus `actor`, like the user routes; a
+  `tenant_admin` acts in their own tenant, a `server_admin` must name one.
+  Every change is an entry in the tenant's log (`authz.*`).
+- `GET /authz/effective?user=<id>` — authenticated **by identity itself**
+  (no forward-auth header is trusted): a bearer key made for scope
+  `oaap.authz` for an instance principal, nothing else. An unscoped key, the
+  twin's key, a session — all refused. The answer is for the instance's own
+  app and tenant, taken from what the host recorded when it minted the key;
+  a person of another tenant is unknown (404), not an empty list.
+
+The gateway routes `/authz/*` to identity with the identity headers
+stripped. See `oaap.core.authorization` for the rules.
 
 ## 3. Configuration
 

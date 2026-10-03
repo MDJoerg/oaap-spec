@@ -82,7 +82,7 @@ print("=== Versionen und Grundform ===")
 case("0.1-App ohne Zusaetze", app("0.1"), True)
 case("0.2-App mit app.class", app("0.2", app=dict(APP["app"], **{"class": "service"})), True)
 case("0.1 darf app.class nicht nutzen", app("0.1", app=dict(APP["app"], **{"class": "service"})), False)
-case("unbekannte Version 0.6 wird beim Schreiben abgelehnt", app("0.6"), False)
+case("unbekannte Version 0.7 wird beim Schreiben abgelehnt", app("0.7"), False)
 case("eine App ohne app.type wird abgelehnt", app("0.2", app={k: v for k, v in APP["app"].items() if k != "type"}), False)
 case("eine App ohne routes wird abgelehnt", {k: v for k, v in app("0.2").items() if k != "routes"}, False)
 
@@ -152,6 +152,34 @@ case("tcp ohne env wird abgelehnt -- nur die Erklaerung nennt die Felder",
 case("http mit env wird abgelehnt -- dort gibt es nichts zu uebergeben",
      app("0.5", destinations=[dict(HTTP_NEED, env={"host": "X"})]), False)
 case("unbekannte Art wird abgelehnt", app("0.5", destinations=[{"name": "x1", "kind": "smb"}]), False)
+
+print("\n=== 0.6: authorization (oaap.core.authorization 0.1, RFC-0045) ===")
+AUTHZ = {
+    "objects": [{"key": "team", "title": "Mannschaft",
+                 "activities": ["read", "edit_lineup"],
+                 "fields": [{"key": "team", "context": "Mannschaft"},
+                            {"key": "area", "values": ["news", "sponsoring"]}]}],
+    "role_templates": [{"key": "trainer", "title": "Trainer/in",
+                        "grants": [{"object": "team", "activities": ["read"],
+                                    "team": "$context"}],
+                        "may_grant": ["trainer"]}],
+}
+case("0.6 mit Objekten und Rollenvorlagen", app("0.6", authorization=AUTHZ), True)
+case("0.5 darf authorization nicht nutzen", app("0.5", authorization=AUTHZ), False)
+case("0.3 darf authorization nicht nutzen", app("0.3", authorization=AUTHZ), False)
+case("0.7 gibt es nicht, 0.6 genuegt aber", app("0.6", authorization={}), True)
+case("ein Objekt ohne Aktivitaeten wird abgelehnt",
+     app("0.6", authorization={"objects": [{"key": "team", "title": "T"}]}), False)
+case("ein Objekt ohne Titel wird abgelehnt",
+     app("0.6", authorization={"objects": [{"key": "team", "activities": ["read"]}]}), False)
+case("ein Schluessel mit Grossbuchstaben wird abgelehnt",
+     app("0.6", authorization={"objects": [{"key": "Team", "title": "T", "activities": ["read"]}]}), False)
+case("ein unbekannter Schluessel im Objekt wird abgelehnt",
+     app("0.6", authorization={"objects": [{"key": "team", "title": "T", "activities": ["read"], "x": 1}]}), False)
+case("eine Vorlage ohne Rechte wird abgelehnt",
+     app("0.6", authorization={"role_templates": [{"key": "a", "title": "A", "grants": []}]}), False)
+case("ein unbekannter Schluessel im Abschnitt wird abgelehnt",
+     app("0.6", authorization={"rules": []}), False)
 
 files = sys.argv[1:]
 if files:
