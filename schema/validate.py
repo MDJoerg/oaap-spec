@@ -180,6 +180,12 @@ case("eine Vorlage ohne Rechte wird abgelehnt",
      app("0.6", authorization={"role_templates": [{"key": "a", "title": "A", "grants": []}]}), False)
 case("ein unbekannter Schluessel im Abschnitt wird abgelehnt",
      app("0.6", authorization={"rules": []}), False)
+case("administer: true ohne eigene Deklaration (0.3)",
+     app("0.6", authorization={"administer": True}), True)
+case("administer ist ein Wahrheitswert",
+     app("0.6", authorization={"administer": "ja"}), False)
+case("administer braucht Manifest 0.6",
+     app("0.5", authorization={"administer": True}), False)
 
 files = sys.argv[1:]
 if files:

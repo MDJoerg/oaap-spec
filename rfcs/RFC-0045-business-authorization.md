@@ -622,6 +622,23 @@ collection with `may_grant` cannot be mapped. The connector now puts a
 group-membership mapper on the client OAAP makes (and adds it to one it found,
 if missing) — before that, no `groups` claim reached OAAP at all.
 
+### 11.3 Stage 4 (A7): the admin app — specified 2026-10-03
+
+`oaap.core.authorization` 0.3 §2.10. Found while designing the app: **no app
+could administer**, the whole administration API opened only to the host's
+internal key. A7 therefore starts with a door, not with a page: a second key
+scope `oaap.authz.admin` for an instance whose manifest says
+`authorization.administer: true`, minted only if the operator confirms at
+install, bound to the tenant of the instance. Every call names the person
+(`on_behalf_of`) and **identity verifies that person** as `tenant_admin` of the
+key's tenant (or `server_admin`) — a mistake in the app's own page cannot open
+anything. Decisions of Jörg (2026-10-03, all as recommended): D1 own key scope
+with identity's check; D2 only the operator, with confirmation, `administer`
+additive in manifest 0.6; D3 first version without the person-to-user link and
+without delegation; D4 `retire` (nothing deletes) built with it; D5 a normal
+catalog app, the portal only links. The spec says openly what the door is: a
+privileged one.
+
 ## Decided (2026-09-28, before the draft)
 
 1. **IdP groups may be mapped to business role collections, never to

@@ -830,6 +830,10 @@
             }
           }
         },
+        "administer": {
+          "type": "boolean",
+          "description": "Manifest 0.6, oaap.core.authorization 0.3 §2.10 (RFC-0045 A7): the app asks to administer the grants of its own tenant. Not part of the declaration. The key is only minted if the operator confirms at install."
+        },
         "role_templates": {
           "type": "array",
           "items": {

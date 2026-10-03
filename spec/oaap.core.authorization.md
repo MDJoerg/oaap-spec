@@ -1,10 +1,13 @@
 # oaap.core.authorization — Business Authorization
 
 - **ID:** `oaap.core.authorization`
-- **Version:** 0.2 (**the provider's groups**, §2.9: a tenant maps a group of its
-  realm to a role collection; evaluated at every login; RFC-0045 stage 3)
-- **Previous version:** 0.1 (declaration, roles, collections, assignments,
-  `effective`, client)
+- **Version:** 0.3 (**administration by an app**, §2.10: a privileged app of
+  the tenant administers roles, collections, assignments and mappings through
+  `/authz/admin/*`; `retire`, §2.6; RFC-0045 A7)
+- **Previous versions:** 0.2 (the provider's groups, §2.9: a tenant maps a
+  group of its realm to a role collection, evaluated at every login; RFC-0045
+  stage 3), 0.1 (declaration, roles, collections, assignments, `effective`,
+  client)
 - **Maturity:** draft
 - **Based on:** RFC-0045 (business authorization: the app declares, the tenant
   grants, the data holder checks — stages 1, 2 and 3); RFC-0056 §4 (groups of the
@@ -67,6 +70,13 @@ Rules, checked at manifest validation (a violation is an error, not a hint):
 
 An app that has the section must declare `oaap_manifest: "0.6"` or newer
 (version gating like every other field added after 0.1).
+
+**`administer: true`** (0.3, additive, same manifest minor): the app asks to
+**administer** the grants of its own tenant (§2.10). It is a boolean, not part of
+the declaration: it is neither registered nor compared, and an app may have it
+without declaring any object or template (the admin app declares nothing). It
+grants nothing by itself: the key is minted only if the operator confirms at the
+install (§2.10).
 
 ### 2.2 Registering a package's declaration
 
@@ -168,8 +178,21 @@ body (`authority(actor)` decides the tenant, never the request):
 | POST | `/internal/authz/assignments` | assign a collection to a user, with context and validity |
 | DELETE | `/internal/authz/assignments/<id>` | end an assignment (**revoke** — grants are not people, a revoke is allowed; the record stays marked ended, it is not erased) |
 | GET | `/internal/authz/assignments?user=…` | list |
+| POST | `/internal/authz/roles/<id>/retire`, `/internal/authz/collections/<id>/retire` | **retire** (0.3, below) |
 
 `oaap authz …` (CLI) calls the same functions.
+
+**Retire (0.3).** Nothing here deletes (K3.3), but a typo in a role name would
+stay for ever. `retire` marks a role or a collection `retired: {at, by}`; the
+record stays. A retired **role** cannot join a new collection; a retired
+**collection** cannot be assigned or mapped any more. Neither can be retired
+while something still stands on it: a collection with a **live assignment or a
+mapping** (`collection_blockers`), a role that is in a collection that is not
+retired — the answer names what blocks, so the order is always collection
+first, then its roles. Retiring twice changes nothing. A retired thing
+keeps its **name taken** (the record stays; a log line that names it must keep
+meaning one thing), and the error for a new one of that name says so. Log actions `authz.role-retire`,
+`authz.collection-retire`.
 
 ### 2.7 First consumer
 
@@ -220,11 +243,62 @@ Routes: `GET/POST /internal/authz/mappings`, `DELETE
 /internal/authz/mappings/<id>`; CLI `oaap authz mappings|map-add|map-remove`.
 Log actions: `authz.mapping-add`, `authz.mapping-remove`, `authz.idp-sync`.
 
+### 2.10 Administration by an app (0.3, RFC-0045 A7)
+
+Until 0.2 the administration API opened only to the host's internal key, so no
+app could build a surface for it. 0.3 adds **one more door**, for an app the
+operator made a *tenant administrator's tool*. Same functions behind it, a
+different caller.
+
+**The key.** A second key scope, **`oaap.authz.admin`**, minted at the install
+of an instance whose manifest has `authorization.administer: true`, and only if
+the operator confirms (`--confirm-administer`; without it the install stops and
+says what the key can and cannot do). One key per instance, minted once like the
+others, bound — by what the host recorded, never by the request — to the **tenant
+of that instance**. It is not the key of §2.4 and cannot be used for it; the key
+of §2.4 cannot be used here.
+
+**The door.** `/authz/admin/<verb>` on the gateway path `/authz/*`, mirroring
+`/internal/authz/<verb>` for `declarations`, `roles`, `collections`,
+`assignments`, `mappings` and the two `retire` verbs, and adding three reads for a
+surface:
+
+| verb | path | |
+|---|---|---|
+| GET | `/authz/admin/users` | the people of the tenant: `id`, `username`, display name, `active`; no password, no platform role, no e-mail |
+| GET | `/authz/admin/effective?user=…` | per app of the tenant's declarations the resolved grants (as §2.4) **and** the live assignments behind them with collection, `source`, `via`, validity |
+| GET | `/authz/admin/log` | the tenant's log entries whose action starts with `authz.`, newest first |
+
+There is **no** `register`, no `instance` and no way to register a declaration:
+those stay the host's.
+
+**Who is acting.** Every call names `on_behalf_of`, the user id the app read from
+`X-OAAP-User-Id`. **Identity checks the person itself**: a real, active, human
+account whose platform role is `tenant_admin` of the key's tenant, or
+`server_admin`. Anything else is **403**, whatever the app's own page said. The
+tenant is the key's, always; a `server_admin` is a person here, never a way to
+another tenant. Every write is an entry in the tenant's log with **the person**
+as the actor (`role` as the platform knows it), plus the instance in the detail;
+`granted_by` is the person, never the app.
+
+**What this key can never do** (checked, not hoped): touch another tenant;
+name, give or read a platform role; create, change or delete a user (`never:
+users`); register or withdraw a declaration; mint or change a key. A rehearsal (RFC-0030)
+instance is never given this key (it would administer the production tenant).
+
+**What the operator must know.** The app is a **privileged door**. Whoever holds
+its container holds a tenant administrator's rights over *grants* — not over
+platform roles, not over any other tenant. `on_behalf_of` is as strong as the
+app's word: identity can verify that the named person **is** an administrator, not
+that they sit at the screen now. This is why the key is not minted without a
+confirmation, and why the log names the person.
+
 ## 3. Configuration
 
 None on the node. The instance receives `OAAP_AUTHZ_URL` and
 `OAAP_AUTHZ_KEY` when its manifest has the section (as `OAAP_TWIN_URL` and
-`OAAP_PLATFORM_KEY` for the twin).
+`OAAP_PLATFORM_KEY` for the twin); an instance of an app with `administer: true`
+receives `OAAP_AUTHZ_ADMIN_KEY` as well.
 
 ## 4. Security requirements
 
@@ -243,6 +317,16 @@ None on the node. The instance receives `OAAP_AUTHZ_URL` and
    handling; 0.1 refuses a write whose actor is an instance principal).
 9. Validity is evaluated by the identity service on every `effective` call;
    no time value in the answer is trusted from the request.
+10. (0.3) The admin key exists only for an instance whose manifest asks for it
+    **and** whose install the operator confirmed; it opens only `/authz/admin/*`,
+    and no other key opens that.
+11. (0.3) The tenant of an admin call is the key's, never the request's; the
+    person (`on_behalf_of`) is verified by identity as `tenant_admin` of that
+    tenant or `server_admin`, on every call.
+12. (0.3) Through this door nothing can name, give or read a platform role,
+    touch a user, register a declaration, or cross a tenant.
+13. (0.3) Nothing is deleted: `retire` keeps the record, and refuses while
+    something live stands on it.
 
 ## 5. Conformance tests (described)
 
@@ -258,6 +342,16 @@ None on the node. The instance receives `OAAP_AUTHZ_URL` and
    cannot reach `/authz/*`.
 6. The client fails closed on every listed failure.
 7. Platform roles are unchanged by any grant.
+8. (0.3) Admin door: a call without the key is 401; the key of §2.4 is 403; a
+   normal `user` as `on_behalf_of` is 403 and writes nothing; a person of another
+   tenant is 403; a `server_admin` still acts only in the key's tenant; no
+   `on_behalf_of` is 400; a write names the person in the log.
+9. (0.3) Install: an app with `administer: true` is refused without
+   `--confirm-administer`, builds nothing, and says what the key can do; with it
+   the key is minted once and a redeploy does not rotate it.
+10. (0.3) Retire: refuses a collection with a live assignment or a mapping, and a
+    role in an unretired collection; naming the blockers; a retired thing stays
+    readable and cannot be used again.
 
 ## 6. Dependencies
 
@@ -267,7 +361,33 @@ install), `oaap.core.tenant`.
 ## 7. Maturity
 
 Draft. Stages 1 and 2 of RFC-0045 (declaration; roles, collections, assignments,
-`effective`, client; first consumer `partnerverwaltung`). Nothing of §2.8.
+`effective`, client; first consumer `partnerverwaltung`), stage 3 (provider groups, 0.2)
+and the administration door and `retire` (0.3, RFC-0045 A7). Nothing of §2.8.
+
+## Deutsche Zusammenfassung (0.3: Verwaltung durch eine App)
+
+Bisher öffnete die Verwaltungs-API nur dem Host-Schlüssel — keine App konnte
+eine Oberfläche dafür bauen. 0.3 fügt **eine weitere Tür** hinzu, für eine App,
+die der Betreiber zum Werkzeug des Mandanten-Admins gemacht hat. Im Manifest:
+`authorization.administer: true` (ohne eigene Deklaration möglich). Der
+**Schlüssel** hat den eigenen Bereich `oaap.authz.admin`, wird nur ausgestellt,
+wenn der Betreiber bei der Installation **bestätigt** (`--confirm-administer`),
+und gehört fest zum Mandanten der Instanz. Die **Tür** `/authz/admin/…` spiegelt
+die interne API (Rollen, Sammlungen, Zuweisungen, Abbildungen, Deklarationen
+lesen) und liefert drei Lesezugriffe für eine Oberfläche (Benutzer des Mandanten,
+wirksame Rechte mit Herkunft, Protokoll). **Wer handelt:** jeder Aufruf nennt
+`on_behalf_of` (die Benutzer-ID aus `X-OAAP-User-Id`) — **Identity prüft die
+Person selbst**: `tenant_admin` des Schlüssel-Mandanten oder `server_admin`,
+sonst 403, egal was die App-Seite meinte. Das Protokoll nennt die Person, nicht
+die App. **Nie möglich:** anderer Mandant, Plattformrolle vergeben oder lesen,
+Benutzer anlegen/ändern/löschen, Deklaration registrieren, Schlüssel ausstellen;
+eine Probe-Instanz bekommt den Schlüssel nie. **Offen gesagt:** die App ist eine privilegierte Tür; wer
+ihren Container hat, hat die Rechte eines Mandanten-Admins über **Rechte**
+(nicht über Plattformrollen, nicht über andere Mandanten), und `on_behalf_of` ist
+so stark wie das Wort der App — Identity prüft, ob die Person Admin **ist**,
+nicht, ob sie gerade vor dem Bildschirm sitzt. Dazu **`retire`**: nichts wird
+gelöscht, aber eine Rolle oder Sammlung lässt sich ausblenden — nur, wenn nichts
+Lebendiges mehr darauf steht (erst die Sammlung, dann ihre Rollen).
 
 ## Deutsche Zusammenfassung (0.2: Gruppen des Anbieters)
 
