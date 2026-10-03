@@ -1,8 +1,8 @@
 # RFC-0055: The Tenant Build Profile — Setting Up a Tenant From One Description
 
 - **Status:** **Accepted (2026-10-03)** — Jörg decided the four open questions
-  of idea I-33 one by one (§9). **Stages 1 and 2 built (2026-10-03, §10, §11);**
-  stages 3–4 not built.
+  of idea I-33 one by one (§9). **Stages 1–3 built (2026-10-03, §10–§12);**
+  stage 4 not built.
 - **Date:** 2026-10-03
 - **Authors:** Jörg (the wish: build tenants from portal or app), Claude
   (survey of today's steps, write-up)
@@ -319,6 +319,39 @@ It must instead write a **request** that a person approves in the portal
 (which then starts the build with the person's own authority). Stage 4 is
 designed with that in mind; no change to stages 1-3.
 
+## 12. Stage 3: the wizard (2026-10-03)
+
+Three portal pages for the operator, specified in `oaap.core.portal` 0.3.24
+§2.9: **Aufbau** (list of builds and profiles), **Aufbau starten** (a form
+made from the profile's parameters, the steps in plain words, the public-label
+notice) and an **object page per build** (decisions that wait above
+everything, the consequential `Zurückbauen` last, with the tenant label typed
+and the data of the instances only on an unticked box). The pages read the
+view the host writes and **write nothing themselves**; every button queues the
+request the operator API queues, and the host re-checks it. A page is
+therefore not a second, weaker door: it is the same door with a form in front.
+
+What a page needs that the engine did not yet keep: a **manual step's text
+and its `done_when` are now stored in the state** (pinned with the build), so a
+waiting step is a complete question on the page without reading a profile file
+that may have changed since — and `Bestätigt` is offered only where
+`done_when` is `confirmed`.
+
+**Measured:** `test_tenant_build_page.py` — the pure rules, who and where
+(403 for a tenant administrator and a member, 404 at a tenant's place, the
+menu entry exactly there), the form from the parameters, every refusal that
+must never reach the spool (a missing required field, a foreign origin, a
+`Zurückbauen` without the typed label, a confirmation of a step that does not
+wait or that a reading decides), the request each button queues, the job
+banner (waiting, running, done, refused in the host's words). **Not
+measured:** the pages in a browser against the running portal (they need a
+signed-in `server_admin`; Jörg looks), and the container image was not rebuilt
+for this stage when this was written.
+
+A defect this stage would have shipped: the portal image copies its Python
+files **by name** (`Dockerfile`, CURRENT_STATE 132) — a new module left out of
+that list is a container in a restart loop. `build_view.py` is in the list.
+
 ## Zusammenfassung für Jörg (Deutsch)
 
 **Was das ist:** Ein **Profil** ist eine kleine Datei auf dem Knoten. Sie sagt,
@@ -377,3 +410,13 @@ bekam für immer „no such job“ (galt auch für die Kohorten-Routen).
 Gemessen: dieselben Köder an CLI, Aktion und API im Test; am echten Spool
 von `oaap-test` die Aktion. **Nicht gemessen:** die API am laufenden Portal
 (Portal-Image nicht neu gebaut).
+
+**Stufe 3 gebaut (03.10.):** Aufbau-Assistent im Portal, drei Seiten
+(Liste, Formular, Objektseite), nur für den Betreiber am Knoten selbst. Das
+Formular entsteht aus den Parametern des Profils, die Schritte stehen in
+Klartext, Menschenschritte sind gekennzeichnet; was wartet, steht über
+allem, das Zurückbauen ganz unten (Kürzel eintippen, Daten der Instanzen nur
+mit eigenem Haken). Die Seiten schreiben nichts selbst, jede Schaltfläche
+stellt dieselbe Anfrage wie die API. Der Text eines Menschenschritts und sein
+`done_when` stehen jetzt im Zustand des Aufbaus. **Nicht gemessen:** die Seiten
+im Browser am laufenden Portal.

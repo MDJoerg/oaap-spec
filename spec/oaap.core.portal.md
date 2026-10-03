@@ -1,8 +1,8 @@
 # oaap.core.portal — Web Portal
 
 - **ID:** `oaap.core.portal`
-- **Version:** 0.3.23
-- **Maturity:** draft (0.3.23 shows the **Cohorts menu entry to every
+- **Version:** 0.3.24
+- **Maturity:** draft (0.3.24 adds the **tenant build pages** — a wizard over the operator API, §2.9, RFC-0055 stage 3; 0.3.23 shows the **Cohorts menu entry to every
   administrator**, not only where a cohort exists, and puts a **step-by-step
   guide and a downloadable example template** on the create page — §2.8;
   0.3.22 adds **Add a seat** to the cohorts page, with
@@ -625,6 +625,46 @@ waits or was refused.
   an entry that appeared after it would hide the way to it. A caller
   without the role, or a `tenant_admin` without a tenant, does not see it.
 - A mixed instance state (`running,exited`) is never shown as healthy.
+
+### 2.9 Tenant builds — the wizard (RFC-0055 stage 3)
+
+Pages for the operator over the same core the API and `oaap tenant build`
+use. The pages **read** the view file the host writes (`build-view.json`)
+and **write nothing themselves**: every action is the request the API
+queues (`management.enqueue`, action `tenant-build`), re-checked by the host.
+
+- **Who, and where.** `server_admin` only, and only at the **node's own
+  address**. Anyone else gets `403`; at a tenant's place the pages answer
+  `404`. The menu entry `Aufbau` shows under exactly those conditions and
+  nowhere else.
+- **List `/aufbau`** (list report): the builds (state badge, tenant label,
+  profile, who and when) and the profiles, each with `Aufbau starten`. A
+  profile the host refused shows its reason instead of the button.
+- **Start `/aufbau/neu?profil=<id>`**: a form made from the **profile's
+  parameters**, by kind — `label` (with the sentence that the label is
+  PUBLIC and appears in certificate logs), `text`, `color` (a colour field
+  and an explicit "no colour"), `word`/`connector`. Beneath it the **steps
+  in plain words**, each manual step marked as one a person does. A value
+  the page cannot judge is judged by the host again; a refusal comes back
+  in the host's words.
+- **Object page `/aufbau/<id>`** (object page): a head (state, label,
+  profile, progress `n of m`), the steps with state and sentence, and
+  **decisions that wait above everything else**: a waiting `manual` step
+  shows its text with `Weiter prüfen` and, only where its `done_when` is
+  `confirmed`, `Bestätigt`; a failed build shows the failing step with
+  `Fortsetzen`. The consequential action sits **last**: `Zurückbauen`
+  asks for the **tenant label to be typed** and offers `Daten der Instanzen
+  mitlöschen` as a separate, unticked choice that says what it deletes.
+- **Jobs.** A request redirects to the list with `?job=<id>`; the page shows
+  the job (waiting, running, done, the host's message) and reloads itself
+  every three seconds until it is done. A job of another actor never shows
+  its result. A build that is `running` reloads the object page the same way.
+- **Doors.** A `POST` whose `Origin` names another host or that a browser
+  marks cross-site is `403`; a build id that is no build id, or one the view
+  does not know, is `404`; `Zurückbauen` without the typed label never
+  reaches the spool; `purge_instances` is sent only when its box is ticked.
+- A missing view is an empty list. No JavaScript is needed (the colour
+  field and the auto-reload are conveniences).
 
 ## 3. Configuration
 
@@ -1346,3 +1386,18 @@ ein Knopf, der eine **fertige Beispiel-ZIP** lädt (drei Plätze, eine
 Code-Server-Instanz je Platz, Willkommensdatei, Kursunterlagen; jede Zeile
 erklärt). Das Beispiel erzeugt das Portal selbst, mit dem Ende vier Wochen
 voraus, damit es nie veraltet oder vergangen ist.
+
+## Deutsche Zusammenfassung (Nachtrag 0.3.24 — der Aufbau-Assistent im Portal)
+
+Für den Betreiber (`server_admin`, am Knoten selbst, nicht am Ort eines
+Mandanten) gibt es drei Seiten unter dem Menüpunkt **Aufbau**: eine Liste der
+Aufbauten und der Profile, ein Formular, das aus den **Parametern des
+Profils** entsteht (mit dem Hinweis, dass das Kürzel öffentlich ist, und mit
+den Schritten in Klartext, Menschenschritte gekennzeichnet), und eine
+Objektseite je Aufbau. Was auf einen Menschen wartet (ein Wartepunkt, ein
+fehlgeschlagener Schritt), steht **über allem**; das Folgenschwere
+(**Zurückbauen**, mit dem getippten Kürzel und dem getrennten, nicht
+vorgehakten Wunsch, die Daten der Instanzen mitzulöschen) steht **ganz
+unten**. Die Seiten lesen nur die Sicht-Datei des Knotens und schreiben
+nichts selbst: jede Schaltfläche stellt dieselbe Anfrage wie die API, und der
+Knoten prüft sie noch einmal.

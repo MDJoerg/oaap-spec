@@ -1,8 +1,8 @@
 # oaap.core.management — The Tenant's Own Hand on the Platform, as an API
 
 - **ID:** `oaap.core.management`
-- **Version:** 0.1.1
-- **Maturity:** draft (0.1.1 accepts a ZIP that holds the template in ONE
+- **Version:** 0.1.2
+- **Maturity:** draft (0.1.2 adds the **operator routes** for tenant builds — §2.8, RFC-0055 stage 2; 0.1.1 accepts a ZIP that holds the template in ONE
   folder (§2.4), the way an explorer packs a folder; 0.1 is RFC-0046 stage 2: the cohort commands as a
   tenant-scoped JSON API, the job model they need, and the handout as a
   download. Users and single instances follow in later versions under the
@@ -183,6 +183,37 @@ the operation: `cohort.create`, `cohort.start`, `cohort.stop`,
 `cohort.seat-remove`, `cohort.remove`, `cohort.handout`. A refused call
 is recorded as `denied` with its reason, like a refused worker action.
 
+### 2.8 Operator routes: tenant builds (RFC-0055)
+
+A second route family, `/api/v1/operator/…`, for what only the node's
+operator does. It uses the same job model (2.3) and the same gate machinery,
+with stricter doors.
+
+| Call | Does |
+| --- | --- |
+| `GET /tenant-profiles` | the profiles on the node, with parameters and steps, or the reason a profile was refused |
+| `GET /tenant-builds` | the latest builds (id, profile, label, state, created, by) |
+| `GET /tenant-builds/<id>` | one build with every step |
+| `POST /tenant-builds` `{profile, params}` | start; `202` with a job |
+| `POST /tenant-builds/<id>/continue` | go on from where it stopped |
+| `POST /tenant-builds/<id>/confirm` `{step}` | confirm a waiting manual step |
+| `POST /tenant-builds/<id>/rollback` `{purge_instances}` | undo what the build made |
+
+- **Doors.** Role `server_admin` only, and only at the node's own address (at
+  a tenant's place the routes answer `404`). A session needs the header
+  `X-OAAP-API: 1` on a change. **A key can never call these routes:** a
+  machine principal is never `server_admin` (RFC-0027), so a person signs in.
+- **The role is not in the request.** The host reads it from the actor's own
+  record; a request that claims one, or names nobody, is refused.
+- **`purge_instances` is `true` only for the JSON value `true`.** A text is
+  not consent to delete data.
+- **Reads come from a view file** the host writes after every step
+  (`build-view.json`), so no GET waits behind a build. It holds no secret.
+- **A job always gets an answer.** A request the host refuses before it
+  reaches its action (nobody signed in behind it) still writes the job's
+  result; without it the caller polling the job would be told "no such job"
+  for ever (found in 0.1.2; it held for the cohort routes too).
+
 ## 3. Security requirements
 
 - The tenant comes from the caller's record only (2.1); a name that
@@ -270,3 +301,15 @@ wird dieser Ordner beim Entpacken abgenommen (`__MACOSX/` daneben wird
 übergangen). Genau eine Ebene: zwei Ordner oder `cohort.yaml` zwei Ebenen
 tief werden weiter abgelehnt — es wird nie gesucht. Alle anderen Prüfungen
 gelten unverändert.
+
+## Deutsche Zusammenfassung (v0.1.2 — Betreiber-Routen für den Mandanten-Aufbau)
+
+Neben den Mandanten-Routen gibt es `/api/v1/operator/…` für das, was nur der
+Betreiber tut: Profile und Aufbauten lesen, einen Aufbau starten, fortsetzen,
+einen Wartepunkt bestätigen, zurückbauen. Nur `server_admin`, nur an der
+Adresse des Knotens selbst, und **nie mit einem Schlüssel** — ein
+Maschinenkonto ist nie `server_admin`, es muss ein Mensch angemeldet sein. Die
+Rolle steht nicht in der Anfrage, der Host liest sie aus dem Benutzerspeicher.
+Die Daten einer Instanz löscht ein Rückbau nur bei dem JSON-Wert `true`. Ein
+Fehler dabei gefunden und behoben: eine vom Host vor ihrem Zweig abgelehnte
+Anfrage hinterließ keinen Job-Status.
