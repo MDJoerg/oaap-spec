@@ -1,8 +1,9 @@
 # RFC-0050: A Package Catalog — Released Packages as a Store Source, with Distribution to Recipient Nodes
 
-- **Status:** **Proposed (2026-10-01)** — design only; Jörg decided the three
-  scoping questions (operator-only upload, visibility "all" first, record as
-  RFC). Nothing built.
+- **Status:** **Accepted (2026-10-04)** — Jörg accepted it with his answers
+  of 2026-10-01 (§6). **Stages 1 and 2 are built** (reference 0.1.192, app
+  `package-catalog` 0.1.0); stage 3 (recipient nodes) is not. One change to §4,
+  made while building and recorded in §7.
 - **Date:** 2026-10-01
 - **Authors:** Jörg (the need and the three decisions), Claude (facts read in
   the reference code, design)
@@ -150,7 +151,44 @@ without the download-and-upload detour.
    training. The store dialog therefore asks on each install: *with a test
    instance* or *straight to production*.
 
-## 7. Out of scope
+## 7. What was built, and what changed against §4 (2026-10-04)
+
+**Stages 1 and 2 are built** — `oaap-apps/apps/package-catalog` 0.1.0
+(`/data`: `packages/`, `state.json`, `store.json`) and the store source
+`catalog:<instance>` of the host (`oaap store add-catalog`), with the channel
+choice in the store dialog (§6 answer 4). Rules and details are in
+`oaap.apps.runtime` 2.6 (0.2.37).
+
+**The one change against §4: a same-node catalog is read from its storage, not
+fetched from an address.** §4 said "an internal address; no public exposure is
+required". Building it showed the address has no good form:
+
+- the portal container cannot reach app containers (RFC-0016), and on some
+  nodes (`oaap-demo`) no container reaches its own host at all, yet the portal
+  must list the packages;
+- the node reaches an app on a published port, which on a default node is
+  visible to the whole LAN — so the list would need a secret, and the portal,
+  which also needs to read it, would hold that secret;
+- the operator already chooses which instance is the catalog; "the files of
+  THIS instance" is the same trust as "this URL", without a network.
+
+So the host reads `store.json` and the packages straight from the instance's
+storage and treats them as data written by an app (validated per entry, no
+symbolic links, SHA-256 and size checked on a **copy** the node owns, id and
+version compared with the manifest inside), and writes the portal a copy of the
+list without file paths. **Nothing is exposed and no token exists for stage 2.**
+The token per recipient of §4/§5 stays what it was: the access control of a
+catalog on ANOTHER node, which is stage 3 and fetches over HTTP; a local catalog
+and a remote one are then two kinds of source in the same resolution.
+
+**Known limits of stage 2.** "Update to vX" from the store works for the
+instance that carries the app's own name; a test instance `<app>-test` is
+updated by promotion or by the deploy hook, as before. A freshly released
+package reaches the store page within the state refresh (minutes), not at once.
+The catalog is operator-only (§2 decision 1) and shows no per-tenant filter yet
+(§6 answer 1: the list format leaves room for `visible_to`, nothing reads it).
+
+## 8. Out of scope
 
 Billing or entitlement per package; signed packages (the checksum protects
 integrity in transit, not the publisher — the operator is the publisher);
@@ -158,6 +196,18 @@ tenant-uploaded packages; automatic installation without a human or a policy
 (RFC-0049 owns the policy).
 
 ## Zusammenfassung (deutsch)
+
+**Stand 04.10.2026:** Stufe 1 (Katalog-App) und Stufe 2 (Katalog als
+Store-Quelle, Kanalwahl im Installationsdialog) sind gebaut. Eine Änderung
+gegenüber §4: ein Katalog **auf demselben Knoten** wird nicht über eine
+Adresse abgerufen, sondern der Knoten liest Liste und Pakete direkt aus dem
+Speicher der Instanz — das Portal erreicht keine App-Container, ein offener
+Port wäre im LAN sichtbar, und ein Schlüssel müsste auch im Portal liegen. Die
+Dateien einer App gelten dabei als Daten: jeder Eintrag wird geprüft, kein
+Weiterfolgen von Links, Größe und SHA-256 an einer Kopie des Knotens, App-Id und
+Version werden mit dem Manifest im Paket verglichen. Das Portal bekommt eine
+Kopie der Liste ohne Dateipfade. Ein Schlüssel je Empfänger kommt erst mit
+Stufe 3 (Katalog auf einem anderen Knoten, per HTTP).
 
 Ein **Paketkatalog** als OAAP-App im Betreiber-Mandanten: Der Betreiber lädt
 Pakete (ZIP) hoch, die App rechnet die Prüfsumme, führt die **Versionshistorie**

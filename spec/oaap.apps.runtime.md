@@ -1,7 +1,11 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.36 (**business authorization**, `oaap.core.authorization`
+- **Version:** 0.2.37 (**a package catalog as a store source**, RFC-0050
+  stage 2: a store source MAY be `catalog:<instance>` — an instance of this
+  node whose storage carries the list and the ZIP packages; the one-click
+  install gains a per-install channel choice; 2.6;
+  0.2.36 (**business authorization**, `oaap.core.authorization`
   0.1 / RFC-0045 stages 1+2: manifest 0.6 may declare an `authorization`
   section; the install registers it with identity BEFORE any image is
   built, stops on a destructive change unless `--confirm-authorization`,
@@ -1077,6 +1081,52 @@ directly from the portal's store page. The trust model mirrors 2.5
   listed version updates.
 - Every one-click install is **audited** like a remote deployment
   (time, app, source, outcome) and visible to server_admins.
+
+**Channel choice (0.2.37, RFC-0050 §6 answer 4).** A NEW instance from the
+store takes one decision per install, made by the person installing: **straight
+to production** (the default, as above) or **with a test instance** — the
+instance is then called `<app>-test`, lands on the test channel, and goes live
+by promotion (RFC-0020). The request carries `channel` = `test` or
+`production`; anything else is production, and the host decides again. An
+existing instance keeps the channel it has (2.3); the choice is not offered
+for an installed app.
+
+**A package catalog as a source (0.2.37, RFC-0050 stage 2).** A store source
+whose address is `catalog:<instance key>` names an instance of THIS node — the
+package catalog app (`package-catalog`) or any app that writes the same files.
+Nothing is fetched over a network: the host reads, from the instance's storage
+`data`, the list `store.json` (store list format 0.2 whose entries carry
+`package{zip, sha256, size}` instead of `package{git, path}`, `zip` a relative
+path of plain names) and the packages beside it. Rules, because everything in
+that directory is written by an app:
+
+- the list is **validated entry by entry**; an entry that cannot be trusted is
+  left out, a list that is not valid is an **error shown to the operator**,
+  not an empty store;
+- a package path is relative, plain, and reaches a **regular file inside the
+  storage** without passing a symbolic link — refused by the kernel where the
+  platform allows (`O_NOFOLLOW` per component), not by a check that has already
+  finished;
+- the host copies the package to a directory it owns, compares **size and
+  SHA-256 of the copy** with the list, and installs THE COPY through the ZIP
+  path of 2.5 — so the envelope rule, the version rule (production takes a
+  higher version only) and the channel rule are the ones every ZIP install
+  has;
+- what the list says about a package (app id, version) is **held against the
+  manifest inside** before anything is built; a mismatch refuses the install;
+- the instance records `store_source` (so "update to vX" resolves against the
+  same list) and is **not** marked as sideloaded (RFC-0037): the source is the
+  answer to "where did this come from";
+- the portal never reads the storage: the host writes it a copy of each
+  catalog's list **without file paths** (`apps/catalog-<source id>.json`), with
+  the state view; a catalog it cannot read is written as an error the store
+  page shows. A refusal by the catalog reaches the person with its reason, not
+  as "not listed".
+
+The source is added with `oaap store add-catalog <instance>` (trust class
+`verified` by default; `--trust unverified` asks for a confirmation on every
+install). Only the operator adds it; a request can pick among configured
+sources and never add one — the rule of this section is unchanged.
 
 **Creating instances from the portal — only on a `dev` node.** The rule
 above ("a request can never supply a source") is what makes a
