@@ -159,15 +159,84 @@ A node that has just been updated has little history; the chart says
 3. The outbound queue (§5, writing only) — **built** (reference 0.1.175): numbered lines in `outbox.jsonl`, bounded by age and size with the loss counted, `queue_ack` deletes what a sender has delivered, `oaap metrics queue` shows it, `oaap metrics queue-purge --yes` empties it (counted as `purged`, numbering goes on).
 4. *Later, own RFC:* the sender to an MQTT node.
 
+5. **Traffic** (§10, added 2026-10-04) — requests, duration, bytes and
+   connections, plus the busiest container. Built the same day.
+
 ## 9. Out of scope
 
-Alerts and thresholds; per-instance and per-container series; a
-metrics database; long-term storage beyond a month; the MQTT sender and
-its credentials.
+Alerts and thresholds; a series per container or per instance (stage 5
+keeps only the *busiest container* as one series, and the others as a
+snapshot table); a metrics database; long-term storage beyond a month;
+the MQTT sender and its credentials.
+
+## 10. Traffic (stage 5, 2026-10-04)
+
+**Why.** A club's page on `oaapx01` loaded slowly. Whether the network,
+the gateway or the app was at fault could not be said — nothing was
+recorded. The first measurement, by hand, showed that it was *none of the
+network*: one container held a CPU core at 100 %. The monitor should show
+that without a person measuring.
+
+**Six more series**, all plain numbers per minute, in the same tiers,
+the same queue and the same message (§3). Units belong to the series:
+
+| Series | Value | Source |
+|--------|-------|--------|
+| `req`  | finished gateway requests per minute (a WebSocket counts when it closes) | the gateway's access log |
+| `lat`  | mean duration of a request in ms, **without** status 101 (a display that stays connected for five minutes is not a slow page). A minute without requests has no `lat` — a gap, not 0. | access log |
+| `rx`, `tx` | bytes per second through the real network cards (not `lo`, docker bridges, `veth`, `wg*`: those would count the same bytes twice) | `/proc/net/dev` |
+| `conn` | TCP sockets in use | `/proc/net/sockstat` |
+| `ctop` | CPU of the busiest container, in percent of **one core** (100 = a full core, more is possible) | `docker stats --no-stream` |
+
+**Rules that keep the numbers honest.**
+
+- The log is read **from where the last run stopped**, never from the
+  start. The first run starts at the end: a number made of an unknown
+  period would be a guess. A different or shorter file (rotation) is read
+  from its start. At most 16 MB per run; more waiting than that skips
+  the oldest part. An unfinished last line is left for the next run.
+- A rate needs a previous reading no more than 5 minutes old. After a
+  longer gap (or a counter that went backwards — a reboot) the series is
+  left out of that minute; the lines of the gap are consumed and *not*
+  pushed into the next minute.
+- A reading that fails (log missing, docker not answering) removes
+  **its own series** from the minute and nothing else; the CPU line is
+  never lost to it.
+- The log is data from the internet. The `Host` header is the sender's
+  choice: it is cut to 80 characters, at most 50 distinct hosts are kept
+  per minute (the rest is summed under "(weitere)"), and every host and
+  container name is HTML-escaped on the page.
+
+**The snapshot.** Next to the series the sampler keeps `traffic.json`:
+the last 60 minutes **per host** (requests, long-lived connections, bytes
+out, summed and longest duration, 5xx) and the busiest six containers
+right now. The health page shows the first as a table "Letzte Stunde je
+Host" (a slow mean or maximum is marked) and the second as "Container
+jetzt". `oaap metrics show` prints the same.
+
+**Known limits.** `lat` runs to the last byte sent to the client, so a
+slow line to a visitor counts in it; it separates "slow" from "fast",
+not "the app" from "the network" — for that, compare with a request made
+on the node itself. Bytes *in* per request are not logged by the gateway;
+the node total comes from the network card. The tier mean of `lat` is a
+mean of minute means (not weighted by requests).
 
 ---
 
 ## Deutsche Zusammenfassung
+
+**Nachtrag 04.10. (Stufe 5, Verkehr, §10):** Auf oaapx01 lud die
+Vereinslösung langsam; von Hand gemessen war es nicht das Netz, sondern
+ein Container, der einen Kern ausgelastet hielt. Der Monitor misst das
+jetzt selbst: sechs weitere Reihen je Minute — Anfragen, mittlere Dauer
+(ohne Dauerverbindungen wie WebSockets), Netzkarte rein/raus, TCP-Verbindungen
+und der am stärksten ausgelastete Container —, dazu eine Tabelle
+„Letzte Stunde je Host" und „Container jetzt" auf der Gesundheitsseite.
+Quelle ist das Zugriffsprotokoll des Gateways, das ab der letzten Stelle
+gelesen wird, nicht jedes Mal von vorn. Die Reihen laufen durch dieselben
+Stufen und dieselbe Warteschlange und können später über MQTT gesendet
+werden. Grenze: die Dauer schließt die Leitung zum Besucher ein; sie
+sagt „langsam", nicht ob App oder Netz schuld ist.
 
 **Worum es geht:** Die Gesundheitsseite zeigt nur den Zustand *jetzt*.
 Um einen neuen Knoten wie oaapx02 zu beobachten, braucht es einen
