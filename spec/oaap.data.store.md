@@ -1,7 +1,10 @@
 # oaap.data.store — Managed Postgres per Node
 
 - **ID:** `oaap.data.store`
-- **Version:** 0.1
+- **Version:** 0.2 (**the store is closed for a client it does not trust**,
+  §2.6: the shared database belongs to the platform's roles, the superuser has
+  no network login; the prefix `app_` is reserved; RFC-0057 stage 0)
+- **Previous versions:** 0.1 (the service, schemas, copy, backup, restore)
 - **Maturity:** draft
 - **Based on:** RFC-0031 (data model & digital twin — Store is Schritt 1
   of the build order: Store, Model, Twin, reference apps, browser,
@@ -9,7 +12,9 @@
   profile `store`, see `oaap.core.host` 2.5), `oaap.data.backup` 0.3
   (dump becomes required backup content), RFC-0030 (rehearsal — the
   schema-copy mechanism this spec offers), `oaap.core.tenant`
-  (tenant-id is the schema's stable namespace, never the Kürzel)
+  (tenant-id is the schema's stable namespace, never the Kürzel), RFC-0057
+  (a database for an app — accepted 2026-10-05; stage 0 is §2.6 here, the
+  database itself is §2.7 and not built)
 
 ## 1. Purpose
 
@@ -25,8 +30,9 @@ node does not have to spare, so whether a node offers `store` — and
 therefore the twin — is a **profile decision** (RFC-0011), stated on
 the machine, never assumed.
 
-Out of scope for 0.1: per-app schemas (`app_<instance-id>` is named
-above as the later case, not built here), a query interface for apps
+Out of scope for 0.2: a database for an app (RFC-0057 decided it is a
+database per instance, not a schema; accepted, not built — §2.7), a query
+interface for apps
 (apps talk to `oaap.data.twin`/`oaap.data.model`, never to `store`
 directly — RFC-0031 §6), replication across nodes (that is
 `oaap.events.queue`/RFC-0032 territory).
@@ -63,6 +69,10 @@ directly — RFC-0031 §6), replication across nodes (that is
   platform service (`oaap.data.twin`), never to an app.
 - `oaap data store drop <schema>` — refuses without `--yes`; drops
   schema and role together, so no orphaned role outlives its schema.
+- **The prefix `app_` is reserved** (0.2). `create` refuses the purpose
+  `app`, `copy` refuses a new name that starts with `app_`: such a name
+  belongs to an app's own database (§2.7), never to a schema in the shared
+  one.
 - **The tenant-id, never the Kürzel, in the schema name.** The
   tenant-id is stable (RFC-0026); the Kürzel is meant to be renamed
   freely. A schema name that outlives a rename would either freeze the
@@ -138,6 +148,57 @@ The resolution keeps both rules true without contradicting either:
   It MUST refuse if any schema it would create already exists, so a
   restore never overwrites data a fresh install already produced.
 
+### 2.6 Closed for a client it does not trust (0.2, RFC-0057 stage 0)
+
+Until 0.1 the store had one client, the twin service, and whatever sat on
+the platform network was trusted. Before anything else is attached, the
+store is closed at **three doors that do not depend on each other**:
+
+1. **The privilege.** `CONNECT` on the shared database (`postgres`) and on
+   `template1` is revoked from everyone and granted to one group role,
+   `oaap_platform`. A role is in that group only if a platform service
+   needs the shared database.
+2. **The login rule.** Over the network a role enters the shared database
+   only as a member of that group, and any other database only if it
+   carries the role's own name. Nothing else has a rule; the product's
+   catch-all rule is removed.
+3. **The superuser has no network login.** The host talks to it through
+   the container's own socket; that is the only way in.
+
+Rules for the implementation:
+
+- **One place makes a login role**, and that place puts it into the group.
+  `create`, `copy` and the twin's provisioning all go through it.
+- **Who belongs in the group is decided by shape, not by "all there are":**
+  a login role that owns a schema of its own name in the shared database,
+  and never one whose name starts with `app_`. A rule that takes every
+  existing role would be right today and would hand an app's role the
+  shared database on the first update after apps exist.
+- **Order.** Members first, then the privilege, then the login rule — the
+  twin is never locked out in between.
+- **`oaap data store close`** does all of it, idempotently. It runs on
+  every update, before every creation of a role, after `restore` (a dump
+  brings roles and privileges as they were, never the login rules), and
+  when the profile `store` is added. It names a login role it did not put
+  into the group instead of guessing.
+- **An unknown network rule stops it.** If the rules file carries a network
+  rule OAAP did not write, `close` changes nothing in that file and says
+  which rule. A file the server does not accept is put back and not loaded.
+- **`oaap data store status` reads the state back** from the server —
+  privilege, group members, the rules as the server parses them — and
+  prints `closed: yes` or each door that is open.
+
+### 2.7 A database for an app (RFC-0057) — accepted, not built
+
+An app that declares `database:` in its manifest will get one database and
+one role `app_<instance-id>` in this store, its connection data as
+`OAAP_DB_*` environment variables, and the store on its instance network.
+The decisions (D1–D8) and the life of such a database are in RFC-0057 §3
+and §4. Nothing of it exists in 0.2 except the two things it must not find
+missing: the closed store (§2.6) and the reserved prefix (§2.2). Until
+then the second requirement of §4 holds unchanged: an app never sees a
+database credential.
+
 ## 3. Configuration
 
 - Postgres image (provider-defined default `pgvector/pgvector:pg16` —
@@ -169,6 +230,16 @@ The resolution keeps both rules true without contradicting either:
   copied from, and that role MUST be dropped together with the copy's
   schema on expiry (parity with the app-secret rule in RFC-0030 D3:
   a rehearsal never inherits production credentials).
+- (0.2) The superuser MUST NOT be able to log in over any network the
+  service is attached to.
+- (0.2) A role outside the group `oaap_platform` MUST be refused in the
+  shared database **twice, independently**: by the privilege and by the
+  login rule. Removing either one MUST leave the other standing.
+- (0.2) No role whose name starts with `app_` may be a member of the
+  group, and no command of this capability may create a schema role with
+  that prefix.
+- (0.2) Whether the store is closed MUST be read from the server, never
+  from what the closing step believes it wrote.
 
 ## 5. Conformance tests (described)
 
@@ -195,6 +266,19 @@ The resolution keeps both rules true without contradicting either:
    service, and the portal states that data-model/twin capabilities are
    unavailable there. A node that gains the profile gets the service on
    its next update; one that never had it is never touched.
+6. **Closed (0.2):** with a role that owns a database of its own name and a
+   role that holds `CONNECT` on the shared database without being in the
+   group — over the network the superuser is rejected, the first role
+   enters its own database and neither the shared one nor `template1` nor
+   another role's database, the second role is rejected by the login rule
+   alone; through the container's socket the first role is refused the
+   shared database by the privilege alone; the twin's role still logs in
+   and a real app's call to the twin still answers. A second `close`
+   changes nothing. After a restart of the service the state is the same.
+7. **Every way a role is made (0.2):** a role created by `create`, by
+   `copy` and by the twin's provisioning is a member of the group;
+   `create app <tenant>` and `copy <schema> app_<x>` are refused and
+   create nothing.
 
 ## 6. Dependencies
 
@@ -212,7 +296,22 @@ called from).
 reference platform (`oaap-test`); test 5 (profile gating) is proven
 across at least two nodes, one profiled and one not.
 
-## Deutsche Zusammenfassung (v0.1)
+## Deutsche Zusammenfassung (v0.2)
+
+**Neu in 0.2 — der Store ist geschlossen (RFC-0057 Stufe 0).** Bisher hatte
+der Store einen einzigen Klienten, den Zwillingsdienst, und allem im
+Plattformnetz wurde vertraut. Bevor Apps eine eigene Datenbank bekommen
+(RFC-0057, angenommen, noch nicht gebaut), wird er an drei Türen
+geschlossen, die nicht voneinander abhängen: Das **Verbindungsrecht** auf
+die gemeinsame Datenbank gehört nur noch der Gruppe `oaap_platform`; die
+**Anmelderegel** lässt über das Netz nur diese Gruppe in die gemeinsame
+Datenbank und jede andere Rolle nur in die Datenbank ihres eigenen Namens;
+der **Superuser** meldet sich über kein Netz mehr an. `oaap data store
+close` stellt das her (bei jedem Update, vor jeder neuen Rolle, nach einer
+Wiederherstellung), `oaap data store status` liest es vom Server zurück.
+Der Vorsatz `app_` ist vergeben: Er gehört künftig der Datenbank einer App
+und nie einem Schema in der gemeinsamen. Gemessen am 05.10. auf
+`oaap-test`.
 
 **Ein verwaltetes Postgres je Knoten**, mit **einem Schema je Mandant
 und Zweck** — die Grundlage, auf der `oaap.data.model` und

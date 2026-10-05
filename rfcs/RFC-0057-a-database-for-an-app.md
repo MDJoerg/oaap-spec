@@ -1,8 +1,9 @@
 # RFC-0057: A Database for an App — Managed Postgres From the Platform, Declared in the Manifest
 
-- **Status:** **Draft (2026-10-05)** — eight decisions (D1–D8) are open and
-  wait for Jörg. Nothing is built. The measurements of §2 were made by hand on
-  `oaap-test` and removed again.
+- **Status:** **Accepted (2026-10-05)** — Jörg took all eight decisions (D1–D8)
+  as recommended, with the instruction "for now only document and create the
+  prerequisites". **Stage 0 is built and measured** (§2.4, `oaap.data.store`
+  0.2). Stages 1–3 — the database itself — are **not built**.
 - **Date:** 2026-10-05
 - **Authors:** Jörg (the need: a CAP application should find its database on
   the platform, as it does on BTP), Claude (measurement and write-up)
@@ -10,8 +11,9 @@
   case), RFC-0016 (one network per instance), RFC-0011 (node profile `store`),
   RFC-0026 (identity is an id, names change), RFC-0029 (backup, tenant archive),
   RFC-0030 (rehearsal), RFC-0004 (manifest)
-- **Changes:** `oaap.data.store` 0.1 → 0.2, `oaap.apps.runtime` (manifest 0.7,
-  install, removal, rehearsal), `oaap.data.backup` (tenant archive)
+- **Changes:** `oaap.data.store` 0.1 → 0.2 (stage 0, done) → 0.3 (stage 1),
+  `oaap.apps.runtime` (manifest 0.7, install, removal, rehearsal),
+  `oaap.data.backup` (tenant archive)
 - **Origin:** the CAP spike of 2026-10-05 (`oaap-lab/cap-spike/README.md`,
   finding 2)
 
@@ -118,6 +120,35 @@ Further, for the database variant:
   (`docker network connect`) and re-made on every path that recreates an app or
   the gateway. The store would need the same care.
 
+### 2.4 Stage 0, built and measured (`program/messungen/store-geschlossen-messung.sh`)
+
+Throwaway objects made by hand as stage 1 will make them: two "apps"
+(`app_spike1`, `app_spike2`, each a role and a database of its name) and a role
+that holds `CONNECT` on `postgres` without being in the platform's group.
+Network logins came from the twin container, a real member of the platform
+network. Everything was removed afterwards.
+
+| | Before `oaap data store close` | After |
+| --- | --- | --- |
+| superuser → `postgres`, over the network | logged in | rejected by `pg_hba` |
+| twin's role → `postgres` | logged in | logged in |
+| app role → its own database | logged in | logged in |
+| app role → `postgres` | **logged in** | no `pg_hba` entry |
+| app role → `template1` | **logged in** | no `pg_hba` entry |
+| app role → the other app's database | no `CONNECT` | no `pg_hba` entry |
+| role with `CONNECT`, outside the group → `postgres` | logged in | no `pg_hba` entry (the rule alone) |
+| app role → `postgres`, through the container's socket | connected | no `CONNECT` (the privilege alone) |
+| a real app asks the twin through the gateway | 200 | 200 |
+
+Also measured: a second run changes nothing; a role made with
+`oaap data store create` afterwards logs in to `postgres` over the network;
+`oaap data store create app <tenant>` is refused; after a restart of the store
+container the store is still closed and the twin answers.
+
+Not measured: the step inside a real `oaap update` (the command it runs was run
+by hand); a node whose store has no client yet; a restore; the fleet — only
+`oaap-test` carries this build.
+
 ## 3. Proposal
 
 ### 3.1 The manifest declares the need (manifest 0.7)
@@ -216,14 +247,14 @@ profile. Nothing falls back silently to a container.
 
 ### 3.9 What changes in `oaap.data.store`
 
-0.1 says an app never sees a database credential. 0.2 says: **an app sees the
-credential of its own database and of nothing else.** The twin's schemas remain
+0.1 and 0.2 say an app never sees a database credential. 0.3 (stage 1) will
+say: **an app sees the credential of its own database and of nothing else.** The twin's schemas remain
 reachable only by the twin service. `oaap data store schemas` lists databases as
 well, with instance, tenant and size.
 
-## 4. Decisions for Jörg
+## 4. Decisions — all taken as recommended (Jörg, 2026-10-05)
 
-| | Question | Recommendation |
+| | Question | Decided |
 | --- | --- | --- |
 | **D1** | A **database** per instance, or a **schema** in the shared database as RFC-0031 §7 words it? | **Database.** In a shared database every app reads the names of every other tenant's tables and columns (§2.2). This departs from the wording of RFC-0031 §7, not from its intent. |
 | **D2** | Network path: the store joins the instance network, or a separate proxy service in between? | **The store joins.** Measured, no new service; the price is one more membership to re-make. |
@@ -236,10 +267,11 @@ well, with instance, tenant and size.
 
 ## 5. Build stages
 
-- **Stage 0 — close the store (§3.6).** Revoke and grant, `pg_hba`, migration of
-  existing nodes; measured with a role that must be refused at each of the three
-  doors. No app-facing change.
-- **Stage 1 — the database.** `oaap.data.store` 0.2, manifest 0.7, install,
+- **Stage 0 — close the store (§3.6). Built 2026-10-05** (`oaap.data.store`
+  0.2, §2.6 there): `oaap data store close`, run by every update and by every
+  path that creates a role; the group role `oaap_platform`; the reserved prefix
+  `app_`. Measured in §2.4. No app-facing change.
+- **Stage 1 — the database.** `oaap.data.store` 0.3, manifest 0.7, install,
   removal, purge, the six variables, the network membership. First consumer: the
   CAP spike without its bundled `db` service.
 - **Stage 2 — copy and carry.** Rehearsal copy; tenant archive with its reader;
@@ -313,6 +345,14 @@ Arbeitsspeicher spart es kaum (gemessen 20–30 MB je mitgebrachtem Postgres).
   neuer Rolle (1000 von 1000 Zeilen), und eine Obergrenze der Verbindungen je
   Rolle greift.
 
+**Stand 05.10.:** Jörg hat alle acht Entscheidungen wie empfohlen getroffen,
+mit der Maßgabe „vorerst nur dokumentieren und die Voraussetzungen schaffen“.
+**Stufe 0 ist gebaut und auf `oaap-test` gemessen:** Vorher meldete sich der
+Superuser über das Netz an und eine App-Rolle kam in die gemeinsame Datenbank;
+nachher weist die Anmelderegel beide ab, das Verbindungsrecht ist entzogen, und
+der Zwilling arbeitet unverändert weiter — auch nach einem Neustart des
+Store-Containers. Die Datenbank je App (Stufen 1–3) ist nicht gebaut.
+
 **Der Vorschlag in Stufen:** Zuerst den Store für Klienten schließen, denen man
 nicht traut (Stufe 0: Verbindungsrecht entziehen, Superuser ohne Netz-Anmeldung,
 jede Rolle nur in ihre Datenbank). Dann die Datenbank je Instanz mit
@@ -320,7 +360,7 @@ Manifest 0.7 (Stufe 1, erster Abnehmer ist der CAP-Spike ohne eigenen
 Datenbank-Container). Dann Generalprobe, Mandantenarchiv und Umzug — Leser und
 Schreiber zusammen (Stufe 2). Zuletzt die Anzeige im Portal (Stufe 3).
 
-**Acht Entscheidungen für Jörg (D1–D8), mit Empfehlung:** eigene Datenbank
+**Die acht Entscheidungen (D1–D8), alle wie empfohlen:** eigene Datenbank
 statt Schema (weicht vom Wortlaut in RFC-0031 §7 ab); der Store tritt dem
 Instanznetz bei; eine Datenbank je Instanz; Erweiterungen aus einer Liste des
 Knotens, angelegt von der Plattform; ein Knoten ohne `store` lehnt die

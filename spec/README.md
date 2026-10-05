@@ -23,7 +23,7 @@ before the full specification is written.
 - [oaap.fleet.status](oaap.fleet.status.md) — read-only fleet status document & fleet keys (draft, v0.3)
 - [oaap.ai.gateway](oaap.ai.gateway.md) — AI supply behind one keyed, OpenAI-compatible endpoint (draft, v0.2)
 - [oaap.core.tenant](oaap.core.tenant.md) — account and tenant, the boundary of belonging (draft, v1.0.2)
-- [oaap.data.store](oaap.data.store.md) — managed Postgres per node, schema per tenant/purpose (draft, v0.1)
+- [oaap.data.store](oaap.data.store.md) — managed Postgres per node, schema per tenant/purpose, closed for untrusted clients (draft, v0.2)
 - [oaap.data.model](oaap.data.model.md) — type registry for the digital twin: object/attribute/group/relation/activity types, origin, binding (draft, v0.1)
 - [oaap.data.files](oaap.data.files.md) — where the bytes live: the node's own content-addressed store, tenant-isolated by path, put/get/verify by hash; external backings are RFC-0034 Stufe 4 and not yet specified (draft, v0.1.1)
 - [oaap.data.twin](oaap.data.twin.md) — the digital twin: objects, groups, relations, activities per tenant, append-only, behind its own gateway route; validity/tree/merge and a person-facing API for the twin browser since v0.2; the outbox relay (publishes every event to the broker) and the `states` table since v0.3; a read-only remote reader on another node, through a tunnel, since v0.4 (draft, v0.4)
