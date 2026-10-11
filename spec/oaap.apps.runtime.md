@@ -1,7 +1,9 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.37 (**a package catalog as a store source**, RFC-0050
+- **Version:** 0.2.38 (**the store updates a NAMED instance**, 2.6: the
+  request names the instance, test first where a test instance exists;
+  0.2.37 (**a package catalog as a store source**, RFC-0050
   stage 2: a store source MAY be `catalog:<instance>` — an instance of this
   node whose storage carries the list and the ZIP packages; the one-click
   install gains a per-install channel choice; 2.6;
@@ -1090,6 +1092,27 @@ by promotion (RFC-0020). The request carries `channel` = `test` or
 `production`; anything else is production, and the host decides again. An
 existing instance keeps the channel it has (2.3); the choice is not offered
 for an installed app.
+
+**Updating a named instance (0.2.38).** An app may be installed several times
+and under names that are not its app id. "Update" therefore names the
+INSTANCE: the request carries the instance key as `update` and the app id as
+`app_id` (the source is searched for the app, never for the instance name). The
+host judges again: the instance exists, belongs to that app, and — for a
+`tenant_admin` — to the acting tenant (2.3 rule 3); the instance keeps its
+channel and its tenant, an operator acting on a tenant's instance included. A
+request that names no existing instance never creates one.
+
+**Test first, where a test instance exists (0.2.38).** A PRODUCTION instance
+whose tenant also holds a TEST instance of the same app (a rehearsal does not
+count) is not updated from the store directly; the host refuses and names the
+test instance. That one is updated, and production follows by promotion
+(RFC-0020), which carries the tested bytes. A production instance WITHOUT a
+test instance is updated directly, under the version and envelope rules of 2.3.
+
+**A further instance (0.2.38).** A second instance of an installed app is a
+separate act with its own name (`new` = true, the name in `instance`, the app
+id in `app_id`): a name that is already taken in the tenant is refused, never
+read as "update the holder of that name".
 
 **A package catalog as a source (0.2.37, RFC-0050 stage 2).** A store source
 whose address is `catalog:<instance key>` names an instance of THIS node — the
