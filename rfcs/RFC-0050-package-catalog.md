@@ -181,12 +181,40 @@ The token per recipient of §4/§5 stays what it was: the access control of a
 catalog on ANOTHER node, which is stage 3 and fetches over HTTP; a local catalog
 and a remote one are then two kinds of source in the same resolution.
 
-**Known limits of stage 2.** "Update to vX" from the store works for the
-instance that carries the app's own name; a test instance `<app>-test` is
-updated by promotion or by the deploy hook, as before. A freshly released
-package reaches the store page within the state refresh (minutes), not at once.
+**Known limits of stage 2.** (Corrected 2026-10-11 — see "Update of a named
+instance" below.) A freshly released package reaches the store page within the state refresh (minutes), not at once.
 The catalog is operator-only (§2 decision 1) and shows no per-tenant filter yet
 (§6 answer 1: the list format leaves room for `visible_to`, nothing reads it).
+
+### Update of a named instance (found 2026-10-11, built as 0.1.195)
+
+**What was wrong.** The store's "Update to vX" sent only the app id as the
+instance name. An instance called anything else — or a second instance of the
+same app, which multi-tenant nodes have by design — was never found, and the
+host created a NEW instance instead. Found by the first real user on `oaapx02`
+(the club solution); the first version of stage 2 had been measured only with
+instances named like their app.
+
+**What it is now** (rules in `oaap.apps.runtime` 2.6, 0.2.38):
+
+- the store page lists the caller's own instances of the app (through the tenant
+  boundary), each with its own button; the request names the instance key
+  (`update`) and the app (`app_id`), never a package;
+- the host judges again: the instance exists, belongs to that app and to the
+  acting tenant, keeps its channel and tenant (an operator acting on a tenant's
+  instance included); a request naming no existing instance creates nothing;
+- **test first, where a test instance exists** (Jörg, 2026-10-11): a production
+  instance whose tenant also holds a test instance of the same app (a rehearsal
+  does not count) is refused with the test instance named; that one is updated
+  and production follows by promotion (RFC-0020). Without a test instance the
+  production instance is updated directly, under the version and envelope
+  rules;
+- a further instance is its own act with its own name; a taken name is refused.
+
+**Open from this:** per-instance "create a test instance for this production
+instance" (a new test instance starts without data; a data copy is the
+rehearsal of RFC-0030); the refusal text of a widened envelope in the portal is
+not looked at in a browser.
 
 ## 8. Out of scope
 
@@ -231,3 +259,13 @@ offengehalten; der Katalog ist eine Funktion, meist auf dem Installationsknoten,
 später auch als geteilter Referenzkatalog für mehrere Hosting-Knoten; die
 Vertrauensstufe am ersten Tag ist eine Konfigurationsoption; die Wahl
 Testinstanz oder produktiv gilt je Installation. Nichts gebaut.
+
+**Nachtrag 11.10.2026 (0.1.195).** Der Knopf „Aktualisieren auf x" schickte nur
+die App-Kennung als Instanzname; eine anders benannte oder zweite Instanz wurde
+nie gefunden, es entstand eine neue (gefunden auf oaapx02). Jetzt listet die
+Store-Seite die eigenen Instanzen der App mit je einem Knopf; der Host prüft
+neu. Entscheidung Jörg: **nur über Test, wenn Test existiert** — eine
+Produktiv-Instanz mit Test-Instanz im selben Mandanten wird nicht direkt
+aktualisiert, sondern über die Test-Instanz und „Nach Produktiv übernehmen".
+Ohne Test-Instanz geht es direkt. Eine weitere Instanz bekommt einen eigenen
+Namen; ein vergebener Name wird abgelehnt.
