@@ -1,7 +1,10 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.38 (**the store updates a NAMED instance**, 2.6: the
+- **Version:** 0.2.39 (**shared memory per service**, manifest 0.7:
+  a service MAY declare `shm`, the size of its container's `/dev/shm`;
+  recorded at install and applied at every (re)creation — new 2.20;
+  0.2.38 (**the store updates a NAMED instance**, 2.6: the
   request names the instance, test first where a test instance exists;
   0.2.37 (**a package catalog as a store source**, RFC-0050
   stage 2: a store source MAY be `catalog:<instance>` — an instance of this
@@ -208,6 +211,11 @@ the core never comes from a store (RFC-0001).
   every install path (local, Git, uploaded artifact, remote deploy
   hook), that hands them to `oaap.data.model` — so a package installed
   any of those four ways is registered exactly the same way.
+- **Manifest 0.7** adds one optional field per service: `shm` — see
+  2.20. Additive like 0.2: a node that ignores it starts the container
+  with Docker's default, which is a crashing browser, not a broken
+  install — so `must_understand` is not required, but an app whose
+  purpose IS the browser may well name it.
 - The same choke point (`_install_from_dir`) hands `contributes`/
   `consumes` to `oaap.data.twin` 0.1 too (RFC-0031 Schritt 3): the
   instance's machine-principal key (RFC-0027) and its tenant's twin
@@ -465,6 +473,45 @@ remove | secret`; the functions behind it are the body of the stage-2 API
 - Every step is a tenant audit entry `cohort.create`, `cohort.add`,
   `cohort.reset`, `cohort.stop`, `cohort.start`, `cohort.material`,
   `cohort.export`, `cohort.remove` naming cohort and seat.
+
+### 2.20 Shared memory per service (0.2.39, manifest 0.7)
+
+A service MAY declare the size of its container's `/dev/shm`:
+
+```yaml
+services:
+  desktop:
+    build: .
+    port: 3000
+    shm: 1g
+```
+
+- **Why.** Docker gives every container 64 MB of shared memory. Chromium
+  and everything built on it — a browser, VS Code, an Electron app — put
+  their renderers' frame buffers there and crash when it runs out, after
+  minutes, not at start. A desktop in the browser (`oaap-lab`, 2026-10-14)
+  is the first app that cannot run without more; the project it was
+  derived from set 1 GB in its compose file.
+- **An app property, not an operator limit.** `resources` (2.18) is what
+  the node *allows* an instance; `shm` is what the service *needs*, known
+  to its author. It therefore lives in the manifest, is recorded in the
+  service's registry record at install, and is applied by the one
+  function that creates containers (`--shm-size`), at every (re)creation
+  and through every door — exactly like the service's image and port.
+  An operator does not set it, and `resources` does not touch it.
+- **Values.** `<n>m` or `<n>g`, at least `64m` (Docker's default — a
+  smaller value could only take away what every container has). A bare
+  number is refused where the manifest is validated: Docker would read
+  it as bytes. The recorded value is checked **again** when a container
+  is built; a record that no longer parses yields a container **without**
+  the flag rather than a `docker run` that fails.
+- **Counts against the limit.** `/dev/shm` is a tmpfs and its pages are
+  the container's memory; a `resources.memory` of 3g with `shm: 1g`
+  leaves the processes 2 GB. The health page's sum (2.18) is unchanged:
+  the limit is the limit.
+- **No default, nothing changes** for a service that does not declare
+  it, and an instance installed before this field was recorded gets no
+  flag until it is reinstalled or redeployed from a manifest that has it.
 
 ### 2.11 Instance networks and isolation (RFC-0016)
 
@@ -1813,6 +1860,14 @@ stays 2.7/2.10, the operator's decision):
     cohort at the new end; nothing is started or reactivated; refused when a
     new date would not be in the future; nothing changes under `--dry-run`.
 
+56. **Shared memory is the service's, and it is applied** (2.20): a
+    manifest with `shm: 1g` installs and the service record carries `1g`;
+    the `docker run` carries `--shm-size 1g` before the image, from every
+    door (install, configuration save, restart); a service without `shm`
+    gets no flag; `512`, `1k`, `32m` and text are refused at validation;
+    a hand-edited record that no longer parses yields a container without
+    the flag, not a failed command; `resources` flags are unaffected.
+
 ## 6. Dependencies
 
 `oaap.core.host`, `oaap.core.gateway`, `oaap.core.identity`,
@@ -2568,3 +2623,30 @@ die Kohorte am neuen Ende wieder stoppt. Der Befehl **startet nichts und
 reaktiviert niemanden** — das bleibt Sache des Ausbilders (er verweist auf
 `oaap cohort start`). Liegt ein neuer Termin nicht in der Zukunft, wird
 abgelehnt. Protokolleintrag `cohort.extend`; `--dry-run` ändert nichts.
+
+## Deutsche Zusammenfassung (2.20, v0.2.39 — gemeinsamer Speicher je Dienst, Manifest 0.7)
+
+Ein Dienst darf im Manifest erklären, wie groß sein `/dev/shm` sein muss
+(`shm: 1g`). Docker gibt jedem Container 64 MB; Chromium und alles darauf
+(Browser, VS Code, Electron-Apps wie Claude Desktop) legen dort die Bilder
+ihrer Renderer ab und stürzen ab, wenn es voll ist — nach Minuten, nicht
+beim Start. Der **Desktop im Browser** (oaap-lab, 14.10.2026) ist die erste
+App, die ohne mehr nicht läuft; das Brandeis-Projekt, aus dem er stammt,
+setzt 1 GB in der Compose.
+
+**Eigenschaft der App, nicht Grenze des Betreibers:** `resources` (2.18) ist,
+was der Knoten einer Instanz *erlaubt*; `shm` ist, was der Dienst *braucht*,
+und das weiß sein Autor. Darum steht es im Manifest, wird beim Installieren
+im Dienst-Eintrag des Registers vermerkt und von der **einen** Funktion, die
+Container baut, bei jeder (Neu-)Erzeugung durch jede Tür als `--shm-size`
+mitgegeben — wie Image und Port des Dienstes. Der Betreiber setzt es nicht.
+
+**Werte:** `<n>m` oder `<n>g`, mindestens `64m`; eine nackte Zahl wird bei der
+Manifest-Prüfung abgelehnt (Docker läse Bytes). Der gespeicherte Wert wird beim
+Bauen **erneut** geprüft; ein handbearbeiteter Eintrag, der nicht mehr lesbar
+ist, ergibt einen Container **ohne** das Flag statt eines gescheiterten
+`docker run`. `/dev/shm` zählt zur Speichergrenze der Instanz (3g mit 1g shm
+lassen den Prozessen 2 GB); die Summe auf der Gesundheitsseite ändert sich
+nicht. **Keine Vorgabe:** ohne `shm` ändert sich nichts, auch nicht für
+bestehende Instanzen, bis sie aus einem Manifest mit dem Feld neu ausgerollt
+werden. Konformitätstest 56.
