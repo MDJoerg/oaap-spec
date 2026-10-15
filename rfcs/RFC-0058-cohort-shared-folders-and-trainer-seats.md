@@ -123,7 +123,7 @@ the tenant archive, `create_rehearsal`):
 | Node / tenant archive | the tenant archive carries `tenants/<tid>` and `files/<tid>`. A shared directory **below** `tenants/<tid>` would be in every nightly backup — against D5 | code read |
 | Rehearsal | a rehearsal extracts the instance subtree from an archive; a shared directory is not in it, so a copy of a seat has no shared mount unless the record is made to carry it. A rehearsal must **not** be given the live shared folder | code read |
 | Two writers | same image, same uid in every container, so permissions agree; the platform adds no locking and promises none | not measured, by design |
-| Cohort `remove` with seats already removed by hand | not examined | open |
+| Cohort `remove` with seats already removed by hand | measured 2026-10-15 on `oaap-test` (§3.3): `remove` itself worked, but `list` crashed and `--purge` left the seat's data behind; both fixed | measured |
 
 **Consequences for the build:**
 
@@ -161,9 +161,22 @@ ro}]`, kept by a redeploy like `resources`; `recreate_instance_containers`
 reads it (registry first) in its single mount loop, and a shared mount
 **replaces** an own storage entry on the same mount point (webtop `material`
 → `/schulung`). A rehearsal carries no record of it, so it never binds the
-live folder. Not covered: `remove` of a cohort whose seats were removed by
-hand; the trainer's `/schulung` ownership relies on the image's own init
+live folder. Not covered: the trainer's `/schulung` ownership relies on the image's own init
 (`chown`), the platform chowns only when the image declares a uid.
+
+### 3.3 Seat removed by hand (2026-10-15, `oaap-test`)
+
+Two-seat cohort, then `oaap app remove` on one seat instance, then the
+cohort commands:
+
+| What | Before | After the fix |
+| --- | --- | --- |
+| `cohort list <name>` | `KeyError: 'container'` (the cohort record still names the instance, the registry does not) | the seat shows `MISSING` |
+| `cohort remove --purge` | removed the cohort, but the seat's data stayed behind although the text said "DELETED" | the confirmation names the seat as "already removed by hand"; `--purge` deletes the data it left (retained note, audit entry) |
+| `stop`/`start`, the daily sweep | same crash, by reading | skip an instance that is not there |
+
+`remove` without `--purge` keeps that data, as for any removed instance
+(`oaap app purge <name>` deletes it later).
 
 ## 4. Decisions for Jörg
 
