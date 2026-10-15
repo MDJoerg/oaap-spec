@@ -222,11 +222,29 @@ answers.
 | Wake by `POST` (what the page's script does) | `{"asleep": true}`, then HTTP 200 on the instance address after **5 s**; state removed; `HEALTHY 20/20` |
 | Maintenance on | machine principal with a key: `503`; anonymous: `503` with the configured sentence; JSON caller: `{"error":"maintenance",...}`; `Retry-After: 300`; `/auth/login` still `200`; `app list` shows `MAINTENANCE`; off: back to normal |
 
-**Not measured:** the page in a real browser (the script's polling and reload);
-a real person's session instead of an API key; a tenant or server administrator
-passing a maintained instance (tested against identity only, with test users);
-`oaap update` and a node reboot with a sleeping instance; the wake of a
-multi-service instance; a wake when the node has no room.
+### 6.2 Update, reboot, wake after reboot, administrator (2026-10-15, `oaap-test`)
+
+| What | Result |
+| --- | --- |
+| `oaap update` with a real revision (an empty commit) while `webtop` sleeps | the container stays `exited`, same id; `app list` shows `STANDBY`; the site is rewritten with the waking page ("1 instance site(s) rewritten"); `HEALTHY 19/19, 1 in standby` |
+| Node reboot (`systemctl reboot`, physical machine) with `webtop` asleep | after boot `webtop` is `exited`, the 19 other apps are up, the gateway answers `303` to an anonymous visitor, `app list` still shows `STANDBY` |
+| `oaap app wake webtop` after the reboot | `running` after 5 s, `HEALTHY 20/20` |
+| Maintenance, an administrator principal | a key whose principal has `tenant_admin` (of the instance's tenant) is **not** answered `503` — it passes to the route's own role check (`403`, because `tenant_admin` alone is no route role, the same answer as with maintenance off); anonymous gets `503` |
+
+Not measured: the waking page and maintenance page in a real browser; a
+**human** administrator session (passwords were not created on the node —
+Jörg opens `…/` of a maintained instance as `server_admin` to see it);
+a multi-service instance; a wake with no room on the node.
+
+**Two findings that are not this RFC's, found on the way:**
+
+1. After the reboot the **broker** (`oaap-broker-1`, profile `broker`) stayed
+   `exited (0)` although its policy is `unless-stopped`; the 18 other core and
+   app containers came back. Cause not found; started by hand.
+2. `oaap status` could not see it: its core total is `compose ps --services`,
+   which lists running services only, so `HEALTHY (7/7 core services …)`
+   was printed with the broker down. A core service that is *stopped* is
+   invisible to the count (only a restart loop shows).
 
 ## Deutsche Zusammenfassung
 
