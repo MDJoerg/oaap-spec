@@ -1,7 +1,11 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.39 (**shared memory per service**, manifest 0.7:
+- **Version:** 0.2.40 (**cohort-owned shared folders and trainer seats**,
+  RFC-0058: a cohort mounts one directory into several of its instances,
+  read-write or read-only, kept on the instance record; trainer seats; new
+  2.21; `oaap cohort create --dry-run` creates nothing;
+  0.2.39 (**shared memory per service**, manifest 0.7:
   a service MAY declare `shm`, the size of its container's `/dev/shm`;
   recorded at install and applied at every (re)creation — new 2.20;
   0.2.38 (**the store updates a NAMED instance**, 2.6: the
@@ -470,6 +474,10 @@ remove | secret`; the functions behind it are the body of the stage-2 API
   (RFC-0046 §4) bites in stage 2, where the actor is a session or a key. A
   template's `git:` source is taken as written on the node and is
   restricted there.
+- **`create --dry-run`** reads and checks everything (template, dates,
+  secrets, sources, handout path) and prints seats, apps, shared folders
+  and the handout path; it writes no record, no template copy, no user, no
+  instance and no handout file.
 - Every step is a tenant audit entry `cohort.create`, `cohort.add`,
   `cohort.reset`, `cohort.stop`, `cohort.start`, `cohort.material`,
   `cohort.export`, `cohort.remove` naming cohort and seat.
@@ -512,6 +520,52 @@ services:
 - **No default, nothing changes** for a service that does not declare
   it, and an instance installed before this field was recorded gets no
   flag until it is reinstalled or redeployed from a manifest that has it.
+
+### 2.21 Cohort shared folders and trainer seats (0.2.40, RFC-0058)
+
+A cohort template MAY declare directories owned by the **cohort**, not by
+one instance, and trainer seats:
+
+```yaml
+shared_storage:
+  - name: gemeinsam        # read-write for every seat
+    mount: /gemeinsam
+    access: rw
+  - name: schulung         # participants read, trainers write
+    mount: /schulung
+    access: ro
+    source: material/      # initial content, a directory in the template
+trainers: 1                # seats t01 … (at most 9)
+```
+
+- **Where it lives.** `<data>/cohorts/<tenant>/<cohort>/shared/<name>`,
+  **outside** `tenants/<tenant>`: neither the node backup nor the tenant
+  archive carries it (a course is a transient landscape, RFC-0046).
+  `cohort export` carries the current content as `shared-content/<name>`.
+  `remove --purge` names the folders and deletes them with the cohort;
+  `reset` and `stop`/`start` never touch them.
+- **Recorded on the instance.** The registry entry carries
+  `shared_mounts: [{name, mount, host, ro}]`. It is kept by a redeploy
+  (like `resources`) and read in the single place that creates containers,
+  so every door applies it. A shared mount **replaces** an own storage
+  entry on the same mount point; `ro` adds `:ro` to the bind.
+- **Roles.** Participants get each folder with the template's `access`;
+  trainer seats get every folder read-write, the group `<cohort>-trainer`
+  in addition to their seat group, and see all seats of the cohort. A
+  trainer is no `tenant_admin`.
+- **Content, never the directory.** `material update` empties and refills
+  the **content** of a shared folder; the directory keeps its inode (a
+  bind mount follows the inode — a deleted and recreated directory leaves
+  running containers on an empty old one). The update is not atomic: a
+  reader may see an empty folder for a moment.
+- **No promises between writers.** Containers of one image share the user
+  id, so permissions agree; the platform adds no locking.
+- **Rehearsal.** A rehearsal carries no `shared_mounts`; it never binds the
+  live folder.
+- **Limit.** Handling of `remove` for a cohort whose seats were removed by
+  hand is not specified here; the owner of a read-only mount is the
+  image's business (the platform chowns only for an image that declares a
+  uid).
 
 ### 2.11 Instance networks and isolation (RFC-0016)
 
@@ -1868,6 +1922,16 @@ stays 2.7/2.10, the operator's decision):
     a hand-edited record that no longer parses yields a container without
     the flag, not a failed command; `resources` flags are unaffected.
 
+57. **Cohort shared folders** (2.21): a template with a `ro` and an `rw`
+    folder and `trainers: 1` yields participant instances with the `ro`
+    folder read-only (a write fails) and the `rw` folder writable, a trainer
+    instance with both writable; the folders sit outside `tenants/`; a
+    configuration save recreates the container with the same mounts;
+    `material update` keeps the directory's inode; `reset` leaves the
+    folders; `export` carries `shared-content/`; `remove --purge` names and
+    deletes them; `create --dry-run` creates no record, user, container or
+    handout.
+
 ## 6. Dependencies
 
 `oaap.core.host`, `oaap.core.gateway`, `oaap.core.identity`,
@@ -2650,3 +2714,25 @@ lassen den Prozessen 2 GB); die Summe auf der Gesundheitsseite ändert sich
 nicht. **Keine Vorgabe:** ohne `shm` ändert sich nichts, auch nicht für
 bestehende Instanzen, bis sie aus einem Manifest mit dem Feld neu ausgerollt
 werden. Konformitätstest 56.
+
+## Deutsche Zusammenfassung (2.21, v0.2.40 — geteilte Ordner und Trainer-Plätze, RFC-0058)
+
+Eine Kohorte kann Ordner haben, die **ihr** gehören und in mehrere Instanzen
+eingehängt werden: `shared_storage` mit Name, Mountpunkt, `access: rw|ro` und
+optional `source:` (Anfangsinhalt). Dazu `trainers: N` (Plätze `t01` …, höchstens
+9). Teilnehmer bekommen jeden Ordner mit dem Zugriff der Vorlage, Trainer immer
+lesend und schreibend, sehen alle Plätze der Kohorte und sind keine
+Mandanten-Verwalter.
+
+Die Ordner liegen **außerhalb** von `tenants/` (`<data>/cohorts/<tenant>/<kohorte>/shared/`)
+und damit in keiner Sicherung; der `export` nimmt den aktuellen Inhalt als
+`shared-content/` mit, `remove --purge` nennt sie und löscht sie mit der
+Kohorte. Der Mount steht als `shared_mounts` im Instanz-Eintrag, übersteht ein
+Neu-Ausrollen und wird an der einen Stelle gebaut, die Container erzeugt. Er
+ersetzt einen eigenen Speicher auf demselben Mountpunkt. `material update`
+tauscht den **Inhalt**, nie das Verzeichnis (Inode-Falle des Bind-Mounts) —
+nicht atomar. Eine Generalprobe bekommt den Mount nie. Konformitätstest 57.
+
+**Außerdem:** `oaap cohort create --dry-run` prüft alles und zeigt Plätze, Apps,
+Ordner und Ausgabedatei, legt aber **nichts** an (vorher legte es wirklich an).
+

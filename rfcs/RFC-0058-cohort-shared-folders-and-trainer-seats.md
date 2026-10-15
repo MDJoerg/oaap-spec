@@ -2,7 +2,7 @@
 
 - **Status:** **Accepted (2026-10-15)** — Jörg took D1–D6 as recommended.
   **Built and measured on `oaap-test` the same day** (§3.2); the runtime
-  spec text (`oaap.apps.runtime`) is not yet updated.
+  spec text is in `oaap.apps.runtime` 0.2.40 §2.21 (conformance test 57).
 - **Date:** 2026-10-15
 - **Authors:** Jörg (the need: trainers keep course material current *during*
   a course; participants share a working folder), Claude (analysis, write-up)
