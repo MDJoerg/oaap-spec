@@ -236,15 +236,26 @@ Not measured: the waking page and maintenance page in a real browser; a
 Jörg opens `…/` of a maintained instance as `server_admin` to see it);
 a multi-service instance; a wake with no room on the node.
 
-**Two findings that are not this RFC's, found on the way:**
+**Two findings that are not this RFC's, found on the way (follow-up, same day):**
 
-1. After the reboot the **broker** (`oaap-broker-1`, profile `broker`) stayed
-   `exited (0)` although its policy is `unless-stopped`; the 18 other core and
-   app containers came back. Cause not found; started by hand.
-2. `oaap status` could not see it: its core total is `compose ps --services`,
-   which lists running services only, so `HEALTHY (7/7 core services …)`
-   was printed with the broker down. A core service that is *stopped* is
-   invisible to the count (only a restart loop shows).
+1. After the first reboot the **broker** (`oaap-broker-1`, profile `broker`)
+   stayed `exited (0)` although its policy is `unless-stopped`; the other
+   containers came back. **Not reproducible:** a second reboot of the same node
+   brought all eight core services back, and a real `oaap update` (new revision)
+   does not touch the core containers or their `HasBeenManuallyStopped` flag
+   (read from Docker's `config.v2.json`, all `False` before and after). What is
+   left is a stale manual-stop flag from an earlier hand stop of the broker
+   (it was `docker stop`ped and started again several times on 03.10.) — not
+   proven. Nothing in OAAP's own code stops the broker at shutdown.
+2. `oaap status` could not see it: the core total came from
+   `compose ps --services`, which lists running services only, so a stopped core
+   service was printed as `HEALTHY (7/7 …)`. **Fixed** (`f851850`): the total is
+   the union of the services the compose file defines (`config --services`) and
+   every container that exists (`ps -a`); a stopped one is listed and counts as
+   `DEGRADED` (exit 1), a defined one without a container shows `missing`.
+   Measured on `oaap-test` with the broker stopped: `DEGRADED (7/8 core
+   services …)`, exit 1; started again: `HEALTHY (8/8 …)`. A sleeping instance
+   still does not count against the apps.
 
 ## Deutsche Zusammenfassung
 
