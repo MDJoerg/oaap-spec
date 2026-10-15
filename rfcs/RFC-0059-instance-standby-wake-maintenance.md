@@ -205,9 +205,28 @@ set and set back.
 
 Order that matters and is tested: standby writes the record and the waking page
 **before** the containers stop; wake gives the address back **after** the app
-answers. Not measured yet: all of it on a real node (sites through a real
-Caddy reload, the waking page in a browser, `oaap update` and a reboot with a
-sleeping instance).
+answers.
+
+### 6.1 Measured on `oaap-test` (2026-10-15, instance `webtop`, reference `a3f9107`)
+
+| What | Result |
+| --- | --- |
+| `oaap app standby webtop` | 6 s; container `Exited (0)`; `app list` shows `STANDBY`; `oaap status` `HEALTHY (19/19 apps running, 1 in standby)` |
+| Visitor with a valid key | `503`, `Retry-After: 5`, `Cache-Control: no-store`, the waking page ("Dein Arbeitsplatz wird gestartet") |
+| An anonymous visitor | `303` to the login, as before |
+| `GET` of the page | does not wake (container stays down) |
+| CORS preflight (`OPTIONS`) | `503`, not a dead upstream |
+| The portal's `/wake/<instance>` without the gateway key | `403` |
+| `config set` on the sleeping instance | container re-made, state `Created`, **not started**, still `STANDBY` — the case that woke it before |
+| `restart` on the sleeping instance | stays `Created`; message was "running since 0001-01-01" — fixed to "recreated; it stays in standby" (`35b12d1`) |
+| Wake by `POST` (what the page's script does) | `{"asleep": true}`, then HTTP 200 on the instance address after **5 s**; state removed; `HEALTHY 20/20` |
+| Maintenance on | machine principal with a key: `503`; anonymous: `503` with the configured sentence; JSON caller: `{"error":"maintenance",...}`; `Retry-After: 300`; `/auth/login` still `200`; `app list` shows `MAINTENANCE`; off: back to normal |
+
+**Not measured:** the page in a real browser (the script's polling and reload);
+a real person's session instead of an API key; a tenant or server administrator
+passing a maintained instance (tested against identity only, with test users);
+`oaap update` and a node reboot with a sleeping instance; the wake of a
+multi-service instance; a wake when the node has no room.
 
 ## Deutsche Zusammenfassung
 
