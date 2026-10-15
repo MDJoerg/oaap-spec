@@ -1,7 +1,7 @@
 # RFC-0058: Cohort Shared Folders and Trainer Seats
 
-- **Status:** **Proposed (2026-10-15)** — nothing built. Decisions D1–D6 wait
-  for Jörg.
+- **Status:** **Accepted (2026-10-15)** — Jörg took D1–D6 as recommended.
+  Nothing built; the six cases of §3 are measured first (D6).
 - **Date:** 2026-10-15
 - **Authors:** Jörg (the need: trainers keep course material current *during*
   a course; participants share a working folder), Claude (analysis, write-up)
@@ -102,6 +102,42 @@ them (RFC-0046 §6.3 pattern).
 | Rehearsal (RFC-0030) | does a copy of a seat copy a shared folder it does not own? |
 | Two writers | `gemeinsam` rw from N containers: file locking, same user id, no platform guarantee |
 | Cohort `remove` | with seats already removed by hand |
+
+### 3.1 Result (2026-10-15, `oaap-test`, before any build)
+
+Measured with two containers of the webtop image on a host directory
+(`--user 911`), and by reading `oaap-reference/platform/appctl.py`
+(`recreate_instance_containers`, `_cohort_reset`, `_cohort_material`,
+the tenant archive, `create_rehearsal`):
+
+| Case | Result | How |
+| --- | --- | --- |
+| Read-only for one reader | A writes, B (`:ro`) reads it; B's write fails with `Read-only file system` | measured |
+| Recreate a container | content is still there (the data is the host directory) | measured |
+| Replace content in place | the directory keeps its inode, the reader sees the new file | measured |
+| Delete and recreate the directory | the running reader sees an **empty** old directory — the inode trap is real | measured |
+| `material update` | `cohort.copy_material(replace=True)` empties the **content** and copies; the directory is kept — the trap is already avoided. It is **not atomic**: a reader can see an empty folder for a moment | code read |
+| `reset` of one seat | `remove_instance(…, purge)` removes only the instance directory; a shared directory outside it is untouched | code read, not run |
+| Redeploy | every door that recreates a container goes through `recreate_instance_containers`; the mount source is built there from `instance_dir/storage/<name>` (one place). A shared entry must be **recorded on the instance** (like `shm`), or the next restart drops it | code read |
+| Node / tenant archive | the tenant archive carries `tenants/<tid>` and `files/<tid>`. A shared directory **below** `tenants/<tid>` would be in every nightly backup — against D5 | code read |
+| Rehearsal | a rehearsal extracts the instance subtree from an archive; a shared directory is not in it, so a copy of a seat has no shared mount unless the record is made to carry it. A rehearsal must **not** be given the live shared folder | code read |
+| Two writers | same image, same uid in every container, so permissions agree; the platform adds no locking and promises none | not measured, by design |
+| Cohort `remove` with seats already removed by hand | not examined | open |
+
+**Consequences for the build:**
+
+1. Put the shared directories **outside** `tenants/<tid>` (proposal:
+   `<data>/cohorts/<tid>/<cohort>/<name>`), so D5 holds: neither archive
+   carries them. The cohort **`export`** must then copy them — today it
+   copies only the template directory, so the export does not contain
+   course material that trainers changed.
+2. Record shared mounts on the instance and pass them through every door,
+   as `shm` is passed.
+3. Make `material update` for shared folders **atomic enough**: write to a
+   sibling and rename the *content* entries, or document the gap; a trainer
+   editing during a lesson is the expected case.
+4. Rehearsal of a cohort instance: refuse or drop the shared mount, never
+   bind the live folder.
 
 ## 4. Decisions for Jörg
 
