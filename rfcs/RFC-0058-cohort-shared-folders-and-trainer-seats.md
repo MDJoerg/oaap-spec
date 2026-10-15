@@ -1,7 +1,8 @@
 # RFC-0058: Cohort Shared Folders and Trainer Seats
 
 - **Status:** **Accepted (2026-10-15)** — Jörg took D1–D6 as recommended.
-  Nothing built; the six cases of §3 are measured first (D6).
+  **Built and measured on `oaap-test` the same day** (§3.2); the runtime
+  spec text (`oaap.apps.runtime`) is not yet updated.
 - **Date:** 2026-10-15
 - **Authors:** Jörg (the need: trainers keep course material current *during*
   a course; participants share a working folder), Claude (analysis, write-up)
@@ -138,6 +139,31 @@ the tenant archive, `create_rehearsal`):
    editing during a lesson is the expected case.
 4. Rehearsal of a cohort instance: refuse or drop the shared mount, never
    bind the live folder.
+
+### 3.2 Built (2026-10-15, reference at `0c23686`, webtop 0.1.9)
+
+Template `kohorten/webtop-kurs` (2 participants, `trainers: 1`, folders
+`schulung` ro/`gemeinsam` rw) created on `oaap-test`, then used:
+
+| What | Result (measured) |
+| --- | --- |
+| Mounts | participant: `schulung` rw=false, `gemeinsam` rw=true; trainer: both rw=true. The folders sit in `<data>/cohorts/<tid>/<cohort>/shared/`, not under `tenants/` |
+| Write | participant on `schulung`: `Read-only file system`; participant on `gemeinsam` ok; trainer on `schulung` ok; both participants see the trainer's new file at once |
+| Visibility | participant instances: groups `<cohort>-NN` + `<cohort>-trainer`; trainer instance: only its own group; trainer user is in seat, cohort and trainer group; no `tenant_admin` |
+| Recreate | a config save recreated the container; the mounts (incl. `ro`) came back |
+| `material update` | replaced the content of `schulung` in place (a reader saw the new file); not atomic, as noted |
+| `reset --seat 01` (home deleted) | both shared folders untouched |
+| `export` | `shared-content/<name>` carries the folders' current content |
+| `remove --purge` | the confirmation names the folders; they are deleted with the cohort |
+
+Mechanism: the instance record has `shared_mounts: [{name, mount, host,
+ro}]`, kept by a redeploy like `resources`; `recreate_instance_containers`
+reads it (registry first) in its single mount loop, and a shared mount
+**replaces** an own storage entry on the same mount point (webtop `material`
+→ `/schulung`). A rehearsal carries no record of it, so it never binds the
+live folder. Not covered: `remove` of a cohort whose seats were removed by
+hand; the trainer's `/schulung` ownership relies on the image's own init
+(`chown`), the platform chowns only when the image declares a uid.
 
 ## 4. Decisions for Jörg
 
