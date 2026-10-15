@@ -1,7 +1,7 @@
 # RFC-0059: Instance Standby, Wake on Use, and Maintenance Mode
 
-- **Status:** Proposed (2026-10-15) — nothing built; §3 lists what has to be
-  measured before D1–D7 are decided.
+- **Status:** Proposed (2026-10-15) — nothing built; §3 measured on `oaap-test`
+  the same day (§3.1), D1–D7 are open.
 - **Date:** 2026-10-15
 - **Authors:** Jörg (the need: put an instance to sleep for a while and have it
   stay asleep across update and reboot; sleep idle course desks and wake them
@@ -136,6 +136,38 @@ and act on state, not on containers.
 | Gateway rewrite | reload cost and failure mode of rewriting one site file on every state change on a node with ~24 instances |
 | Maintenance on public routes | does the identity decision cover a route without `forward_auth`? |
 | Backup of a sleeping instance | oaapx01's nightly backup stops apps briefly — does it start a sleeping one afterwards? |
+
+### 3.1 Result (2026-10-15, `oaap-test`, instance `webtop` 0.1.3, reference `6d524c5`)
+
+Measured by stopping the real container by hand (`docker stop`, 3.8 s), and by
+reading `appctl.py`. The instance was running again afterwards; its title was
+set and set back.
+
+| Case | Result | How |
+| --- | --- | --- |
+| By-hand stop, `oaap status` | `DEGRADED (8/8 core, 19/20 apps)` — a stopped instance counts as a failure; `oaap app list` shows no state at all | measured |
+| `oaap update` | with nothing new ("Already up to date") the container stays stopped; the real update path (migrations that recreate containers, `_repair_stale_mounts`, `sync_*`) was not exercised | measured (no-op) / code read |
+| Config change on a stopped instance | **starts it** — `config set` recreates the container with `docker run -d`; the stopped state is silently gone | measured |
+| Where containers are started | one function, `recreate_instance_containers`, ends in a single `docker run -d`; fourteen doors call it (config, resources, restart, install, rekey, endpoint, deploy, migrations, repair). The state check can sit there once | code read |
+| Nightly backup and tenant archive | both stop only the containers that are running (`docker ps -q`) and start exactly those afterwards — a sleeping instance is neither woken nor stopped | code read |
+| What the visitor sees | the gateway dials a name Docker no longer resolves (`no such host`) and answers a raw 502; the platform health probe `/h/<instance>` logs the same error every probe | measured (log) |
+| Gateway site | one file per instance, `apps-caddy/<instance>.caddy`; the `forward_auth identity:8000` call already carries `instance=<name>` and the tenant, so identity can decide "maintenance" per instance without a new rule per app | read |
+| Wake time | stop then start: HTTP 200 on `/` through the container network after **3 s** (webtop with an existing home; not a measure of when the desktop session is usable) | measured |
+| Idle signal | **not available today.** The gateway has no access log and no `metrics` directive, and the admin API does not answer inside the container. `netstat` in the gateway shows ESTABLISHED connections to the app, but an idle keep-alive connection looks the same as a live WebSocket | measured |
+| Maintenance on public routes | not measured | open |
+
+**Consequences for the build:**
+
+1. `recreate_instance_containers` must honour `state: standby` (create, do not
+   start) — otherwise the first config change wakes a sleeping instance. This
+   is the one place; the fourteen doors need no change.
+2. `oaap status` and the portal must know `standby` as a state of its own, or a
+   deliberate sleep reads as an outage (and, later, as a cause for alerts).
+3. Auto standby (stage 3) needs a new traffic signal at the gateway: Caddy
+   `metrics` (requests in flight, which includes an open WebSocket) or a
+   per-site access log. That is a gateway change and has to be measured with a
+   real WebSocket session before D7's stage 3 is promised.
+
 
 ## 4. Decisions for Jörg
 
