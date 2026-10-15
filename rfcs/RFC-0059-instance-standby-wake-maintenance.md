@@ -1,7 +1,9 @@
 # RFC-0059: Instance Standby, Wake on Use, and Maintenance Mode
 
-- **Status:** Proposed (2026-10-15) — nothing built; §3 measured on `oaap-test`
-  the same day (§3.1), D1–D7 are open.
+- **Status:** **Accepted (2026-10-15)** — Jörg took D1–D7 as recommended.
+  **Stage 1 built** the same day (§6), runtime spec `oaap.apps.runtime` 0.2.41
+  §2.22 (conformance test 58); §3 measured on `oaap-test` (§3.1). Stages 2–4
+  not built.
 - **Date:** 2026-10-15
 - **Authors:** Jörg (the need: put an instance to sleep for a while and have it
   stay asleep across update and reboot; sleep idle course desks and wake them
@@ -187,6 +189,25 @@ set and set back.
 - Freezing the memory of a running app (D2).
 - Scheduled maintenance windows ("every Sunday 02:00") — a timer on top of
   §2.5, not a new state.
+
+## 6. Stage 1 as built (2026-10-15, reference not yet on a node)
+
+| Piece | Where |
+| --- | --- |
+| State on the record (`state`, `standby`, `maintenance`) | registry; `instance-modes.json` for identity and status, written synchronously |
+| `oaap app standby|wake|maintenance` | `appctl.py` (`standby_instance`, `wake_instance`, `maintenance_set`); the portal's worker has the same three actions for stage 2 |
+| One start place honours it | `recreate_instance_containers`: `docker create` while `standby` |
+| One site body shows the waking page | `site_body`: every route, every entry point; preflight answers 503; `public` never wakes |
+| Maintenance | `site_body` makes every route ask identity; `identity` answers 503 first (anonymous included), administrators pass |
+| Waking page | portal `/wake/<instance>`, gateway key `apps/wake-key`; GET shows, POST wakes |
+| `oaap status` | sleeping containers leave the count, "n in standby" |
+| Test | `test/test_standby.py` (42 cases: sites, create-not-start, order of standby/wake, identity, portal page) |
+
+Order that matters and is tested: standby writes the record and the waking page
+**before** the containers stop; wake gives the address back **after** the app
+answers. Not measured yet: all of it on a real node (sites through a real
+Caddy reload, the waking page in a browser, `oaap update` and a reboot with a
+sleeping instance).
 
 ## Deutsche Zusammenfassung
 

@@ -1,7 +1,11 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.40 (**cohort-owned shared folders and trainer seats**,
+- **Version:** 0.2.41 (**standby and maintenance**, RFC-0059 stage 1: an
+  instance MAY be put to sleep (`state: standby`) and stays asleep over
+  update, redeploy and reboot; a sleeping instance's address shows a waking
+  page; a maintained instance lets only administrators pass; new 2.22;
+  0.2.40 (**cohort-owned shared folders and trainer seats**,
   RFC-0058: a cohort mounts one directory into several of its instances,
   read-write or read-only, kept on the instance record; trainer seats; new
   2.21; `oaap cohort create --dry-run` creates nothing;
@@ -566,6 +570,60 @@ trainers: 1                # seats t01 … (at most 9)
   hand is not specified here; the owner of a read-only mount is the
   image's business (the platform chowns only for an image that declares a
   uid).
+
+### 2.22 Standby and maintenance (0.2.41, RFC-0059)
+
+Two states of one instance record, both kept by the platform and neither
+carried by the container.
+
+```yaml
+state: standby            # absent = running; "waking" while being started
+standby: {since: ..., by: ...}
+maintenance: {since: ..., by: ..., message: "..."}   # absent = off
+```
+
+**Standby.** `oaap app standby <instance>` stops the instance's containers
+(SIGTERM, 30 s grace), keeps storage, network, route and users, and records
+the state. The record is the fact, so **every door that makes containers**
+(`recreate_instance_containers`: configuration save, resources, restart,
+redeploy, update, restore) MUST create a sleeping instance's containers with
+`docker create` and MUST NOT start them. `oaap app wake <instance>` starts
+them, waits until the primary service answers HTTP (default 180 s), clears the
+state and only then hands the address back. Standby and wake write the tenant
+audit entries `instance.standby` and `instance.wake`.
+
+**What the visitor sees.** Order matters: the record and the gateway site are
+written *before* the containers stop, and the site is written back *after* the
+app answers. While `standby`/`waking`, **every route of every entry point**
+(LAN port, names, aliases — the one site body, not a copy per door) is
+rewritten to the platform's waking page, after the route's own
+`forward_auth`. The page is a 503 with `Retry-After`. It wakes the instance
+only when the request passed that authentication (header `X-OAAP-Wake: auto`,
+proved by the gateway key `apps/wake-key`); a `public` route shows the page and
+**never** wakes. A GET never wakes; only a POST does (a prefetch or a link
+preview must not start containers). Wake is idempotent. Open: capacity check on
+wake (RFC-0046 §6 note), and the unmeasured usable-desktop time after the
+first HTTP answer.
+
+**Maintenance.** `oaap app maintenance <instance> on|off [--message TEXT]`.
+The instance keeps running. The gateway site asks identity on **every** route,
+a `public` one included (as a rehearsal does), and identity answers `503`
+with `Retry-After` and the configured text (HTML, or JSON for a caller that
+accepts only JSON) to everybody **except** `server_admin` and the
+`tenant_admin` of the instance's tenant. An anonymous visitor gets the page,
+not a login form, and the page links `/auth/login` for the administrator. The
+state reaches identity through `apps/instance-modes.json`, written
+synchronously by the command, so the switch holds from that moment. The text
+is shown escaped.
+
+**Status.** `oaap status` does not count a sleeping instance's containers as a
+failure; it reports `n in standby`. `oaap app list` marks `STANDBY` and
+`MAINTENANCE`; the instance state view carries `mode`.
+
+Not in this version: portal buttons (stage 2), automatic standby and wake on
+the next use after idle (stage 3 — needs a traffic signal the gateway does not
+have today), the cohort template field `standby_after` (stage 4), a tenant
+default text for maintenance.
 
 ### 2.11 Instance networks and isolation (RFC-0016)
 
@@ -1931,6 +1989,12 @@ stays 2.7/2.10, the operator's decision):
     folders; `export` carries `shared-content/`; `remove --purge` names and
     deletes them; `create --dry-run` creates no record, user, container or
     handout.
+58. **Standby and maintenance** (2.22): an instance in `standby` is created, not
+    started, by every door that makes containers (a configuration save does not
+    wake it); its sites show the waking page on every route, behind the route's
+    own authentication; a `public` route and a GET never wake it; in
+    `maintenance` every route asks identity and only `server_admin` and the
+    instance's `tenant_admin` pass, an anonymous visitor included in the 503.
 
 ## 6. Dependencies
 
@@ -2714,6 +2778,27 @@ lassen den Prozessen 2 GB); die Summe auf der Gesundheitsseite ändert sich
 nicht. **Keine Vorgabe:** ohne `shm` ändert sich nichts, auch nicht für
 bestehende Instanzen, bis sie aus einem Manifest mit dem Feld neu ausgerollt
 werden. Konformitätstest 56.
+
+## Deutsche Zusammenfassung (2.22, v0.2.41 — Standby und Wartungsmodus, RFC-0059 Stufe 1)
+
+Eine Instanz kann **schlafen gelegt** werden (`oaap app standby`): Container
+gestoppt, Daten, Netz, Route und Benutzer bleiben. Der Zustand steht am
+Instanz-Eintrag, nicht im Container; deshalb legt **jede** Stelle, die
+Container erzeugt (Konfiguration speichern, Neustart, Redeploy, Update), eine
+schlafende Instanz nur an und startet sie nicht. `oaap app wake` startet sie,
+wartet auf die erste HTTP-Antwort und gibt dann die Adresse zurück.
+
+Solange sie schläft, zeigt **jede** Route die Weckseite (503, hinter der
+Anmeldung der Route). Wer die Instanz öffnen darf, weckt sie per Klick; eine
+öffentliche Route und ein bloßes Abrufen wecken nie. Verloren geht beim
+Aufwecken nicht die Datei, sondern das laufende Programm (offene Fenster).
+
+**Wartungsmodus** (`oaap app maintenance ... on|off --message`): die Instanz
+läuft weiter, aber nur Server- und Mandanten-Verwalter kommen durch; alle
+anderen — auch Anonyme und Maschinen — bekommen 503 mit dem eingestellten Text.
+`oaap status` zählt schlafende Instanzen nicht als Ausfall. Nicht in dieser
+Stufe: Portal-Knöpfe, automatischer Standby, Aufwecken nach Leerlauf,
+`standby_after` in der Kohorten-Vorlage. Konformitätstest 58.
 
 ## Deutsche Zusammenfassung (2.21, v0.2.40 — geteilte Ordner und Trainer-Plätze, RFC-0058)
 
