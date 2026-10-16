@@ -310,7 +310,11 @@ down:
 
 0. **`tun` in the runtime** — manifest field, record, one function,
    install question, conformance test (§3.2). Small; the `shm` build is
-   the template.
+   the template. **Built 2026-10-16** (`oaap.apps.runtime` 0.2.42 §2.23,
+   test 59; reference 0.1.197, `test/test_service_tun.py`): the question
+   is the CLI flag `--confirm-tun`; every other door is refused for a
+   first grant until stage 4 brings it to the portal. §3.2 on a real
+   node not yet measured.
 1. **`vpn-client` (OpenVPN) + `through`** — the app, the target kind,
    the 502 rule, tests 1–4 of §7. Measured on `oaap-test` against the
    real gaming PC.

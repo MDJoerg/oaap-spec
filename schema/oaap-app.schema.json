@@ -213,9 +213,10 @@
         "0.4",
         "0.5",
         "0.6",
-        "0.7"
+        "0.7",
+        "0.8"
       ],
-      "$comment": "MAJOR.MINOR. A new MINOR only adds; a new MAJOR is the only thing a node may refuse (RFC-0012 §8.2). Deliberately not the semver 0.x reading, where the minor would carry breaking changes. 0.2 adds app.class. 0.3 adds data_model/contributes/consumes (oaap.data.model 0.1 §2.2, RFC-0031 §5) and the data_models artefact shape (§2.8). 0.4 adds the 'launchpad' section (RFC-0036). 0.5 adds the 'destinations' section (oaap.net.destinations 0.1, RFC-0033 stage 1). 0.6 adds the 'authorization' section (oaap.core.authorization 0.1, RFC-0045 stages 1-2). 0.7 adds services.<name>.shm (oaap.apps.runtime 2.20)."
+      "$comment": "MAJOR.MINOR. A new MINOR only adds; a new MAJOR is the only thing a node may refuse (RFC-0012 §8.2). Deliberately not the semver 0.x reading, where the minor would carry breaking changes. 0.2 adds app.class. 0.3 adds data_model/contributes/consumes (oaap.data.model 0.1 §2.2, RFC-0031 §5) and the data_models artefact shape (§2.8). 0.4 adds the 'launchpad' section (RFC-0036). 0.5 adds the 'destinations' section (oaap.net.destinations 0.1, RFC-0033 stage 1). 0.6 adds the 'authorization' section (oaap.core.authorization 0.1, RFC-0045 stages 1-2). 0.7 adds services.<name>.shm (oaap.apps.runtime 2.20). 0.8 adds services.<name>.tun (oaap.apps.runtime 2.23, RFC-0060)."
     },
     "must_understand": {
       "type": "array",
@@ -299,6 +300,10 @@
             "type": "string",
             "pattern": "^[0-9]+[mg]$",
             "$comment": "Size of /dev/shm for this service's container (docker --shm-size), <n>m or <n>g, at least 64m. For browsers and Electron apps, which crash with Docker's 64 MB default. Manifest 0.7, oaap.apps.runtime 2.20."
+          },
+          "tun": {
+            "type": "boolean",
+            "$comment": "This service's container gets /dev/net/tun and NET_ADMIN -- nothing else, inside its own network namespace only. Installed only by a server_admin who confirms it once (--confirm-tun); never granted in a rehearsal. Manifest 0.8, oaap.apps.runtime 2.23, RFC-0060 D1/D2/D6."
           }
         },
         "oneOf": [

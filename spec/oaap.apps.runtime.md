@@ -1,7 +1,11 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.41 (**standby and maintenance**, RFC-0059 stage 1: an
+- **Version:** 0.2.42 (**a network tunnel inside one container**,
+  manifest 0.8 / RFC-0060 stage 0: a service MAY declare `tun: true` and
+  its container gets `/dev/net/tun` + `NET_ADMIN`, nothing else; the
+  operator confirms once at install, never in a rehearsal — new 2.23;
+  0.2.41 (**standby and maintenance**, RFC-0059 stage 1: an
   instance MAY be put to sleep (`state: standby`) and stays asleep over
   update, redeploy and reboot; a sleeping instance's address shows a waking
   page; a maintained instance lets only administrators pass; new 2.22;
@@ -224,6 +228,10 @@ the core never comes from a store (RFC-0001).
   with Docker's default, which is a crashing browser, not a broken
   install — so `must_understand` is not required, but an app whose
   purpose IS the browser may well name it.
+- **Manifest 0.8** adds one optional field per service: `tun` — see
+  2.23. Additive as well: a node that ignores it creates the container
+  without the tunnel device, which is an app that cannot connect, not
+  a door left open — so `must_understand` is not required.
 - The same choke point (`_install_from_dir`) hands `contributes`/
   `consumes` to `oaap.data.twin` 0.1 too (RFC-0031 Schritt 3): the
   instance's machine-principal key (RFC-0027) and its tenant's twin
@@ -640,6 +648,56 @@ platform writes it into each instance record it creates and re-applies it on
 `cohort reset` (RFC-0059 stage 4).
 
 Not in this version: a tenant default text for maintenance.
+
+### 2.23 A network tunnel inside one container (0.2.42, manifest 0.8, RFC-0060)
+
+A service MAY declare that it holds a network tunnel:
+
+```yaml
+services:
+  vpn:
+    image: ...
+    port: 8080
+    tun: true
+```
+
+- **What it grants, exactly.** The device `/dev/net/tun` and the
+  capability `NET_ADMIN` for **that service's container** — `docker run
+  --device /dev/net/tun --cap-add NET_ADMIN`. Nothing else: no
+  `--privileged`, no host network, no other capability, no sysctl and
+  no route on the host. The container stays on its instance network
+  alone (2.11). Other services of the same app get nothing.
+- **What `NET_ADMIN` lets the app do.** Change routes, addresses and
+  packet filters inside its **own** network namespace. It cannot touch
+  the host's or another container's. That the app uses it only for its
+  tunnel is a promise of the app (RFC-0060 §4, "known limit"), not one
+  the platform enforces; the platform enforces the namespace boundary.
+- **Applied like `shm`** (2.20): recorded in the service's registry
+  record at install, applied by the one function that creates
+  containers, at every (re)creation and through every door. A recorded
+  value that is not exactly `true` yields a container **without** the
+  grant, never a failing `docker run`.
+- **Asked for once, by the operator** (RFC-0060 D2). An install that
+  would grant `tun` to a service which does not have it yet stops
+  **before anything is built** and says what the app will be able to
+  do, unless the caller confirmed (`oaap app install … --confirm-tun`).
+  Only the node's command line can confirm, which makes it a
+  `server_admin` decision: every other door — store, portal, deploy
+  hook, uploaded artifact, cohort, profile — is refused for a first
+  grant. A redeploy of an instance whose service already holds the
+  grant does not ask again. `false` or no field: no question, no grant.
+- **Never in a rehearsal** (RFC-0060 D6, RFC-0030). A rehearsal's
+  services are recorded without the grant and created without it, and
+  the install says so; the app must report that it has no tunnel rather
+  than retry. A rehearsal is not asked the question, since it gets
+  nothing to confirm.
+- **Values.** `true` or `false`. Anything else is refused where the
+  manifest is validated.
+- **No default, nothing changes** for a service that does not declare
+  it. An instance installed before this field was recorded gets the
+  grant only by a reinstall or redeploy that asks the question.
+- Not in this version: confirming the grant from the portal (RFC-0060
+  stage 4).
 
 ### 2.11 Instance networks and isolation (RFC-0016)
 
@@ -2011,6 +2069,18 @@ stays 2.7/2.10, the operator's decision):
     own authentication; a `public` route and a GET never wake it; in
     `maintenance` every route asks identity and only `server_admin` and the
     instance's `tenant_admin` pass, an anonymous visitor included in the 503.
+59. **A tunnel is the operator's grant, to one container** (2.23): a
+    manifest with `tun: true` validates, `tun: "yes"` does not; an install
+    without `--confirm-tun` stops before anything is built and builds
+    nothing, every non-CLI door included; with it the service record
+    carries `tun: true` and the `docker run` carries `--device
+    /dev/net/tun --cap-add NET_ADMIN` before the image, from every door
+    (install, configuration save, restart); a service without `tun`, a
+    second service of the same app and a rehearsal get neither; a redeploy
+    of an instance that holds the grant does not ask again; a hand-edited
+    record yields no flag. On a real node: inside the container the device
+    exists and `ip link add … type dummy` succeeds; in a container without
+    `tun` both fail.
 
 ## 6. Dependencies
 
@@ -2837,3 +2907,24 @@ nicht atomar. Eine Generalprobe bekommt den Mount nie. Konformitätstest 57.
 **Außerdem:** `oaap cohort create --dry-run` prüft alles und zeigt Plätze, Apps,
 Ordner und Ausgabedatei, legt aber **nichts** an (vorher legte es wirklich an).
 
+## Deutsche Zusammenfassung (2.23, v0.2.42 — Tunnel in einem Container, Manifest 0.8, RFC-0060 Stufe 0)
+
+Ein Dienst darf im Manifest `tun: true` erklären. Sein Container bekommt
+dann genau zwei Dinge: das Gerät `/dev/net/tun` und das Recht `NET_ADMIN`
+(Routen, Adressen, Paketfilter **im eigenen Netz-Namensraum** ändern) —
+kein `--privileged`, kein Host-Netz, nichts am Wirt, und andere Dienste
+derselben App bekommen nichts. Gebaut wie `shm` (2.20): bei der
+Installation im Dienst-Eintrag vermerkt, von der einen Funktion, die
+Container baut, bei jeder (Neu-)Erzeugung durch jede Tür mitgegeben; ein
+handbearbeiteter Eintrag ergibt einen Container **ohne** das Recht, nie
+einen kaputten `docker run`.
+
+**Die Frage stellt nur der Betreiber** (D2): Eine Installation, die einem
+Dienst das Recht zum ersten Mal gäbe, hält an, **bevor etwas gebaut
+wird**, und sagt, was die App dann kann — außer mit `oaap app install …
+--confirm-tun`. Bestätigen kann nur die Kommandozeile des Knotens, also
+ein `server_admin`; Store, Portal, Deploy-Hook, hochgeladenes Paket,
+Kohorte und Profil werden beim ersten Mal abgewiesen. Ein Redeploy einer
+Instanz, deren Dienst das Recht schon hat, fragt nicht erneut. **Eine
+Generalprobe bekommt es nie** (D6) und wird auch nicht gefragt. Ohne Feld
+ändert sich nichts. Die Bestätigung im Portal kommt erst mit Stufe 4.
