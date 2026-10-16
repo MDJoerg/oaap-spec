@@ -309,7 +309,7 @@ not automatic addresses (own host names of an instance are not mapped and theref
 seen as use); the other nodes; a real person waking an auto-standby instance in a
 browser.
 
-## 9. Stage 4 as built (2026-10-16, tested locally, not on a node)
+## 9. Stage 4 as built (2026-10-16, measured on oaap-test)
 
 The cohort template (RFC-0046) accepts `standby_after` at top level (the cohort
 default) and per app (the app wins; `off` or `false` = never, even if the cohort says
@@ -322,7 +322,14 @@ same rule, so a trainer's shared Forgejo can opt out with `standby_after: off`.
 YAML reads a bare `off` as boolean false; both spellings mean "off".
 
 **Tests:** `test/test_cohort.py` (validation, precedence, the record after `create`,
-source checks for redeploy and reset). **Not measured:** on a node, with a real cohort.
+source checks for redeploy and reset).
+
+**Measured** on oaap-test with a throw-away cohort (2 seats, Wegweiser, `standby_after: 10`): both
+records carried it after `cohort create`; `reset --keep-home` kept it; seat 01 went to standby by
+itself 691 s after the measurement began, seat 02 shortly after; `cohort remove --purge --users`
+left nothing behind. `reset` reads the cohort's *stored* copy of the template, so a later change in the
+trainer's file does not reach it (RFC-0046 §2, by design); there is no step yet that changes the
+stored template. **Not measured:** a template change on a node (only locally), a real person waking a seat.
 
 ## Deutsche Zusammenfassung
 
