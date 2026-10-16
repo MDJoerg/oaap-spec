@@ -1,12 +1,14 @@
 # oaap.net.destinations — Reaching Outward Without Holding the Key
 
 - **ID:** `oaap.net.destinations`
-- **Version:** 0.3
+- **Version:** 0.4
 - **Maturity:** draft (0.1 was RFC-0033 stage 1: destinations with
   `direct` targets, bindings as grants, the HTTP proxy and the TCP
   handover, no bindings in a rehearsal. 0.2 adds stage 2's `via`
   targets — HTTP through a tunnel, `oaap.net.connector` 0.1. 0.3 lets
-  the portal bind and unbind, for `tenant_admin` as well — §2.7)
+  the portal bind and unbind, for `tenant_admin` as well — §2.7. 0.4
+  adds `through` targets — HTTP to a name served by a tunnel app of the
+  same tenant, RFC-0060 stage 1, §2.8)
 - **Based on:** RFC-0033 (§1, D1, D5), RFC-0016 (instance networks, the
   shape a binding copies from app-to-app links), RFC-0015 (declaration
   is not publication), RFC-0022 / `oaap.core.tenant` (a destination
@@ -40,7 +42,7 @@ within it. Fields:
 | --- | --- |
 | `name` | `[a-z0-9][a-z0-9-]{0,38}[a-z0-9]`, unique per tenant |
 | `kind` | `http` or `tcp` |
-| `target` | `{direct: <address>}`, or `{via: "<tunnel>/<offer>"}` for an HTTP destination reached through a tunnel this node accepts (0.2, `oaap.net.connector` 2.5) |
+| `target` | `{direct: <address>}`, or `{via: "<tunnel>/<offer>"}` for an HTTP destination reached through a tunnel this node accepts (0.2, `oaap.net.connector` 2.5), or `{through: "<instance>/<name>"}` for an HTTP destination behind a tunnel app of the same tenant (0.4, §2.8) |
 | `auth` | `none`, `basic` (user + secret), `bearer` (secret), `header` (header name + secret); for `tcp` only `none` and `basic` |
 | `created`, `created_by`, `changed` | who and when, as everywhere |
 
@@ -271,6 +273,50 @@ authentication.
     changes) and stand **once** in the tenant's log, with the person's
     name and role.
 
+### 2.8 Through a tunnel app (0.4, RFC-0060 D4/D5)
+
+A system behind a **foreign VPN server** — a door that is not ours, with
+credentials somebody handed us — is reached through an ordinary app that
+holds the VPN client in its own container (`oaap.apps.runtime` 2.23,
+`tun: true`). What lies behind the tunnel is a destination:
+
+```text
+target: {through: "<instance>/<name>"}
+CLI:    --target through:<instance>/<name>
+```
+
+- `<instance>` is the tenant-local name of an instance **of the
+  destination's tenant** whose service record carries `tun: true`;
+  `<name>` is a target name that app serves. Anything else is refused
+  at creation, and another tenant's instance is answered as one that
+  does not exist (`oaap.core.tenant` 2.3). HTTP only, like `via`.
+- **The gateway handles the call exactly as for `direct`** (2.3: caller
+  by network, identity headers stripped, the destination's credential
+  added) and forwards it to the tunnel app's container on that
+  instance's own network, which the gateway is a member of (runtime
+  2.11), at `/t/<name>/` followed by the rest of the path. The tunnel
+  app sets the target's own `Host`. The consumer app's variable and
+  call are those of any other destination (RFC-0033 §8).
+- **The instance is asked every time the listener is written**, not
+  when the destination was made. An instance that is gone, asleep
+  (`state: standby`), a rehearsal, or whose record no longer carries
+  `tun: true` is answered **502 with a sentence** naming it; the
+  gateway never forwards to whatever container carries the name later.
+  Putting the instance to sleep and waking it rewrite the listener. A
+  tunnel app that is running but whose tunnel is down answers on its
+  own (it knows; the platform does not).
+- **Removing an instance that `through` destinations point at is
+  refused** on the command line and from the portal, and the refusal
+  names them — like removing a bound destination (2.1).
+- **Where each fact lives** (RFC-0060 D5): the address behind the tunnel
+  is the tunnel app's configuration (it can only be reached from inside
+  that container, so it is nothing secret); the credential of the far
+  side is the destination's secret (2.5). Neither the consumer app nor
+  the tunnel app ever holds it.
+- Renaming the tunnel instance breaks the destination (the name in the
+  target is the old one) and the call gets the 502 sentence; the
+  destination is made again under the new name.
+
 ## 3. Configuration
 
 None beyond the objects. The listener port (8098 in the reference) is
@@ -341,6 +387,19 @@ internal and not an operator setting.
 15. (0.3) The page offers a destination for a need only if the need is
     declared, unbound and the destination has the same kind and the
     same tenant; on a rehearsal it offers no binding at all.
+16. (0.4) `through:<x>/<name>` is refused for an instance without
+    `tun: true`, for one that does not exist, for another tenant's
+    instance (as "does not exist"), and for `tcp`.
+17. (0.4) A bound call to a `through` destination arrives at the tunnel
+    app's container as `/t/<name>/<rest>`, with the destination's
+    credential and without the caller's identity headers; the consumer's
+    variable has the same shape as for `direct`.
+18. (0.4) With the tunnel instance asleep, removed, a rehearsal, or its
+    record hand-edited to `tun: "yes"`, the call gets 502 with a
+    sentence and nothing is forwarded; woken, it forwards again.
+19. (0.4) Removing the tunnel instance while a `through` destination
+    points at it is refused on the CLI and from the portal and names the
+    destination.
 
 ## 6. Dependencies
 
@@ -379,6 +438,8 @@ and wrote one `destination.unbind` line. **Not measured:** a
 instance of a non-default tenant existed there — that path is covered
 by the worker test only), and a real browser session (the requests
 carried the gateway's identity headers directly to the portal).
+0.4 (`through`) was built in the reference 0.1.198 with tests 16–19
+against faked Docker; see RFC-0060 §6 for the measurement on a node.
 
 ## Deutsche Zusammenfassung
 
@@ -454,3 +515,27 @@ weiterhin nicht. Wichtig sind vier Dinge:
   Zugangsdaten danach im Container liegen.
 - **Ein Bedarf, den das Manifest nicht nennt,** und das Anlegen neuer
   Destinationen bleiben an der Kommandozeile.
+
+## Deutsche Zusammenfassung (0.4 — `through`, RFC-0060 Stufe 1)
+
+Neue Zielart `through:<instanz>/<name>`: Ein System hinter einem
+**fremden VPN** wird über eine gewöhnliche App erreicht, die den
+VPN-Client in ihrem eigenen Container hält (`tun: true`,
+Laufzeit 2.23). Die Instanz muss zum **selben Mandanten** gehören und
+einen Dienst mit `tun: true` haben, sonst wird das Anlegen abgelehnt —
+eine fremde Instanz gilt als nicht vorhanden. Nur HTTP.
+
+Das Gateway behandelt den Aufruf **genau wie bei `direct`** (Aufrufer am
+Netz erkannt, Identitäts-Kopfzeilen entfernt, Schlüssel der Destination
+ergänzt) und reicht ihn an den Tunnel-Container unter `/t/<name>/`
+weiter. Die Verbraucher-App merkt keinen Unterschied. **Bei jedem
+Schreiben des Gateway-Listeners wird die Instanz neu gefragt:** fehlt
+sie, schläft sie, ist sie eine Generalprobe oder trägt ihr Eintrag kein
+wörtliches `tun: true`, antwortet das Gateway **502 mit einem Satz** —
+nie mit einem anderen Container, der später so heißt. Schlafenlegen und
+Wecken schreiben den Listener neu. **Entfernen** der Tunnel-Instanz wird
+an Kommandozeile und Portal abgelehnt, solange eine `through`-Destination
+auf sie zeigt. **Adresse in der App, Schlüssel in der Plattform** (D5):
+weder die Verbraucher- noch die Tunnel-App sieht den fremden Schlüssel.
+Ein Umbenennen der Tunnel-Instanz bricht die Destination (502 mit Satz);
+sie wird unter dem neuen Namen neu angelegt.

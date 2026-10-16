@@ -317,7 +317,17 @@ down:
    node not yet measured.
 1. **`vpn-client` (OpenVPN) + `through`** — the app, the target kind,
    the 502 rule, tests 1–4 of §7. Measured on `oaap-test` against the
-   real gaming PC.
+   real gaming PC. **Built 2026-10-16** (`oaap.net.destinations` 0.4
+   §2.8, reference 0.1.198, `test/test_destinations_through.py`; app
+   `oaap-apps/apps/vpn-client` 0.1.0 with `test_vpn_client.py`). Two
+   deviations from §2.2, both forced by what exists: `VPN_CONFIG` is the
+   `.ovpn` file as **one base64 line**, because a config value travels
+   as one line and a multiline value may not contain `;`
+   (`oaap.apps.runtime` 2.8) — and `.ovpn` files use `;` for comments;
+   and the app's filter drops **every** new connection from the tunnel,
+   the proxy port included (§3.3 asked that only the proxy port
+   answers; nothing answering is stricter). Not yet measured on a node
+   or against the gaming PC.
 2. **The chain** — AI gateway supplier = destination (RFC-0023 stage 3,
    `oaap.ai.gateway` 0.3), connector inner node → oaapx01, §3.5
    measured. Then the request to the customer, with the numbers.
