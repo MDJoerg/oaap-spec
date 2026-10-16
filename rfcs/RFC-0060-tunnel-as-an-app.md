@@ -326,8 +326,22 @@ down:
    (`oaap.apps.runtime` 2.8) — and `.ovpn` files use `;` for comments;
    and the app's filter drops **every** new connection from the tunnel,
    the proxy port included (§3.3 asked that only the proxy port
-   answers; nothing answering is stricter). Not yet measured on a node
-   or against the gaming PC.
+   answers; nothing answering is stricter). **Measured 2026-10-16 on
+   `oaap-test`** (reference 0.1.198, app 0.1.1) against a stand-in far
+   side outside OAAP — an OpenVPN server that pushes `redirect-gateway`,
+   DNS and a route and `iroute`s the instance network and the LAN
+   router through us, with a keyed model endpoint behind it: §3.4
+   nothing pushed took effect; §3.3 every probe from the far side, at
+   us and through us, was dropped with the counters moving (0 → 9), and
+   with the fence switched off for a moment the same packets **were**
+   forwarded; a bound consumer reached the model through the real
+   gateway with the destination's key replacing its own, identity
+   headers gone, the stream arriving piece by piece; standby → 502 with
+   a sentence, wake → 200; removing the tunnel instance refused. Found
+   and fixed on the way (app 0.1.1): a dead far side left the app at
+   "connected" for good, because OpenVPN restarts *inside* the process.
+   Not yet measured against the gaming PC, and the latency there is a
+   WAN's.
 2. **The chain** — AI gateway supplier = destination (RFC-0023 stage 3,
    `oaap.ai.gateway` 0.3), connector inner node → oaapx01, §3.5
    measured. Then the request to the customer, with the numbers.
