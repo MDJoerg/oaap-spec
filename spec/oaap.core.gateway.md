@@ -108,7 +108,8 @@ happened and never see credentials.
      instance (its route roles, visibility groups, tenant, instance),
      then proxied — path unchanged — to the `vorgaenge` instance of
      the **same tenant** (on the source's own channel if there is one,
-     else production; never a rehearsal). On that proxy the gateway sets
+     else production for a test source; a production source MUST NOT
+     report into a test instance; never a rehearsal). On that proxy the gateway sets
      the **source headers** `X-OAAP-Source-Instance`, `-App`, `-Version`
      and `-Tenant` from the instance's record. With no such instance the
      route answers 404.
@@ -793,8 +794,9 @@ Instanzadresse zwei Blöcke, vor allen Routen der App:
 
 1. **`/platform/feedback…`** mit Anmeldeprüfung wie eine geschützte
    Route dieser App. Das Gateway leitet weiter an die `vorgaenge`-Instanz
-   **desselben Mandanten**: bevorzugt auf demselben Kanal, sonst
-   Produktion, nie eine Generalprobe. Dabei setzt es die
+   **desselben Mandanten**: bevorzugt auf demselben Kanal; eine Test-App
+   sonst an Produktion, eine Produktions-App aber nie an eine
+   Testinstanz; nie an eine Generalprobe. Dabei setzt es die
    **Herkunftszeilen** (Instanz, App, Version, Mandant), die die App
    nicht fälschen kann. Gibt es im Mandanten keine `vorgaenge`-Instanz,
    antwortet die Route mit 404.
