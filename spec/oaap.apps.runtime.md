@@ -628,9 +628,15 @@ Each button queues the same worker action the CLI runs (`standby`, `wake`,
 `tenant_admin` of that instance's tenant (another tenant's instance answers
 404); refused while a deployment runs. The host judges again.
 
-Not in this version: automatic standby and wake on
-the next use after idle (stage 3 — needs a traffic signal the gateway does not
-have today), the cohort template field `standby_after` (stage 4), a tenant
+Automatic standby (RFC-0059 stage 3, opt-in): an instance record may carry
+`standby_after` (minutes, at least 5). The platform counts, from the gateway's own
+numbers, whether any request of the instance is in flight (an open WebSocket is) or
+was finished since the last minute; an instance out of use for that long is put to
+standby by the platform (`by: auto-standby`). Every doubt counts as use, an instance
+in maintenance or with a deployment in flight is never put to sleep. Waking on the
+next use is the waking page above.
+
+Not in this version: the cohort template field `standby_after` (stage 4), a tenant
 default text for maintenance.
 
 ### 2.11 Instance networks and isolation (RFC-0016)

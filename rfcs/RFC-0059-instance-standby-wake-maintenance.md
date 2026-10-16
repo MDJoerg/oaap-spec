@@ -155,7 +155,7 @@ set and set back.
 | What the visitor sees | the gateway dials a name Docker no longer resolves (`no such host`) and answers a raw 502; the platform health probe `/h/<instance>` logs the same error every probe | measured (log) |
 | Gateway site | one file per instance, `apps-caddy/<instance>.caddy`; the `forward_auth identity:8000` call already carries `instance=<name>` and the tenant, so identity can decide "maintenance" per instance without a new rule per app | read |
 | Wake time | stop then start: HTTP 200 on `/` through the container network after **3 s** (webtop with an existing home; not a measure of when the desktop session is usable) | measured |
-| Idle signal | **not available today.** The gateway has no access log and no `metrics` directive, and the admin API does not answer inside the container. `netstat` in the gateway shows ESTABLISHED connections to the app, but an idle keep-alive connection looks the same as a live WebSocket | measured |
+| Idle signal | **not available today.** The gateway has no access log and no `metrics` directive, and the admin API answers on `127.0.0.1:2019` inside the container (it did not answer on `localhost`, which resolves to IPv6 there; corrected 2026-10-16). `netstat` in the gateway shows ESTABLISHED connections to the app, but an idle keep-alive connection looks the same as a live WebSocket | measured |
 | Maintenance on public routes | not measured | open |
 
 **Consequences for the build:**
@@ -269,6 +269,39 @@ buttons are a third door to the same three functions. Tested with 10 cases
 (job per button, trimmed text, refusal shown, 403/404 without queueing).
 **Not measured in a real browser** on a node.
 
+## 8. Stage 3 as built (2026-10-16, built and tested locally, not on a node)
+
+**The signal.** The gateway's global options gain `servers { metrics { per_host } }`.
+Caddy then counts, per listener (`srv0`, `srv1`, ...) and per host name, the requests
+it is handling now (`caddy_http_requests_in_flight`) and the ones it has finished.
+Measured in a throw-away Caddy 2.11.4 next to the real gateway on oaap-test: a slow
+request shows up as `in_flight 1` on its own listener while it runs. The server names
+move when a site is added or removed, so `services/idle.py` reads the listener ports
+from the admin API's `/config/` every time and maps listener port -> instance
+(each instance has its own LAN port) and host name -> instance (the automatic
+addresses). The platform's health probe lives on its own listener and does not count.
+
+**The rule.** An instance is *in use* in a minute when anything of it is in flight or
+its finished-counter changed. Every doubt counts as use: a missing number, a counter
+that went down, an instance the gateway's numbers never showed (never put to sleep).
+A gateway that cannot be asked changes nothing.
+
+**The act.** `metrics sample` (the minutely job) first runs `idle_sweep()`. An instance
+that has `standby_after` (minutes, at least 5) and has been out of use that long goes
+through the normal `standby_instance` (waking page first, then stop) with `by:
+auto-standby`. Not touched: instances in maintenance, with a deployment in flight, or
+already asleep. Opt-in per instance: `oaap app standby-after <instance> <minutes>|off`
+(stage 4 will set it from the cohort template). Wake on use is stage 1's waking page.
+
+**Tests:** `test/test_idle.py` (parsing, mapping, clock, the sweep, fail-safe cases).
+
+**Not measured:** a real WebSocket through the real gateway to a real instance (the
+claim that Caddy keeps an upgraded connection "in flight" rests on `reverse_proxy`
+holding the handler open; the prototype used a slow plain request); the effect of the
+`metrics` directive on a loaded gateway; host names that are not automatic addresses
+(own host names of an instance are not mapped and therefore not seen as use);
+the other nodes.
+
 ## Deutsche Zusammenfassung
 
 Drei Wünsche, ein Zustand am Instanz-Eintrag: **Standby** (die Instanz
@@ -286,3 +319,5 @@ arbeitender Teilnehmer ein.
 Standby ist der gewollte Schlaf. Nichts ist gebaut; §3 nennt, was zuerst
 gemessen werden muss (heutiges Verhalten bei einem von Hand gestoppten
 Container, Idle-Signal, Weckzeit). Sieben Entscheidungen D1–D7 warten auf Jörg.
+
+**Stufe 3 (16.10.):** Das Gateway zählt jetzt offene Anfragen je Instanz (Caddy-Metriken); eine Instanz mit `standby_after` legt sich nach so vielen ruhigen Minuten selbst schlafen (`oaap app standby-after`). Jede Unsicherheit zählt als Benutzung. Lokal gebaut und getestet, noch auf keinem Knoten gemessen.
