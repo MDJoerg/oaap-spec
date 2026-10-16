@@ -1,7 +1,14 @@
 # RFC-0062: Instance Keys Follow the Instance — Revoked at Removal, Reissued at Rename, Renewed Before They Expire
 
 - **Status:** **Accepted (2026-10-16)** — Jörg took D1–D4 as
-  recommended the same night. Nothing built.
+  recommended the same night. **Built the same night** (reference
+  0.1.202, `oaap.apps.runtime` 0.2.45 §2.25) and measured on `oaap-test`:
+  D4 cleared one valid key, six principals and three authorization
+  records; after removal the old keys get 401, also for a different app
+  under the same name; after a rename only the new keys work; renewal
+  replaces a key due within 30 days and recreates the container. Found
+  on the way and fixed: since 0.1.61 a rename removed the instance's LAN
+  site and wrote none back.
 - **Date:** 2026-10-16
 - **Authors:** Claude (found while building RFC-0061 stage 2, measured on
   `oaap-test`), Jörg (decides)

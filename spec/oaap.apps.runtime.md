@@ -1,7 +1,10 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.44 (**an app's backend opens a case**, manifest 0.9 /
+- **Version:** 0.2.45 (**platform keys follow the instance**, RFC-0062:
+  revoked at removal, reissued at rename, renewed 30 days before they
+  expire, orphans cleared at update; new 2.25;
+  0.2.44 (**an app's backend opens a case**, manifest 0.9 /
   RFC-0061 §3.2: `cases: {submit: true}` hands the instance
   `OAAP_CASES_KEY` and `OAAP_CASES_URL`, new 2.24;
   0.2.43 (**`/auth/` and `/platform/` are reserved route
@@ -1811,12 +1814,39 @@ cases:
   not an attestation (RFC-0061 §3.2).
 - **Minted once**, like the twin and authorization keys; never for a
   rehearsal (it would write into the production tenant's inbox). A
-  redeploy without the field stops handing the key to the app. Like
-  those keys it is valid for the longest key lifetime and is not
-  revoked when the instance is removed — a known gap shared by all
-  three.
+  redeploy without the field stops handing the key to the app. Its
+  life follows the instance like the other platform keys (2.25).
 - **Values.** `true` or `false`; anything else is refused where the
   manifest is validated. No field: nothing changes.
+
+### 2.25 Platform keys follow the instance (0.2.45, RFC-0062)
+
+The platform's keys of an instance — `OAAP_PLATFORM_KEY` (twin),
+`OAAP_AUTHZ_KEY`, `OAAP_AUTHZ_ADMIN_KEY` (
+`oaap.core.authorization`), `OAAP_CASES_KEY` (2.24) — belong to the
+machine principal `instance:<key>`. Identity and the twin find the
+instance by that name, so a key must not outlive the instance it was
+made for:
+
+- **Removal** (with and without `--purge`) MUST revoke every key of the
+  principal, delete the principal and drop the instance's
+  authorization record. A kept `instance.env` MUST lose the key
+  variables, so a reinstall under the same name mints fresh keys and is
+  unreachable by the old ones. Best effort: if identity is down the
+  removal completes, says so, and the update step below clears the rest.
+- **Rename** MUST reissue the keys under the new key before the
+  containers are recreated, carry the administration flag over, and
+  retire the old principal.
+- **Renewal.** A key that expires within 30 days, or that identity no
+  longer accepts, MUST be renewed: a new key into `instance.env`, the
+  running instance's containers recreated, then the old key revoked. A
+  sleeping instance (2.22) gets the new key without a recreate, since
+  waking recreates. A daily timer at 04:30 does this
+  (`oaap app instance-keys renew`); a rehearsal holds no keys and is
+  skipped.
+- **What already lies on a node.** An update step revokes the keys and
+  deletes the principals of instances that no longer exist and drops
+  their authorization records, once; it is silent when there is nothing.
 
 ## 3. Configuration
 
@@ -3000,3 +3030,23 @@ gespeichert.
 Wie die anderen Instanzschlüssel wird er einmal ausgestellt, nie für eine
 Generalprobe, und beim Entfernen nicht zurückgezogen. Diese Lücke haben
 alle drei Schlüssel gemeinsam.
+
+## Deutsche Zusammenfassung (2.25, v0.2.45 — Plattform-Schlüssel folgen der Instanz, RFC-0062)
+
+Die Schlüssel, die die Plattform einer Instanz ausstellt (Zwilling,
+Fachrechte, Verwaltung, Vorgänge), gehören dem Prinzipal
+`instance:<Name>`. Weil Identity und Zwilling die Instanz an diesem
+Namen erkennen, dürfen sie ihre Instanz nicht überleben:
+
+- **Entfernen**, mit und ohne `--purge`: Die Schlüssel werden entzogen,
+  Prinzipal und Fachrechte-Eintrag gelöscht. Die aufbewahrte
+  `instance.env` verliert die Schlüssel, eine Neuinstallation bekommt
+  frische.
+- **Umbenennen**: Die Schlüssel werden unter dem neuen Namen neu
+  ausgestellt, das Verwaltungsrecht bleibt.
+- **Erneuern**: Was in 30 Tagen abläuft oder nicht mehr angenommen
+  wird, ersetzt ein Timer um 04:30. Die Instanz wird dafür einmal neu
+  erzeugt; eine schlafende nicht, denn das Aufwachen erzeugt sie
+  ohnehin neu.
+- **Altlasten**: Ein Update-Schritt räumt Schlüssel und Einträge von
+  Instanzen ab, die es nicht mehr gibt.
