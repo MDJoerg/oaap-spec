@@ -303,8 +303,11 @@ measurement found one bug: Caddy writes no number for a listener nobody has talk
 so a never-contacted instance was "unseen" and would never have slept; a listener the
 gateway's config has now counts as seen.
 
-**Not measured:** a WebSocket through the *real* gateway to a real instance behind a
-login; the effect of the `metrics` directive on a loaded gateway; host names that are
+**Measured through the real gateway (oaap-test, `webtop`, machine key limited to the
+instance):** a WebSocket on `/api/websockets` (101) showed `in_flight 1` while open and 0 after;
+with `standby_after 5` and the connection held open for 420 s (pings, the app closes a silent
+one after 45 s) the instance did NOT sleep; 307 s after the connection was closed it went to
+standby. **Not measured:** a browser session with a real login; the effect of the `metrics` directive on a loaded gateway; host names that are
 not automatic addresses; the other nodes; a real person waking an auto-standby instance
 in a browser.
 
