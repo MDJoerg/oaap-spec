@@ -328,6 +328,12 @@ hand-set `standby_after` was lost on redeploy). Shared instances of a cohort fol
 same rule, so a trainer's shared Forgejo can opt out with `standby_after: off`.
 YAML reads a bare `off` as boolean false; both spellings mean "off".
 
+A running cohort changes its limit with `oaap cohort standby-after <cohort> <minutes|off> [--dry-run]`: the
+stored template copy gets the new head value (comments stay, the file is checked again
+afterwards and restored if it would be unusable), the instance records follow, except
+apps that name their own `standby_after` (the app wins; the command says which). Nothing is
+put to sleep or woken by the command; the idle sweep decides. Audit: `cohort.standby_after`.
+
 **Tests:** `test/test_cohort.py` (validation, precedence, the record after `create`,
 source checks for redeploy and reset).
 
@@ -369,3 +375,5 @@ Container, Idle-Signal, Weckzeit). Sieben Entscheidungen D1–D7 warten auf Jör
 **Stufe 3 (16.10.):** Das Gateway zählt jetzt offene Anfragen je Instanz (Caddy-Metriken); eine Instanz mit `standby_after` legt sich nach so vielen ruhigen Minuten selbst schlafen (`oaap app standby-after`). Jede Unsicherheit zählt als Benutzung. Auf oaap-test gemessen (`webtop` schlief nach 301 s ein, wurde geweckt).
 
 **Stufe 4 (16.10.):** Die Kohortenvorlage nimmt `standby_after` an (Kohortenwert und je App, die App geht vor, `off` schaltet ab; mindestens 5 Minuten). `cohort create/add/reset` setzen es am Instanz-Eintrag, ein Redeploy behält es (das war in Stufe 3 eine Lücke). Lokal gebaut und getestet, auf keinem Knoten gemessen.
+
+**Grenze später ändern:** `oaap cohort standby-after <Kohorte> <Minuten|off> [--dry-run]` schreibt den neuen Kohortenwert in die gespeicherte Vorlage und zieht die Instanzen nach; Apps mit eigenem Wert behalten ihn. Es schläft oder weckt nichts, das entscheidet der Leerlauf-Lauf. Lokal getestet, auf keinem Knoten gemessen.
