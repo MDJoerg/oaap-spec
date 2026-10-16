@@ -2,7 +2,9 @@
 
 - **Status:** **Accepted (2026-10-16)** — D1 and D2 decided by Jörg
   before the draft; Q1–Q7 decided the same day, all as recommended.
-  Nothing built.
+  Amended the same day after HVP's answer: §3.0 corrects a false fact
+  (`/platform/*` is not served on instance sites), §3.1 adds the JS
+  interface and `{kind, id}`, §3.2 backend submission. Nothing built.
 - **Date:** 2026-10-16
 - **Authors:** Jörg (the need: one feedback system for every app, tenant
   and node; clearing by the tenant; escalation to the developing node;
@@ -164,17 +166,62 @@ chain is whatever the moves were, and the entries show it.
 ## 3. The feedback button and the attested technical context
 
 Apps open standalone, each on its own origin (RFC-0036 D1). There is no
-shell around them that could add a button. But the gateway already
-serves `/platform/*` under every instance, so the button can be **the
+shell around them that could add a button. So the button is **the
 platform's own script, on the app's own origin**:
 
 ```html
 <script src="/platform/feedback.js" defer></script>
 ```
 
+### 3.0 Correction (2026-10-16): `/platform/*` is not on instance sites yet
+
+The first version of this section said *"the gateway already serves
+`/platform/*` under every instance"*. **That is false**, found when HVP
+asked us to confirm it (letter of 2026-10-16) and read in the code:
+
+- `/platform/*` is served — public, static, `file_server` — only by the
+  **portal apex** site (`_portal_site_body()` in `appctl.py`) and the
+  base Caddyfile.
+- The **instance** site body (`site_body()`) reserves `/auth/*` and
+  nothing else. On `hbvp-portal-test` a request for
+  `/platform/feedback.js` would reach the app's catch-all route and
+  come back 404 from the app.
+
+Stage 1 therefore includes, for **every** instance entry point (LAN
+port, automatic name, own names, aliases — the same body):
+
+1. a reserved `handle /platform/feedback*` block **with** `forward_auth`
+   (identity's `/verify`, headers copied as on any non-public route),
+   proxied to the tenant's `vorgaenge` instance;
+2. a reserved `handle /platform/*` block, public and static, as on the
+   apex (the script, the theme, the place assets);
+3. the manifest check refuses an app route under `/platform/`, as it
+   must for `/auth/`. No app in the catalog uses one today (checked
+   2026-10-16), so nothing breaks.
+
+### 3.1 The script
+
 - The script renders a small button (or binds to an element the app
-  names) and a form: kind, title, text, optional object id the app
-  passes in (`data-oaap-object`).
+  names) and a form: kind, title, text, optional object the app passes
+  in.
+- **Object reference** is `{kind, id}`: `kind` is the app's own domain
+  term (`team`, `meeting`, `venue`), `id` the app's own id. In markup
+  `data-oaap-object="team:<uuid>"` on the script tag or on any element
+  the app marks; the attribute is read **when the dialog opens**, never
+  at page load — single-page apps change the current object without
+  reloading.
+- **A JS interface** for apps with their own header or menu:
+  `window.oaapFeedback.open({object: {kind, id}})` opens the dialog;
+  `data-oaap-feedback="api-only"` on the script tag suppresses the
+  floating button. The interface is the same dialog, not a second door:
+  it posts to the same attested route.
+- **Without a session the script shows nothing.** Before rendering it
+  asks `/platform/feedback/session`; anything but 200 (no session,
+  public route, no `vorgaenge` instance) leaves the page untouched. This
+  is a rule about the *session*, not about the route: a logged-in admin
+  who opens a public device page in the same browser would see the
+  button if that page includes the script. Apps decide where they
+  include it; HVP leaves it off its public device channels.
 - It posts to **`/platform/feedback`** on the same origin. The gateway
   routes this to the `vorgaenge` instance of the **same tenant** and adds
   the attested part of `tech` from what it already knows on every
@@ -194,6 +241,19 @@ response bodies, or anything from the instance's log. The operator's
 view into logs remains RFC-0038's diagnosis window, opened on purpose
 and audited — a case may *link* to such a window, never carry its
 content.
+
+### 3.2 Cases from an app's backend (after stage 1)
+
+An app's own logic may open a case — HVP's hall-slot application will,
+once built (letter of 2026-10-16). The app calls the tenant's
+`vorgaenge` instance with **its instance key**, scope
+`oaap.cases.submit` (RFC-0027), either as itself or naming a user id
+"on behalf of". That claim is the **app's statement, not an
+attestation**: only the gateway attests, and the gateway is not on this
+path. The case therefore records `submitted_by: app:<instance>` and, if
+given, `on_behalf_of` marked as app-asserted; the attested part of
+`tech` carries the instance and package version, which identity knows
+from the key. Not part of stage 1.
 
 ## 4. Status
 
@@ -374,11 +434,19 @@ customer who already runs one — remains a connector, not a rewrite.
 1. **Report and clear within the tenant** (decided as the first slice,
    D2): app `vorgaenge` 0.1 — cases, entries, queues as contexts with the
    declaration of §2.1 checked by `authz_client`, statuses without
-   `voting` and `handed_over`, the default queue; the platform's
-   `feedback.js` and the attested route. Measured on `oaap-test` with a
-   test tenant; **HVP as first consumer** by including one script tag.
+   `voting` and `handed_over`, the default queue; on the platform side
+   the reserved `/platform/*` blocks on every instance site and the
+   manifest refusal (§3.0), `feedback.js` with the JS interface,
+   `api-only`, `{kind, id}` read at opening and the session check
+   (§3.1), and the attested route. Measured on `oaap-test` with a test
+   tenant, including a request for `/platform/feedback.js` on an
+   instance's own name; **HVP as first consumer** by including one
+   script tag in its logged-in pages (Schaltzentrale), not in its public
+   device channels.
 2. **Handover**, first between two tenants on one node, then across
-   nodes; the developer's inbox and the AI key (§5.4).
+   nodes; the developer's inbox and the AI key (§5.4). HVP's receiving
+   tenant will be on `oaapx01`, a development tenant of its own, name to
+   follow. Cases from an app's backend (§3.2) in the same stage.
 3. **Voting** (§7).
 4. **Templates** (§6), app defaults and tenant-own.
 5. *(own RFC)* notifications; cases as first consumer.
@@ -483,5 +551,21 @@ erster Abnehmer. Danach folgen Übergabe, Bewertung und Vorlagen.
 - Q6: Personendaten werden 12 Monate nach Abschluss entfernt; der
   Mandant kann die Frist einstellen.
 - Q7: Die KI entwirft eine Übergabe nur, ein Mensch gibt sie frei.
+
+**Nachtrag nach der Antwort von HVP (16.10.):**
+
+- **Eine Annahme war falsch.** `/platform/*` liefert das Gateway heute nur
+  auf der Portal-Adresse aus, nicht auf den Adressen der Instanzen. Die
+  erste Scheibe bekommt deshalb einen reservierten Block `/platform/*` auf
+  jeder Instanzadresse, und `/platform/feedback` läuft dort mit
+  Anmeldeprüfung. Das Manifest lehnt Routen unter `/platform/` ab.
+- **Zur ersten Scheibe kommen dazu:**
+  - die JS-Schnittstelle `window.oaapFeedback.open({object})`,
+  - der Schalter `api-only`, der den schwebenden Knopf ausblendet,
+  - der Objektbezug als `{kind, id}`, gelesen erst beim Öffnen,
+  - die Regel „ohne Sitzung zeigt das Script nichts“.
+- **Danach:** Vorgänge aus dem Backend einer App mit ihrem
+  Instanzschlüssel. „Im Namen von“ ist dabei eine Angabe der App, nicht
+  beglaubigt.
 
 Gebaut ist nichts.
