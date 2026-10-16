@@ -269,7 +269,7 @@ buttons are a third door to the same three functions. Tested with 10 cases
 (job per button, trimmed text, refusal shown, 403/404 without queueing).
 **Not measured in a real browser** on a node.
 
-## 8. Stage 3 as built (2026-10-16, built and tested locally, not on a node)
+## 8. Stage 3 as built (2026-10-16, measured on oaap-test)
 
 **The signal.** The gateway's global options gain `servers { metrics { per_host } }`.
 Caddy then counts, per listener (`srv0`, `srv1`, ...) and per host name, the requests
@@ -291,16 +291,38 @@ that has `standby_after` (minutes, at least 5) and has been out of use that long
 through the normal `standby_instance` (waking page first, then stop) with `by:
 auto-standby`. Not touched: instances in maintenance, with a deployment in flight, or
 already asleep. Opt-in per instance: `oaap app standby-after <instance> <minutes>|off`
-(stage 4 will set it from the cohort template). Wake on use is stage 1's waking page.
+(stage 4 sets it from the cohort template). Wake on use is stage 1's waking page.
 
 **Tests:** `test/test_idle.py` (parsing, mapping, clock, the sweep, fail-safe cases).
 
-**Not measured:** a real WebSocket through the real gateway to a real instance (the
-claim that Caddy keeps an upgraded connection "in flight" rests on `reverse_proxy`
-holding the handler open; the prototype used a slow plain request); the effect of the
-`metrics` directive on a loaded gateway; host names that are not automatic addresses
-(own host names of an instance are not mapped and therefore not seen as use);
-the other nodes.
+**Measured.** Throw-away Caddy: a real WebSocket (101 Switching Protocols) shows
+`in_flight 1` while open and 0 after. On oaap-test the instance `webtop` with
+`standby-after 5` went to `STANDBY` 301 s after the first count; `oaap app wake` woke
+it, `standby-after webtop off` removed the setting, the node stayed HEALTHY. The
+measurement found one bug: Caddy writes no number for a listener nobody has talked to,
+so a never-contacted instance was "unseen" and would never have slept; a listener the
+gateway's config has now counts as seen.
+
+**Not measured:** a WebSocket through the *real* gateway to a real instance behind a
+login; the effect of the `metrics` directive on a loaded gateway; host names that are
+not automatic addresses (own host names of an instance are not mapped and therefore not
+seen as use); the other nodes; a real person waking an auto-standby instance in a
+browser.
+
+## 9. Stage 4 as built (2026-10-16, tested locally, not on a node)
+
+The cohort template (RFC-0046) accepts `standby_after` at top level (the cohort
+default) and per app (the app wins; `off` or `false` = never, even if the cohort says
+so). Whole minutes, at least 5, anything else makes the template unusable (reported
+with the other problems, not silently defaulted). `cohort create`/`add` write it into
+each instance record; `cohort reset` brings the record back to what the template says;
+a redeploy keeps whatever the record has (this also closes a stage 3 gap: a
+hand-set `standby_after` was lost on redeploy). Shared instances of a cohort follow the
+same rule, so a trainer's shared Forgejo can opt out with `standby_after: off`.
+YAML reads a bare `off` as boolean false; both spellings mean "off".
+
+**Tests:** `test/test_cohort.py` (validation, precedence, the record after `create`,
+source checks for redeploy and reset). **Not measured:** on a node, with a real cohort.
 
 ## Deutsche Zusammenfassung
 
@@ -320,4 +342,6 @@ Standby ist der gewollte Schlaf. Nichts ist gebaut; §3 nennt, was zuerst
 gemessen werden muss (heutiges Verhalten bei einem von Hand gestoppten
 Container, Idle-Signal, Weckzeit). Sieben Entscheidungen D1–D7 warten auf Jörg.
 
-**Stufe 3 (16.10.):** Das Gateway zählt jetzt offene Anfragen je Instanz (Caddy-Metriken); eine Instanz mit `standby_after` legt sich nach so vielen ruhigen Minuten selbst schlafen (`oaap app standby-after`). Jede Unsicherheit zählt als Benutzung. Lokal gebaut und getestet, noch auf keinem Knoten gemessen.
+**Stufe 3 (16.10.):** Das Gateway zählt jetzt offene Anfragen je Instanz (Caddy-Metriken); eine Instanz mit `standby_after` legt sich nach so vielen ruhigen Minuten selbst schlafen (`oaap app standby-after`). Jede Unsicherheit zählt als Benutzung. Auf oaap-test gemessen (`webtop` schlief nach 301 s ein, wurde geweckt).
+
+**Stufe 4 (16.10.):** Die Kohortenvorlage nimmt `standby_after` an (Kohortenwert und je App, die App geht vor, `off` schaltet ab; mindestens 5 Minuten). `cohort create/add/reset` setzen es am Instanz-Eintrag, ein Redeploy behält es (das war in Stufe 3 eine Lücke). Lokal gebaut und getestet, auf keinem Knoten gemessen.

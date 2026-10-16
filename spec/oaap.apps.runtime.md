@@ -634,10 +634,12 @@ numbers, whether any request of the instance is in flight (an open WebSocket is)
 was finished since the last minute; an instance out of use for that long is put to
 standby by the platform (`by: auto-standby`). Every doubt counts as use, an instance
 in maintenance or with a deployment in flight is never put to sleep. Waking on the
-next use is the waking page above.
+next use is the waking page above. A cohort template (RFC-0046) MAY set
+`standby_after` for the whole cohort and per app (the app wins, `off` = never); the
+platform writes it into each instance record it creates and re-applies it on
+`cohort reset` (RFC-0059 stage 4).
 
-Not in this version: the cohort template field `standby_after` (stage 4), a tenant
-default text for maintenance.
+Not in this version: a tenant default text for maintenance.
 
 ### 2.11 Instance networks and isolation (RFC-0016)
 
