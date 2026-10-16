@@ -13,6 +13,9 @@
   exactly (a `/platform/feedback*` prefix took the script itself), and
   the path is passed on unchanged (a stripped one became the login's
   return target).
+  Rolled out to the whole fleet (0.1.200, with the dialog following the
+  app's dark mode); Q6 retention built in `vorgaenge` 0.1.1. HVP
+  consumes it on `oaapx01`.
 - **Date:** 2026-10-16
 - **Authors:** Jörg (the need: one feedback system for every app, tenant
   and node; clearing by the tenant; escalation to the developing node;
