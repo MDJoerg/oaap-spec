@@ -16,6 +16,16 @@
   Rolled out to the whole fleet (0.1.200, with the dialog following the
   app's dark mode); Q6 retention built in `vorgaenge` 0.1.1. HVP
   consumes it on `oaapx01`.
+  **Stage 2 built the same night** (reference 0.1.201, `vorgaenge`
+  0.2.1, runtime 0.2.44 §2.24, gateway 0.2.17) and measured on
+  `oaap-test` between two tenants through the real gateway: handover
+  with preview and release, delivery, idempotent redelivery, answer
+  back; the backend door `/platform/cases/submit` with a probe app.
+  §5.3 is built without platform code: the inbound key is an ordinary
+  RFC-0027 key of a machine principal the receiver issues, and the
+  partner list in `vorgaenge` maps it to a sender and a queue; the
+  outbound key lives in the sender's `vorgaenge`. The AI key (§5.4) is
+  not built. Not pushed.
 - **Date:** 2026-10-16
 - **Authors:** Jörg (the need: one feedback system for every app, tenant
   and node; clearing by the tenant; escalation to the developing node;
