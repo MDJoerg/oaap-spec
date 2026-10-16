@@ -1,7 +1,7 @@
 # RFC-0062: Instance Keys Follow the Instance — Revoked at Removal, Reissued at Rename, Renewed Before They Expire
 
-- **Status:** Proposed (2026-10-16) — four decisions for Jörg (D1–D4),
-  each with a recommendation. Nothing built.
+- **Status:** **Accepted (2026-10-16)** — Jörg took D1–D4 as
+  recommended the same night. Nothing built.
 - **Date:** 2026-10-16
 - **Authors:** Claude (found while building RFC-0061 stage 2, measured on
   `oaap-test`), Jörg (decides)
@@ -191,13 +191,13 @@ It is silent when there is nothing to do. On today's fleet this touches
 4. No instance key expires while its instance exists; the renewal is
    logged.
 
-## Decisions for Jörg
+## Decided (2026-10-16, D1–D4 as recommended)
 
-| | question | recommendation |
+| | question | decision |
 | --- | --- | --- |
-| **D1** | Does removal (also without `--purge`) revoke the instance's keys, delete its principal and its authorization record, and strip the key variables from the kept `instance.env`? | **Yes.** It closes A–C of §1. |
+| **D1** | Does removal (also without `--purge`) revoke the instance's keys, delete its principal and its authorization record, and strip the key variables from the kept `instance.env`? | **Yes**, with and without `--purge`. It closes A–C of §1. |
 | **D2** | Rename: reissue the keys under the new name, or rename the principal and move its keys? | **Reissue.** The containers are recreated anyway; renaming a principal would have to touch keys, the authorization record and the case scope, each a place to forget. |
-| **D3** | Expiry: renew 30 days ahead with a container recreate in the night window, or exempt instance keys from the maximum lifetime? | **Renew.** One restart a year, and D3 of RFC-0027 stays without exception. |
+| **D3** | Expiry: renew 30 days ahead with a container recreate in the night window, or exempt instance keys from the maximum lifetime? | **Renew 30 days ahead**, recreate in the night window. One restart a year, and D3 of RFC-0027 stays without exception. |
 | **D4** | Clean up existing orphans with an update step? | **Yes**, silent when nothing is found. |
 
 ## Deutsche Zusammenfassung
@@ -235,7 +235,7 @@ Am **10.09.2027** (oaap-test) bzw. **04.10.2027** (oaapx01) laufen die
 ersten Schlüssel ab. Ab dann verweigern die betroffenen Apps ohne
 Erklärung jede Fachberechtigung.
 
-**Vorschlag:**
+**Entschieden (16.10., alle wie empfohlen):**
 
 - **D1:** Entfernen zieht alle Schlüssel zurück, löscht Prinzipal und
   Fachrechte-Eintrag und nimmt die Schlüssel aus der aufbewahrten
