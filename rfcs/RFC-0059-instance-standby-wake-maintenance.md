@@ -305,9 +305,13 @@ gateway's config has now counts as seen.
 
 **Not measured:** a WebSocket through the *real* gateway to a real instance behind a
 login; the effect of the `metrics` directive on a loaded gateway; host names that are
-not automatic addresses (own host names of an instance are not mapped and therefore not
-seen as use); the other nodes; a real person waking an auto-standby instance in a
-browser.
+not automatic addresses; the other nodes; a real person waking an auto-standby instance
+in a browser.
+
+**Own host names (added after the first measurement).** An instance's own names (its
+`address` and `aliases`, RFC-0009/0018) are now mapped like the automatic addresses, so
+traffic on them counts as use. Before, an instance with its own domain could have gone to
+sleep while someone worked on it. Tested locally (`test_idle.py`); not measured on a node.
 
 ## 9. Stage 4 as built (2026-10-16, measured on oaap-test)
 
