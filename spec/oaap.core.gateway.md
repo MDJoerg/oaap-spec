@@ -106,7 +106,7 @@ happened and never see credentials.
   route:
   1. `/platform/feedback*`: forward auth like a non-public route of that
      instance (its route roles, visibility groups, tenant, instance),
-     then proxied — `/platform` stripped — to the `vorgaenge` instance of
+     then proxied — path unchanged — to the `vorgaenge` instance of
      the **same tenant** (on the source's own channel if there is one,
      else production; never a rehearsal). On that proxy the gateway sets
      the **source headers** `X-OAAP-Source-Instance`, `-App`, `-Version`
