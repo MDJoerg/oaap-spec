@@ -4,7 +4,15 @@
   before the draft; Q1–Q7 decided the same day, all as recommended.
   Amended the same day after HVP's answer: §3.0 corrects a false fact
   (`/platform/*` is not served on instance sites), §3.1 adds the JS
-  interface and `{kind, id}`, §3.2 backend submission. Nothing built.
+  interface and `{kind, id}`, §3.2 backend submission. **Stage 1 built
+  the same evening** (reference 0.1.199, `vorgaenge` 0.1.0, gateway
+  0.2.16, runtime 0.2.43) and measured on `oaap-test` over the LAN
+  ports; not yet on an instance's own name, not pushed, HVP not yet
+  told. Two corrections found at the node, both in §3.0's blocks: the
+  feedback route is `/platform/feedback` and `/platform/feedback/*`
+  exactly (a `/platform/feedback*` prefix took the script itself), and
+  the path is passed on unchanged (a stripped one became the login's
+  return target).
 - **Date:** 2026-10-16
 - **Authors:** Jörg (the need: one feedback system for every app, tenant
   and node; clearing by the tenant; escalation to the developing node;
