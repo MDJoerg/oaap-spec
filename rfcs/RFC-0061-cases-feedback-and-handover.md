@@ -1,8 +1,8 @@
 # RFC-0061: Cases — One Primitive for Feedback, Requests and Internal Work, Cleared in the Tenant and Handed Over Across It
 
-- **Status:** **Draft (2026-10-16)** — D1 and D2 decided by Jörg before
-  the draft (2026-10-16); Q1–Q7 open, each with a recommendation. Nothing
-  built.
+- **Status:** **Accepted (2026-10-16)** — D1 and D2 decided by Jörg
+  before the draft; Q1–Q7 decided the same day, all as recommended.
+  Nothing built.
 - **Date:** 2026-10-16
 - **Authors:** Jörg (the need: one feedback system for every app, tenant
   and node; clearing by the tenant; escalation to the developing node;
@@ -394,9 +394,12 @@ customer who already runs one — remains a connector, not a rewrite.
 - **D2 — the first slice is reporting and clearing within the tenant**
   (§11 stage 1). Handover, voting and templates follow.
 
-## Open — for Jörg
+## Decided (2026-10-16, Q1–Q7 as recommended)
 
-| | question | recommendation |
+Jörg went through the seven questions one by one and took every
+recommendation.
+
+| | question | decision |
 | --- | --- | --- |
 | **Q1** | Does the gateway attest the technical context (§3), or does the app send it? | **The gateway.** It is the one reason for platform code in stage 1, and it makes every report trustworthy without the app's help. |
 | **Q2** | Handover transport: HTTPS push into an inbox with a key the receiver issues, or the platform broker (RFC-0054)? | **HTTPS with a key.** One document, rarely, acknowledged; the broker is built for streams and is still a draft. |
@@ -469,7 +472,16 @@ ein Export später ein Konnektor bleibt.
 Mandanten: App 0.1 plus Feedback-Knopf, gemessen auf oaap-test, HVP als
 erster Abnehmer. Danach folgen Übergabe, Bewertung und Vorlagen.
 
-**Offen für Jörg:** Q1–Q7, jeweils mit Empfehlung. Die Punkte sind:
-Gateway beglaubigt, Übergabe per HTTPS mit Schlüssel, Freigabe durch
-einen Menschen, eigene Ablage statt Zwilling, Punkte 10/3, Löschfrist 12
-Monate, die KI übergibt nicht selbst.
+**Von Jörg am 16.10. entschieden (Q1–Q7, alle wie empfohlen):**
+- Q1: Das Gateway beglaubigt den technischen Kontext.
+- Q2: Die Übergabe läuft per HTTPS mit einem Schlüssel, den der
+  Empfänger ausstellt.
+- Q3: In v1 gibt immer ein Mensch frei.
+- Q4: Die Vorgänge liegen in der eigenen Ablage der App, nicht im
+  Zwilling.
+- Q5: 10 Punkte je Runde, höchstens 3 je Idee, die Breite zählt mit.
+- Q6: Personendaten werden 12 Monate nach Abschluss entfernt; der
+  Mandant kann die Frist einstellen.
+- Q7: Die KI entwirft eine Übergabe nur, ein Mensch gibt sie frei.
+
+Gebaut ist nichts.
