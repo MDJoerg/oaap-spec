@@ -338,6 +338,16 @@ left nothing behind. `reset` reads the cohort's *stored* copy of the template, s
 trainer's file does not reach it (RFC-0046 §2, by design); there is no step yet that changes the
 stored template. **Not measured:** a template change on a node (only locally), a real person waking a seat.
 
+## 10. Visible state (2026-10-16)
+
+After the first browser test Jörg asked to see the state. The portal's instance list gets a
+*Status* column (standby with since/by, waking, maintenance as its own mark, otherwise the same
+health probe as the health page; sleeping instances are not probed). The fleet document
+(`oaap.fleet.status` 0.4) gets the instance state `standby` -- Jörg chose "its own state" over
+leaving sleeping instances out of the fault list: they stay visible in the document, count as
+neither healthy nor broken, and never raise `instance_unhealthy`. FleetView 0.3.3 shows it as
+"Standby" and counts it separately. Tested locally; not measured on a node.
+
 ## Deutsche Zusammenfassung
 
 Drei Wünsche, ein Zustand am Instanz-Eintrag: **Standby** (die Instanz

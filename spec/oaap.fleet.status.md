@@ -1,9 +1,9 @@
 # oaap.fleet.status — Read-Only Fleet Status Document
 
 - **ID:** `oaap.fleet.status`
-- **Version:** 0.3 (adds `auto_address` and `auto_state` to instance
-  rows — additive, 0.1 and 0.2 consumers keep working; implemented by
-  the reference 0.1.46)
+- **Version:** 0.4 (an instance row's `state` may be `standby` —
+  RFC-0059; 0.3 added `auto_address` and `auto_state` to instance rows,
+  implemented by the reference 0.1.46)
 - **Maturity:** draft
 - **Based on:** RFC-0021; RFC-0008 (`server_admin`), RFC-0010
   (throttling precedent), RFC-0019 (token hygiene precedent)
@@ -45,7 +45,7 @@ minutes → 1 attempt/minute), in a throttle namespace of their own.
 
 ```json
 {
-  "schema": "oaap.fleet.status/0.3",
+  "schema": "oaap.fleet.status/0.4",
   "node": "oaap.joomp.de",
   "platform_version": "0.1.46",
   "profiles": [],
@@ -89,6 +89,14 @@ Rules:
    Additive changes bump the minor; removals or renames need a new
    major and an RFC.
 3. **States are one vocabulary:** `ok | warn | error | unknown`.
+   The one extension (0.4): an **instance row's** `state` may also be
+   `standby` — the instance is asleep on purpose (RFC-0059: `state:
+   standby` or `waking` on its record). It is not healthy and not
+   broken, it is *not running by choice*, and a consumer must not read
+   it as either: it is never an `attention` item, and `auto_state` of a
+   sleeping instance is `ok` (its name still answers — with the waking
+   page). Core services and names never take it. A 0.3 consumer sees a
+   value it does not know and must treat it as `unknown`.
 4. **`attention` is the machine-readable "needs a human".** Defined
    kinds today: `core_service_down`, `dns_drift`, `dns_unresolved`,
    `confirmation_pending`, `instance_unhealthy`. The list is open —
@@ -191,7 +199,14 @@ Auffangeintrag statt bei der App), `unknown`. Fehlt dem Knoten ein
 externer Name, entfallen beide Felder. Ausdrücklich **keine** Aussage
 über TLS, über Auflösbarkeit bei einem bestimmten Client oder über
 Erreichbarkeit von außen — das bleibt Sache der Reach-Prüfungen
-(RFC-0015). Alles additiv, 0.1- und 0.2-Konsumenten laufen weiter. Autorisiert wird mit einem **Flotten-
+(RFC-0015). Alles additiv, 0.1- und 0.2-Konsumenten laufen weiter.
+
+**Seit 0.4** kann der `state` einer **Instanzzeile** zusätzlich `standby`
+sein (RFC-0059): die Instanz schläft mit Absicht. Das ist weder gesund
+noch kaputt — also nie ein `attention`-Eintrag, und der automatische
+Name einer schlafenden Instanz bleibt `ok` (er antwortet mit der
+Weckseite). Kerndienste und Namen kennen den Wert nicht. Ein 0.3-
+Konsument, der ihn nicht kennt, behandelt ihn als `unknown`. Autorisiert wird mit einem **Flotten-
 Schlüssel**: `sudo oaap fleet key issue <label>` zeigt ihn genau
 einmal, gespeichert wird nur der SHA-256-Digest; `list` nennt nie
 Schlüsselmaterial, `revoke` wirkt sofort; Ausstellung und Entzug
