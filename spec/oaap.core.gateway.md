@@ -1,8 +1,10 @@
 # oaap.core.gateway — HTTP Gateway (outline)
 
 - **ID:** `oaap.core.gateway`
-- **Version:** 0.2.16
+- **Version:** 0.2.17
 - **Maturity:** draft (outline — full specification to follow;
+  `/platform/cases/submit` on every instance site, the door of an app's
+  backend, 2026-10-16 per RFC-0061 §3.2;
   `/platform/*` reserved on every instance site, with an attested
   feedback route to the tenant's `vorgaenge` instance, 2026-10-16 per
   RFC-0061 stage 1;
@@ -116,6 +118,12 @@ happened and never see credentials.
   2. `/platform/*`: public and static, as on the platform apex (the
      feedback script, the theme, the tenant logos), identity headers
      stripped.
+  3. `/platform/cases/submit` (0.2.17, RFC-0061 §3.2): forward auth with
+     no roles and the instance `oaap.cases.submit:<this instance>` — the
+     only credential that passes is the key minted for this instance's
+     machine principal (`oaap.apps.runtime` 2.24). Proxied with the
+     same source headers to the same `vorgaenge` instance; 404 without
+     one.
 
   The source headers MUST be stripped from **every** request of every
   instance site before any handler runs; otherwise a client could send
@@ -812,3 +820,13 @@ Plattform die Sites eines Mandanten neu, wenn dessen `vorgaenge` kommt,
 geht oder umzieht. Ein Update trägt die Blöcke außerdem in die Dateien
 nach, die schon auf dem Knoten liegen. Das ist zum dritten Mal dieselbe
 Lehre wie bei 0.1.117.
+
+## Deutsche Zusammenfassung (v0.2.17 — die Tür für das Backend einer App, RFC-0061 §3.2)
+
+Jede Instanzadresse hat neben `/platform/feedback` jetzt
+`/platform/cases/submit`. Dort fragt das Gateway keine Rolle, sondern
+nennt als Instanz `oaap.cases.submit:<diese Instanz>`. Durch kommt damit
+nur der Schlüssel, den die Plattform genau dieser Instanz ausgestellt
+hat. Weitergeleitet wird wie beim Feedback: an das `vorgaenge` des
+eigenen Mandanten, mit Herkunftszeilen vom Gateway. Ohne `vorgaenge`
+antwortet die Tür mit 404.

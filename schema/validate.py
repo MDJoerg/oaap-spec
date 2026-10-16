@@ -186,6 +186,14 @@ case("administer ist ein Wahrheitswert",
      app("0.6", authorization={"administer": "ja"}), False)
 case("administer braucht Manifest 0.6",
      app("0.5", authorization={"administer": True}), False)
+case("cases.submit: true (Manifest 0.9, RFC-0061 §3.2)",
+     app("0.9", cases={"submit": True}), True)
+case("cases.submit ist ein Wahrheitswert",
+     app("0.9", cases={"submit": "ja"}), False)
+case("cases braucht Manifest 0.9",
+     app("0.8", cases={"submit": True}), False)
+case("ein unbekannter Schluessel in cases wird abgelehnt",
+     app("0.9", cases={"templates": []}), False)
 
 files = sys.argv[1:]
 if files:

@@ -202,6 +202,32 @@
           }
         }
       }
+    },
+    {
+      "$comment": "Same rule for the 0.9 field: 'cases' may only be used by a manifest declaring at least 0.9 (RFC-0061 §3.2).",
+      "if": {
+        "properties": {
+          "oaap_manifest": {
+            "enum": [
+              "0.1",
+              "0.2",
+              "0.3",
+              "0.4",
+              "0.5",
+              "0.6",
+              "0.7",
+              "0.8"
+            ]
+          }
+        }
+      },
+      "then": {
+        "not": {
+          "required": [
+            "cases"
+          ]
+        }
+      }
     }
   ],
   "properties": {
@@ -214,9 +240,10 @@
         "0.5",
         "0.6",
         "0.7",
-        "0.8"
+        "0.8",
+        "0.9"
       ],
-      "$comment": "MAJOR.MINOR. A new MINOR only adds; a new MAJOR is the only thing a node may refuse (RFC-0012 §8.2). Deliberately not the semver 0.x reading, where the minor would carry breaking changes. 0.2 adds app.class. 0.3 adds data_model/contributes/consumes (oaap.data.model 0.1 §2.2, RFC-0031 §5) and the data_models artefact shape (§2.8). 0.4 adds the 'launchpad' section (RFC-0036). 0.5 adds the 'destinations' section (oaap.net.destinations 0.1, RFC-0033 stage 1). 0.6 adds the 'authorization' section (oaap.core.authorization 0.1, RFC-0045 stages 1-2). 0.7 adds services.<name>.shm (oaap.apps.runtime 2.20). 0.8 adds services.<name>.tun (oaap.apps.runtime 2.23, RFC-0060)."
+      "$comment": "MAJOR.MINOR. A new MINOR only adds; a new MAJOR is the only thing a node may refuse (RFC-0012 §8.2). Deliberately not the semver 0.x reading, where the minor would carry breaking changes. 0.2 adds app.class. 0.3 adds data_model/contributes/consumes (oaap.data.model 0.1 §2.2, RFC-0031 §5) and the data_models artefact shape (§2.8). 0.4 adds the 'launchpad' section (RFC-0036). 0.5 adds the 'destinations' section (oaap.net.destinations 0.1, RFC-0033 stage 1). 0.6 adds the 'authorization' section (oaap.core.authorization 0.1, RFC-0045 stages 1-2). 0.7 adds services.<name>.shm (oaap.apps.runtime 2.20). 0.8 adds services.<name>.tun (oaap.apps.runtime 2.23, RFC-0060). 0.9 adds the 'cases' section (cases.submit: an app's backend opens a case in its tenant, oaap.apps.runtime 2.24, RFC-0061 §3.2)."
     },
     "must_understand": {
       "type": "array",
@@ -955,6 +982,16 @@
               "env"
             ]
           }
+        }
+      }
+    },
+    "cases": {
+      "type": "object",
+      "description": "Manifest 0.9, oaap.apps.runtime 2.24 (RFC-0061 §3.2): what the app does with cases. 'submit: true' asks for OAAP_CASES_KEY/OAAP_CASES_URL so the app's backend can open a case in its tenant's 'vorgaenge' instance.",
+      "additionalProperties": false,
+      "properties": {
+        "submit": {
+          "type": "boolean"
         }
       }
     }

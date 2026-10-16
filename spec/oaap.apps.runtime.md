@@ -1,7 +1,10 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.43 (**`/auth/` and `/platform/` are reserved route
+- **Version:** 0.2.44 (**an app's backend opens a case**, manifest 0.9 /
+  RFC-0061 §3.2: `cases: {submit: true}` hands the instance
+  `OAAP_CASES_KEY` and `OAAP_CASES_URL`, new 2.24;
+  0.2.43 (**`/auth/` and `/platform/` are reserved route
   prefixes**, RFC-0061 §3.0: a manifest route under either is refused at
   install, 2.4 item 1;
   0.2.42 (**a network tunnel inside one container**,
@@ -1782,6 +1785,39 @@ stays 2.7/2.10, the operator's decision):
   ignores `group` shows the tile without a heading; one that ignores
   `embeddable` loses nothing, since nothing reads it yet.
 
+### 2.24 Cases from an app's backend (0.2.44, manifest 0.9, RFC-0061 §3.2)
+
+An app MAY declare that its backend opens cases in its tenant:
+
+```yaml
+cases:
+  submit: true
+```
+
+- **What the instance gets.** Two platform-owned variables (2.8, never
+  operator-editable):
+  - `OAAP_CASES_KEY`: an API key (RFC-0027) of the instance's machine
+    principal `instance:<name>`, limited to the pseudo-instance
+    `oaap.cases.submit:<name>`;
+  - `OAAP_CASES_URL`: `http://<gateway>:<the instance's own port>/platform/cases/submit`.
+- **One door, one instance.** The gateway passes
+  `oaap.cases.submit:<name>` as the instance only in the
+  `/platform/cases/submit` block of that instance's own site
+  (`oaap.core.gateway` 0.2.17). The key therefore opens nothing else —
+  not the app's own pages, not another instance's door.
+- **What the case records.** The source (instance, app, version,
+  tenant) comes from the gateway, as for the feedback button. A person
+  the app names `on_behalf_of` is the app's statement, stored as such,
+  not an attestation (RFC-0061 §3.2).
+- **Minted once**, like the twin and authorization keys; never for a
+  rehearsal (it would write into the production tenant's inbox). A
+  redeploy without the field stops handing the key to the app. Like
+  those keys it is valid for the longest key lifetime and is not
+  revoked when the instance is removed — a known gap shared by all
+  three.
+- **Values.** `true` or `false`; anything else is refused where the
+  manifest is validated. No field: nothing changes.
+
 ## 3. Configuration
 
 - Level-1 port range (default 8100–8199, expert-configurable;
@@ -2946,3 +2982,21 @@ wäre erklärt und nie erreichbar. Deshalb lehnt die Installation ein
 Manifest ab, das eine Route `/auth`, `/platform` oder darunter erklärt.
 `/authors` oder `/platformx` liegen nicht darunter und bleiben erlaubt.
 Keine App im Katalog war betroffen (geprüft am 16.10.).
+
+## Deutsche Zusammenfassung (2.24, v0.2.44 — Vorgänge aus dem Backend einer App, Manifest 0.9, RFC-0061 §3.2)
+
+Eine App darf im Manifest `cases: {submit: true}` erklären. Dann bekommt
+ihre Instanz zwei Variablen der Plattform:
+
+- `OAAP_CASES_KEY`: einen Schlüssel ihres Maschinenprinzipals,
+- `OAAP_CASES_URL`: die Adresse `/platform/cases/submit` auf ihrem
+  **eigenen** Gateway-Port.
+
+Der Schlüssel öffnet genau diese eine Tür dieser einen Instanz, weder
+ihre Seiten noch die Tür einer anderen App. Die Herkunft setzt das
+Gateway. „Im Namen von“ ist eine Angabe der App und wird auch so
+gespeichert.
+
+Wie die anderen Instanzschlüssel wird er einmal ausgestellt, nie für eine
+Generalprobe, und beim Entfernen nicht zurückgezogen. Diese Lücke haben
+alle drei Schlüssel gemeinsam.
