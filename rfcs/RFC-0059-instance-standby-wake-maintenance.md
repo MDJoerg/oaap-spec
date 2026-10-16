@@ -257,6 +257,18 @@ a multi-service instance; a wake with no room on the node.
    services …)`, exit 1; started again: `HEALTHY (8/8 …)`. A sleeping instance
    still does not count against the apps.
 
+## 7. Stage 2 as built (2026-10-16)
+
+The portal's instance view (tab Diagnose) has a card "Standby und Wartung":
+state with who/since, and the one possible step per axis (standby ↔ wake,
+maintenance on with a visitor text ↔ off). Routes `POST
+/instances/<name>/standby|wake|maintenance` check `require_instance_admin`,
+refuse while a deployment runs, queue the worker action that already existed
+and show the host's verdict (wake waits up to 200 s). No new host logic: the
+buttons are a third door to the same three functions. Tested with 10 cases
+(job per button, trimmed text, refusal shown, 403/404 without queueing).
+**Not measured in a real browser** on a node.
+
 ## Deutsche Zusammenfassung
 
 Drei Wünsche, ein Zustand am Instanz-Eintrag: **Standby** (die Instanz

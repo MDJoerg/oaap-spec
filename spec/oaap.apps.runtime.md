@@ -620,7 +620,15 @@ is shown escaped.
 failure; it reports `n in standby`. `oaap app list` marks `STANDBY` and
 `MAINTENANCE`; the instance state view carries `mode`.
 
-Not in this version: portal buttons (stage 2), automatic standby and wake on
+**Portal buttons (RFC-0059 stage 2).** The instance view (tab Diagnose) shows
+a card "Standby und Wartung": the current state, and only the step that is
+possible now (put to sleep / wake; maintenance on with a visitor text / off).
+Each button queues the same worker action the CLI runs (`standby`, `wake`,
+`maintenance`), under the same rule as a restart: `server_admin`, or the
+`tenant_admin` of that instance's tenant (another tenant's instance answers
+404); refused while a deployment runs. The host judges again.
+
+Not in this version: automatic standby and wake on
 the next use after idle (stage 3 — needs a traffic signal the gateway does not
 have today), the cohort template field `standby_after` (stage 4), a tenant
 default text for maintenance.
