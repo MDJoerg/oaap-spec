@@ -223,6 +223,11 @@ port, automatic name, own names, aliases — the same body):
   `data-oaap-feedback="api-only"` on the script tag suppresses the
   floating button. The interface is the same dialog, not a second door:
   it posts to the same attested route.
+- **Light or dark** is decided when the dialog opens:
+  `open({theme: "dark"|"light"})`, else `<html data-theme="dark|light">`,
+  else the operating system's `prefers-color-scheme` (HVP's letter of
+  2026-10-16: its dark mode is an app setting, not the system's; built
+  in reference 0.1.200).
 - **Without a session the script shows nothing.** Before rendering it
   asks `/platform/feedback/session`; anything but 200 (no session,
   public route, no `vorgaenge` instance) leaves the page untouched. This
