@@ -1,8 +1,11 @@
 # oaap.core.gateway — HTTP Gateway (outline)
 
 - **ID:** `oaap.core.gateway`
-- **Version:** 0.2.15
+- **Version:** 0.2.16
 - **Maturity:** draft (outline — full specification to follow;
+  `/platform/*` reserved on every instance site, with an attested
+  feedback route to the tenant's `vorgaenge` instance, 2026-10-16 per
+  RFC-0061 stage 1;
   the public-route brake counts per route, not per instance, and
   may be overridden per route, 2026-09-29 per the RFC-0010 amendment;
   the exposure zone `t.<external host>` with on-demand certificates and
@@ -30,7 +33,8 @@
   hostnames extended to a canonical name plus aliases 2026-08-12 per
   RFC-0018; fleet status route added 2026-08-23 per RFC-0021)
 - **Based on:** RFC-0001, RFC-0002, RFC-0003, RFC-0006, RFC-0007,
-  RFC-0008, RFC-0009, RFC-0010, RFC-0016, RFC-0018, RFC-0027, RFC-0038
+  RFC-0008, RFC-0009, RFC-0010, RFC-0016, RFC-0018, RFC-0027, RFC-0038,
+  RFC-0061
 
 ## Purpose
 
@@ -96,6 +100,32 @@ happened and never see credentials.
   stripped, authorization by a fleet key that the portal validates
   (`oaap.fleet.status` 0.1). Served on the platform apex of every
   published name; never on app instance sites.
+- **`/platform/*` on every instance site** (RFC-0061 §3.0/§3.1, 0.2.16).
+  Every entry point of an instance — LAN port, automatic name, own
+  names, aliases; the one body they share — reserves, ahead of every app
+  route:
+  1. `/platform/feedback*`: forward auth like a non-public route of that
+     instance (its route roles, visibility groups, tenant, instance),
+     then proxied — `/platform` stripped — to the `vorgaenge` instance of
+     the **same tenant** (on the source's own channel if there is one,
+     else production; never a rehearsal). On that proxy the gateway sets
+     the **source headers** `X-OAAP-Source-Instance`, `-App`, `-Version`
+     and `-Tenant` from the instance's record. With no such instance the
+     route answers 404.
+  2. `/platform/*`: public and static, as on the platform apex (the
+     feedback script, the theme, the tenant logos), identity headers
+     stripped.
+
+  The source headers MUST be stripped from **every** request of every
+  instance site before any handler runs; otherwise a client could send
+  them straight to the `vorgaenge` instance's own address and claim any
+  source. The proxy target lives in another instance's record, so an
+  implementation MUST rewrite the sites of a tenant when its `vorgaenge`
+  instance is installed, removed or moved, and MUST carry the blocks
+  into site files already on disk at update — the `/platform/*` lesson
+  of 0.1.117, a third time. Measured before this version: on an instance
+  site `/platform/feedback.js` reached the app's catch-all route and came
+  back 404 from the app.
 - **Topology** (RFC-0003): the gateway runs on the controller and also
   publishes apps that run on worker nodes; a worker whose controller is
   down is not reachable through the gateway.
@@ -753,3 +783,30 @@ Schritte wie eine direkte. Weitergeleitet wird aber an den
 Verbindungsdienst, mit drei eigenen Kopfzeilen: dem Schlüssel des
 Gateways, der aufrufenden Instanz und der Destination samt Mandant.
 Was die App unter diesen Namen schickt, wird überschrieben.
+
+## Deutsche Zusammenfassung (v0.2.16 — `/platform/*` auf jeder Instanzadresse, RFC-0061 Stufe 1)
+
+Bisher beantwortete das Gateway `/platform/*` nur auf der Portal-Adresse
+des Knotens. Auf der Adresse einer App landete `/platform/feedback.js`
+bei der App selbst und kam als 404 zurück. Seit 0.2.16 reserviert jede
+Instanzadresse zwei Blöcke, vor allen Routen der App:
+
+1. **`/platform/feedback…`** mit Anmeldeprüfung wie eine geschützte
+   Route dieser App. Das Gateway leitet weiter an die `vorgaenge`-Instanz
+   **desselben Mandanten**: bevorzugt auf demselben Kanal, sonst
+   Produktion, nie eine Generalprobe. Dabei setzt es die
+   **Herkunftszeilen** (Instanz, App, Version, Mandant), die die App
+   nicht fälschen kann. Gibt es im Mandanten keine `vorgaenge`-Instanz,
+   antwortet die Route mit 404.
+2. **`/platform/*`** öffentlich und statisch, wie auf dem Portal. Dort
+   liegen das Feedback-Script, das Theme und die Logos.
+
+Die Herkunftszeilen streicht das Gateway **auf jeder Anfrage** jeder
+Instanzadresse, bevor irgendetwas anderes läuft. Sonst könnte ein Client
+sie direkt an die eigene Adresse der `vorgaenge`-Instanz schicken.
+
+Das Ziel steht im Eintrag einer **anderen** Instanz. Deshalb schreibt die
+Plattform die Sites eines Mandanten neu, wenn dessen `vorgaenge` kommt,
+geht oder umzieht. Ein Update trägt die Blöcke außerdem in die Dateien
+nach, die schon auf dem Knoten liegen. Das ist zum dritten Mal dieselbe
+Lehre wie bei 0.1.117.

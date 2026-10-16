@@ -1,7 +1,10 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.42 (**a network tunnel inside one container**,
+- **Version:** 0.2.43 (**`/auth/` and `/platform/` are reserved route
+  prefixes**, RFC-0061 §3.0: a manifest route under either is refused at
+  install, 2.4 item 1;
+  0.2.42 (**a network tunnel inside one container**,
   manifest 0.8 / RFC-0060 stage 0: a service MAY declare `tun: true` and
   its container gets `/dev/net/tun` + `NET_ADMIN`, nothing else; the
   operator confirms once at install, never in a rehearsal — new 2.23;
@@ -1172,7 +1175,12 @@ For every instance, the runtime delivers the contract guarantees:
 
 1. Gateway routes from the manifest (prefix match, longest wins,
    undeclared paths rejected), role enforcement, identity headers set
-   and spoofing-stripped on every listener.
+   and spoofing-stripped on every listener. **`/auth/` and `/platform/`
+   are the platform's own on every instance site** (`oaap.core.gateway`
+   0.2.16, RFC-0061 §3.0): a manifest route equal to `/auth` or
+   `/platform` or below either MUST be refused at install — it would be
+   declared and never reached. `/authors` or `/platformx` are not under
+   them and stay allowed.
 2. Storage mounts per instance, writable for the container's runtime
    user; included in platform backup.
 3. Config as env vars; `secret: true` entries stored protected and
@@ -2928,3 +2936,13 @@ Kohorte und Profil werden beim ersten Mal abgewiesen. Ein Redeploy einer
 Instanz, deren Dienst das Recht schon hat, fragt nicht erneut. **Eine
 Generalprobe bekommt es nie** (D6) und wird auch nicht gefragt. Ohne Feld
 ändert sich nichts. Die Bestätigung im Portal kommt erst mit Stufe 4.
+
+## Deutsche Zusammenfassung (2.4, v0.2.43 — `/auth/` und `/platform/` gehören der Plattform, RFC-0061 §3.0)
+
+Auf jeder Adresse einer Instanz beantwortet das Gateway `/auth/…` und seit
+0.1.199 auch `/platform/…` selbst (das Feedback-Script und sein
+beglaubigter Weg, siehe `oaap.core.gateway` 0.2.16). Eine App-Route dort
+wäre erklärt und nie erreichbar. Deshalb lehnt die Installation ein
+Manifest ab, das eine Route `/auth`, `/platform` oder darunter erklärt.
+`/authors` oder `/platformx` liegen nicht darunter und bleiben erlaubt.
+Keine App im Katalog war betroffen (geprüft am 16.10.).
