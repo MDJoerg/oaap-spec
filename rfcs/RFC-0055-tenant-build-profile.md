@@ -96,6 +96,7 @@ the node and says whether the step's result is already there), and a
 | `tenant.policy` | `tenant policy` | the same read equals the wish | none: it goes with the tenant |
 | `tenant.face` | `tenant face` | stored values equal the wish | none: it goes with the tenant |
 | `app.install` | `app install <source> --tenant <label> --channel … --name …` | an instance of that name exists in the tenant with the package's version | `app remove` (without `--purge`) |
+| `authz.setup` | `oaap authz setup --app <app>` (`oaap.core.authorization` 0.4 §2.11): role, collection, mapping and realm group per template; params `app`, optional `only`, `skip`, `groups` (key → path) | the plan for that app has nothing left to do | none (nothing deletes) |
 | `manual` | none — a human does it | `done_when` (a read; see below) | none |
 | `backup.check` | none | the tenant is in the node archive | none |
 

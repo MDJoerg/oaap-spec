@@ -186,6 +186,28 @@ case("administer ist ein Wahrheitswert",
      app("0.6", authorization={"administer": "ja"}), False)
 case("administer braucht Manifest 0.6",
      app("0.5", authorization={"administer": True}), False)
+def _tpl(**kw):
+    t = {"key": "trainer", "title": "Trainer/in",
+         "grants": [{"object": "team", "activities": ["read"]}]}
+    t.update(kw)
+    return {"objects": [{"key": "team", "title": "Mannschaft",
+                         "activities": ["read"]}],
+            "role_templates": [t]}
+
+
+case("suggested_group: ein Gruppenpfad (0.4, Spec 2.11)",
+     app("0.6", authorization=_tpl(suggested_group="Verein/Trainer")), True)
+case("suggested_group: ein einzelnes Segment",
+     app("0.6", authorization=_tpl(suggested_group="Trainer")), True)
+case("suggested_group: vier Segmente sind zu viel",
+     app("0.6", authorization=_tpl(suggested_group="a/b/c/d")), False)
+case("suggested_group: ein fuehrender Schraegstrich wird abgelehnt",
+     app("0.6", authorization=_tpl(suggested_group="/Verein/Trainer")), False)
+case("suggested_group: ein leeres Segment wird abgelehnt",
+     app("0.6", authorization=_tpl(suggested_group="Verein//Trainer")), False)
+case("suggested_group ist Text",
+     app("0.6", authorization=_tpl(suggested_group=["Verein"])), False)
+
 case("cases.submit: true (Manifest 0.9, RFC-0061 §3.2)",
      app("0.9", cases={"submit": True}), True)
 case("cases.submit ist ein Wahrheitswert",

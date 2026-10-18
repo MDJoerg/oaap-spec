@@ -122,6 +122,28 @@ groups at all. See `oaap.core.authorization` 0.2 §2.9.
 - It does not put anybody into the group.
 - It does not touch realm roles. OAAP creates none.
 
+## 6. The verb `groups` (added 2026-10-18)
+
+An optional connector verb (`OPTIONAL_VERBS`) for `oaap.core.authorization` 0.4
+§2.11: **make sure group paths exist** in the tenant's space.
+
+1. **Version first, the space must exist** (unchanged plan rules; this verb makes
+   no realm).
+2. **Groups only.** For each path, top-level group first, then each child below
+   it: read (exact search by name; children of the parent), create only what is
+   missing. Keycloak: `GET /admin/realms/{r}/groups?search=<name>&exact=true`,
+   `POST /admin/realms/{r}/groups` (`{name}`), `GET …/groups/{id}/children`,
+   `POST …/groups/{id}/children`. Methods stay `GET` and `POST`.
+3. **Add, never change.** An existing group is not touched — not its members, not
+   its roles, not its attributes. No person is created; no membership is written
+   (`users` stays in `never`). Nothing deletes.
+4. **Read back.** Each path is read again; what is reported is what the space
+   answered. A path that cannot be found again is a failure, not a guess.
+5. A path has 1–3 segments of 1–64 characters (the same shape as the manifest's
+   `suggested_group`); anything else is refused before the first call.
+
+CLI: through `oaap authz setup` (not a command of its own).
+
 ## Deutsche Zusammenfassung
 
 Ein Kundenmandant hat einen eigenen Realm. Sein Verwalter soll Personen und

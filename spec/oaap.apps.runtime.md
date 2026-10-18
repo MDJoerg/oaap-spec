@@ -846,7 +846,11 @@ access right.
   invalid manifest, a manifest or checksum that does not match the
   announcement, and an **unchanged version** (with no commit hash, the
   version is the only record of what runs). Refused pending an
-  administrator's confirmation: new routes reachable without login, new
+  administrator's confirmation: new routes reachable without login, **a
+  route that accepts a role it did not accept before** (a role added to
+  a path the instance had, or on a new path a role no route of the
+  instance named — for example `partner` for people outside the
+  organisation; an instance with no recorded routes asks nothing), new
   declared endpoints (2.13), new storage mounts. Everything else
   deploys unattended — the normal case MUST stay frictionless.
   A confirmation is bound to the announced manifest, never to the

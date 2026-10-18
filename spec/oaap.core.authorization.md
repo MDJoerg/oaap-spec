@@ -1,10 +1,12 @@
 # oaap.core.authorization — Business Authorization
 
 - **ID:** `oaap.core.authorization`
-- **Version:** 0.3 (**administration by an app**, §2.10: a privileged app of
+- **Version:** 0.4 (**setup from the declaration**, §2.11: one explicit act makes
+  roles, collections, mappings and the realm's groups for every template of an
+  app; optional `suggested_group` per template)
+- **Previous versions:** 0.3 (administration by an app, §2.10: a privileged app of
   the tenant administers roles, collections, assignments and mappings through
-  `/authz/admin/*`; `retire`, §2.6; RFC-0045 A7)
-- **Previous versions:** 0.2 (the provider's groups, §2.9: a tenant maps a
+  `/authz/admin/*`; `retire`, §2.6; RFC-0045 A7), 0.2 (the provider's groups, §2.9: a tenant maps a
   group of its realm to a role collection, evaluated at every login; RFC-0045
   stage 3), 0.1 (declaration, roles, collections, assignments, `effective`,
   client)
@@ -67,6 +69,9 @@ Rules, checked at manifest validation (a violation is an error, not a hint):
    in 0.1, **not enforced** — §2.8).
 4. Titles are non-empty text; no other keys are allowed in these objects.
 5. A value is stored as its **id**, never its label.
+6. (0.4) A template may carry `suggested_group`: a group path (§2.11). It is
+   only a suggestion — not part of what the declaration promises, not compared,
+   and a violation of its shape is an error like any other.
 
 An app that has the section must declare `oaap_manifest: "0.6"` or newer
 (version gating like every other field added after 0.1).
@@ -293,6 +298,67 @@ app's word: identity can verify that the named person **is** an administrator, n
 that they sit at the screen now. This is why the key is not minted without a
 confirmation, and why the log names the person.
 
+### 2.11 Setting up from the declaration (0.4, RFC-0045 §11.4)
+
+A tenant that installs an app with a declaration makes, for every template, the
+same things by hand: a role, a collection that holds it and — if a group of the
+realm should give it — a mapping and the group itself. 0.4 adds **one explicit
+act** that does it for one app in one tenant: **setup**.
+
+**A suggestion in the manifest (§2.1, rule 6).** A template may carry
+`suggested_group`, a group path such as `Verein/Trainer`. It is a **suggestion**:
+it is not a promise of the declaration, it is not compared (§2.2), and changing
+it is never destructive. The tenant has the last word (below).
+
+**The plan** is a pure function of the stored declaration and the tenant's roles,
+collections and mappings; it writes nothing and is what `--dry-run` prints. Per
+template, in declaration order:
+
+| the template … | role | collection | mapping and realm group |
+|---|---|---|---|
+| has a grant with `$value` | **skipped** — the tenant chooses values (`role-add --value`) | — | — |
+| has a grant with `$context` | made | made | **not made** — a group says "is a trainer", not "of team mB" (§2.9) |
+| has neither, and a group path is known | made | made | made |
+| has neither, and no group path is known | made | made | not made; the plan says so |
+
+- **The group path** is, in this order: the one the tenant names for this
+  template (`--group-for key=Path`), else `suggested_group`, else none.
+- **Names.** The role and the collection take the template's `title`.
+- **Idempotent.** A thing is *present* when a non-retired role of the same app and
+  template with no values exists (whatever its name); a non-retired collection
+  holds exactly that role; a mapping of that group to that collection exists.
+  A present thing is not touched. A name that is **taken by something else** is a
+  *conflict*: that template is skipped and says why, the others go on. A retired
+  thing is never reused (§2.6).
+- **Selection.** `--only key,key` and `--skip key,key` choose templates; an unknown
+  key is refused before anything is written.
+- **Group path rules.** 1 to 3 segments joined by `/`, each 1–64 characters, no
+  leading or trailing blank, no control character.
+
+**Apply** has an order, and the order is the rule:
+
+1. The realm groups first, through the connector verb `groups` (RFC-0056 §6): the
+   groups that the plan will map and that are missing. If this step is asked for
+   and **fails, nothing is written on the OAAP side.**
+2. Then the roles, the collections, the mappings — through the same routes as the
+   single commands, so each leaves its usual log entry (`authz.role-create`,
+   `authz.collection-create`, `authz.mapping-add`).
+3. One summary entry `authz.setup` in the tenant's log: app, counts, conflicts.
+
+A tenant whose provider was **not made by a connector** (or has none), and
+`--no-groups`, skip step 1: the mapping is still written, and the answer says that
+**the group has to exist in the realm before it gives anything**.
+
+What setup **never** does: run by itself (not at install, not at redeploy, not as a
+side effect of anything — the build profile has it only as the explicit step
+`authz.setup`, RFC-0055); give or name a platform role; create or change a person
+or a membership; delete or change anything that is already present; touch another
+tenant.
+
+CLI: `oaap authz setup --tenant <label> --app <app> [--only K,K] [--skip K,K]
+[--group-for KEY=PATH]… [--no-groups] [--dry-run]`.
+Log action: `authz.setup`.
+
 ## 3. Configuration
 
 None on the node. The instance receives `OAAP_AUTHZ_URL` and
@@ -327,6 +393,13 @@ receives `OAAP_AUTHZ_ADMIN_KEY` as well.
     touch a user, register a declaration, or cross a tenant.
 13. (0.3) Nothing is deleted: `retire` keeps the record, and refuses while
     something live stands on it.
+14. (0.4) Setup runs only when asked for: never at install or redeploy, never as a
+    side effect.
+15. (0.4) Setup makes roles, collections, mappings and realm groups and nothing
+    else: no platform role, no person, no membership, no deletion, and nothing
+    that is already present is changed.
+16. (0.4) The realm step comes first; when it fails, nothing is written on the
+    OAAP side.
 
 ## 5. Conformance tests (described)
 
@@ -352,6 +425,15 @@ receives `OAAP_AUTHZ_ADMIN_KEY` as well.
 10. (0.3) Retire: refuses a collection with a live assignment or a mapping, and a
     role in an unretired collection; naming the blockers; a retired thing stays
     readable and cannot be used again.
+11. (0.4) Setup plan: a template with `$value` is skipped, one with `$context` gets
+    role and collection but no mapping, one without gets all; a second run
+    reports everything *present* and writes nothing; a taken name is a conflict
+    that skips only its template; an unknown `--only` key writes nothing.
+12. (0.4) Setup apply: the realm groups exist afterwards (read back), the mappings
+    resolve, a person in such a group at the next login gets the collection; a
+    failing realm step leaves the OAAP side as it was.
+13. (0.4) `suggested_group`: a malformed path is rejected by the manifest check; a
+    changed suggestion compares as `unchanged`.
 
 ## 6. Dependencies
 
@@ -361,8 +443,25 @@ install), `oaap.core.tenant`.
 ## 7. Maturity
 
 Draft. Stages 1 and 2 of RFC-0045 (declaration; roles, collections, assignments,
-`effective`, client; first consumer `partnerverwaltung`), stage 3 (provider groups, 0.2)
-and the administration door and `retire` (0.3, RFC-0045 A7). Nothing of §2.8.
+`effective`, client; first consumer `partnerverwaltung`), stage 3 (provider groups, 0.2),
+the administration door and `retire` (0.3, RFC-0045 A7) and setup from the
+declaration (0.4). Nothing of §2.8.
+
+## Deutsche Zusammenfassung (0.4: Einrichten aus den Vorlagen)
+
+Für jede Vorlage einer App musste ein Mandant bisher dreimal von Hand ran: Rolle,
+Sammlung, Abbildung — und die Gruppe im Anmeldedienst legte niemand an. 0.4 fügt
+**einen ausdrücklichen Schritt** hinzu: `oaap authz setup`. Er macht je Vorlage
+die Rolle, die Sammlung, die Abbildung Gruppe → Sammlung **und die Gruppe im
+Realm**. Der Gruppenpfad kommt aus einem **Vorschlag im Manifest**
+(`suggested_group`, kein Teil dessen, was die Erklärung verspricht) oder wird vom
+Mandanten genannt; der Mandant hat das letzte Wort und kann Vorlagen abwählen.
+Vorlagen mit Werten werden übersprungen, Vorlagen mit Kontext bekommen Rolle und
+Sammlung, aber keine Gruppe (eine Gruppe sagt „ist Trainer“, nicht „von welcher
+Mannschaft“). Der Schritt ist **wiederholbar** (Vorhandenes wird nicht angefasst),
+hat einen **Probelauf** und läuft **nie von selbst** — nicht bei der Installation.
+Reihenfolge: erst die Gruppen im Realm; scheitert das, bleibt die OAAP-Seite
+unverändert. Er legt keine Person an, vergibt keine Plattformrolle, löscht nichts.
 
 ## Deutsche Zusammenfassung (0.3: Verwaltung durch eine App)
 

@@ -223,6 +223,8 @@ RFC-0019 states the same instinct positively and makes it checkable.
 **Refusal with an administrator confirmation path — envelope widening:**
 
 - a route becomes `public` that was not, or a new `public` route appears
+- a route accepts a **role it did not accept before** (added 2026-10-18: a
+  wider circle of people without a public route, e.g. `partner`)
 - visibility loses or widens its group restriction (RFC-0007)
 - a new declared non-HTTP endpoint or fixed port appears (RFC-0015)
 - a new app-to-app link appears (RFC-0016)

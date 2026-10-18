@@ -639,6 +639,16 @@ without delegation; D4 `retire` (nothing deletes) built with it; D5 a normal
 catalog app, the portal only links. The spec says openly what the door is: a
 privileged one.
 
+### 11.4 Setup from the declaration — specified 2026-10-18
+
+The first real catalog (hbsha, six templates, no context) showed what a tenant
+does by hand per template: role, collection, mapping, and a group in the realm
+that nobody creates. Decided by Jörg (2026-10-18): **one explicit act, "set up
+from the templates"**, with a **suggestion in the manifest** (`suggested_group`)
+and the tenant's last word; never at install; repeatable; a dry run. Specified in
+`oaap.core.authorization` 0.4 §2.11, the connector verb `groups` in RFC-0056 §6,
+the profile step `authz.setup` in RFC-0055. The admin app's button comes after.
+
 ## Decided (2026-09-28, before the draft)
 
 1. **IdP groups may be mapped to business role collections, never to
