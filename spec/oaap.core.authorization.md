@@ -323,7 +323,11 @@ template, in declaration order:
 
 - **The group path** is, in this order: the one the tenant names for this
   template (`--group-for key=Path`), else `suggested_group`, else none.
-- **Names.** The role and the collection take the template's `title`.
+- **Names.** The role and the collection take the template's `title`, or the name
+  the tenant chooses for this template (`--name-for key=Name`, 1 to 80 characters,
+  no blank at either end, no control character). That is the way out of a
+  *conflict* below. A role that is *present* already keeps its name; the plan then
+  says that the chosen name was not used.
 - **Idempotent.** A thing is *present* when a non-retired role of the same app and
   template with no values exists (whatever its name); a non-retired collection
   holds exactly that role; a mapping of that group to that collection exists.
@@ -356,7 +360,7 @@ or a membership; delete or change anything that is already present; touch anothe
 tenant.
 
 CLI: `oaap authz setup --tenant <label> --app <app> [--only K,K] [--skip K,K]
-[--group-for KEY=PATH]… [--no-groups] [--dry-run]`.
+[--group-for KEY=PATH]… [--name-for KEY=NAME]… [--no-groups] [--dry-run]`.
 Log action: `authz.setup`.
 
 ## 3. Configuration
@@ -428,7 +432,9 @@ receives `OAAP_AUTHZ_ADMIN_KEY` as well.
 11. (0.4) Setup plan: a template with `$value` is skipped, one with `$context` gets
     role and collection but no mapping, one without gets all; a second run
     reports everything *present* and writes nothing; a taken name is a conflict
-    that skips only its template; an unknown `--only` key writes nothing.
+    that skips only its template; an unknown `--only` key writes nothing; a
+    `--name-for` name makes role and collection and resolves such a conflict, a
+    present role is never renamed, a bad or unknown `--name-for` writes nothing.
 12. (0.4) Setup apply: the realm groups exist afterwards (read back), the mappings
     resolve, a person in such a group at the next login gets the collection; a
     failing realm step leaves the OAAP side as it was.
