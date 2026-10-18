@@ -855,6 +855,12 @@ access right.
   deploys unattended — the normal case MUST stay frictionless.
   A confirmation is bound to the announced manifest, never to the
   instance in general.
+  **The first installation of an instance is reported, not held:** it has
+  nothing to be compared with, so the roles its routes accept beyond
+  `user` and the routes reachable without login are named in the install
+  output (`NOTE: first installation …`) and written to the tenant's log
+  (`instance.roles-beyond-user`, `instance.public-routes`). Nothing is
+  refused.
 - Refusals MUST carry a machine-readable reason **and** a sentence
   stating what to change: the recipient is usually an AI with nobody
   next to it.
