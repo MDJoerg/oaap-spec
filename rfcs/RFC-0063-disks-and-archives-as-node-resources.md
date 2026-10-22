@@ -461,6 +461,7 @@ It was built as proposed, except for these changes, each found while building or
 | 5 | Archives stop by unmounting first, then the unit | Stopped by SIGTERM, ratarmount 1.3.0 exits 1 and the unit stays `failed`. |
 | 6 | `disks.json` root only (0600), `disk list` needs root | A source's path is a file name on the disk (D7), and the portal container reads `apps/`. |
 | 7 | Loop devices count as disks; mounted ones are hidden from "not adopted" | Image files attached on purpose (and the tests), not snaps. |
+| 8 | ratarmount runs with `-d 0` (0.1.209) | When it builds an index, its default level writes the archive's path, a file name, into the journal (measured with test data). Found while adopting the disks on `oaap-demo`, where all eight indexes were reused and nothing was written. |
 
 Measured end to end on `oaap-test` against the real instance `webtop`:
 

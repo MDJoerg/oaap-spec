@@ -110,6 +110,9 @@ directory. Neither the node archive nor the tenant archive can carry it.
    disk. An optional grant shows an empty placeholder instead.
 9. **Never a disk or a FUSE mount directly in a container** (M5b). Only
    the instance's base, bound `rslave`.
+   An archive runs with `ratarmount -d 0`: at its default level it writes
+   the archive's path into the journal when it builds an index, and a
+   name may be content (D7). Only an error still names the file.
 10. **The base tmpfs stays while the instance exists.** Once mounted,
     it is unmounted only when the instance is removed. A container made
     while the tmpfs is mounted binds the tmpfs itself. If the host then
