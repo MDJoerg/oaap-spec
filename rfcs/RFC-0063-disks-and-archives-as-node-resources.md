@@ -2,10 +2,10 @@
 
 - **Status:** **Accepted (2026-10-22)** — Jörg took D1–D8 as
   recommended the same day. Stage 0 done by hand. **Stage 1 built the
-  same day** (reference 0.1.208, `oaap.data.disks` 0.1, `oaap.apps.runtime`
-  0.2.46 §2.26) and measured end to end on `oaap-test` (loop devices,
-  instance `webtop`); not yet on `oaap-demo`, not pushed. Stages 2–3 not
-  built.
+  same day** (reference 0.1.208/0.1.209, `oaap.data.disks` 0.1,
+  `oaap.apps.runtime` 0.2.46 §2.26), measured end to end on `oaap-test`
+  and on real disks on `oaap-demo` (§11). **Stage 2 built** (reference
+  0.1.210, `oaap.data.disks` 0.2 §2.6, §12). Stage 3 not built.
 - **Date:** 2026-10-22
 - **Authors:** Claude (proposal, measurements on `oaap-test` and `oaap-demo`),
   Jörg (requirement, decides)
@@ -476,6 +476,22 @@ Measured end to end on `oaap-test` against the real instance `webtop`:
 
 Measured on `oaap-demo` the same day (real USB disks, CURRENT_STATE 350): a grant to `joerg-desk`; a real reboot, after which `oaap-disks.service` restored disks, archives and the grant by itself while the device names had swapped; and a pulled cable, unintentionally on both disks. The platform does not notice a pull by itself: stale mounts stay and the app gets I/O errors until `oaap disk eject`, which also cleans up dead devices. After replugging, `open` brought the grant back without a restart. Stage 3 should eject on the udev remove event.
 
+## 12. Stage 2 as built (2026-10-22)
+
+The page follows §6, except for these changes:
+
+| | Change | Why |
+| --- | --- | --- |
+| 1 | One spool action `disk` with an op, not eight action names | The jobs of the management API already work this way (cohort, tenant-build): one result file per job, one place where the role is checked. |
+| 2 | A ninth op, `scan` | The page adds an archive by its number, and a number needs a scan. The scan with its names is kept root only (`disk-scan.json`, 0600); the view gets numbers, sizes and formats. |
+| 3 | The page shows no file name at all, not even on request | D7 allowed "show names" for `server_admin`. On the page a name would pass through the spool and a file the portal reads. `scan --names` at the node is the one place. |
+| 4 | `forget`, `path add` and `source remove` stay on the command line | A path is a name; the other two are rare and easy to undo by hand. |
+| 5 | Adopting a LUKS disk on the page needs its key file at the node first | The page never takes a key or a passphrase. |
+| 6 | The view shows `stale`: mounted while the device is gone | Measured with the pulled cable (§11). The platform still does not act on it (stage 3); the page says so and offers `eject`. Mounts are read from the kernel's table, because `stat` on a dead mount fails. |
+| 7 | SMART is not on the page | Stage 1 has no SMART either. `smartctl` stays a check by hand. |
+
+The view (`disk-view.json`, 0644) is written by every disk command and by the minute timer, the timer only where `disks.json` or the view already exists. The first run of the suite found that the timer had asked every node, also one without disks, for its block devices (`test_wireguard_access.py`, whose fake allows no unexpected command). A job's answer is the command's output without journal lines, because a journal line may name a file.
+
 ## Deutsche Zusammenfassung
 
 Steckt der Betreiber eine USB-Platte an einen Knoten, weiß OAAP davon
@@ -554,5 +570,26 @@ bis Ende gemessen. Sieben Abweichungen stehen in §11. Die wichtigsten:
   existiert. Sonst erreicht ein Neueinhängen einen schon laufenden
   Container nicht (M14/M15).
 
-Noch offen: ein echter Neustart, Kabelziehen, echte USB-Platten
-(oaap-demo).
+Am selben Tag auf oaap-demo mit echten USB-Platten gemessen:
+
+- Ein Neustart stellt alles von selbst wieder her.
+- Ein gezogenes Kabel merkt die Plattform nicht. `eject` räumt danach
+  auf.
+
+**Stufe 2 gebaut (22.10.):** Referenz 0.1.210, `oaap.data.disks` 0.2.
+Die Seite „Datenträger“ im Portal liest eine Ansicht ohne Pfade und ohne
+Dateinamen. Jede Schaltfläche stellt einen Auftrag `disk`, und der
+Knoten führt denselben Befehl aus wie die Kommandozeile. §12 nennt
+sieben Abweichungen von §6:
+
+- **Ein Auftragstyp mit Unteraktion** statt acht Namen.
+- **„Durchsuchen“ als neunte Aktion**, damit ein Archiv über seine
+  Nummer angelegt werden kann.
+- **Gar keine Dateinamen auf der Seite**, auch nicht auf Anforderung.
+  Die zeigt nur `scan --names` am Knoten.
+- **Drei Befehle bleiben auf der Kommandozeile:** Vergessen,
+  Ordner-Quelle und Quelle entfernen.
+- **Eine LUKS-Platte übernimmt die Seite nur**, wenn ihr Schlüssel schon
+  am Knoten liegt.
+- **Die Seite zeigt eine „verwaiste“ Einhängung** nach gezogenem Kabel.
+- **Kein SMART** auf der Seite.

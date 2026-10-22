@@ -1,12 +1,13 @@
 # oaap.data.disks — Disks and Archives as Node Resources
 
 - **ID:** `oaap.data.disks`
-- **Version:** 0.1
-- **Maturity:** draft. 0.1 is RFC-0063 stage 1 and only that: the
-  command line, the start rule and the boot unit. The portal page is
-  stage 2. Grants to a tenant and recognition at hot-plug are stage 3.
-  Measured on real USB disks (reboot, pulled cable): a pull is not
-  noticed by itself; `eject` cleans up after it.
+- **Version:** 0.2
+- **Maturity:** draft. 0.1 is RFC-0063 stage 1: the command line, the
+  start rule and the boot unit. 0.2 adds stage 2: the portal page
+  "Datenträger" over a view without names (§2.6). Grants to a tenant and
+  recognition at hot-plug are stage 3. Measured on real USB disks
+  (reboot, pulled cable): a pull is not noticed by itself; `eject` cleans
+  up after it, and since 0.2 the page shows the stale mount.
 - **Based on:** RFC-0063 (D1–D8), RFC-0053 (removable disks by UUID,
   LUKS), RFC-0058 (read-only mounts recorded on the instance), RFC-0016
   (an app gets no host reach), RFC-0030 (a rehearsal), `oaap.apps.runtime`
@@ -132,6 +133,60 @@ directory. Neither the node archive nor the tenant archive can carry it.
 `oaap disk open --all`. Docker starts the containers by itself
 meanwhile. Their bases stay sealed until the unit has run.
 
+### 2.6 The portal page "Datenträger" (0.2, RFC-0063 stage 2)
+
+**The view.** The host writes `<data>/apps/disk-view.json` (0644). It
+holds only names the operator chose (disks, sources, grants, instances),
+UUIDs, sizes, formats and states, and never a path, a file name or a key
+(D7). It is written by every `oaap disk` command and by the minute
+timer (`state-index`), so a change made at the node shows within a
+minute. The timer writes it only where `disks.json` or the view already
+exists. A node that never ran a disk command is not asked for its block
+devices every minute. `ops/install-disk-tools.sh` ends with
+`oaap disk list`, and a page without a view says how to set it up. Its
+parts are:
+
+- **disks:** state (`absent`, `present`, `open`) and `stale`, which means
+  mounted while the device is gone (a pulled cable). Mounts are read from
+  the kernel's table, never by `stat`. Also free space, USB speed, and
+  whether sources use the disk.
+- **devices:** plugged in but not adopted, never the system disk.
+- **sources:** whether each is there, its index size, and the latest
+  verify list against the one before, in counts. The counts are read
+  again only when a new list has appeared. Also its grants, each with
+  `arrived` (`ok` | `missing` | `mismatch` | unknown while the container
+  is down), read from the container's own mountinfo (rule 6).
+- **scans:** per disk the numbers of the last scan with size, format,
+  and the source a number already is.
+
+The scan itself, with its names, is kept in `<data>/apps/disk-scan.json`
+(0600). It lets the page add an archive by its number.
+
+**The page.** It is for `server_admin` only, at the node's own address.
+Anyone else gets `403`, and at a tenant's place it answers `404`. The
+menu entry shows under the same conditions. The page reads the view and
+writes nothing itself. Each button queues one request, action `disk`,
+with one op: `adopt`, `open`, `eject`, `format`, `scan`, `archive-add`,
+`grant`, `revoke` or `verify`.
+
+The worker takes the role from the actor's own record and judges every
+field again. It then runs the very `oaap disk` command, and the audit
+names the actor. The answer is the command's output, without journal
+lines, which may name a file. A refusal is audited as
+`disk.<op>` `denied`.
+
+- An archive is added by its **number**, never by a path.
+- A LUKS disk is adopted only if its key file already lies at
+  `/etc/oaap/disks/<name>.key`. The page never takes a key or a passphrase.
+- Formatting is offered only for a `work` disk that is closed and carries
+  no source, and only with its UUID typed back.
+- `forget`, `path add`, `source remove` and `scan --names` stay on the
+  command line. **The page never shows a file name.**
+- A stale disk says so and offers `eject`.
+- USB 2 on a disk in use is a warning.
+- **The instance page** shows the grants read-only in its "Verwaltung"
+  tab, with mode and `arrived`.
+
 ## 3. Configuration
 
 - `OAAP_DISKS_ROOT` (default `/srv/oaap`) and `OAAP_DISKS_KEYS` (default
@@ -174,6 +229,26 @@ The MUSTs of RFC-0063 §9 apply unchanged. In short:
 - rehearsal;
 - redeploy keeps the grants, and `wake` asks the start rule.
 
+Stage 2, also in `test/test_disks.py`:
+
+- the view carries no path, no scanned name, no name from a verify list
+  and no key;
+- `stale` after a pull;
+- `arrived` from the container's mountinfo;
+- a job refused for anyone but `server_admin`;
+- every field judged, and a path in place of a number refused;
+- the audit names the actor;
+- journal lines are dropped from the answer.
+
+`test/test_disk_page.py` (Flask, run in the portal image):
+
+- `403` and `404` at every door, and the menu entry only where the page
+  answers;
+- one request per button;
+- a wrong UUID, a path, `forget` and a foreign origin never reach the
+  spool;
+- the instance page's grant line.
+
 ## 6. Dependencies
 
 `oaap.apps.runtime` 2.26, `oaap.core.tenant` (audit), `oaap.data.backup`
@@ -181,9 +256,8 @@ The MUSTs of RFC-0063 §9 apply unchanged. In short:
 
 ## 7. Maturity
 
-Draft 0.1: the command line only.
+Draft 0.2: the command line (0.1) and the portal page (0.2, §2.6).
 
-- **Stage 2:** the portal page (RFC-0063 §6).
 - **Stage 3:** grants to a tenant, udev at hot-plug, and `verify` with
   history on the page.
 - **Measured 2026-10-22 on real disks:** a reboot restores everything by
@@ -215,5 +289,27 @@ Die Regeln aus den Messungen:
 - Dateinamen erscheinen nur mit `--names`. Die Datensatz-Datei
   `disks.json` darf nur root lesen.
 
-Noch nicht gemessen: Kabelziehen ohne Auswerfen und ein echter
-Neustart mit echten Platten. Das Portal kommt in Stufe 2.
+Gemessen am 22.10. mit echten Platten:
+
+- Ein echter Neustart stellt alles von selbst wieder her.
+- Ein gezogenes Kabel merkt die Plattform nicht von selbst.
+  `oaap disk eject` räumt danach auf.
+
+**Seit 0.2 gibt es die Portal-Seite „Datenträger“.** Sie ist nur für
+`server_admin` da und nur am Knoten selbst.
+
+- Sie liest eine eigene Ansicht ohne Pfade und ohne Dateinamen. Diese
+  Ansicht schreibt der Knoten bei jedem Befehl und jede Minute neu.
+- Sie zeigt Platten, nicht übernommene Geräte, Quellen mit Prüfsummen
+  (nur Zahlen) und Freigaben mit „angekommen“.
+- Eine abgezogene Platte, deren Einhängung noch hängt, ist zu sehen und
+  lässt sich auswerfen.
+- Jede Schaltfläche stellt genau einen Auftrag. Der Knoten prüft ihn noch
+  einmal und führt denselben Befehl aus wie die Kommandozeile. Im Audit
+  steht die Person, die gefragt hat.
+- Ein Archiv wird über seine Nummer angelegt, nie über einen Pfad.
+- Formatiert wird nur eine Arbeitsplatte, die zu ist, und nur mit der
+  zurückgetippten UUID.
+- „Vergessen“, Ordner-Quellen, „Quelle entfernen“ und Dateinamen
+  (`--names`) bleiben auf der Kommandozeile.
+- Die Instanzseite zeigt ihre Freigaben lesend im Reiter „Verwaltung“.

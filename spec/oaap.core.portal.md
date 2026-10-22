@@ -1,8 +1,8 @@
 # oaap.core.portal — Web Portal
 
 - **ID:** `oaap.core.portal`
-- **Version:** 0.3.26
-- **Maturity:** draft (0.3.26 adds **profile upload, download and delete** and tick boxes for `bool` parameters on the build pages — §2.11, RFC-0055 §14; 0.3.25 adds **invitations and requests** — the prospect's public form and the operator's list, §2.10, RFC-0055 stage 4; 0.3.24 adds the **tenant build pages** — a wizard over the operator API, §2.9, RFC-0055 stage 3; 0.3.23 shows the **Cohorts menu entry to every
+- **Version:** 0.3.27
+- **Maturity:** draft (0.3.27 adds the node page **Datenträger** — §2.12, specified in `oaap.data.disks` 0.2 §2.6, RFC-0063 stage 2; 0.3.26 adds **profile upload, download and delete** and tick boxes for `bool` parameters on the build pages — §2.11, RFC-0055 §14; 0.3.25 adds **invitations and requests** — the prospect's public form and the operator's list, §2.10, RFC-0055 stage 4; 0.3.24 adds the **tenant build pages** — a wizard over the operator API, §2.9, RFC-0055 stage 3; 0.3.23 shows the **Cohorts menu entry to every
   administrator**, not only where a cohort exists, and puts a **step-by-step
   guide and a downloadable example template** on the create page — §2.8;
   0.3.22 adds **Add a seat** to the cohorts page, with
@@ -759,6 +759,21 @@ only, which the host judges again from the actor's own record.
   place, `403` for a foreign origin, nothing in the spool for a request the
   page can already refuse.
 
+### 2.12 Datenträger (RFC-0063 stage 2)
+
+`/datentraeger` is the node page for disks, sources and grants. It is
+specified in `oaap.data.disks` 0.2 §2.6.
+
+- **Doors** as in 2.9: `server_admin` at the node's own address, the
+  menu entry under the same conditions.
+- **Writes:** none of its own. One request per button, action `disk`,
+  judged again by the host.
+- **Reads:** only the host's `disk-view.json`, never `disks.json`, and it
+  shows no file name.
+- **Jobs** are shown as in 2.9.
+- **The instance page** gets a read-only card "Datenträger" in its
+  "Verwaltung" tab when the instance has grants.
+
 ## 3. Configuration
 
 None beyond the platform version passed at start. Appearance
@@ -1498,3 +1513,15 @@ vorgehakten Wunsch, die Daten der Instanzen mitzulöschen) steht **ganz
 unten**. Die Seiten lesen nur die Sicht-Datei des Knotens und schreiben
 nichts selbst: jede Schaltfläche stellt dieselbe Anfrage wie die API, und der
 Knoten prüft sie noch einmal.
+
+## Deutsche Zusammenfassung (Nachtrag 0.3.27 — die Seite „Datenträger“)
+
+Für den Betreiber (`server_admin`, am Knoten selbst) gibt es den
+Menüpunkt **Datenträger**. Was die Seite zeigt und was sie darf, steht in
+`oaap.data.disks` 0.2 §2.6.
+
+- Sie liest nur eine Ansicht des Knotens. Dort stehen keine Pfade und
+  keine Dateinamen.
+- Jede Schaltfläche stellt einen Auftrag, den der Knoten noch einmal
+  prüft.
+- Die Instanzseite zeigt ihre Freigaben lesend im Reiter „Verwaltung“.
