@@ -1,6 +1,7 @@
 # RFC-0063: Disks and Archives as Node Resources — Plugged In by the Operator, Handed to an Instance Folder by Folder
 
-- **Status:** Proposed (2026-10-22) — D1–D8 open for Jörg
+- **Status:** **Accepted (2026-10-22)** — Jörg took D1–D8 as
+  recommended the same day. Stage 0 done by hand; stages 1–3 not built.
 - **Date:** 2026-10-22
 - **Authors:** Claude (proposal, measurements on `oaap-test` and `oaap-demo`),
   Jörg (requirement, decides)
@@ -424,9 +425,9 @@ comes with stage 3.
 - Every state change MUST be audited with its actor. The portal path MUST
   re-check `server_admin` on the host.
 
-## 10. Decisions for Jörg
+## 10. Decided (2026-10-22, D1–D8 as recommended)
 
-| | Question | Recommendation |
+| | Question | Decision |
 |---|---|---|
 | **D1** | Platform capability or app? | **Platform**, like the vault (RFC-0053 D1). A disk needs host root, and RFC-0016 stays shut. |
 | **D2** | Grant target in stage 1 | **Instances only.** Tenants in stage 3, once the instance path is measured. |
@@ -491,7 +492,7 @@ Weitere Ergebnisse:
 - **3:** Freigaben an Mandanten, automatische Erkennung beim Anstecken,
   Prüfsummen mit Verlauf.
 
-**Deine Entscheidungen, D1 bis D8, jeweils mit Empfehlung:**
+**Entschieden (22.10., alle wie empfohlen):**
 
 - **D1:** Plattform statt App.
 - **D2:** In Stufe 1 nur an Instanzen freigeben.
