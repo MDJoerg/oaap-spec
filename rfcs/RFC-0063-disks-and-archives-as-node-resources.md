@@ -1,7 +1,11 @@
 # RFC-0063: Disks and Archives as Node Resources — Plugged In by the Operator, Handed to an Instance Folder by Folder
 
 - **Status:** **Accepted (2026-10-22)** — Jörg took D1–D8 as
-  recommended the same day. Stage 0 done by hand; stages 1–3 not built.
+  recommended the same day. Stage 0 done by hand. **Stage 1 built the
+  same day** (reference 0.1.208, `oaap.data.disks` 0.1, `oaap.apps.runtime`
+  0.2.46 §2.26) and measured end to end on `oaap-test` (loop devices,
+  instance `webtop`); not yet on `oaap-demo`, not pushed. Stages 2–3 not
+  built.
 - **Date:** 2026-10-22
 - **Authors:** Claude (proposal, measurements on `oaap-test` and `oaap-demo`),
   Jörg (requirement, decides)
@@ -105,6 +109,8 @@ was read: sizes, formats, timings.
 | M11 | Formats through ratarmount 1.3.0 | tar, tar.gz, tar.bz2, tar.xz, tar.zst, zip and single .gz: **ok**. 7z: **fails** (backend missing). rar: not measured. |
 | M12 | Empty grant folder (reboot, Docker starts the container itself) | Immutable base (`chattr +i`): root in the container gets `Operation not permitted`. A tmpfs over it set `ro` after the placeholders are made: `Read-only file system` in a placeholder whose grant is missing. The system disk stays empty. |
 | M13 | Read-only flag of a grant made while the container runs | (A) bind, then `remount,bind,ro`: host `ro`, **container `rw` and writable**. (B) `mount -o bind,ro` in one call (util-linux 2.41 uses the fd-based mount API): container `ro`, writing refused. (C) mount privately, then `--move` into the shared base: refused by the kernel. |
+| M14 | The host unmounts and remounts a base tmpfs while the container runs | Works when the container was made on the bare folder (the first grant, every reboot): the new tmpfs and its grants arrive. |
+| M15 | The container is made while the base tmpfs is already mounted (every later recreate) | Grants still come and go live and new placeholders appear. **But** this container has bound the tmpfs itself, so a host-side unmount and remount of the tmpfs would never reach it. Rule: the tmpfs stays while the instance exists. |
 
 Real case on `oaap-demo`:
 
@@ -201,8 +207,12 @@ empty placeholder is all that shows.
 
 All of this is **outside** `/var/lib/oaap`. The node archive and the
 tenant archive tar an explicit list of paths below the data directory, so
-nothing here can be included. As a second guard, both `tar` calls get
-`--one-file-system`.
+nothing here can be included.
+
+*Changed while building stage 1 (2026-10-22):* no `--one-file-system` as
+a second guard. A node whose `files/` or `tenants/` lies on a separate
+mount would silently lose that data from every backup. The guard would
+protect against a case the paths already exclude, and break a real one.
 
 The instance id is used, not the name, so a rename does not move mounts
 (RFC-0026).
@@ -390,7 +400,7 @@ comes with stage 3.
 | Stage | Content |
 |---|---|
 | **0 — by hand** (done 2026-10-22) | `oaap-demo`: raw disk `ro` + write lock, work disk LUKS2 + ext4, SHA-256 of all files, eight archives through ratarmount with indexes on the work disk. Not persistent and not granted. Measurements M1–M13 on `oaap-test`. |
-| **1 — CLI** | `oaap.data.disks` 0.1, `disks.json`, adopt/list/open/eject/format/scan, archive and path sources, grants to instances (§4.2–4.4), the start rule, `oaap-disks.service`, `--one-file-system`, audit. Measured on `oaap-test` with loop devices, then the manual setup on `oaap-demo` adopted without formatting, one archive granted to `joerg-desk`, a reboot and a pulled cable. |
+| **1 — CLI** | `oaap.data.disks` 0.1, `disks.json`, adopt/list/open/eject/format/scan, archive and path sources, grants to instances (§4.2–4.4), the start rule, `oaap-disks.service`, audit. Measured on `oaap-test` with loop devices, then the manual setup on `oaap-demo` adopted without formatting, one archive granted to `joerg-desk`, a reboot and a pulled cable. |
 | **2 — Portal** | §6 |
 | **3 — Tenant and hot-plug** | grants to a tenant (its admin attaches them to the tenant's instances), udev, `verify` with history on the page |
 
@@ -437,6 +447,33 @@ comes with stage 3.
 | **D6** | Formatting a work disk from the portal | **Allowed**, only for role `work`, only when empty or with the UUID typed back. LUKS is the default. |
 | **D7** | File names inside a source (archive names, hash lists) in CLI and portal | **Numbers, sizes and formats by default.** Names only on an explicit "show names" by `server_admin`, never in the audit log. |
 | **D8** | Today's manual setup on `oaap-demo` | **Adopt it in stage 1 without formatting** (work disk with its existing key file). Until then it stays as it is, not persistent. |
+
+## 11. Stage 1 as built (2026-10-22)
+
+It was built as proposed, except for these changes, each found while building or measuring:
+
+| | Change | Why |
+| --- | --- | --- |
+| 1 | No `--one-file-system` on the backup `tar` calls (§4.1) | It would silently drop a separately mounted `files/` or `tenants/` from every backup. The paths already keep `/srv/oaap` out. |
+| 2 | `format` always needs `--confirm-uuid`, also on an empty disk (§4.5) | Deciding "empty" means mounting a disk that is about to be erased. Typing the UUID costs a line. |
+| 3 | `grant --rw --owner UID` | `webtop` (linuxserver) starts as root and drops to uid 1000. The image's user is 0, and the folder was not writable for the app (measured). |
+| 4 | The base tmpfs is never unmounted while the instance exists (M14/M15) | A container made against a mounted tmpfs binds the tmpfs itself, and a remount would not reach it. |
+| 5 | Archives stop by unmounting first, then the unit | Stopped by SIGTERM, ratarmount 1.3.0 exits 1 and the unit stays `failed`. |
+| 6 | `disks.json` root only (0600), `disk list` needs root | A source's path is a file name on the disk (D7), and the portal container reads `apps/`. |
+| 7 | Loop devices count as disks; mounted ones are hidden from "not adopted" | Image files attached on purpose (and the tests), not snaps. |
+
+Measured end to end on `oaap-test` against the real instance `webtop`:
+
+- adopt, format (LUKS), open, scan, three sources, three grants;
+- the first grant recreated the container once, later grants arrived without a restart;
+- reads as uid 1000, also of a 0600 root file inside the tar;
+- `ro` refused writing, the container flags matched, no disk or archive in the container;
+- revoke without restart, eject with the container running, the refused restart left the container in place, reopening brought the grants back without a restart;
+- `verify` twice, `--status` "unchanged";
+- a reboot reproduced by stopping the container, losing the host mounts and starting it again: the bare base was not writable for root, and `oaap-disks.service` restored both grants;
+- clean-up left nothing.
+
+Not measured: a real reboot, a pulled cable, real USB disks (`oaap-demo`).
 
 ## Deutsche Zusammenfassung
 
@@ -503,3 +540,18 @@ Weitere Ergebnisse:
   der UUID, LUKS als Standard.
 - **D7:** Dateinamen nur auf ausdrückliche Anforderung.
 - **D8:** Die Handlösung wird ohne Neuformatieren übernommen.
+
+**Stufe 1 gebaut (22.10.):** Referenz 0.1.208, `oaap.data.disks` 0.1.
+Auf oaap-test mit Loop-Platten an der echten Instanz `webtop` von Anfang
+bis Ende gemessen. Sieben Abweichungen stehen in §11. Die wichtigsten:
+
+- **Kein `--one-file-system`** in der Sicherung, weil es getrennt
+  eingehängte Daten still verlieren würde.
+- **`--owner` für `rw`-Freigaben**, weil Webtop als root startet und erst
+  danach zum Benutzer 1000 wechselt.
+- **Das tmpfs eines Freigabe-Ordners bleibt**, solange die Instanz
+  existiert. Sonst erreicht ein Neueinhängen einen schon laufenden
+  Container nicht (M14/M15).
+
+Noch offen: ein echter Neustart, Kabelziehen, echte USB-Platten
+(oaap-demo).

@@ -1,7 +1,10 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.45 (**platform keys follow the instance**, RFC-0062:
+- **Version:** 0.2.46 (**disk grants**, RFC-0063: one grant base per
+  instance at `/oaap/disks`, `rslave`, the start rule before any
+  container is removed, none for a rehearsal; new 2.26;
+  0.2.45 (**platform keys follow the instance**, RFC-0062:
   revoked at removal, reissued at rename, renewed 30 days before they
   expire, orphans cleared at update; new 2.25;
   0.2.44 (**an app's backend opens a case**, manifest 0.9 /
@@ -1858,6 +1861,37 @@ made for:
   deletes the principals of instances that no longer exist and drops
   their authorization records, once; it is silent when there is nothing.
 
+### 2.26 Disk grants: one base per instance (0.2.46, RFC-0063)
+
+An instance that holds grants (`oaap.data.disks` 0.1, `disk_grants` on
+its registry record) is created with exactly one extra mount on its
+**primary** service:
+
+```text
+--mount type=bind,src=/srv/oaap/grants/<instance-id>,dst=/oaap/disks,bind-propagation=rslave
+```
+
+The rules for that mount:
+
+- **What the app sees:** `/oaap/disks/<grant>`, one folder per grant,
+  read-only unless the grant says `rw`. Grants made or taken later
+  appear and disappear in the running container, without a restart.
+- **What the app does not see:** a disk, an archive mount, or anything
+  else of the host. The base is keyed by the instance id, so a rename
+  moves nothing.
+- **The registry is asked**, not the caller, as for `resources` and
+  `shared_mounts`, so the door that recreates the container does not
+  decide.
+- **The start rule:** a mandatory grant whose source is not there
+  refuses the (re)creation **before** any container is removed. This is
+  `DiskAbsent`, a `DiagnoseRefused`, and `wake` asks the same rule. An
+  optional grant shows an empty, unwritable placeholder.
+- **A rehearsal** gets neither the base nor a grant. A redeploy keeps
+  `disk_grants`, and a removal unmounts them and removes the base.
+- **An app MUST NOT rely** on a grant being present at its start after a
+  reboot. Docker starts the container before the boot unit has opened
+  the disks, and until then the placeholders are empty and read-only.
+
 ## 3. Configuration
 
 - Level-1 port range (default 8100–8199, expert-configurable;
@@ -3060,3 +3094,22 @@ Namen erkennen, dürfen sie ihre Instanz nicht überleben:
   ohnehin neu.
 - **Altlasten**: Ein Update-Schritt räumt Schlüssel und Einträge von
   Instanzen ab, die es nicht mehr gibt.
+
+## Deutsche Zusammenfassung (2.26, v0.2.46 — Freigaben von Platten, RFC-0063)
+
+Eine Instanz mit Freigaben (`oaap.data.disks` 0.1) bekommt genau eine
+zusätzliche Einhängung: ihren eigenen Freigabe-Ordner, nach
+`/oaap/disks`, mit `rslave`. Darin erscheint je Freigabe ein Ordner,
+nur lesbar, außer die Freigabe sagt `rw`. Freigaben kommen und gehen,
+ohne dass die Instanz neu startet.
+
+- **Was die App nicht sieht:** keine Platte, kein Archiv, nichts sonst
+  vom Host.
+- **Startregel:** Fehlt eine Pflicht-Freigabe, wird die Instanz nicht
+  neu erzeugt. Das wird geprüft, bevor der alte Container entfernt wird.
+  `wake` fragt dieselbe Regel.
+- **Generalprobe:** bekommt nichts.
+- **Redeploy:** behält die Freigaben. Beim Entfernen der Instanz
+  verschwindet ihr Freigabe-Ordner.
+- **Nach einem Neustart** startet Docker die App, bevor die Platten
+  offen sind. Bis dahin sind die Platzhalter leer und schreibgeschützt.
