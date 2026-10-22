@@ -1,8 +1,8 @@
 # oaap.events.broker — The MQTT Broker per Node
 
 - **ID:** `oaap.events.broker`
-- **Version:** 0.2
-- **Maturity:** draft (0.2 adds the platform principal `oaap.relay`,
+- **Version:** 0.2.1
+- **Maturity:** draft (0.2.1: the broker keeps its data and its place, §2.1 — measured 2026-10-22; 0.2 adds the platform principal `oaap.relay`,
   §2.4, with which `oaap.data.twin` 0.3's outbox relay publishes — the
   first thing that actually arrives on the topic tree)
 - **Based on:** RFC-0032 (events, states, and the unified namespace —
@@ -75,6 +75,19 @@ tentatively `oaap.events.queue`, RFC-0032 §2).
   that names the base file alone recreates the broker without its raw
   port (found in the update path while building 0.2, before any node
   held both profiles).
+- **Its data directory belongs to the broker's user** (0.2.1).
+  `<data>/data/broker` is `/mosquitto/data`, and Mosquitto runs as
+  uid 1000. The minute run (`oaap broker sync`) gives the directory to
+  that user. Before 0.2.1 nobody created it, so Docker made it for root
+  at the first start. On every node measured (`oaap-demo`, `oaap-test`)
+  the broker had never saved its database, and retained messages and
+  sessions were lost at every restart.
+- **A node with the profile has a running broker** (0.2.1). The same
+  minute run starts the broker, with the file set above, when the
+  container has exited or is missing. On 2026-10-22, after a reboot of
+  `oaap-demo`, Docker restored every container but the broker and left
+  no word in its log. The broker stayed down until somebody looked.
+  Stopping it on purpose is `oaap node remove-profile broker`.
 
 ### 2.2 The topic tree (RFC-0032 D1/§1.1)
 
@@ -315,3 +328,18 @@ nicht mit leerem Passwort.
 einem Knoten mit `broker` **und** `exposed` hätte jedes `oaap update`
 Port 1883 geschlossen. Noch trägt kein Knoten beide Profile; behoben,
 bevor es einen trifft.
+
+## Deutsche Zusammenfassung (Nachtrag v0.2.1)
+
+Zwei Fehler, gefunden am 22.10. auf oaap-demo, beide mit der Minuten-Routine
+(`oaap broker sync`) behoben:
+
+- **Der Broker konnte nie speichern.** Seinen Datenordner hat niemand
+  angelegt. Docker hat ihn beim ersten Start selbst gemacht, für root.
+  Mosquitto läuft aber als uid 1000. Auf oaap-demo und oaap-test fehlten
+  deshalb nach jedem Neustart die gespeicherten Nachrichten und Sitzungen.
+  Jetzt bekommt der Broker-Benutzer den Ordner.
+- **Nach einem Neustart blieb der Broker aus.** Docker hat alle anderen
+  Container wieder gestartet, nur diesen nicht, und dazu nichts
+  protokolliert. Jetzt startet ihn die Minuten-Routine, wenn er fehlt und
+  der Knoten das Profil hat. Gewollt abschalten heißt: Profil entfernen.
