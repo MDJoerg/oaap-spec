@@ -5,8 +5,8 @@
 - **Maturity:** draft. 0.1 is RFC-0063 stage 1 and only that: the
   command line, the start rule and the boot unit. The portal page is
   stage 2. Grants to a tenant and recognition at hot-plug are stage 3.
-  Pulling the cable without an eject is not yet measured on real
-  hardware.
+  Measured on real USB disks (reboot, pulled cable): a pull is not
+  noticed by itself; `eject` cleans up after it.
 - **Based on:** RFC-0063 (D1–D8), RFC-0053 (removable disks by UUID,
   LUKS), RFC-0058 (read-only mounts recorded on the instance), RFC-0016
   (an app gets no host reach), RFC-0030 (a rehearsal), `oaap.apps.runtime`
@@ -186,8 +186,10 @@ Draft 0.1: the command line only.
 - **Stage 2:** the portal page (RFC-0063 §6).
 - **Stage 3:** grants to a tenant, udev at hot-plug, and `verify` with
   history on the page.
-- **Not measured yet:** a pulled cable without an eject, and a real
-  reboot with real disks.
+- **Measured 2026-10-22 on real disks:** a reboot restores everything by
+  itself; a pulled cable is NOT noticed by itself (stale mounts, I/O
+  errors in the app) until `oaap disk eject`. Stage 3: eject on the udev
+  remove event.
 
 ## Deutsche Zusammenfassung
 

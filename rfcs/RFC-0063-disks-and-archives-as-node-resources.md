@@ -474,7 +474,7 @@ Measured end to end on `oaap-test` against the real instance `webtop`:
 - a reboot reproduced by stopping the container, losing the host mounts and starting it again: the bare base was not writable for root, and `oaap-disks.service` restored both grants;
 - clean-up left nothing.
 
-Not measured: a real reboot, a pulled cable, real USB disks (`oaap-demo`).
+Measured on `oaap-demo` the same day (real USB disks, CURRENT_STATE 350): a grant to `joerg-desk`; a real reboot, after which `oaap-disks.service` restored disks, archives and the grant by itself while the device names had swapped; and a pulled cable, unintentionally on both disks. The platform does not notice a pull by itself: stale mounts stay and the app gets I/O errors until `oaap disk eject`, which also cleans up dead devices. After replugging, `open` brought the grant back without a restart. Stage 3 should eject on the udev remove event.
 
 ## Deutsche Zusammenfassung
 
