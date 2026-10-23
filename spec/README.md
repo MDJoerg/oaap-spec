@@ -19,7 +19,7 @@ before the full specification is written.
 - [oaap.core.authorization](oaap.core.authorization.md) — business authorization inside an app, apart from the platform roles: manifest declaration, roles, collections, assignments, `effective`, provider groups, administration by an app, setup from the declaration (draft, v0.4)
 - [oaap.core.gateway](oaap.core.gateway.md) — HTTP gateway (outline, v0.2.17)
 - [oaap.apps.runtime](oaap.apps.runtime.md) — app runtime: install, instances, contract delivery, remote deployment (draft, v0.2.46)
-- [oaap.data.backup](oaap.data.backup.md) — platform backup, restore & relocation (draft, v0.4)
+- [oaap.data.backup](oaap.data.backup.md) — platform backup, restore & relocation (draft, v0.4.1)
 - [oaap.fleet.status](oaap.fleet.status.md) — read-only fleet status document & fleet keys (draft, v0.4)
 - [oaap.ai.gateway](oaap.ai.gateway.md) — AI supply behind one keyed, OpenAI-compatible endpoint (draft, v0.2)
 - [oaap.core.tenant](oaap.core.tenant.md) — account and tenant, the boundary of belonging (draft, v1.0.2)

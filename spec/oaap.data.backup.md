@@ -1,8 +1,11 @@
 # oaap.data.backup — Platform Backup & Restore
 
 - **ID:** `oaap.data.backup`
-- **Version:** 0.4
-- **Maturity:** draft (0.4 implements RFC-0029 D5 and D5b: an archive of
+- **Version:** 0.4.1
+- **Maturity:** draft (0.4.1: the node archive does not stop an excluded
+  tenant's containers -- their data is not copied, so they need not stand
+  still; found 2026-10-23 when the operator's own desktop was restarted
+  at 02:30 every night with a script running in it; 0.4 implements RFC-0029 D5 and D5b: an archive of
   ONE tenant, which says of itself that it cannot be restored; and a
   tenant may be left out of the node archive, on three conditions that
   are not optional -- the archive records what it omitted, the restore
@@ -155,6 +158,11 @@ archive. It is permitted only with all three of the following.
 The completeness check of 2.2 MUST be **narrowed, never weakened**: the
 excluded tenant's instances are absent on purpose, every other instance
 still has to be in the archive.
+
+The node archive MUST NOT stop an excluded tenant's containers (0.4.1).
+Its data is not copied, so standing still buys the archive nothing and
+costs that tenant the outage anyway. The command SHOULD name the
+containers it leaves running.
 
 ### 2.2 Creating a backup
 
@@ -479,4 +487,10 @@ drei** Bedingungen:
 Die Vollständigkeitsprüfung wird dabei **enger gefasst, nicht
 aufgeweicht**: Die Daten des ausgenommenen Mandanten fehlen absichtlich,
 jede andere Instanz muss weiterhin im Archiv liegen.
+
+**Seit 0.4.1:** Das Knotenarchiv hält die Container eines ausgenommenen
+Mandanten **nicht** an — seine Daten werden nicht kopiert, also müssen
+sie auch nicht stillstehen. Gefunden am 23.10.2026: Jörgs Desktop
+(`joerg-desk`, Mandant `joerg`, ausgenommen) wurde jede Nacht um 02:30
+neu gestartet, mitten in einem laufenden Skript.
 
