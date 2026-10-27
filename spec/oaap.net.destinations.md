@@ -1,14 +1,16 @@
 # oaap.net.destinations — Reaching Outward Without Holding the Key
 
 - **ID:** `oaap.net.destinations`
-- **Version:** 0.4
+- **Version:** 0.5
 - **Maturity:** draft (0.1 was RFC-0033 stage 1: destinations with
   `direct` targets, bindings as grants, the HTTP proxy and the TCP
   handover, no bindings in a rehearsal. 0.2 adds stage 2's `via`
   targets — HTTP through a tunnel, `oaap.net.connector` 0.1. 0.3 lets
   the portal bind and unbind, for `tenant_admin` as well — §2.7. 0.4
   adds `through` targets — HTTP to a name served by a tunnel app of the
-  same tenant, RFC-0060 stage 1, §2.8)
+  same tenant, RFC-0060 stage 1, §2.8. 0.5 adds
+  `principal_propagation` — the signed-in person carried through to the
+  target as a short-lived client certificate, RFC-0066 stage 1, §2.9)
 - **Based on:** RFC-0033 (§1, D1, D5), RFC-0016 (instance networks, the
   shape a binding copies from app-to-app links), RFC-0015 (declaration
   is not publication), RFC-0022 / `oaap.core.tenant` (a destination
@@ -317,6 +319,85 @@ CLI:    --target through:<instance>/<name>
   target is the old one) and the call gets the 502 sentence; the
   destination is made again under the new name.
 
+### 2.9 The signed-in person, carried through (0.5, RFC-0066 stage 1)
+
+An HTTP destination with `direct` target may authenticate with
+**`principal_propagation`**: the platform issues, per call, a
+short-lived X.509 client certificate **for the person on whose behalf
+the app calls**, and presents it in the TLS handshake with the target.
+The pattern is the SAP Cloud Connector's; the target trusts the
+tenant's issuing CA and maps the certificate to its own user.
+
+```json
+"auth": { "type": "principal_propagation",
+          "credential": "x509",
+          "user": [ {"rule": "claim", "name": "sap_user"} ],
+          "name_check": "sap",
+          "lifetime_minutes": 10,
+          "server_cert": "-----BEGIN CERTIFICATE-----…",
+          "server_sha256": "<hex>" }
+```
+
+1. **Only `https` targets, only `direct`** in 0.5. `via` and `through`
+   follow (RFC-0066 stage 2).
+2. **The server certificate is pinned.** It is fetched when the
+   destination is made, shown with its SHA-256, and stored only when
+   the operator repeats that fingerprint (`--accept-sha256`). The
+   platform then trusts **that certificate and nothing else** for this
+   target — no public CA, no host-name match. A weak key (fewer than
+   2048 bits RSA) is accepted only for a pinned certificate and is
+   shown as a warning; verification is never switched off.
+3. **One issuing CA per tenant**, made on demand by the service that
+   uses it, kept like a destination secret (0600, mounted into that one
+   service, not in the backup — a lost CA is replaced and imported
+   again). Its certificate (public) is shown by `oaap destination ca
+   --tenant <t>`. Issued certificates carry the subject
+   `O=OAAP, OU=<tenant label>, CN=<backend user>` and the person's
+   UUID as a SAN URI `urn:oaap:user:<uuid>`; the tenant part is fixed
+   by the platform, never taken from the app or the person. The
+   target's mapping rule filters on `O` and `OU` — that filter is the
+   tenant border inside the target. A target may bind its rule to the
+   issuer as well (SAP's `CERTRULE` does, measured 2026-10-27), so the
+   rule is made from a certificate of the tenant's own CA: `oaap
+   destination ca --tenant <t> --sample <NAME>` prints one, valid one
+   hour, without its key.
+4. **Proof of the person.** The app copies the header
+   `X-OAAP-User-Assertion` (`oaap.core.identity` 2.11) from the request
+   it is serving onto its call to the destination. The service checks
+   its signature and lifetime, that its **audience is the calling
+   instance** — known from the network (2.3), not from the app — and
+   that its tenant is the destination's. Anything else is refused
+   before a certificate exists. A bare user name from the app is never
+   accepted.
+5. **The backend user** comes from the assertion's propagated claims
+   by the ordered rules in `user`; 0.5 knows the rule `claim`. No
+   rule yields a name → **403 with the reason**; never a technical
+   credential instead. `name_check: sap` requires `[A-Z0-9_]{1,12}`
+   after upper-casing.
+6. **A rule `claim` is accepted only when the claim cannot be edited by
+   the person.** When the destination is made the platform reads,
+   through the tenant's provider connector, who may edit that attribute
+   (Keycloak: the user profile's edit permission) and **refuses** the
+   rule while a person may edit their own value — otherwise the
+   mechanism reduces to "type in who you want to be". What is stored
+   is what the provider answered, with the time it was read.
+7. **Propagation is its own grant.** A binding reaches a
+   `principal_propagation` destination only with `--propagate`
+   (`oaap destination bind <instance> <dest> --propagate`), recorded
+   and audited separately; a binding without it is answered 403 with
+   the reason. On every other destination the assertion header is
+   **stripped** like the identity headers — it never leaves the node.
+8. **Nothing is kept between calls**: no connection is reused, no
+   cookie is stored by the client, `Cookie`/`Authorization` of the app
+   and `Set-Cookie` of the target are dropped. A backend's logon ticket
+   that came back once must never travel with the next person's call
+   (measured on a4h: with a cookie store it did).
+9. **Audit:** every issued certificate (time, tenant, destination,
+   instance, person UUID, backend user, serial) — never the request or
+   its answer. The target's own refusal (a locked or unknown user) is
+   passed on as the target's answer; the platform does not guess a
+   reason.
+
 ## 3. Configuration
 
 None beyond the objects. The listener port (8098 in the reference) is
@@ -539,3 +620,27 @@ auf sie zeigt. **Adresse in der App, Schlüssel in der Plattform** (D5):
 weder die Verbraucher- noch die Tunnel-App sieht den fremden Schlüssel.
 Ein Umbenennen der Tunnel-Instanz bricht die Destination (502 mit Satz);
 sie wird unter dem neuen Namen neu angelegt.
+
+## Deutsche Zusammenfassung (0.5 — Principal Propagation, RFC-0066 Stufe 1)
+
+Eine HTTP-Destination mit direktem `https`-Ziel kann sich mit
+**`principal_propagation`** ausweisen: Die Plattform stellt je Aufruf
+ein **kurzlebiges Client-Zertifikat für die angemeldete Person** aus und
+zeigt es dem Ziel beim TLS-Aufbau — das Muster des SAP Cloud
+Connectors. Das **Serverzertifikat des Ziels wird gepinnt** (beim
+Anlegen geholt, mit SHA-256 angezeigt, erst mit `--accept-sha256`
+gespeichert; danach gilt nur dieses Zertifikat, Prüfung nie
+abgeschaltet). Je Mandant gibt es **eine Zertifizierungsstelle**; ihre
+Zertifikate tragen `O=OAAP, OU=<Mandant>, CN=<Backend-Benutzer>` — der
+Mandant kommt von der Plattform, nie von App oder Person, und der
+Inhaberfilter im Ziel ist damit die Mandantengrenze. Die App reicht die
+**Zusicherung** `X-OAAP-User-Assertion` weiter; geprüft werden
+Unterschrift, Laufzeit, **Adressat = aufrufende Instanz** (aus dem
+Netz) und Mandant. Den Backend-Benutzer liefert eine Regel `claim`
+(z. B. `sap_user`) — aber nur, wenn die Person das Attribut **nicht
+selbst ändern** kann; das liest die Plattform beim Anlegen über den
+Konnektor nach. Kein Name → 403 mit Grund, nie ein technischer
+Benutzer. Propagation ist eine **eigene Freigabe** je Bindung
+(`--propagate`); an jede andere Destination geht die Zusicherung nicht
+hinaus. Jedes ausgestellte Zertifikat steht im Prüfprotokoll, nie die
+Anfrage.

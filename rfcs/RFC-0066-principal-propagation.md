@@ -355,6 +355,105 @@ server certificate (stored with the destination) and accept a weak key
 only for a pinned certificate — never by switching verification off.
 The destination page shows the weakness as a warning.
 
+### 8.2 Stage 1 as built (2026-10-27, reference 0.1.213, not deployed)
+
+`oaap.net.destinations` 0.5 (§2.9) and `oaap.core.identity` 0.6.2
+(§2.11) were written first; the code follows them.
+
+- **identity** takes `sap_user` / `sap_user_<x>` from the provider at
+  every sign-in (replacing, never merging) and returns a sixth header
+  `X-OAAP-User-Assertion`: HMAC-SHA256 with the node's assertion key,
+  five minutes, audience = the `?instance=` of the verify call. Empty
+  for machines, without an instance, for an unknown tenant, without a
+  key (`services/assertion.py`).
+- **connect** serves `/propagate/<need>/…` behind the gateway key:
+  checks the assertion against the caller the *listener* names and the
+  destination's tenant, picks the backend user by the rules, issues a
+  certificate from the tenant's CA (`O=OAAP, OU=<tenant>, CN=<user>`,
+  SAN `urn:oaap:user:<uuid>`, client auth only), and calls the target
+  through a TLS context whose **only** trust anchor is the pinned
+  server certificate (`services/connect/propagate.py`). One certificate
+  per (destination, person, backend user) until a minute before it
+  expires; **no connection is ever reused** (a TLS session carries the
+  person). `Authorization`, `Cookie`, `Set-Cookie` and every `X-OAAP-*`
+  are dropped — 0.5 carries no backend session between calls, so
+  OData writes that need a CSRF token bound to a session cookie are not
+  possible yet (stage 4, CAP). The tenant's CA is made on demand and
+  kept in `data/connect/ca` (only connect mounts it, not in the
+  backup); every issued certificate is one line in the tenant log.
+- **appctl**: `--auth principal_propagation` (https, `direct` only),
+  pin by `--accept-sha256` after the first try shows the fingerprint,
+  claim rules (`--user-claim`, default `sap_user`), `--name-check sap`,
+  `--lifetime`; the claim's edit permission is **read through the
+  connector** (`idp_admin` path `user_profile`, `Admin.attribute_edits`)
+  and a self-editable claim is refused; an unreadable one needs
+  `--unchecked-claim "<who checked how>"`, recorded. `bind --propagate`
+  is the separate grant (`propagate` on the instance); without it the
+  listener answers 403 with the way to the grant. The listener strips
+  the assertion on every other destination; `migrate-identity-headers`
+  rewrites the destination listener too, so no binding made before the
+  update keeps the old strip list. `oaap destination ca --tenant <t>`
+  shows the CA for `STRUST`.
+- **Tests:** `test/test_propagation.py` 50 checks, six baits (audience
+  check, the assertion's exception in the strip list, the self-edit
+  refusal, the grant, an extra propagated claim, a fixed `OU`) each
+  caught; the related suites green (destinations, connector, exposures,
+  identity, twin, idp connector/settings, feedback, API keys).
+- **Measured locally against a4h, the whole connect path** (assertion
+  → rules → certificate → pinned TLS → a4h): pinning holds — a foreign
+  1024-bit certificate with the same name is refused (*self-signed
+  certificate*), a4h's own pinned one is accepted with verification on;
+  no `sap_user`, another instance, another tenant, a caller without the
+  gateway key are refused **before** a certificate exists (no audit
+  line); the three persons with `sap_user` reach a4h with their
+  certificate and get `401` — a4h's `CERTRULE` rule still filters on
+  the demo subject (`O=OAAP Demo, OU=Mandant pxx, C=DE`), not on the
+  platform's (`O=OAAP, OU=pxx`). A second rule from a platform-format
+  sample (`C:\Users\joerg\oaap-sso-demo\muster-plattform-fuer-certrule.cer`)
+  is the next step on a4h.
+- **Test app:** `oaap-lab/sso-probe` 0.1.0 — shows the identity headers
+  and calls the destination `sap` passing the assertion on unchanged.
+
+### 8.3 Measured against a4h through the connect path (2026-10-27)
+
+Jörg added a `CERTRULE` rule for the platform's subject format. The
+first attempt built it from the old demo sample, and the rule list
+showed why it never matched: **`CERTRULE` gives every rule an issuer
+filter — the issuer of the sample it was made from.** A rule therefore
+belongs to exactly one CA. Consequence for the build: the target needs
+a rule made from a certificate **of the tenant's own CA**;
+`oaap destination ca --tenant <t> --sample MUSTER` prints one (one hour,
+no key, issued inside connect where the CA key lives). It also means
+the tenant border in SAP is held twice: by the subject filter and by
+the issuer.
+
+With the rule `CN=*,OU=pxx,O=OAAP` (issuer: the demo CA, standing in for
+the tenant CA locally), the whole connect path against a4h:
+
+| Person (`sap_user`) | First run | After the fix below |
+|---|---|---|
+| demo-dev (`accx_t_dev`) | 200 `ACCX_T_DEV` | 200 `ACCX_T_DEV` |
+| demo-mon (`ACCX_T_MON1`) | **200 `ACCX_T_DEV`** | 200 `ACCX_T_MON1` |
+| demo-gesperrt (`ACCX_T_LOCKE`, locked) | **200 `ACCX_T_DEV`** | 401 |
+| no `sap_user` / other instance / other tenant / no gateway key | 403 each, no certificate | same |
+
+**The finding: the HTTP client kept the first person.** The
+certificates were right (the audit named MON1 and LOCKE), but aiohttp's
+default cookie jar stored a4h's logon ticket from the first answer
+(`MYSAPSSO2` / `SAP_SESSIONID`) and sent it with every later call — so
+two other people, one of them locked in SAP, were logged on as the
+first. Dropping the *app's* `Cookie` header had not been enough; the
+client itself must keep nothing. Fixed with `DummyCookieJar`; a second,
+interleaved round with cached certificates (mon, dev, locked, mon, dev)
+gave each person their own user and 401 for the locked one, with three
+certificates for eight calls. `test_propagation.py` now runs connect
+against a local HTTPS target that sets a logon cookie and reports the
+certificate and cookies it saw (55 checks); with the jar switched back
+on the test fails — but only after the target was addressed by name:
+aiohttp's jar keeps no cookie of a bare IP address, and the first
+version of the test, on `127.0.0.1`, passed with the bug in place. The
+bait found that too.
+
 ## 9. Stages
 
 | Stage | Content |

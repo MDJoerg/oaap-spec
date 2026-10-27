@@ -1,7 +1,10 @@
 # oaap.core.identity — Identity & Roles
 
 - **ID:** `oaap.core.identity`
-- **Version:** 0.6.1 (**business authorization lives here**,
+- **Version:** 0.6.2 (**a signed assertion of the person for the
+  way out**: a sixth header `X-OAAP-User-Assertion`, 2.11; RFC-0066
+  stage 1;
+  0.6.1, **business authorization lives here**,
   `oaap.core.authorization` 0.1: one more state file and the routes
   `/internal/authz/*` and `/authz/effective`, 2.10; nothing changes for a
   node nobody grants anything on;
@@ -177,7 +180,8 @@ session may go* — see the tenant restriction in 2.3.
   identity's verify endpoint on **every** request to a protected route
   (forward auth, RFC-0002 default deny).
 - On success, verify returns **five** trusted headers (0.4.0; the first
-  two unchanged since RFC-0002), and the gateway copies them onto the
+  two unchanged since RFC-0002) — **six since 0.6.2**, the sixth being
+  `X-OAAP-User-Assertion` of 2.11, and the gateway copies them onto the
   upstream request. On failure it returns a redirect to the login page
   (browser flows) or 401/403.
 
@@ -188,8 +192,9 @@ session may go* — see the tenant restriction in 2.3.
   | `X-OAAP-User-Id` | the `id` of 2.2 — **the thing an app anchors on** |
   | `X-OAAP-Display-Name` | the display name, may be empty |
   | `X-OAAP-Email` | a **verified** address, or empty — see below |
+  | `X-OAAP-User-Assertion` | a signed assertion for the way out (2.11), or empty |
 
-  - **All five MUST be returned on every success, empty where there is
+  - **All of them (five, six since 0.6.2) MUST be returned on every success, empty where there is
     no value.** A header the answer leaves out is a header whose
     client-sent value has nothing to overwrite it, and the
     anti-spoofing guarantee (4.6) works by overwriting. Apps MUST read
@@ -573,6 +578,41 @@ not touch the platform roles: no function of this section can read or write
 The gateway routes `/authz/*` to identity with the identity headers
 stripped. See `oaap.core.authorization` for the rules.
 
+### 2.11 The person, signed, for the way out (0.6.2, RFC-0066 stage 1)
+
+Where an app calls a destination **as the person it is serving**
+(`oaap.net.destinations` 2.9), the destination must be able to tell
+that person from a name the app made up. Verify therefore adds a sixth
+header:
+
+```text
+X-OAAP-User-Assertion: <base64url header>.<base64url claims>.<base64url HMAC-SHA256>
+```
+
+- **Claims:** `v` (1), `sub` (the person's `id`), `usr` (username),
+  `ten` (tenant id), `aud` (the instance of the verify call, its
+  `?instance=` parameter), `iat`, `exp` (**5 minutes** later), `prop`
+  (the propagated attributes below; may be empty).
+- **Signed with the node's assertion key**, a random key the host
+  keeps in its own directory, mounted read-only into identity and into
+  the one service that checks assertions. Without that key verify
+  returns the header **empty** — no assertion is better than one
+  nobody can check.
+- **Only for a person** (`kind: human`) and only when the call names an
+  instance. A machine principal, an API key, or a verify without
+  `instance` gets the header empty.
+- **Propagated attributes** come from the tenant's provider at sign-in
+  (2.8): claims named `sap_user` or `sap_user_<x>` (`<x>` lower-case
+  letters and digits, at most 16), each a string of at most 64
+  characters `[A-Za-z0-9_.@-]`, are stored on the user record
+  (`idp.propagate`) and **replaced at every sign-in** — a claim the
+  provider no longer sends disappears. Nothing else is propagated in
+  0.6.2; a person with a local password has none.
+- The gateway strips a client-sent `X-OAAP-User-Assertion` like every
+  identity header, and strips it again on every destination call that
+  is not a propagation (destinations 2.9.7). An app treats the header
+  as opaque: it copies it, it never parses or trusts it.
+
 ## 3. Configuration
 
 - Session secret and setup token are generated at install time
@@ -701,8 +741,8 @@ stripped. See `oaap.core.authorization` for the rules.
     the active flag leaves it untouched; an `id` named in a create or
     update request is ignored; a record appended without one is
     written with one.
-18. **All five headers, every time** (0.4.0, 2.3) — a successful verify
-    returns exactly the five headers, with an empty value where the
+18. **All headers, every time** (0.4.0, 2.3; six since 0.6.2) — a successful verify
+    returns exactly the listed headers, with an empty value where the
     record has none, never a shorter list; `X-OAAP-User-Id` is the
     stored `id`; `X-OAAP-User` is byte-identical to what the same
     session received before the update.
@@ -973,3 +1013,16 @@ der Anmeldung, die es bisher nicht gab:
    ist „nicht gefunden". Ein gelöschter Name kann neu vergeben werden —
    dann ist es eine andere Person mit neuer Kennung, und genau deshalb
    hängen Apps an der Kennung.
+
+## Deutsche Zusammenfassung (0.6.2, RFC-0066 Stufe 1 — die Zusicherung für den Weg hinaus)
+
+`/verify` liefert eine **sechste Kopfzeile** `X-OAAP-User-Assertion`:
+eine mit dem **Zusicherungsschlüssel des Knotens** (HMAC-SHA256)
+unterschriebene, **5 Minuten** gültige Aussage „diese Person, dieser
+Mandant, für **diese Instanz**". Darin stehen die vom Anmeldedienst
+übernommenen Attribute `sap_user` bzw. `sap_user_<x>`, die bei jeder
+Anmeldung neu geschrieben werden. Nur für Menschen und nur, wenn der
+Aufruf eine Instanz nennt; sonst bleibt die Zeile leer — ebenso, wenn
+der Schlüssel fehlt. Die App reicht sie unverändert an eine
+Destination mit Principal Propagation weiter (`oaap.net.destinations`
+2.9); an jede andere Destination streicht das Gateway sie.
