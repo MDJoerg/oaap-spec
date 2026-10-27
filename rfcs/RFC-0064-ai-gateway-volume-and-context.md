@@ -5,9 +5,9 @@
   tokens where the supplier reports them. **Stage 1 built the same day**
   (`ai-gateway` 0.3.0, `oaap.ai.gateway` 0.3, §11), pushed, not
   deployed. **Stage 2 built 2026-10-27** (`ai-gateway` 0.4.0,
-  `oaap.ai.gateway` 0.3.1, §12), tested locally; the measurement on
-  `oaap-test` is pending (node not reachable from the session). Stages
-  3–4 not built.
+  `oaap.ai.gateway` 0.3.1, §12) and **measured on `oaap-test`** as
+  0.4.1 (§13), which also fixes a fault older than this RFC: every real
+  supplier had answered 404. Stages 3–4 not built.
 - **Date:** 2026-10-27
 - **Authors:** Claude (analysis & proposal), Jörg (requirement, decides)
 - **Depends on:** RFC-0023 (the AI gateway: supply, placement,
@@ -288,10 +288,42 @@ bytes is volume that can never be reported correctly afterwards.
   vault, blocked takeover, wrong master key, skipped), `test_supply.py`
   40. Baits: storing the credential in plain text, and loading a
   supplier whose credential cannot be opened — both caught.
-- **Not measured on a node.** Pending on `oaap-test`: build on the node,
-  an update from 0.3.0 with configuration lines and without
-  `AIGW_MASTER_KEY` (must wait), then with it (must take over), the
-  page in a real browser.
+- Measured on `oaap-test` the same day, see §13.
+
+## 13. Measured on `oaap-test` (2026-10-27, 0.3.0 → 0.4.1)
+
+Instance `aigw-test` (channel test), linked to the node's Ollama with
+`qwen2.5:0.5b`, plus a red supplier `fern` carrying a measurement
+credential that is never called.
+
+1. **0.3.0 installed** from the package at `a14861d`, configured with the
+   three old variables, a key with context issued, four requests. The
+   first two answered **404 from Ollama**: the gateway asked for
+   `…/v1/v1/chat/completions`. The supplier base is documented up to
+   `/v1` and the consumer path also begins with `/v1`; since 0.1 the two
+   were concatenated. The paper supplier in the tests accepts any path,
+   and no test compared it. **Fixed in 0.4.1** (`relay.upstream_url`): a
+   base ending in `/v1` does not get it twice; a base without `/v1` — a
+   workaround someone may have entered — keeps the path as it is. A new
+   test compares the path; with the old line it fails.
+2. **Update to 0.4.1 without `AIGW_MASTER_KEY`:** takeover `blocked`;
+   `suppliers` empty, no `imported_at`, forms absent, the page heads
+   "Noch nicht in die App übernommen"; the configuration kept working —
+   real answers from Ollama, plain and streamed, with token counts from
+   the end of the stream; all four usage rows kept, with bytes (364 B
+   plain, 8,655 B streamed) and the context snapshot.
+3. **`AIGW_MASTER_KEY` set** (generated on the node, never displayed):
+   on the recreate the takeover ran — 2 suppliers, 2 model names,
+   `imported_at`, `config.import` in the audit log; the credential stored
+   as `v1:…`, the plain value in neither `gateway.db` nor its WAL; no
+   load errors, so it opened again; forms present.
+4. **A model name created through the form** appeared in `/v1/models`
+   through the platform gateway and answered, **without a restart**
+   (container start time still that of step 3). Deleting a supplier in
+   use was refused, naming all three users.
+
+**Not measured:** the page in a real browser behind the platform login;
+`oaapx01` (Jörg: not yet).
 
 ## Deutsche Zusammenfassung
 
