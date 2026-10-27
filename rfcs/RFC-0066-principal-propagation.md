@@ -6,7 +6,10 @@
   configure much but **may not restart**; demo users follow later.
   Phase A reworked accordingly (§8). **Phase A0 measured from outside
   the same day (§8.1): TLS ends at the ICM, which asks for a client
-  certificate → x509 first.** Nothing built.
+  certificate → x509 first.** **Phase A measured the same day with a
+  hand-made CA: certificate `CN=ACCX_T_DEV` → logged on as ACCX_T_DEV
+  without password; unknown user → 401; foreign CA → handshake
+  aborted; no restart needed** (§8.1). Nothing built.
 - **Date:** 2026-10-27
 - **Authors:** Claude (analysis & proposal), Jörg (requirement, decides)
 - **Depends on:** RFC-0033 (destinations and connector — §1.4 named
@@ -244,6 +247,62 @@ bearer as the following stage. Not yet known: whether importing into
 the SSL server PSE takes effect without an ICM restart, and whether
 rule-based mapping is switched on (phase A, read from inside first).
 
+**Read from inside by Jörg (2026-10-27, nothing changed):**
+
+- `login/certificate_mapping_rulebased` = **0** (kernel default),
+  **dynamic, system-wide** → can be switched to 1 in `RZ11` without a
+  restart; lost at the next restart unless also entered in the default
+  profile (`RZ10`, takes effect at that restart).
+- `icm/HTTPS/verify_client` = **1** (kernel default: request, not
+  require), not dynamic — and needs no change.
+- `icm/server_port_*` not found in `RZ11` (indexed parameter; the ports
+  are visible in `SMICM` → services). Not needed: A0 already showed
+  50001 requesting a certificate.
+- `STRUST`, SSL server standard: certificate list empty (matches A0).
+- `CERTRULE` opens; no rules yet.
+- `SICF` `/sap/bc/ui2/start_up`: logon procedure *standard*, which
+  includes the client certificate.
+
+**Phase A, step 2 measured (2026-10-27): a CA added to the SSL server
+PSE takes effect without an ICM restart.** Jörg imported a hand-made
+demo CA (`CN=OAAP Demo Aussteller pxx`, RSA 2048, kept outside every
+repository) into the certificate list of the SSL server standard PSE
+and saved; minutes later, without any restart, the ICM listed it among
+the acceptable client CA names next to its own certificate. A call
+with a certificate `CN=MUSTER` from that CA completes the TLS handshake
+and gets `401` with the Basic challenge — the expected baseline while
+rule-based mapping is still off and no rule exists.
+
+**Phase A measured (2026-10-27): a4h logs a person on by a certificate
+from our CA, without password and without restart.** Jörg set
+`login/certificate_mapping_rulebased = 1` in `RZ11` (dynamic, all
+servers) and created one `CERTRULE` rule from the sample `CN=MUSTER`:
+entry *subject*, attribute *CN*, log on as *user name*, **subject
+filter `OU,O,C`** — the rule only applies to certificates whose
+`OU`, `O` and `C` equal the sample's (`OU=Mandant pxx, O=OAAP Demo,
+C=DE`). Then, against `/sap/bc/ui2/start_up?sap-client=001`:
+
+| Certificate | Answer |
+|---|---|
+| `CN=ACCX_T_DEV` from the demo CA | **`200`, user `ACCX_T_DEV`, client 001** — no password |
+| `CN=MUSTER` from the demo CA (user does not exist) | `401` with the Basic challenge |
+| `CN=ACCX_T_DEV` from a **foreign** CA | **TLS handshake aborted** by the ICM (`certificate unknown`) — never reaches the logon |
+
+Still open in phase A: a second real user (Jörg creates demo users
+later), so that two people give two answers.
+
+**Finding for the design (§5): the subject filter is the tenant
+border inside SAP.** A tenant's issuer writes the tenant into the
+subject (`OU=<tenant>`), and the rule in `CERTRULE` filters on it. A
+certificate issued for another tenant — even by a CA the system also
+trusts — falls under no rule of this tenant. So the platform MUST put
+the tenant into the subject of every issued certificate, fixed, never
+taken from the app or the user.
+
+Note for the probe: Windows `curl` (Schannel) cannot load PEM client
+certificates; the measurement uses a small Python client on OpenSSL,
+which also needs a lowered security level for a4h's 1024-bit key.
+
 **Finding for the build:** the server key is **RSA 1024 bit** under
 TLS 1.2; OpenSSL refuses it at its default security level ("EE
 certificate key too weak"). The proxy must **pin** the destination's
@@ -383,3 +442,14 @@ kommt zuerst**, SAML danach. `/sap/bc/ui2/start_up` antwortet mit der
 Anmeldeaufforderung. Befund fürs Bauen: Das Serverzertifikat hat nur
 1024 Bit; der Proxy muss es fest hinterlegen (pinnen), statt die
 Prüfung abzuschalten.
+
+**Phase A gemessen (27.10.), ohne Neustart:** Demo-Zertifizierungsstelle
+in `STRUST` übernommen (der ICM nennt sie sofort als Aussteller),
+Schalter in `RZ11` auf 1, eine Regel in `CERTRULE` (Subjekt, CN →
+Benutzername, Inhaberfilter `OU,O,C`). Ergebnis: Ein Zertifikat
+`CN=ACCX_T_DEV` meldet a4h **ohne Passwort als ACCX_T_DEV** an;
+`CN=MUSTER` (gibt es nicht) → 401; derselbe Name von einer fremden
+Zertifizierungsstelle → der ICM bricht schon den TLS-Aufbau ab. Der
+**Inhaberfilter ist die Mandantengrenze in SAP**: Die Plattform muss
+den Mandanten fest in den Inhaber jedes Zertifikats schreiben. Offen in
+Phase A: ein zweiter echter Benutzer.
