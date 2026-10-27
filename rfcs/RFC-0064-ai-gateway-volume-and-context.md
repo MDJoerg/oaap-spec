@@ -3,8 +3,11 @@
 - **Status:** **Accepted (2026-10-27)** — Jörg took D1–D8 as
   recommended the same day; on D4 he confirmed the intent: bytes always,
   tokens where the supplier reports them. **Stage 1 built the same day**
-  (`ai-gateway` 0.3.0, `oaap.ai.gateway` 0.3, §11), tested locally, not
-  yet deployed. Stages 2–4 not built.
+  (`ai-gateway` 0.3.0, `oaap.ai.gateway` 0.3, §11), pushed, not
+  deployed. **Stage 2 built 2026-10-27** (`ai-gateway` 0.4.0,
+  `oaap.ai.gateway` 0.3.1, §12), tested locally; the measurement on
+  `oaap-test` is pending (node not reachable from the session). Stages
+  3–4 not built.
 - **Date:** 2026-10-27
 - **Authors:** Claude (analysis & proposal), Jörg (requirement, decides)
 - **Depends on:** RFC-0023 (the AI gateway: supply, placement,
@@ -243,6 +246,52 @@ bytes is volume that can never be reported correctly afterwards.
   bytes counting chunk framing) were each caught by exactly one test.
 - **Not measured on a node yet.** The real question there is whether
   the backfill behaves on `oaapx01`'s existing usage table.
+
+## 12. Stage 2 as built (2026-10-27)
+
+- `ai-gateway` 0.4.0. Three new tables (`suppliers`, `aliases`, `meta`).
+  The rules that judge a supplier or an alias are now single functions
+  (`supply.make_supplier`, `supply.make_alias`); the old configuration
+  lines and the forms both pass through them.
+- **D1:** on start, `catalog.import_config` takes the three variables
+  over once (`imported`) and records `imported_at`; afterwards they are
+  not read, and the page says so while they are still set. If the app
+  already maintains suppliers itself, the variables are left lying
+  (`skipped`), never merged.
+- **D2:** `vault.py`, standard library only: HMAC-SHA256 as a PRF in
+  counter mode plus an HMAC tag over version, nonce and ciphertext
+  (encrypt-then-MAC), keys derived separately from `AIGW_MASTER_KEY`,
+  which the manifest declares `secret: true, generate: token`. Without
+  a usable master key (22 characters, as long as a generated token) a
+  credential is refused with the remedy; a takeover that includes
+  credentials **waits** (`blocked`): the configuration keeps working as
+  before and the forms are locked, so there are never two truths.
+- A credential that cannot be opened (another master key, a changed
+  byte) removes its supplier from routing and is named; an alias that
+  needs it becomes unusable rather than silently shorter.
+- Forms: create, change (empty credential = unchanged, removal is a
+  checkbox), delete. A supplier still in use cannot be deleted; deleting
+  an alias names the keys restricted to it. Changes take effect without
+  a restart; the routing tables are replaced as a whole, so a running
+  request keeps the version it started with, and a model name deleted
+  in between answers 400 instead of crashing.
+- Found on the way, older than this stage: an admin POST refused with
+  403 **before** reading its body. On Windows the connection then ended
+  in a reset (1 of 5 test runs crashed), and on keep-alive the unread
+  rest would have been read as the next request. The body is now read
+  first; 8 of 8 runs green afterwards.
+- `Dockerfile` lists modules one by one; `catalog.py` and `vault.py`
+  were added — without that the container would not have started.
+- Tests: `test_gateway.py` 113 (22 new, run in the post-takeover state
+  with a master key; the closing scan now also proves the form-set
+  credential is in no file in plain text), `test_catalog.py` 27 (new:
+  vault, blocked takeover, wrong master key, skipped), `test_supply.py`
+  40. Baits: storing the credential in plain text, and loading a
+  supplier whose credential cannot be opened — both caught.
+- **Not measured on a node.** Pending on `oaap-test`: build on the node,
+  an update from 0.3.0 with configuration lines and without
+  `AIGW_MASTER_KEY` (must wait), then with it (must take over), the
+  page in a real browser.
 
 ## Deutsche Zusammenfassung
 

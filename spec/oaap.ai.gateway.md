@@ -1,10 +1,12 @@
 # oaap.ai.gateway — AI Supply Behind One Keyed Endpoint
 
 - **ID:** `oaap.ai.gateway`
-- **Version:** 0.3 (RFC-0064: key context with four fixed dimensions,
-  volume in bytes as well as tokens, a context snapshot on every usage
-  record, no prices; additive except that the optional cost estimate of
-  0.2 §5 is struck)
+- **Version:** 0.3.1 (RFC-0064 stage 2: suppliers and aliases are
+  maintained by the operator in the gateway itself, credentials at rest
+  only encrypted with a key held outside the gateway's storage, §4.1.
+  0.3: key context with four fixed dimensions, volume in bytes as well
+  as tokens, a context snapshot on every usage record, no prices;
+  additive except that the optional cost estimate of 0.2 §5 is struck)
 - **Maturity:** draft
 - **Based on:** RFC-0023 (supply, placement, entitlement); RFC-0022
   (account and tenant); RFC-0002 (default deny); RFC-0010 (public
@@ -123,9 +125,29 @@ neither. Consequences, all accepted deliberately:
   service is an equally legitimate supply for a tenant, and the
   platform is not on the path to it.
 
-Upstream credentials live in the gateway's secret configuration and
-**never leave it** — not in an error message, not in telemetry, not in
-a response header.
+Upstream credentials **never leave the gateway** — not in an error
+message, not in telemetry, not in a response header, not in the audit
+log.
+
+### 4.1 Maintenance (0.3.1, RFC-0064 stage 2)
+
+- Suppliers and aliases are **maintained by the operator in the
+  gateway** and take effect without a restart. There is **one** place
+  that counts: a gateway that took them over from an earlier
+  configuration MUST NOT keep reading that configuration.
+- A credential is **write-only**: it can be set, replaced or removed,
+  never read back. An empty input means *unchanged*, never *remove*.
+- At rest, a credential is stored **only encrypted**, under a key that
+  does not live in the gateway's own storage, so that a copy of that
+  storage alone does not disclose it. Without such a key the gateway
+  MUST refuse to store a credential and say why — and a takeover of
+  credentials from an earlier configuration waits rather than store
+  them in plain text or drop them.
+- A credential that cannot be decrypted makes its supplier unusable,
+  and the gateway names it. An alias that depends on it is unusable
+  too — failing over around the gap would silently change the declared
+  group (§3).
+- A supplier still used by an alias cannot be removed.
 
 ## 5. Metering: each gateway keeps its own books
 
@@ -282,6 +304,9 @@ which is the only form of it that survives daily use.
    it carries the new.
 9b. `bytes_up` and `bytes_down` of a request equal the body sizes the
    consumer sent and received, streamed or not.
+9c. A credential set through maintenance appears in no file of the
+   gateway's storage in plain text, and in no page, response or audit
+   entry.
 10. A gateway drawing from another gateway holds exactly one key
     there; that key never appears downstream.
 
@@ -396,3 +421,11 @@ Verbraucher. Jede Messzeile trägt eine **Kopie des Kontexts** zum
 Zeitpunkt der Anfrage, wie ein Beleg seine Kontierung behält. Die
 optionale Kostenschätzung aus 0.2 ist gestrichen; Rechnungen entstehen
 außerhalb.
+
+**Neu in 0.3.1 (RFC-0064 Stufe 2):** Bezugsquellen und Aliasse pflegt
+der Betreiber **im Gateway selbst**, wirksam ohne Neustart; was aus
+einer früheren Konfiguration übernommen wurde, wird dort nicht mehr
+gelesen. Zugangsdaten sind nur schreibbar, nie lesbar, und liegen nur
+**verschlüsselt** — mit einem Schlüssel, der nicht im Speicher des
+Gateways liegt. Fehlt er, verweigert das Gateway das Speichern und
+sagt warum.
