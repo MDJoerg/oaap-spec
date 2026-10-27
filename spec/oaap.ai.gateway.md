@@ -1,13 +1,16 @@
 # oaap.ai.gateway — AI Supply Behind One Keyed Endpoint
 
 - **ID:** `oaap.ai.gateway`
-- **Version:** 0.2 (the traffic light of §7 replaces the geographic
-  classification of 0.1 — breaking, and free: nothing is installed yet)
+- **Version:** 0.3 (RFC-0064: key context with four fixed dimensions,
+  volume in bytes as well as tokens, a context snapshot on every usage
+  record, no prices; additive except that the optional cost estimate of
+  0.2 §5 is struck)
 - **Maturity:** draft
 - **Based on:** RFC-0023 (supply, placement, entitlement); RFC-0022
   (account and tenant); RFC-0002 (default deny); RFC-0010 (public
   route brake); RFC-0019 (token hygiene: shown once, stored hashed,
-  revocable); RFC-0021 (fleet key precedent for machine endpoints)
+  revocable); RFC-0021 (fleet key precedent for machine endpoints);
+  RFC-0064 (volume and context)
 
 ## Purpose
 
@@ -59,10 +62,14 @@ hook (writes) and the fleet status (reads).
 - The key value is shown **exactly once** at issue time; only its
   SHA-256 digest is stored. Listing shows labels and metadata, never
   key material.
-- Every key carries **metadata**: label, responsible person, cost
-  centre or project, and its account/tenant assignment — `default`
-  where RFC-0022 stage 2 has not been reached. Metadata exists to make
-  usage filterable and billable, and is free text to the operator.
+- Every key carries a **context**: label, responsible person, and
+  four fixed dimensions — **account, project, cost centre,
+  application** — plus up to five free labels `name=value`. The context
+  is free text to the operator, may be empty, and exists to make usage
+  filterable and billable *outside* the gateway. The tenant assignment
+  is not part of it: it is set by RFC-0022, `default` until then.
+- The context **may be changed at any time**. Every change is audited
+  with old and new value and takes effect from the next request.
 - A key may be **restricted to a subset of aliases**.
 - A key carries a **budget** and a **rate limit**. These are hard: they
   protect against a runaway bill, which an invoice afterwards does not.
@@ -132,9 +139,22 @@ tenant's gateway consumed from them; the two need not agree to the
 token, and pretending they must would cost more than it is worth.
 
 Recorded per request: time, key, alias, **supplier actually used**,
-input and output token counts, latency, an optional cost estimate, and
-the outcome. Where a supplier reports no token counts, the record says
-so rather than guessing.
+input and output token counts, **bytes up and down**, latency, the
+outcome, and a **copy of the key's context**. Where a supplier reports
+no token counts, the record says so rather than guessing.
+
+- **Volume, never money.** A gateway counts calls, tokens and bytes. It
+  does not price them; invoices and cost reports are produced outside
+  from its numbers (RFC-0064).
+- **Bytes are counted at the consumer side:** the request body the key
+  holder sent and the response body they received — for a stream, the
+  payload without transfer framing. Bytes are always known; tokens only
+  when the supplier reports them. Both are kept so a gap in one stays
+  visible next to the other.
+- **The snapshot rule:** a usage record carries the key's context *as
+  it was when the request began*. Changing a key's cost centre never
+  moves past usage. Records that predate this rule may be filled once
+  with the key's then-current context, and must say they were.
 
 **Every consumer sees their own consumption, and only their own.** With
 RFC-0022 in place, usage rolls up tenant → account, which is the view
@@ -257,6 +277,11 @@ which is the only form of it that survives daily use.
    telemetry record.
 9. Key issue and revoke appear in the audit log; individual requests
    do not.
+9a. A change of a key's context is audited with old and new value;
+   usage recorded before the change keeps the old context, usage after
+   it carries the new.
+9b. `bytes_up` and `bytes_down` of a request equal the body sizes the
+   consumer sent and received, streamed or not.
 10. A gateway drawing from another gateway holds exactly one key
     there; that key never appears downstream.
 
@@ -303,8 +328,9 @@ wer geantwortet hat.
 
 **Schlüssel:** ausgestellt von dem, der das Gateway betreibt, einmal
 angezeigt, nur als SHA-256 gespeichert, jederzeit widerrufbar; mit
-Metadaten (Verantwortlicher, Kostenstelle, Account/Mandant — bis
-RFC-0022 Stufe 2 schlicht `default`), optional auf einzelne Aliasse
+einem **Kontext** (seit 0.3: Verantwortlicher, Account, Projekt,
+Kostenstelle, Anwendung, bis zu fünf freie Etiketten — jederzeit
+änderbar, jede Änderung in der Prüfspur), optional auf einzelne Aliasse
 beschränkt, mit **Budget und Rate-Limit als harter Grenze**. Ein
 Gateway, das sich bei einem anderen bedient, hält dort **genau einen
 eigenen** Schlüssel, der nie nach unten durchgereicht wird.
@@ -363,3 +389,10 @@ Doppelzählung über drei Schichten ein.
 oder Antworten. Gezählt wird, nicht mitgeschrieben — sonst wird jede
 Sicherung und jeder Supportfall zum Datenleck. Das ist eine
 Konformitätsbedingung, keine Empfehlung.
+
+**Neu in 0.3 (RFC-0064):** Gezählt wird **Volumen, nie Geld** — Aufrufe,
+Token (wenn die Quelle sie nennt) und **Bytes hoch/runter** am
+Verbraucher. Jede Messzeile trägt eine **Kopie des Kontexts** zum
+Zeitpunkt der Anfrage, wie ein Beleg seine Kontierung behält. Die
+optionale Kostenschätzung aus 0.2 ist gestrichen; Rechnungen entstehen
+außerhalb.

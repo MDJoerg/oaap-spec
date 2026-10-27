@@ -2,7 +2,9 @@
 
 - **Status:** **Accepted (2026-10-27)** — Jörg took D1–D8 as
   recommended the same day; on D4 he confirmed the intent: bytes always,
-  tokens where the supplier reports them
+  tokens where the supplier reports them. **Stage 1 built the same day**
+  (`ai-gateway` 0.3.0, `oaap.ai.gateway` 0.3, §11), tested locally, not
+  yet deployed. Stages 2–4 not built.
 - **Date:** 2026-10-27
 - **Authors:** Claude (analysis & proposal), Jörg (requirement, decides)
 - **Depends on:** RFC-0023 (the AI gateway: supply, placement,
@@ -57,7 +59,7 @@ holder of the key sent and received:
 
 | Field | Meaning | Today |
 | --- | --- | --- |
-| `calls` | one per request that reached a known, unrevoked key | yes (one row) |
+| `calls` | one per request answered on behalf of a known, unrevoked key (refusals for rate limit or an unknown model are not rows, as before) | yes (one row) |
 | `in_tokens` / `out_tokens` | as reported by the supplier (`usage`) | yes, nullable |
 | `bytes_up` | request body bytes received from the consumer | **no** |
 | `bytes_down` | response body bytes sent to the consumer, streamed or not | **no** |
@@ -220,6 +222,28 @@ bytes is volume that can never be reported correctly afterwards.
 | D7 | Platform or app | App, as decided in RFC-0023: a gateway is a service on a node. It shows as a tile like every app |
 | D8 | Budget per month instead of lifetime | Not now. Note it in the idea store, decide when a customer needs it |
 
+## 11. Stage 1 as built (2026-10-27)
+
+- `ai-gateway` 0.3.0. New columns are added on every start through one
+  path (`store.ADDED_COLUMNS`), for a new file and an existing one alike.
+  Rows from before 0.3 receive the key's then-current context once,
+  marked `ctx_source=backfilled`, and keep `NULL` bytes (unknown, not
+  zero). The audit log records how many rows that touched.
+- Bytes: `bytes_up` is the request body length, `bytes_down` the
+  response body sent, streamed payload without chunk framing. Counted
+  refusals (budget, no supplier, all suppliers failed) build their
+  error body first, so its length is what the consumer receives.
+- Context: issue form and CLI take all six fields; "Kontext ändern" on
+  the operator page and `key context <label> …` at the machine. A
+  revoked key refuses a new context. Each change is audited field by
+  field with old → new.
+- `GET /v1/usage` and the operator page show bytes.
+- Tests: `test_gateway.py` 91 (26 new), `test_supply.py` 40, all green.
+  Two deliberate faults (past rows following a context change; stream
+  bytes counting chunk framing) were each caught by exactly one test.
+- **Not measured on a node yet.** The real question there is whether
+  the backfill behaves on `oaapx01`'s existing usage table.
+
 ## Deutsche Zusammenfassung
 
 **Ausgangslage.** Das KI-Gateway gibt es (`ai-gateway` 0.2.1, seit 24.08.
@@ -274,5 +298,6 @@ verlorene Messung ist. (2) Pflege der Bezugsquellen in der App. (3)
 Grafiken und Schnittstelle. (4) Verdichtung und Aufbewahrung, wenn
 Messungen sie nötig machen.
 
-**Entschieden (27.10.):** D1–D8 wie empfohlen. Zu D4 hat Jörg bestätigt:
+**Stand 27.10.:** Stufe 1 gebaut (`ai-gateway` 0.3.0), lokal geprüft,
+noch auf keinem Knoten. **Entschieden (27.10.):** D1–D8 wie empfohlen. Zu D4 hat Jörg bestätigt:
 Bytes immer, Token, wenn der Anbieter sie nennt.
