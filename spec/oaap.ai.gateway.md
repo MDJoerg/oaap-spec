@@ -1,7 +1,10 @@
 # oaap.ai.gateway — AI Supply Behind One Keyed Endpoint
 
 - **ID:** `oaap.ai.gateway`
-- **Version:** 0.3.1 (RFC-0064 stage 2: suppliers and aliases are
+- **Version:** 0.4 (RFC-0064 stage 3: one query behind the operator's
+  charts and a report interface for external billing, `complete_until`
+  in every answer, §5.1; additive.
+  0.3.1, RFC-0064 stage 2: suppliers and aliases are
   maintained by the operator in the gateway itself, credentials at rest
   only encrypted with a key held outside the gateway's storage, §4.1.
   0.3: key context with four fixed dimensions, volume in bytes as well
@@ -182,6 +185,32 @@ no token counts, the record says so rather than guessing.
 RFC-0022 in place, usage rolls up tenant → account, which is the view
 RFC-0022 §7 measures.
 
+### 5.1 Reporting (0.4, RFC-0064 stage 3)
+
+- **One query.** Every view that shows volume — the operator's charts
+  as much as the report interface — reads through the same query
+  function. Two queries would disagree one day, and nobody could say
+  which one is right.
+- **Report interface:** `GET /report/v1/usage?from=…&to=…[&group_by=…]
+  [&<dimension>=…][&format=csv]`. `from` inclusive, `to` exclusive, UTC.
+  Dimensions: `account`, `project`, `cost_center`, `application`,
+  `owner`, `key` (its label), `model` (the alias), `supplier`,
+  `outcome`, `day`, `month`. Per group: `calls`, `in_tokens`,
+  `out_tokens`, `calls_without_token_counts`, `bytes_up`, `bytes_down`,
+  `calls_without_bytes`. Grouping and filtering use the context
+  **copy** on the record (§5). An unknown parameter is refused, never
+  ignored: a mistyped filter would otherwise bill everything.
+- **`complete_until`** in every answer (a header for CSV): the time up to
+  which the numbers are final. A record's time is the moment it is
+  written, at the **end** of its request, so a period stops growing
+  shortly after it ends; the margin covers the gap between stamping and
+  storing.
+- `GET /report/v1/keys`: the keys with their current context, never
+  key material.
+- **Access:** the route is the operator's (`admin`); an external system
+  calls it with a platform API key of a machine principal (RFC-0027).
+  A consumer key never opens it.
+
 ## 6. What a gateway must never record
 
 **No prompt content, and no completion content, in any log — ever.**
@@ -307,6 +336,11 @@ which is the only form of it that survives daily use.
 9c. A credential set through maintenance appears in no file of the
    gateway's storage in plain text, and in no page, response or audit
    entry.
+9d. The numbers on the operator's charts and those of
+   `/report/v1/usage` for the same period and filters are equal.
+9e. A record stamped at the last second of a period belongs to it, one
+   stamped at the first second of the next does not; an answer for a
+   period that can still grow says so (`complete: false`).
 10. A gateway drawing from another gateway holds exactly one key
     there; that key never appears downstream.
 
@@ -359,6 +393,15 @@ Kostenstelle, Anwendung, bis zu fünf freie Etiketten — jederzeit
 beschränkt, mit **Budget und Rate-Limit als harter Grenze**. Ein
 Gateway, das sich bei einem anderen bedient, hält dort **genau einen
 eigenen** Schlüssel, der nie nach unten durchgereicht wird.
+
+**Auswertung (seit 0.4):** Grafiken auf der Betreiber-Seite und die
+Schnittstelle `GET /report/v1/usage` für externe Rechnungen und
+Kostenberichte lesen über **dieselbe Abfrage**. Gruppiert und gefiltert
+wird nach der Kontext-Kopie in der Messzeile; jede Antwort sagt mit
+`complete_until`, bis wann die Zahlen endgültig sind. Ein unbekannter
+Parameter wird abgelehnt, nie übergangen. Abgefragt wird mit einem
+Plattform-API-Schlüssel eines Maschinen-Benutzers (RFC-0027), nie mit
+einem Gateway-Schlüssel. Volumen, keine Preise.
 
 **Die Ampel (§7) sagt, was mit den Daten geschehen kann** — nicht, wo
 ein Rechner steht: **grün** die Daten verlassen das Unternehmen nicht;

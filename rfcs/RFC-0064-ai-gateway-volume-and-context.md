@@ -7,7 +7,10 @@
   deployed. **Stage 2 built 2026-10-27** (`ai-gateway` 0.4.0,
   `oaap.ai.gateway` 0.3.1, §12) and **measured on `oaap-test`** as
   0.4.1 (§13), which also fixes a fault older than this RFC: every real
-  supplier had answered 404. Stages 3–4 not built.
+  supplier had answered 404. **Stage 3 built and measured on
+  `oaap-test` 2026-10-27** (`ai-gateway` 0.5.0, `oaap.ai.gateway` 0.4,
+  §14–§15), with one correction to §6: `complete_until` needs a margin
+  of seconds, not the request timeout. Stage 4 not built.
 - **Date:** 2026-10-27
 - **Authors:** Claude (analysis & proposal), Jörg (requirement, decides)
 - **Depends on:** RFC-0023 (the AI gateway: supply, placement,
@@ -325,6 +328,65 @@ credential that is never called.
 **Not measured:** the page in a real browser behind the platform login;
 `oaapx01` (Jörg: not yet).
 
+## 14. Stage 3 as built (2026-10-27)
+
+- `ai-gateway` 0.5.0, `oaap.ai.gateway` 0.4 (§5.1, tests 9d, 9e).
+- **One query** (`report.usage`): the charts page, the report interface
+  and nothing else read volume through it. Totals are summed from the
+  groups, not queried a second time, so they cannot disagree with the
+  rows above them. Grouping and filtering use the `ctx_*` copy.
+- **Correction to §6 — `complete_until`.** §6 assumed a record is stamped
+  when its request *starts*, so a period would stay open for the
+  timeout (600 s). In fact a record has always been stamped when it is
+  *written*, at the end of the request (a stream after its last chunk,
+  a refusal after its body is built). A request that runs over midnight
+  therefore counts on the day it ends, and a period stops growing as
+  soon as it ends — except for the moment between stamping and the
+  commit. `complete_until` = now − 30 s, well above the database's
+  10 s wait. This is shorter and also true; the 600 s would have been a
+  margin against something that does not happen.
+- Both measures of what a number does not know are reported:
+  `calls_without_token_counts` (the supplier named none, or the call was
+  refused) and `calls_without_bytes` (rows from before 0.3).
+- **An unknown parameter is refused (400)**, and `usage()` refuses an
+  unknown filter a second time behind it. A mistyped `cost_centre=`
+  would otherwise drop the filter and bill everything.
+- `GET /report/v1/keys`: label, current context, restrictions; no key
+  value, no digest.
+- **Charts** (`/auswertung`): server-rendered SVG, no script; stacked
+  bars per day or month by a chosen dimension (seven fixed colours,
+  checked for colour-vision deficiency, then "Andere"), a ranking, and
+  outcomes as status with sign and word. Every chart has its table.
+  Nonsense in the selection is replaced and named, never a crash.
+- Tests: `test_report.py` 34 (new: period edges to the second, context
+  copy against a changed key, filters, parameters, `complete_until`,
+  CSV, no key material), `test_gateway.py` 133 (18 new: role, consumer
+  key refused, JSON = books, CSV header, the page's tile = the
+  interface's total), `test_catalog.py` 27, `test_supply.py` 40.
+  Baits: grouping by the key's current context; `to` inclusive; no
+  margin; unknown parameters ignored — each caught.
+
+## 15. Measured on `oaap-test` (2026-10-27, 0.4.1 → 0.5.0)
+
+- Update of `aigw-test` in place; start log unchanged (2 suppliers,
+  3 model names), one more request through the platform answered 200.
+- **In front of `/report`, the platform:** no credential → 303 to the
+  login; the gateway's consumer key `sk-oaap-…` → 401; an invented
+  platform key → 401; `/auswertung` without login → 303.
+- **The app behind it** (called with the headers the platform sets):
+  totals of the report equal a raw count in `gateway.db` (6 calls,
+  136/196 tokens, 446/10,029 bytes); CSV with `X-OAAP-Complete-Until`;
+  a mistyped filter 400; without the role 403; `/report/v1/keys` without
+  any `sk-oaap`; the page's tile shows the same 6. The two calls from
+  the `/v1/v1` era appear as their own outcome `upstream_404` without
+  tokens — the kind of thing the outcome chart is for.
+- **Not measured:** the call with a **real platform API key** of a
+  machine principal end to end. Creating that principal and key on the
+  node was not done in this session; it needs Jörg (Portal → Zugänge,
+  role `admin`, instance `aigw-test`). The app side and the platform's
+  refusals are measured; the one success path through `/verify` with a
+  key is not. Nor the page in a real browser behind the login.
+
 ## Deutsche Zusammenfassung
 
 **Ausgangslage.** Das KI-Gateway gibt es (`ai-gateway` 0.2.1, seit 24.08.
@@ -379,6 +441,12 @@ verlorene Messung ist. (2) Pflege der Bezugsquellen in der App. (3)
 Grafiken und Schnittstelle. (4) Verdichtung und Aufbewahrung, wenn
 Messungen sie nötig machen.
 
-**Stand 27.10.:** Stufe 1 gebaut (`ai-gateway` 0.3.0), lokal geprüft,
-noch auf keinem Knoten. **Entschieden (27.10.):** D1–D8 wie empfohlen. Zu D4 hat Jörg bestätigt:
+**Stand 27.10.:** Stufen 1–3 gebaut und auf oaap-test gemessen
+(`ai-gateway` 0.5.0). Stufe 3: Grafiken unter `/auswertung` und
+`/report/v1/usage` lesen über eine Funktion; die Summen stimmen auf dem
+Knoten mit der Datenbank überein. Korrektur zu §6: Eine Messzeile trägt
+die Zeit ihres **Endes**, deshalb ist ein Zeitraum 30 s nach seinem Ende
+endgültig, nicht erst nach 600 s. Offen: ein Aufruf mit einem echten
+Plattform-API-Schlüssel (Maschinen-Benutzer anlegen, Jörg). oaapx01
+unberührt. **Entschieden (27.10.):** D1–D8 wie empfohlen. Zu D4 hat Jörg bestätigt:
 Bytes immer, Token, wenn der Anbieter sie nennt.
