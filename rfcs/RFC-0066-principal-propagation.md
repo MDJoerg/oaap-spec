@@ -150,6 +150,15 @@ does not include it.
   name differs in one system.
 - **No hit → refused** with a readable reason; **never** a fallback to a
   technical credential (RFC-0065 D8).
+- **The attribute must be writable by administrators only.** If a
+  person could edit their own `sap_user`, they could set it to anyone's
+  name, and the platform would issue that person's certificate — the
+  whole mechanism would reduce to "type in who you want to be". In
+  Keycloak this is the user profile's edit permission (`admin` only,
+  never `user`). The platform reads that permission through the
+  connector before it uses a claim rule, and refuses the rule while the
+  attribute is self-editable — what the space *answered*, not what OAAP
+  asked for (`idp_admin`, RFC-0041).
 - The proxy is the **TLS client toward SAP** and presents the
   certificate; the app speaks plain HTTP to the proxy as with every
   `kind: http` destination. For a `via` target the TLS connection runs
@@ -304,6 +313,29 @@ proxy therefore cannot tell them apart either and must report a `401`
 from the backend as "the backend refused this user", never guess a
 reason. **Phase A is complete.**
 
+**Phase B measured (2026-10-27, `oaapx01`, realm `pxx`, by hand):**
+user-profile attribute `sap_user` (edit: admin only), test persons
+created by Jörg, client scope `sap` (default) with a user-attribute
+mapper, added to the OAAP client `oaap-oaap.joomp.de`. *Client scopes →
+Evaluate* for `demo-dev` generated an access token with
+`"sap_user": "ACCX_T_DEV"`, `"scope": "openid email sap profile"`,
+issuer `https://auth.oaap.joomp.de/realms/pxx`. `demo-dev` signed in
+to the account console and could **not** see or edit `sap_user` (view
+also admin only — stricter than proposed, and enough).
+
+**Finding for Form B (§3.2):** that token's `aud` is `account` and its
+`azp` is the platform's client — it is addressed to nobody in
+particular. For the MCP gateway the token must name the gateway as its
+audience; in Keycloak that needs an audience mapper on the gateway's
+client or the `resource-indicators` feature (RFC 8707, experimental in
+Keycloak). Decided when RFC-0065 stage 3 is built, not now.
+
+**Follow-up on a4h (Jörg, later):** enter
+`login/certificate_mapping_rulebased = 1` in the **default profile**
+(`RZ10`). The value is set only dynamically (`RZ11`) and is lost at the
+next restart of a4h; none is planned. The `STRUST` import and the
+`CERTRULE` rule are persistent already.
+
 **Finding for the design (§5): the subject filter is the tenant
 border inside SAP.** A tenant's issuer writes the tenant into the
 subject (`OU=<tenant>`), and the rule in `CERTRULE` filters on it. A
@@ -366,6 +398,13 @@ Answers of 2026-10-27:
 
 - **Q1:** a4h runs **on the internet** → `direct` target, no connector.
 - **Q2:** client **001**; demo users Jörg creates, not immediately.
+  The **demo scenario lives on `oaapx01`, tenant `pxx`** (Jörg, by
+  form): realm `pxx` at `auth.oaap.joomp.de` (Keycloak 26.7.4) already
+  exists; the test app and later the MCP gateway go there too. Phase B
+  is done **by hand** in that realm now — attribute in the user
+  profile (admin-only), a client scope `sap` with a user-attribute
+  mapper, test persons created by Jörg (OAAP never creates people,
+  `idp_admin` `never`) — and taken over by the connector later.
 - **Q3:** Jörg may configure much, but **may not restart** → §8 A0.
 
 The original questions:
@@ -471,3 +510,12 @@ Person, zweite Antwort); der **gesperrte** `ACCX_T_LOCKE` → 401, genau
 wie ein unbekannter Benutzer. SAP behält also das letzte Wort: Ein
 gültiges Zertifikat hebelt keine Sperre aus. Die Plattform sagt *wer*,
 SAP entscheidet *ob*. **Phase A ist abgeschlossen.**
+
+**Phase B gemessen (27.10., oaapx01, Realm pxx, von Hand):** Attribut
+`sap_user` (ändern nur Admin), Client Scope `sap` mit Mapper am
+OAAP-Client. Das Access Token von `demo-dev` trägt
+`"sap_user": "ACCX_T_DEV"`; `demo-dev` selbst kann den Wert weder sehen
+noch ändern. Befund für später: Das Token ist an niemand Bestimmten
+adressiert (`aud: account`) — für das MCP-Gateway braucht es eine
+Adressierung an das Gateway (Audience-Mapper oder Resource Indicators).
+**Nacharbeit a4h:** RZ10-Eintrag `login/certificate_mapping_rulebased = 1`.
