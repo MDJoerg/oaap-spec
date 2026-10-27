@@ -288,8 +288,21 @@ C=DE`). Then, against `/sap/bc/ui2/start_up?sap-client=001`:
 | `CN=MUSTER` from the demo CA (user does not exist) | `401` with the Basic challenge |
 | `CN=ACCX_T_DEV` from a **foreign** CA | **TLS handshake aborted** by the ICM (`certificate unknown`) — never reaches the logon |
 
-Still open in phase A: a second real user (Jörg creates demo users
-later), so that two people give two answers.
+Second round the same day, two more users Jörg named:
+
+| Certificate | Answer |
+|---|---|
+| `CN=ACCX_T_MON1` | **`200`, user `ACCX_T_MON1`** — a second person, a second answer |
+| `CN=ACCX_T_LOCKE` (user **locked** in SAP) | `401`, page "Anmeldung fehlgeschlagen" — identical to the non-existent `MUSTER` |
+| `CN=ACCX_T_DEV` again | `200`, `ACCX_T_DEV` |
+
+So **SAP keeps its own say**: a valid certificate from a trusted issuer
+does not override a lock in `SU01`. The platform issues *who*, SAP
+decides *whether* — which is the division this RFC wants. Toward the
+caller SAP does not say *why* (locked and unknown look the same); the
+proxy therefore cannot tell them apart either and must report a `401`
+from the backend as "the backend refused this user", never guess a
+reason. **Phase A is complete.**
 
 **Finding for the design (§5): the subject filter is the tenant
 border inside SAP.** A tenant's issuer writes the tenant into the
@@ -451,5 +464,10 @@ Benutzername, Inhaberfilter `OU,O,C`). Ergebnis: Ein Zertifikat
 `CN=MUSTER` (gibt es nicht) → 401; derselbe Name von einer fremden
 Zertifizierungsstelle → der ICM bricht schon den TLS-Aufbau ab. Der
 **Inhaberfilter ist die Mandantengrenze in SAP**: Die Plattform muss
-den Mandanten fest in den Inhaber jedes Zertifikats schreiben. Offen in
-Phase A: ein zweiter echter Benutzer.
+den Mandanten fest in den Inhaber jedes Zertifikats schreiben.
+
+**Zweite Runde:** `ACCX_T_MON1` → angemeldet als ACCX_T_MON1 (zweite
+Person, zweite Antwort); der **gesperrte** `ACCX_T_LOCKE` → 401, genau
+wie ein unbekannter Benutzer. SAP behält also das letzte Wort: Ein
+gültiges Zertifikat hebelt keine Sperre aus. Die Plattform sagt *wer*,
+SAP entscheidet *ob*. **Phase A ist abgeschlossen.**
