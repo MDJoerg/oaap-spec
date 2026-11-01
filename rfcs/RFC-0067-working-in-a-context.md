@@ -1,9 +1,10 @@
 # RFC-0067: Working in a Context — Delegation Proven by the Person, Agents as Principals of Their Own
 
 - **Status:** **Accepted (2026-11-01)** — Jörg took D1–D6 as recommended, by
-  form. **Stages 0, 1 and 2 built and measured on `oaap-test` the same day**
-  (reference 0.1.214, `oaap.core.authorization` 0.5, §10.1–§10.3), pushed,
-  not rolled out beyond `oaap-test`. Stage 3 and the end-to-end test not built.
+  form. **Stages 0 to 3 built and measured on `oaap-test` the same day**
+  (reference 0.1.215, `oaap.core.authorization` 0.5, `rollen-rechte` 0.2.0,
+  §10.1–§10.4), not rolled out beyond `oaap-test`. The end-to-end test is not
+  built.
 - **Date:** 2026-11-01
 - **Authors:** Claude (analysis & proposal), Jörg (direction, decides)
 - **Depends on:** RFC-0045 (business authorization; this RFC builds its
@@ -303,8 +304,8 @@ above, it wins.
 - **A rehearsal** never holds the key of §2.4, so conformance line 7 holds by
   construction.
 - **The CLI verb is `agent-add`**, flat like `role-add` and `map-add`.
-- **Still open, stage 3:** listing orphaned assignments (conformance line 11, second
-  half) and the admin app.
+- **Stage 3** then listed orphaned assignments (conformance line 11, second half) and
+  built the admin app's pages (§10.4).
 
 ### 10.3 Stages 1 and 2 measured (2026-11-01, `oaap-test`, reference 0.1.214)
 
@@ -340,6 +341,40 @@ the admin app with agents.
 **Six counter-checks:** removing the rule for the context-free collection, the value
 comparison, the provider's assignment, the key's empty assertion, the proof's tenant
 check and the machine rule at the host's door each turned the test red.
+
+### 10.4 Stage 3 measured (2026-11-01, `oaap-test`, reference 0.1.215, `rollen-rechte` 0.2.0)
+
+**Orphaned** is computed, not stored: a live handed-on assignment whose grantor could
+not hand it on today, by the same rule as §3.2. It is a remark, never a refusal; the
+assignment stays live until somebody ends it. A locked grantor still holds their
+assignments and so is not orphaned; a deleted one is.
+
+Tenant `vuebung`, real login through the real gateway at the tenant's real admin app;
+handing on and ending from inside the real app container of `vuebung-dp`.
+
+| Asked | Answer |
+|---|---|
+| Agents page | the agent; no `instance:` principal, no person |
+| People page | no agent |
+| Both new pages as a plain person | 403, no names |
+| An agent's page | offers `DP Mitarbeit`, not `DP Leitung` (a person's page offers both) |
+| The form sent by hand: `DP Leitung` to the agent | the service's sentence arrives, nothing written |
+| Lead hands on | the list names person, collection, context, grantor; no remark |
+| Lead's assignment ended | remark in the list and on the person's page; CLI `ORPHANED`; the colleague may still read; the lead hands on nothing |
+| A second lead ends it (D4) | ended, the colleague may nothing, the row is gone, the log names both |
+
+**Found while reading, before measuring:** the host's refusal of a `may_grant`
+collection for a machine answered 403, and the admin app rightly reads 403 as "this
+person may not administer", so an admin saw "Kein Zugriff". It now answers 400 like
+every other refusal of that call; the delegation door keeps 403.
+
+**First consumer:** the test package `deleg-probe`. `partnerverwaltung` offers no
+delegation yet. The pages were asked over HTTP with a real session, not seen in a
+browser.
+
+**Five counter-checks:** `orphaned` always false, hand-made assignments counted as
+orphaned, `may_grant` collections offered for an agent, the 403 restored, and ended
+rows kept in the list each turned the tests red.
 
 ## 11. Decisions
 

@@ -276,7 +276,7 @@ surface:
 | verb | path | |
 |---|---|---|
 | GET | `/authz/admin/users` | the people of the tenant: `id`, `username`, display name, `active`; no password, no platform role, no e-mail. `?kind=machine` (0.5): the tenant's agents instead, each marked `kind: machine`; principals the platform made for itself (`instance:`, `remote:`) never appear |
-| GET | `/authz/admin/effective?user=…` | per app of the tenant's declarations the resolved grants (as §2.4) **and** the live assignments behind them with collection, `source`, `via`, validity |
+| GET | `/authz/admin/effective?user=…` | per app of the tenant's declarations the resolved grants (as §2.4) **and** the assignments behind them with collection, `source`, `via`, validity, `live`, `orphaned` (§2.12), and the subject's `kind` |
 | GET | `/authz/admin/log` | the tenant's log entries whose action starts with `authz.`, newest first |
 
 There is **no** `register`, no `instance` and no way to register a declaration:
@@ -414,7 +414,10 @@ group gave (`source: idp`): the next login would bring it back. An assignment th
 is absent and one that is not theirs answer alike.
 
 **Records.** `source: delegated`, `granted_by` and `granted_by_id` the person. An
-assignment outlives its grantor (RFC-0045 A2). Log actions `authz.delegate-assign`,
+assignment outlives its grantor (RFC-0045 A2): when the grantor could no longer hand it
+on by the rule above, every listing of it says `orphaned: true`. That is computed, not
+stored, and it refuses nothing; the assignment stays live until somebody ends it. Log
+actions `authz.delegate-assign`,
 `authz.delegate-revoke`, the person as actor, the instance in the detail.
 
 **Who to?** The app names the target by user id. This door lists nobody: a directory
