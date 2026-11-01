@@ -1,10 +1,11 @@
 # oaap.core.authorization — Business Authorization
 
 - **ID:** `oaap.core.authorization`
-- **Version:** 0.5 (**delegation**, §2.12: `may_grant` is enforced at a door where
-  the signed assertion proves the person; **agents**, §2.13: a machine principal
-  with its own assignments, one act to make one; RFC-0067)
-- **Previous versions:** 0.4 (setup from the declaration, §2.11: one explicit act
+- **Version:** 0.5.1 (a delegate finds one person by exact name, §2.12; the reference
+  client keeps no empty answer, §2.4; RFC-0067 D7, D8)
+- **Previous versions:** 0.5 (**delegation**, §2.12: `may_grant` is enforced at a door
+  where the signed assertion proves the person; **agents**, §2.13: a machine principal
+  with its own assignments, one act to make one; RFC-0067), 0.4 (setup from the declaration, §2.11: one explicit act
   makes roles, collections, mappings and the realm's groups for every template of
   an app; optional `suggested_group` per template), 0.3 (administration by an app, §2.10: a privileged app of
   the tenant administers roles, collections, assignments and mappings through
@@ -158,7 +159,9 @@ Answers, for **this app's own objects only**, what the person holds *now*:
   it was minted for and only for the tenant of that instance: a `user` of another
   tenant answers 404, not an empty list.
 - `fresh_for` is 30 seconds (RFC-0045 A4): a client may cache an answer for at
-  most that long; a revocation is effective within that bound.
+  most that long; a revocation is effective within that bound. The reference client
+  keeps no **empty** answer: somebody just given their first right may use it at once.
+  Somebody who already holds a right can still wait up to that bound for a new one.
 - **Not a header.** `X-OAAP-Roles` stays the platform-role list only.
 
 The reference client (`oaap-reference/platform/authz_client.py`, stdlib only)
@@ -376,6 +379,7 @@ its own, under `/authz/delegate/`. The instance's ordinary key (§2.4) opens it.
 | verb | path | |
 |---|---|---|
 | GET | `/authz/delegate/grantable` | per granting assignment: its context, its end, the collections this person may hand on and the context fields each needs |
+| GET | `/authz/delegate/person?name=` | one exact user name → `{id, name, display_name, kind}` |
 | POST | `/authz/delegate/assignments` | `{collection (id), user (id), context, valid_to}` → 201 with the assignment and `end_set_by_holder` |
 | DELETE | `/authz/delegate/assignments/<id>` | end an assignment |
 
@@ -420,8 +424,14 @@ stored, and it refuses nothing; the assignment stays live until somebody ends it
 actions `authz.delegate-assign`,
 `authz.delegate-revoke`, the person as actor, the instance in the detail.
 
-**Who to?** The app names the target by user id. This door lists nobody: a directory
-of a tenant's people is not something every delegate should read.
+**Who to?** The app names the target by user id, and finds that id by asking
+`person` with one exact name. This door lists nobody: a directory of a tenant's people
+is not something every delegate should read. Part of a name, another spelling, a
+locked user, somebody of another tenant and a platform principal (`instance:`,
+`remote:`) all answer the same 404. Only somebody who could hand something on in this
+app may ask; anybody else gets 403, whichever name they asked for. A delegate can so
+test whether a name exists in the tenant, and every question is in the tenant log,
+with its outcome: `authz.delegate-lookup`, `ok`, `not_found` or `refused`.
 
 **What it does and does not prove.** An app sees the assertion of everyone who
 visits it and could replay one for up to five minutes: it could then do what *that
@@ -551,6 +561,10 @@ receives `OAAP_AUTHZ_ADMIN_KEY` as well.
     at the host's; a plain one is accepted; `effective` shows only its context; a
     person's API key yields an empty assertion (`oaap.core.identity` §2.11); a deleted
     user's assignments are ended.
+18. (0.5.1) `person`: an exact name answers id, name, display name and kind, nothing
+    else; each case of §2.12 answers the same 404; somebody who hands nothing on gets
+    the same 403 for a known and an unknown name; each question is in the log.
+19. (0.5.1) Reference client: an empty answer is not kept, a non-empty one still is.
 
 ## 6. Dependencies
 
@@ -575,7 +589,9 @@ und Werte, nicht über das eigene Ende hinaus, nicht an sich selbst. Wer an eine
 Kontext gebunden ist, gibt nichts Kontextfreies weiter. Beenden darf eine Person auch
 Fremdes im eigenen Kontext, nur nicht, was eine Gruppe vergeben hat, weil der nächste
 Login es zurückbrächte. Die Tür listet keine Personen: Das Ziel nennt die App per
-Benutzer-ID. Offen gesagt: Eine kompromittierte App könnte die Zusicherung eines
+Benutzer-ID und findet sie seit 0.5.1 über genau einen exakten Namen. Wer nichts
+weitergibt, darf nicht fragen, und jede Frage steht im Protokoll. Offen gesagt: Eine
+kompromittierte App könnte die Zusicherung eines
 Besuchers fünf Minuten lang wiederverwenden.
 
 **Agenten.** Ein Agent ist ein eigener Maschinen-Benutzer mit eigenen Zuordnungen.

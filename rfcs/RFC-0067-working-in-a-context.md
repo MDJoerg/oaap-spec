@@ -3,8 +3,9 @@
 - **Status:** **Accepted (2026-11-01)** — Jörg took D1–D6 as recommended, by
   form. **Stages 0 to 3 built and measured on `oaap-test` the same day**
   (reference 0.1.215, `oaap.core.authorization` 0.5, `rollen-rechte` 0.2.0,
-  §10.1–§10.4), not rolled out beyond `oaap-test`. The end-to-end test is not
-  built.
+  §10.1–§10.6, D7 and D8 at reference 0.1.216), not rolled out beyond `oaap-test`. The end-to-end test ran on
+  `oaap-test` with a test app that is its own MCP server; the MCP gateway of
+  RFC-0065 is not built and took no part.
 - **Date:** 2026-11-01
 - **Authors:** Claude (analysis & proposal), Jörg (direction, decides)
 - **Depends on:** RFC-0045 (business authorization; this RFC builds its
@@ -376,6 +377,73 @@ browser.
 orphaned, `may_grant` collections offered for an agent, the 403 restored, and ended
 rows kept in the list each turned the tests red.
 
+### 10.5 End-to-end test (2026-11-01, `oaap-test`, reference 0.1.215, `kontext-probe` 0.1.0)
+
+`oaap-lab/kontext-probe`: two projects with invented data, UI, REST and MCP on the
+same four functions, handing on as a form in the UI. Tenant `vuebung`, instance
+`vuebung-kp`: two leads, a colleague and an agent, real login, real gateway. MCP also
+with the official Python SDK (`mcp` 2.3.0, protocol 2025-11-25) and the agent's key.
+
+| Asked, at all three doors | Answer |
+|---|---|
+| A project the actor does not hold: list, read, search | absent; identical to a project that does not exist |
+| Write outside the actor's project | refused, nothing written |
+| Agent with `project = pA` | sees and writes `pA`, nothing of `pB` |
+| Forged `X-OAAP-User`, `X-OAAP-User-Id`, `X-OAAP-User-Assertion` from the agent | do not arrive |
+| Agent or foreign lead hands on | refused |
+| Lead hands on `member` in the UI | the colleague reads and writes `pA`, nothing of `pB` |
+| A person gives the agent `reader` in `pB`; `lead` by hand | `pB` read only, 403 on write; `lead` refused |
+| Ended (person, agent, agent's own assignment) | closed at every door; the agent's key stays valid and sees nothing |
+| Key revoked | 401 at all three doors |
+
+56 checks, none failed. Seven mutations of `kontext-probe`, each bypassing the rule
+at one door, each turned its own test red.
+
+**What this shows about the platform:** no line of it had to change. An app that
+knows only `X-OAAP-User-Id` and `may()` is right at all three doors.
+
+**Findings:**
+
+- **Up to 30 s, both ways.** Measured with one long-lived client: closed after 26.9 s
+  and 28.0 s, as RFC-0045 A4 allows, once at 0.1 s when the cached answer had just
+  expired. The same bound holds for *opening*, which nobody had asked about: a
+  colleague just handed a project waits up to 30.4 s and sees "no such project"
+  meanwhile, because an empty answer is cached too.
+- **Who to?** The form asks for a user id. §2.12 lists nobody on purpose, so an app
+  has no way to offer a name unless the person has visited it. A real app needs an
+  answer here before a person can use it.
+- **D6 not answered.** No group context was in play, so this test says nothing about
+  the need for a context parent.
+
+**Not measured:** a person in a real MCP client (needs sign-in, RFC-0065 stage 3; a
+session was only sent by hand), the MCP gateway, a provider login, and the pages in
+a real browser.
+
+### 10.6 D7 and D8 measured (2026-11-01, `oaap-test`, reference 0.1.216, `kontext-probe` 0.1.1)
+
+The same run again, the form now asking for a name.
+
+| Asked | Answer |
+|---|---|
+| Lead hands on by exact name | done, the list shows the name |
+| Part of a name, a star, an unknown name, an `instance:` principal | not found |
+| A colleague who hands nothing on, with a known and an unknown name | the same answer |
+| Agent, no proof | finds nobody, hands on nothing |
+| First right for a colleague | in after **0.1 s** (before: 30.4 s) |
+| A second project for an agent who already holds one | 26.9 s: D8 does not change this |
+| Ended | 27.9 s, 0.1 s, 23.5 s, within the bound |
+| The tenant log | each question with who asked and `ok`, `not_found` or `refused` |
+
+62 checks, none failed. Seven mutations of door and client each turned the tests red.
+An eighth stayed green, and it was right to: removing an old cache entry on an empty
+answer did nothing, since a client only asks after that entry has expired. The line
+went, not the mutation.
+
+**What remains:** somebody already holding a right waits up to 30 s for another,
+because a client keeps a non-empty answer. `apps/vorgaenge` holds an older copy of the
+client and keeps empty answers until it is copied again; that only delays, it opens
+nothing.
+
 ## 11. Decisions
 
 | # | Proposal | Recommendation |
@@ -386,8 +454,11 @@ rows kept in the list each turned the tests red.
 | **D4** | A delegate may end assignments in their context whoever granted them | yes |
 | **D5** | The twin check of a context stays reserved (amends RFC-0045 §6.2, §9) | yes |
 | **D6** | Contexts stay flat for now; a context parent only if the end-to-end test shows the need | yes |
+| **D7** | A delegate finds a person by one exact name at the door; no list. A delegate can so test whether a name exists; every question is logged | yes |
+| **D8** | The reference client keeps no empty answer, so a first right works at once | yes |
 
-**Decided (Jörg, 2026-11-01, by form):** D1–D6 as recommended.
+**Decided (Jörg, 2026-11-01, by form):** D1–D6 as recommended. **D7 and D8 (Jörg, the
+same day, after the end-to-end test, §10.5):** as recommended.
 
 ## Deutsche Zusammenfassung
 
@@ -435,7 +506,10 @@ es nur nicht. Umstellen hieße, deren Vorlagen zu ändern, die Gruppen-Abbildung
 diese Rollen aufzugeben und die Zuordnungen je Mannschaft zu pflegen. Letzteres wird
 erst durch die Weitergabe realistisch. Das bleibt deine und hbshas Entscheidung.
 
-**Entschieden (Jörg, 01.11., per Formular):** D1–D6 wie empfohlen.
+**Entschieden (Jörg, 01.11., per Formular):** D1–D6 wie empfohlen. Nach dem Durchstich
+ebenfalls wie empfohlen: **D7**, eine Person wird über genau einen exakten Namen gefunden,
+ohne Liste, jede Frage steht im Protokoll; **D8**, der Referenz-Client speichert keine
+leere Antwort.
 
 **Stufen.** 0 Agenten-Form an `oaap-test` messen, ohne etwas zu bauen · 1 Spec 0.5,
 `oaap authz agent add` · 2 die Weitergabe-Tür · 3 Anzeige in „Rollen & Rechte“ und
