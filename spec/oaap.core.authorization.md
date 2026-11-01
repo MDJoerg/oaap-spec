@@ -1,17 +1,20 @@
 # oaap.core.authorization — Business Authorization
 
 - **ID:** `oaap.core.authorization`
-- **Version:** 0.4 (**setup from the declaration**, §2.11: one explicit act makes
-  roles, collections, mappings and the realm's groups for every template of an
-  app; optional `suggested_group` per template)
-- **Previous versions:** 0.3 (administration by an app, §2.10: a privileged app of
+- **Version:** 0.5 (**delegation**, §2.12: `may_grant` is enforced at a door where
+  the signed assertion proves the person; **agents**, §2.13: a machine principal
+  with its own assignments, one act to make one; RFC-0067)
+- **Previous versions:** 0.4 (setup from the declaration, §2.11: one explicit act
+  makes roles, collections, mappings and the realm's groups for every template of
+  an app; optional `suggested_group` per template), 0.3 (administration by an app, §2.10: a privileged app of
   the tenant administers roles, collections, assignments and mappings through
   `/authz/admin/*`; `retire`, §2.6; RFC-0045 A7), 0.2 (the provider's groups, §2.9: a tenant maps a
   group of its realm to a role collection, evaluated at every login; RFC-0045
   stage 3), 0.1 (declaration, roles, collections, assignments, `effective`,
   client)
 - **Maturity:** draft
-- **Based on:** RFC-0045 (business authorization: the app declares, the tenant
+- **Based on:** RFC-0067 (working in a context: delegation and agents, 0.5);
+  RFC-0045 (business authorization: the app declares, the tenant
   grants, the data holder checks — stages 1, 2 and 3); RFC-0056 §4 (groups of the
   provider as a later source); RFC-0027 (API keys, scopes); RFC-0040 (the person
   behind the name); RFC-0004 (manifest)
@@ -65,8 +68,8 @@ Rules, checked at manifest validation (a violation is an error, not a hint):
    single declared value, `$value` (filled by the tenant's role, only for a field
    with `values`) or `$context` (filled by the assignment, only for a field with
    `context`). A field not named in a grant means *no restriction on that field*.
-3. `may_grant` names existing template keys of the same app (accepted and stored
-   in 0.1, **not enforced** — §2.8).
+3. `may_grant` names existing template keys of the same app (enforced since 0.5,
+   §2.12).
 4. Titles are non-empty text; no other keys are allowed in these objects.
 5. A value is stored as its **id**, never its label.
 6. (0.4) A template may carry `suggested_group`: a group path (§2.11). It is
@@ -206,8 +209,10 @@ meaning one thing), and the error for a new one of that name says so. Log action
 
 ### 2.8 Reserved — accepted and stored, not built
 
-`may_grant` delegation (RFC-0045 §4, stage 3b), `concept:` value sources (semantic types,
-own RFC), the check of a context against the twin, the default collection for
+(`may_grant` delegation left this list in 0.5, §2.12.) `concept:` value sources (semantic types,
+own RFC), the check of a context against the twin (kept reserved by RFC-0067 D5: a context
+is an opaque, stable id, and the core service does not depend on the optional
+store), the default collection for
 self-registered people (A6), derivation rules (A1), twin-side enforcement
 (§8.3). A manifest that uses a reserved key is **accepted** and the key is kept;
 nothing enforces it, and the admin list says so.
@@ -270,7 +275,7 @@ surface:
 
 | verb | path | |
 |---|---|---|
-| GET | `/authz/admin/users` | the people of the tenant: `id`, `username`, display name, `active`; no password, no platform role, no e-mail |
+| GET | `/authz/admin/users` | the people of the tenant: `id`, `username`, display name, `active`; no password, no platform role, no e-mail. `?kind=machine` (0.5): the tenant's agents instead, each marked `kind: machine`; principals the platform made for itself (`instance:`, `remote:`) never appear |
 | GET | `/authz/admin/effective?user=…` | per app of the tenant's declarations the resolved grants (as §2.4) **and** the live assignments behind them with collection, `source`, `via`, validity |
 | GET | `/authz/admin/log` | the tenant's log entries whose action starts with `authz.`, newest first |
 
@@ -363,6 +368,87 @@ CLI: `oaap authz setup --tenant <label> --app <app> [--only K,K] [--skip K,K]
 [--group-for KEY=PATH]… [--name-for KEY=NAME]… [--no-groups] [--dry-run]`.
 Log action: `authz.setup`.
 
+### 2.12 Delegation (0.5, RFC-0067 §3)
+
+A holder of a template with `may_grant` hands on what it lists, through a door of
+its own, under `/authz/delegate/`. The instance's ordinary key (§2.4) opens it.
+
+| verb | path | |
+|---|---|---|
+| GET | `/authz/delegate/grantable` | per granting assignment: its context, its end, the collections this person may hand on and the context fields each needs |
+| POST | `/authz/delegate/assignments` | `{collection (id), user (id), context, valid_to}` → 201 with the assignment and `end_set_by_holder` |
+| DELETE | `/authz/delegate/assignments/<id>` | end an assignment |
+
+**The person is proven, not named.** Every call carries `X-OAAP-Person-Proof`: the
+value of `X-OAAP-User-Assertion` (`oaap.core.identity` §2.11) from the person's own
+request, copied unchanged. Identity checks signature, expiry, that `aud` is the
+calling instance and `ten` its tenant, and that the person exists, is active and is
+a human of that tenant. There is no `on_behalf_of`. It is not the original header's
+name because the gateway strips every identity header on `/authz/*`, and that stays
+true. No assertion key on the node means no delegation (401); the key is made at the
+install of an app that declares `may_grant`, also when a new version is the first to
+declare it (measured: without it the header is empty and the door shut for everybody).
+
+**The rule.** One live assignment of the person, in this app, must carry all of it:
+
+1. every role of the collection belongs to the calling app, and its template is
+   listed by that assignment's `may_grant`;
+2. every context value handed on is held by that assignment, field by field;
+3. a context-bound holder never hands on a collection without a context, and every
+   context field of the collection must be one the holder holds; a holder without
+   a context is unrestricted here, like any field absent from a grant;
+4. a value a role fixes (`$value`) is within what the holder's roles fix for that
+   field;
+5. `valid_to` is not beyond the holder's end; none given while the holder has an
+   end means the holder's end, and the answer says so;
+6. nobody hands on to themselves;
+7. the target is of the tenant; a machine principal never receives a collection
+   holding a `may_grant` template (§2.13).
+
+A refusal is 403 and names the reason, an unknown target 404. A chain is as deep as
+the declaration lists. A delegate only picks from collections the tenant built.
+
+**Ending.** A delegate may end an assignment whose collection they could hand on in
+that assignment's context, whoever granted it (RFC-0067 D4). Not one a provider's
+group gave (`source: idp`): the next login would bring it back. An assignment that
+is absent and one that is not theirs answer alike.
+
+**Records.** `source: delegated`, `granted_by` and `granted_by_id` the person. An
+assignment outlives its grantor (RFC-0045 A2). Log actions `authz.delegate-assign`,
+`authz.delegate-revoke`, the person as actor, the instance in the detail.
+
+**Who to?** The app names the target by user id. This door lists nobody: a directory
+of a tenant's people is not something every delegate should read.
+
+**What it does and does not prove.** An app sees the assertion of everyone who
+visits it and could replay one for up to five minutes: it could then do what *that
+visitor* can do here, for its own app. That is far less than `on_behalf_of`, and it
+is not nothing.
+
+A rehearsal (RFC-0030) has no key of §2.4, so it never reaches this door.
+
+### 2.13 Agents (0.5, RFC-0067 §4)
+
+**An agent is a machine principal with its own assignments.** There is no context on
+a key, because an app learns the principal and nothing about the key: a narrowing
+field would need a new header, and an app that does not read it would silently
+receive the owner's full rights. With an agent principal, an app that knows nothing
+of this is already correct.
+
+- The app receives the agent's own name and id; `effective` answers for it as for a
+  person; the assertion is empty.
+- A machine principal never holds a `may_grant` template, at **any** door: the
+  host's, the admin door's, the delegation door's.
+- Deleting a user ends their assignments (the record stays).
+
+`oaap authz agent-add <name> --tenant <label> --instance <instance> --collection
+<collection> [--context FIELD=ID]… [--days N] [--label TEXT] [--from DATE] [--to DATE]`
+makes the principal, its assignment and a key limited to that instance, in that
+order, and shows the key once. If the assignment is refused, the principal is removed
+again and no secret was printed. Creating a principal or a key stays with
+`tenant_admin` and `server_admin` (RFC-0027 D4); a delegate may assign to an existing
+agent under §2.12.
+
 ## 3. Configuration
 
 None on the node. The instance receives `OAAP_AUTHZ_URL` and
@@ -404,6 +490,15 @@ receives `OAAP_AUTHZ_ADMIN_KEY` as well.
     that is already present is changed.
 16. (0.4) The realm step comes first; when it fails, nothing is written on the
     OAAP side.
+17. (0.5) The delegation door accepts only a valid assertion for the calling
+    instance; nothing the app states can name the acting person.
+18. (0.5) A person never hands on a context, a value or a validity beyond their own,
+    a collection of another app, or anything to themselves; a context-bound holder
+    never hands on a context-free collection.
+19. (0.5) A machine principal never delegates and never holds `may_grant`, at any
+    door.
+20. (0.5) A delegate cannot create roles, collections, mappings, principals or keys,
+    and nothing at this door can name a platform role.
 
 ## 5. Conformance tests (described)
 
@@ -441,6 +536,19 @@ receives `OAAP_AUTHZ_ADMIN_KEY` as well.
 13. (0.4) `suggested_group`: a malformed path is rejected by the manifest check; a
     changed suggestion compares as `unchanged`.
 
+14. (0.5) Delegation door: no key 401; a key of another scope 403; no, expired,
+    tampered, foreign-key, other-instance or other-tenant proof 401; `on_behalf_of`
+    without proof 401; a blocked person 403; nothing written by any of these.
+15. (0.5) The rule: every line of §2.12 has a refused example that writes nothing,
+    including the context-free collection and a value the holder lacks; `grantable`
+    agrees with the door; a chain ends where the declaration ends.
+16. (0.5) Ending: in the own context also someone else's; outside it, an unlisted
+    template, and a provider's assignment 403.
+17. (0.5) Agents: a `may_grant` collection is refused at the delegation door **and**
+    at the host's; a plain one is accepted; `effective` shows only its context; a
+    person's API key yields an empty assertion (`oaap.core.identity` §2.11); a deleted
+    user's assignments are ended.
+
 ## 6. Dependencies
 
 `oaap.core.identity` (users, keys, tenant log), `oaap.apps.runtime` (manifest,
@@ -450,8 +558,29 @@ install), `oaap.core.tenant`.
 
 Draft. Stages 1 and 2 of RFC-0045 (declaration; roles, collections, assignments,
 `effective`, client; first consumer `partnerverwaltung`), stage 3 (provider groups, 0.2),
-the administration door and `retire` (0.3, RFC-0045 A7) and setup from the
-declaration (0.4). Nothing of §2.8.
+the administration door and `retire` (0.3, RFC-0045 A7), setup from the
+declaration (0.4), delegation and agents (0.5, RFC-0067). Nothing of §2.8.
+
+## Deutsche Zusammenfassung (0.5: Weitergabe und Agenten)
+
+**Weitergabe.** `may_grant` wird jetzt durchgesetzt: Wer eine Vorlage mit `may_grant`
+hält, gibt weiter, was dort steht, über die Tür `/authz/delegate/`. Die App schickt
+die signierte Zusicherung der Person mit (`X-OAAP-Person-Proof`, unverändert aus der
+Anfrage der Person), und Identity prüft sie. Einen frei benannten `on_behalf_of` gibt
+es hier nicht. Die Regel: nur diese App, nur gelistete Vorlagen, nur eigene Kontexte
+und Werte, nicht über das eigene Ende hinaus, nicht an sich selbst. Wer an einen
+Kontext gebunden ist, gibt nichts Kontextfreies weiter. Beenden darf eine Person auch
+Fremdes im eigenen Kontext, nur nicht, was eine Gruppe vergeben hat, weil der nächste
+Login es zurückbrächte. Die Tür listet keine Personen: Das Ziel nennt die App per
+Benutzer-ID. Offen gesagt: Eine kompromittierte App könnte die Zusicherung eines
+Besuchers fünf Minuten lang wiederverwenden.
+
+**Agenten.** Ein Agent ist ein eigener Maschinen-Benutzer mit eigenen Zuordnungen.
+Einen Schlüssel mit Kontext gibt es nicht, denn eine App, die dessen Kopfzeile nicht
+liest, bekäme still die vollen Rechte der Person. Eine Maschine hält an keiner Tür ein
+`may_grant`. `oaap authz agent-add` macht Benutzer, Zuordnung und einen auf die
+Instanz begrenzten Schlüssel in einem Schritt. Wird ein Benutzer gelöscht, enden seine
+Zuordnungen.
 
 ## Deutsche Zusammenfassung (0.4: Einrichten aus den Vorlagen)
 

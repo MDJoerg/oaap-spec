@@ -597,7 +597,10 @@ X-OAAP-User-Assertion: <base64url header>.<base64url claims>.<base64url HMAC-SHA
   keeps in its own directory, mounted read-only into identity and into
   the one service that checks assertions. Without that key verify
   returns the header **empty** — no assertion is better than one
-  nobody can check.
+  nobody can check. The host makes the key when a propagation
+  destination is created or an app declaring `may_grant` is installed
+  (`oaap.core.authorization` 2.12), which is also the second reader of
+  an assertion.
 - **Only for a person** (`kind: human`) and only when the call names an
   instance. A machine principal, an API key, or a verify without
   `instance` gets the header empty.
