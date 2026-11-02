@@ -25,6 +25,14 @@
   images, progress as a stream, refusals; the SDK's default probe for
   MCP `2026-07-28` falls back to `2025-11-25` (spec §14: to be handled
   deliberately in 0.2).
+  **Stage 2 built 2026-11-02:** `oaap.ai.mcp-gateway` 0.2, app
+  `mcp-gateway` 0.2.0 — bundles across servers with names of the view
+  (collision refused), replaced descriptions, fixed arguments and bounds
+  (list or `*`/`?` pattern, deliberately no regular expression),
+  resources, resource templates and prompts, server-to-client requests
+  per view; the answer to MCP `2026-07-28` clients is now deliberate
+  (that era is stateless and needs a redesign, not an addition). Not
+  rolled out.
 - **Date:** 2026-10-27
 - **Authors:** Claude (analysis & proposal), Jörg (requirement, decides)
 - **Depends on:** `oaap.ai.gateway` 0.4 and RFC-0064 (the pattern this
@@ -714,6 +722,27 @@ aushandeln; **A4** Server und auch OAuth-Endpunkte nur über
 Destinations und den Abfluss der Instanz. Für später: eine signierte
 Identitäts-Zusicherung asymmetrisch statt mit gemeinsamem Geheimnis;
 REST/OData automatisch als MCP-Tools als eigene Idee I-39.
+
+**Nachtrag 02.11. (Stufe 2 gebaut, `mcp-gateway` 0.2.0, nicht ausgerollt):**
+
+- **Bündel:** Eine Sicht nimmt Einträge mehrerer Server auf.
+- **Namen der Sicht:** Wird ein Name doppelt vergeben, lehnt das
+  Gateway beim Speichern ab. Es löst das nie still auf.
+- **Abweichung von §3, bitte bestätigen:** Vorgeschlagen wird der Name
+  beim Server, wenn er in der Sicht frei ist, sonst `<server>_<tool>`.
+  Dein Text sah immer `<server>_<tool>` vor. Grund für die Abweichung:
+  Sichten aus 0.1 und Sichten mit nur einem Server behalten so ihre
+  Namen.
+- **Feste Argumente und Grenzen:** Eine Grenze ist eine Liste von
+  Werten oder ein Muster mit `*` und `?`. Das ist bewusst kein regulärer
+  Ausdruck, weil man mit einem solchen Ausdruck das Gateway lahmlegen
+  könnte.
+- **Resources, Vorlagen und Prompts** sind dabei.
+- **Rückfragen** lassen sich je Sicht einstellen, wie in Q1 entschieden.
+- **MCP `2026-07-28`** ist zustandslos, also ohne Anmeldung und ohne
+  Sitzungen. Das Gateway antwortet einem Client dieser Version jetzt
+  bewusst so, dass er zurückfällt. Die neue Version selbst zu
+  unterstützen ist ein Umbau und eine eigene Stufe.
 
 **Offen (§13):** Rückfragen vom Server an den Client (mein Vorschlag:
 Rückfragen an den Menschen erlauben, Sampling vorerst sperren);
