@@ -357,6 +357,13 @@ the command line inside the container (`app.py key|server|view …`).
 
 ## 14. Not in 0.1
 
+**MCP `2026-07-28`** (measured 2026-11-02 with the official Python
+SDK 2.3.0): a client of that era first probes with `server/discover`.
+0.1 answers it like any request without a session (`400`); the SDK
+then falls back to `initialize` and works on `2025-11-25`. That is
+compatible, but by accident, not by design: adding `2026-07-28` to the
+tested list and answering the probe deliberately is work for 0.2.
+
 Bundles across servers, renaming, fixed arguments and bounds,
 resources and prompts, server-to-client requests per view (0.2);
 sign-in of a person, access profiles, procedure X (0.3); procedure P

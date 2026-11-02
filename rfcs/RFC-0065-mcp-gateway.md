@@ -18,7 +18,13 @@
   **Stage 1 built and measured 2026-11-02:** `oaap.ai.mcp-gateway` 0.1,
   app `mcp-gateway` 0.1.0, with A1–A4; on oaap-test as test instance
   `mcpgw-test` through the platform's public route against a paper
-  server. Not yet measured against a third-party server or client.
+  server. **Third-party measurement 2026-11-02:** the official reference
+  server (`@modelcontextprotocol/server-everything` 2.1.0) behind the
+  gateway, the official Python SDK 2.3.0 as client through the
+  platform's route — catalog, listing, calls, structured content,
+  images, progress as a stream, refusals; the SDK's default probe for
+  MCP `2026-07-28` falls back to `2025-11-25` (spec §14: to be handled
+  deliberately in 0.2).
 - **Date:** 2026-10-27
 - **Authors:** Claude (analysis & proposal), Jörg (requirement, decides)
 - **Depends on:** `oaap.ai.gateway` 0.4 and RFC-0064 (the pattern this
