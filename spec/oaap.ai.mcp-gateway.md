@@ -155,6 +155,16 @@ kinds, each page by page and at most 1000 entries per kind:
 | resource template | `resources/templates/list` | `uriTemplate` | uri template, name, title, description, mime type, annotations |
 | prompt | `prompts/list` | `name` | name, title, description, arguments |
 
+For reading, the gateway declares **all three** server-to-client
+capabilities (`elicitation`, `roots`, `sampling`) at `initialize`:
+some servers offer tools only to clients that can be asked back — the
+official reference server shows 16 tools without and 20 with them
+(measured 2026-11-02). The catalog session calls nothing, so nothing is
+asked. For calls, §6.1 holds: an upstream session declares only what
+the view passes and the client declared, so such a tool may be missing
+at the server when it is called; that is the server's answer and
+passes through unchanged.
+
 A kind is read only if the server names its capability at
 `initialize` (`tools`, `resources`, `prompts`). A server that **no
 longer** names a capability offers nothing of that kind: what of it

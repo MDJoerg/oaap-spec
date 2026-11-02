@@ -32,7 +32,15 @@
   resources, resource templates and prompts, server-to-client requests
   per view; the answer to MCP `2026-07-28` clients is now deliberate
   (that era is stateless and needs a redesign, not an addition). Not
-  rolled out.
+  rolled out. **Third-party measurement of stage 2 the same day**
+  (Jörg's approval): two official reference servers bundled in one
+  view, official Python SDK 2.3.0 through the platform's route —
+  collisions refused, fixed argument and bounds, resources, template,
+  prompts, elicitation and roots passed, sampling refused and passed;
+  it found that servers show some tools only to clients that can be
+  asked back, so the catalog now reads with all three capabilities
+  (`mcp-gateway` 0.2.1). Jörg confirmed the default name in a bundle
+  as built (the server's name if free, else `<server>_<tool>`).
 - **Date:** 2026-10-27
 - **Authors:** Claude (analysis & proposal), Jörg (requirement, decides)
 - **Depends on:** `oaap.ai.gateway` 0.4 and RFC-0064 (the pattern this
@@ -728,11 +736,11 @@ REST/OData automatisch als MCP-Tools als eigene Idee I-39.
 - **Bündel:** Eine Sicht nimmt Einträge mehrerer Server auf.
 - **Namen der Sicht:** Wird ein Name doppelt vergeben, lehnt das
   Gateway beim Speichern ab. Es löst das nie still auf.
-- **Abweichung von §3, bitte bestätigen:** Vorgeschlagen wird der Name
-  beim Server, wenn er in der Sicht frei ist, sonst `<server>_<tool>`.
-  Dein Text sah immer `<server>_<tool>` vor. Grund für die Abweichung:
-  Sichten aus 0.1 und Sichten mit nur einem Server behalten so ihre
-  Namen.
+- **Abweichung von §3, von Jörg am 02.11. bestätigt:** Vorgeschlagen
+  wird der Name beim Server, wenn er in der Sicht frei ist, sonst
+  `<server>_<tool>`. Der ursprüngliche Text sah immer `<server>_<tool>`
+  vor. Grund für die Abweichung: Sichten aus 0.1 und Sichten mit nur
+  einem Server behalten so ihre Namen.
 - **Feste Argumente und Grenzen:** Eine Grenze ist eine Liste von
   Werten oder ein Muster mit `*` und `?`. Das ist bewusst kein regulärer
   Ausdruck, weil man mit einem solchen Ausdruck das Gateway lahmlegen
