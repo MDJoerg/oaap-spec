@@ -15,6 +15,10 @@
   (an app is built from its own folder only), held identical by
   `check-shared.py`; `ai-gateway` 0.5.1 runs on it, byte-identical in
   output to 0.5.0. Not rolled out.
+  **Stage 1 built and measured 2026-11-02:** `oaap.ai.mcp-gateway` 0.1,
+  app `mcp-gateway` 0.1.0, with A1–A4; on oaap-test as test instance
+  `mcpgw-test` through the platform's public route against a paper
+  server. Not yet measured against a third-party server or client.
 - **Date:** 2026-10-27
 - **Authors:** Claude (analysis & proposal), Jörg (requirement, decides)
 - **Depends on:** `oaap.ai.gateway` 0.4 and RFC-0064 (the pattern this
