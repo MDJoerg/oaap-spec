@@ -1,7 +1,7 @@
 # RFC-0068: Closed Egress — A Tenant's Instances Start No Connection of Their Own
 
-- **Status:** **Accepted (2026-11-02, D1–D7 as recommended).** Stages 0 to 3 measured
-  on `oaap-test` (§11–§13), reference 0.1.218, not rolled out. Stage 4 open.
+- **Status:** **Accepted (2026-11-02, D1–D7 as recommended).** Stages 0 to 4 measured
+  on `oaap-test` (§11–§14), reference 0.1.219, not rolled out.
 - **Date:** 2026-11-01
 - **Authors:** Claude (measurement, proposal), Jörg (requirement, decides)
 - **Depends on:** RFC-0016 (instance networks; its Q4 left egress on and named this as a
@@ -178,7 +178,7 @@ All of it in the tenant log.
 | **1** | Spec; tenant rule, exception, internal network, node rule, links, rehearsal, refusals, CLI | done, `oaap-test` (§11); `oaap update` itself after the push |
 | **2** | Destinations: allowed targets, existing bindings settled first; a real LAN target | done, `oaap-test` (§12) |
 | **3** | The AI gateway's light for a closed instance | done, `oaap-test`, local model only (§13) |
-| **4** | The page in the portal (the CLI of §5 grows along stages 1–3) | `oaap-test`, real browser |
+| **4** | The page in the portal (the CLI of §5 grows along stages 1–3) | done, `oaap-test`, over HTTP with a real sign-in (§14); a browser still open |
 
 Nothing goes to another node without Jörg's word.
 
@@ -382,6 +382,60 @@ listener's check of the ceiling was never reached, because reading again already
 **Not measured:** a gateway on another node, a gateway behind a path, the portal's link
 request (it calls the same function), `oaap update` itself.
 
+## 14. Stage 4 as measured (2026-11-02)
+
+**The page "Abfluss".** `/tenant/egress` in the portal, linked from the tenant page (a
+tenant_admin's card, and a column per tenant for the server_admin). It shows the eight
+sections of §5 and the paragraph on what the rule does not do, in German.
+
+- **One reading, two pages.** The host collects every way out of a tenant once
+  (`egress_facts`). `oaap tenant egress` prints it, and the host writes it for the portal as
+  `apps/egress-view.json` (0644). The file is written on the minute timer, beside the instance
+  state, and again after every act of the page. The portal reads no Docker, no iptables and no
+  destination secret. The view holds target addresses, reasons and readings, never a
+  credential.
+- **The door.** Every button queues one request (`action: egress`, ops `close`, `open`,
+  `except`, `end-exception`, `allow`, `disallow`). The worker takes role and tenant from the
+  **actor's own record**, and the functions the command line calls judge the role (§6). A
+  tenant_admin acts in their own tenant. A server_admin names the tenant, and the page sends a
+  tenant only for them (I-32). A refusal goes into the tenant log of the tenant it was meant
+  for, or, for a person without an admin role, into their own tenant's log. A done act logs
+  itself, with the person.
+- **The page offers what the worker accepts.** A tenant_admin sees the state and one button,
+  "Mandant schließen", and the sentence why the rest is the server admin's. Before that button
+  the page lists what has to be settled first, in the sentences the refusal uses, and the button
+  is off while there is any. Acts that stop instances need a ticked confirmation. Opening,
+  excepting and allowing need a reason. The answer of the node comes back on the same page.
+
+| On `oaap-test`, reference 0.1.219, tenant `abfl`, measuring accounts made for this run | Answer |
+|---|---|
+| tenant_admin opens the page | 200, eight sections, `GESCHLOSSEN`, the AI row names `green`, no form to open, except or allow |
+| tenant_admin names another tenant, or one that does not exist | 403, the same sentence for both (the portal's existing tenant guard answers before the page) |
+| tenant_admin of another tenant asks for `abfl` | 403, nothing of `abfl` |
+| A person without an admin role | 403 |
+| A post with a foreign `Origin` | 403, nothing queued |
+| tenant_admin posts `open`, past the form | the node refuses ("server admin"), still closed, the refusal in the log with her name |
+| tenant_admin posts `except`, past the form | refused |
+| Opened at the node, then the page | says `offen`, offers closing, no obstacles |
+| "Schließen" without the tick | nothing queued |
+| **"Schließen" as tenant_admin** | done after 3 s, `Moved: abfl-a`; Docker reports the network internal; the page says `GESCHLOSSEN` on the same request; the log names her as `tenant_admin`; from inside the container the internet does not answer |
+
+**Tests.** `test_egress_portal.py`, 49 checks: forged requests through the real worker, the
+view against the command line, the template rendered for both roles, the portal's door with
+its decorators removed. All 19 mutations turn it red, after a run without mutation stayed
+green. Two mutations stayed green at first. A reading refused after allowing was never shown
+as a fault in the test. And the form's required reason was checked with a pattern that
+reached into the next form.
+
+**Not measured:** the page in a browser with a person at it (measured over HTTP with a real
+sign-in through the gateway; no browser was available to this run), the server_admin's forms
+against the real node (`oaap user add` refuses `server_admin`, rightly; the worker branch and
+the functions are the ones the command line uses, and the tests drive them), `oaap update`
+itself.
+
+**Left on the node.** The measuring account `s4-admin` is the only tenant_admin of `abfl`, and
+identity refuses to delete the last one. It is set to be deactivated on 2026-11-03.
+
 ## Deutsche Zusammenfassung
 
 **Der Befund.** Heute erreicht eine Instanz alles, was ihr Knoten erreicht: Internet,
@@ -415,8 +469,23 @@ nennt jede, die den Knoten verlässt. Das ist die heikelste Entscheidung: Ob Kop
 Haus verschlüsselt sind, habe ich noch nicht geprüft. D7 eine Generalprobe erbt die
 Regel, Tunnel und Nicht-HTTP-Endpunkte werden abgelehnt, solange geschlossen ist.
 
-**Stufen.** 0 bis 3 gemessen · 4 Seite im Portal. Nichts geht ohne dein Wort auf einen
-anderen Knoten.
+**Stufen.** 0 bis 4 gemessen. Nichts geht ohne dein Wort auf einen anderen Knoten.
+
+**Stufe 4 (gemessen).** Im Portal gibt es die Seite „Abfluss“ (`/tenant/egress`), verlinkt von
+der Mandantenseite. Sie zeigt die acht Wege hinaus auf Deutsch, aus derselben Lesung wie
+`oaap tenant egress`. Der Knoten schreibt sie jede Minute und nach jeder Handlung neu. Der
+Mandanten-Admin sieht seinen Mandanten und hat einen Knopf: **schließen**. Vor dem Knopf steht,
+was erst geklärt werden muss, und solange etwas dasteht, ist der Knopf aus. Öffnen, ausnehmen
+und Ziele erlauben bleiben beim Server-Admin, jeweils mit Begründung. Jeder Knopf geht über den
+Spool, und der Knoten prüft Rolle und Mandant noch einmal aus dem Konto der Person.
+Gemessen auf oaap-test mit echter Anmeldung durch das Gateway: Der Mandanten-Admin schließt
+`abfl` durch die Seite, nach 3 s meldet Docker das Netz intern, und das Protokoll nennt sie.
+Öffnen am Formular vorbei weist der Knoten ab und schreibt die Absage ins Protokoll. Einen fremden
+Mandanten bekommt sie nicht zu sehen, mit demselben Satz wie einen, den es nicht gibt.
+**Nicht gemessen:** die Seite in einem echten Browser mit einem Menschen davor (mir stand keiner
+zur Verfügung) und die Formulare des Server-Admins am echten Knoten. Das wäre dein Blick als
+`joerg`. Zurückgeblieben ist das Messkonto `s4-admin`: Es ist der einzige Admin von `abfl` und lässt
+sich darum nicht löschen. Am 03.11. wird es deaktiviert.
 
 **Stufe 3 (gemessen).** Eine geschlossene Instanz benutzt ein KI-Gateway nur mit einem
 **grünen** Schlüssel. Die Plattform fragt das Gateway mit dem Schlüssel der Destination, bevor

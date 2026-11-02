@@ -1,7 +1,8 @@
 # oaap.core.tenant — Account and Tenant, the Boundary of Belonging
 
 - **ID:** `oaap.core.tenant`
-- **Version:** 1.1 (**closed egress**, RFC-0068: a tenant is open or closed, an exception per
+- **Version:** 1.2 (closed egress in the portal: the page and the `tenant_admin`'s door to
+  close, RFC-0068 stage 4, 2.12; 1.1: **closed egress**, RFC-0068: a tenant is open or closed, an exception per
   instance needs a reason, new 2.12; 1.0.2: a provider-made account outside the default tenant is named `<label>.<suggestion>`, 2.8; 1.0.1: a created tenant's address answers at once, 2.2; 1.0: RFC-0041 K6 — **a tenant can leave this node**: the archive carries the tenant's own record, an empty node can adopt one, and the provider it arrives with is carried rather than put in force. See 2.11, conformance tests 24–26; 0.9 — the switches inside that space, and the truth about them; 0.8 — the platform may MAKE that provider, not only name it; 0.7 — a tenant may name who lets people
   in**: an OIDC provider object that is a URL and says nothing about
   where the server runs, plus a policy for what a first login through
@@ -937,9 +938,18 @@ oaap tenant egress <label> --disallow-destination <name>
 ```
 
 Without `--yes` an act names the instances it stops and changes nothing; closing also names
-each binding to settle first. In this version
-only the command line carries these acts, and it runs as root; a `tenant_admin`'s door
-comes with the portal page (RFC-0068 stage 4).
+each binding to settle first.
+
+**The portal's door (1.2, RFC-0068 stage 4).** The portal page "Abfluss" shows the same
+page to a `tenant_admin` for their own tenant and to a `server_admin` for any, and carries
+the same acts. Each is one request through the spool (`action: egress`). The worker takes
+role and tenant from the actor's own record and calls the functions the command line calls,
+so the table above holds at both doors. A `tenant_admin` who names another tenant, or one
+that does not exist, gets the same answer. A refusal is in the tenant log of the tenant it
+was meant for, with the person. Before the button to close, the page names what has to be
+settled first, in the words of the refusal. Acts that stop instances need a confirmation.
+The node writes the page's facts on its minute timer and after each act. They hold no
+credential.
 
 **The page** reads each line from its source at that moment: exceptions; allowed
 destinations with who is bound; links to another tenant or to an open instance; public routes; remote access; AI;
@@ -1261,7 +1271,10 @@ On a node with one tenant: none that anyone can observe, exactly as in
     the minute. Delete the node rule: the bridge's SSH answers, the rule returns within the
     minute, and the tenant log says so. A rehearsal of an excepted instance is closed. A
     `tenant_admin` may close and may not open or except. Reboot: the rule is set before
-    Docker starts, and all of the above holds.
+    Docker starts, and all of the above holds. In the portal (1.2): a `tenant_admin`
+    closes their tenant from the page, and Docker reports the network internal; a request
+    to open or except, sent past the form, is refused and in the log with the person; the
+    page of another tenant is answered like the page of none.
 
 ## 5. Dependencies
 
@@ -1798,6 +1811,14 @@ und sein Protokolleintrag stehen. Vorher gab es bis zum nächsten
 `external set` oder Update einen TLS-Fehler an der neuen Adresse.
 Scheitert das Neuladen, bleibt der Mandant bestehen, und die Antwort sagt
 in einem Satz, was zu tun ist. Ohne externen Namen gibt es nichts zu tun.
+
+## Deutsche Zusammenfassung (1.2 — die Tür im Portal)
+
+Die Seite „Abfluss“ im Portal zeigt dasselbe wie `oaap tenant egress` und trägt dieselben
+Handlungen. Der Mandanten-Admin sieht seinen Mandanten und kann ihn schließen. Öffnen, ausnehmen
+und Ziele erlauben bleiben beim Server-Admin. Jeder Knopf geht über den Spool, und der Knoten
+prüft Rolle und Mandant aus dem Konto der Person. Ein fremder Mandant wird beantwortet wie einer,
+den es nicht gibt.
 
 ## Deutsche Zusammenfassung (1.1 — der geschlossene Mandant)
 
