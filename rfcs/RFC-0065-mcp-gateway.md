@@ -7,6 +7,14 @@
   (**RFC-0066**), so that CAP apps and others use the same mechanism;
   the SAP user name comes from **one IdP attribute** used by n systems;
   a4h already runs several ABAP MCP servers. Nothing built.
+  **Amended 2026-11-02** (Jörg): four rules taken from a review of
+  IBM ContextForge — schema check of arguments, answer size cap,
+  protocol version per direction, upstream addresses only through the
+  platform's egress (§14). **Stage 0 built 2026-11-02:** the shared
+  module is `oaap-apps/lib/gwcore`, carried by each gateway as a copy
+  (an app is built from its own folder only), held identical by
+  `check-shared.py`; `ai-gateway` 0.5.1 runs on it, byte-identical in
+  output to 0.5.0. Not rolled out.
 - **Date:** 2026-10-27
 - **Authors:** Claude (analysis & proposal), Jörg (requirement, decides)
 - **Depends on:** `oaap.ai.gateway` 0.4 and RFC-0064 (the pattern this
@@ -119,6 +127,14 @@ that disagree one day.
   `refuse`. Default: elicitation and roots `pass`, sampling `refuse` —
   sampling lets a backend spend the client's model and send it data,
   the light question in reverse, so it is a deliberate switch.
+- **Protocol version per direction** (§14, A3): the gateway negotiates
+  the MCP protocol version **separately** with the client and with
+  each upstream server. A client on a newer version does not force a
+  server onto it, and a server on an older one does not hold back the
+  client. The gateway speaks a fixed list of versions it has been
+  tested with; a version outside that list is refused at
+  `initialize`, never guessed. The negotiated upstream version is shown
+  per server on the operator page.
 
 ### 2.2 Sessions
 
@@ -147,6 +163,16 @@ built in this order:
    (`package = "ZDEMO"`) or restrict it to a list or a pattern. A pinned
    argument disappears from the schema the client sees; a call violating
    a bound is refused by the gateway before it reaches the server.
+
+From level 1 on, **every** `tools/call` is checked against the
+**approved** input schema of the tool (the one pinned in §4.2, not the
+one the server reports today) before it is forwarded (§14, A1): unknown
+arguments, missing required ones and wrong types are refused by the
+gateway with a JSON-RPC error naming the argument, not its value.
+Schema references to anything outside the schema itself (remote `$ref`)
+are not followed; such a schema cannot be approved. The check happens
+in memory and is subject to §9.2 — the refusal is counted, the argument
+is not recorded.
 
 A view is **static**: it contains no model and makes no decisions. An
 "agent tool" — one tool behind which an AI works — is a possible later
@@ -245,6 +271,18 @@ chooses it; the client cannot.
 **Never:** storing a user's own backend password in the gateway. That
 would make the gateway a password vault for every user, which is the
 opposite of single sign-on.
+
+**Only through the platform's egress** (§14, A4). The gateway is an
+app like any other: it reaches a server only through a RFC-0033
+destination or an address its instance may reach under RFC-0068. It
+never opens a connection to an address it reads from a server's
+answer or from configuration outside these — this includes OAuth
+endpoints for procedure X (`token_url`, discovery documents): those
+are destinations too. Private network ranges are reachable only when
+the destination names them. Reason: a gateway that follows addresses
+it is given is a tool for reaching what the caller cannot reach
+(server-side request forgery); the product reviewed in §14 had three
+such flaws in one year.
 
 **Never:** passing the client's token on to the server. The MCP
 specification forbids it, and for good reason: a token addressed to the
@@ -383,7 +421,12 @@ Per server, enforced by the gateway, in this order:
    short queue (bounded length and wait time).
 2. **Rate:** per server, **per server and user**, and per key/profile.
 3. **Timeout** per call.
-4. **Breaker:** after *K* failures in a row the server is taken out for
+4. **Answer size** (§14, A2): at most *B* bytes per answer from the
+   server, counted while streaming, without reading the content. An
+   answer that exceeds it is cut off and replaced by a JSON-RPC error
+   naming the limit, never truncated silently — a truncated tool result
+   looks complete to the model. Default 1 MiB, per server.
+5. **Breaker:** after *K* failures in a row the server is taken out for
    a cool-down; one probe call decides whether it comes back.
 
 Answers: rate exceeded → `429` with `Retry-After`; queue full or breaker
@@ -447,7 +490,7 @@ approved for; enforcing that is out of reach and the RFC says so.
 | Stage | Content | Measured on |
 |---|---|---|
 | **0** | shared module extracted from `ai-gateway` (keys, context, vault, metering, report), `ai-gateway` unchanged in behaviour | `ai-gateway` tests green, oaap-test unchanged |
-| **1** | `mcp-gateway` app: one server, procedure T, keys, view as **selection**, catalog default deny, pinning, usage, report, protection limits | oaap-test against a reference HTTP MCP server |
+| **1** | `mcp-gateway` app: one server, procedure T, keys, view as **selection**, catalog default deny, pinning, usage, report, protection limits; §14 A1–A4 | oaap-test against a reference HTTP MCP server |
 | **2** | **bundles** across servers, renaming, fixed arguments and bounds, effect classes; resources and prompts | oaap-test, two servers in one view, collision refused |
 | **3** | **sign-in** at the tenant's Keycloak (resource metadata, audience check, access profile); procedure **X** | oaap-test with `auth`; a client (Claude Code) signs in through the browser |
 | **4** | procedure **P-cert** + mapping rules + issuer per tenant | **a4h**: a minimal ABAP MCP handler whose tool `whoami` returns `SY-UNAME` — the measurement is that two different people get two different answers |
@@ -521,6 +564,41 @@ The original questions:
 - **Q4 — mapping in SAP.** Do you expect basis teams to want the
   mapping in `CERTRULE` themselves (rule **sap**), or is the gateway
   table the normal case?
+
+## 14. Amendment of 2026-11-02: what a mature product taught
+
+Before building, Jörg asked whether IBM's **ContextForge**
+(`IBM/mcp-context-forge`, Apache-2.0, v1.1.0 of 2026-10-20) offers
+ideas for this gateway, and whether OAAP should offer it as an app.
+
+**Not as a replacement, and not as an app for now.** It covers views
+and bundles (*virtual servers*), token exchange (procedure X), breakers
+and rate limits — but not this RFC's core: its identity propagation is
+`X-Forwarded-User-*` headers signed with a shared secret, which no SAP
+system trusts; no certificate or SAML path (procedure P, RFC-0066); no
+default-deny catalog with pinned descriptions was found; it brings its
+own users, teams and roles next to the tenant's identity provider (two
+truths for one question); tracing and a log viewer are built in, which
+§9.2 would have to prove switched off. Its 2026 record shows three
+server-side request forgery flaws and shipped default passwords, a
+breaking change in nearly every release, and no arm64 in production.
+Offering it as a catalog app stays possible on request (RFC-0037
+sideloading) and is not pursued.
+
+**Taken over** (Jörg, 2026-11-02), each built in stage 1:
+
+| # | Rule | Where |
+|---|---|---|
+| **A1** | every `tools/call` is checked against the **approved** input schema before it is forwarded; no remote `$ref` | §3 |
+| **A2** | answer size per server capped while streaming, without reading content; exceeding is an error, never a silent cut | §8 |
+| **A3** | MCP protocol version negotiated **per direction**, from a fixed tested list | §2.1 |
+| **A4** | upstream addresses, OAuth endpoints included, only through destinations and the instance's egress (RFC-0033, RFC-0068) | §6 |
+
+**Noted for later:** a signed identity assertion for the hard case of
+§6.4 (an MCP server outside SAP) should be an **asymmetrically** signed
+token per tenant, verifiable by the server against a published key —
+not a shared secret. Exposing REST/OData services as MCP tools
+automatically is an idea for its own RFC (capability ideas, I-39).
 
 ## Deutsche Zusammenfassung
 
@@ -612,6 +690,20 @@ Ausstellen des SAP-Nachweises wandert aus dem Gateway in die Plattform
 — **RFC-0066**, Destination mit `principal_propagation` —, damit auch
 CAP-Apps es nutzen. Der SAP-Benutzer kommt normalerweise aus **einem**
 IdP-Attribut `sap_user` für alle Systeme.
+
+**Nachtrag 02.11. (§14, nach Blick auf IBM ContextForge):** Kein
+Ersatz und vorerst keine App: Es fehlt genau unser Kern (Zertifikat je
+Person für SAP, Katalog mit Sperre bei geänderter Beschreibung), es
+bringt eine eigene Benutzerverwaltung neben Keycloak mit, und 2026 gab
+es dort drei SSRF-Lücken und Standardpasswörter. Übernommen, alle in
+Stufe 1: **A1** jeder Tool-Aufruf wird gegen das *freigegebene* Schema
+geprüft, bevor er zum Server geht; **A2** Antwortgröße je Server
+gedeckelt, Überschreiten ist ein Fehler statt eines stillen
+Abschneidens; **A3** Protokollversion getrennt mit Client und je Server
+aushandeln; **A4** Server und auch OAuth-Endpunkte nur über
+Destinations und den Abfluss der Instanz. Für später: eine signierte
+Identitäts-Zusicherung asymmetrisch statt mit gemeinsamem Geheimnis;
+REST/OData automatisch als MCP-Tools als eigene Idee I-39.
 
 **Offen (§13):** Rückfragen vom Server an den Client (mein Vorschlag:
 Rückfragen an den Menschen erlauben, Sampling vorerst sperren);
