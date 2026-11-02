@@ -1,7 +1,7 @@
 # oaap.net.destinations — Reaching Outward Without Holding the Key
 
 - **ID:** `oaap.net.destinations`
-- **Version:** 0.5
+- **Version:** 0.6
 - **Maturity:** draft (0.1 was RFC-0033 stage 1: destinations with
   `direct` targets, bindings as grants, the HTTP proxy and the TCP
   handover, no bindings in a rehearsal. 0.2 adds stage 2's `via`
@@ -10,7 +10,9 @@
   adds `through` targets — HTTP to a name served by a tunnel app of the
   same tenant, RFC-0060 stage 1, §2.8. 0.5 adds
   `principal_propagation` — the signed-in person carried through to the
-  target as a short-lived client certificate, RFC-0066 stage 1, §2.9)
+  target as a short-lived client certificate, RFC-0066 stage 1, §2.9.
+  0.6 adds closed egress: the one way out of a closed instance is a
+  destination allowed for its tenant, RFC-0068 stage 2, §2.10)
 - **Based on:** RFC-0033 (§1, D1, D5), RFC-0016 (instance networks, the
   shape a binding copies from app-to-app links), RFC-0015 (declaration
   is not publication), RFC-0022 / `oaap.core.tenant` (a destination
@@ -398,6 +400,30 @@ tenant's issuing CA and maps the certificate to its own user.
    passed on as the target's answer; the platform does not guess a
    reason.
 
+### 2.10 A closed instance (0.6, RFC-0068 stage 2)
+
+For an instance that is closed (`oaap.core.tenant` 2.12) a destination is the one way out, and
+only one **allowed for its tenant**. An open or excepted instance is not affected.
+
+- **Allowing** is an act of `server_admin` with a reason, recorded on the destination
+  (`egress_allowed`) and in the tenant log with target and reason. Only an `http` destination
+  that does not go through a tunnel app can be allowed. A value without a reason is no
+  allowance.
+- **Taking it back** is refused while a closed instance is bound, like removing a bound
+  destination (2.2).
+- **Three doors ask the same rule:** binding is refused. The listener answers a call under a
+  binding that is not allowed with **403 and the sentence**, because a binding can be older
+  than the closing, restored or adopted. The handover of a `tcp` destination (2.4) puts nothing
+  into the container.
+- **`tcp`** cannot be used by a closed instance: the app would connect by itself and has no
+  route. **`through`** is a route out by construction (2.8). Both are refused.
+- A rehearsal is closed in a closed tenant. Its deliberate exception (2.6) still needs an allowed
+  target.
+
+Closing a tenant, and ending an instance's exception, is refused while a binding of the
+instance would be refused here; the refusal names each one. Allowing a target says that this
+data may go there: the platform cannot tell what a request carries.
+
 ## 3. Configuration
 
 None beyond the objects. The listener port (8098 in the reference) is
@@ -481,6 +507,12 @@ internal and not an operator setting.
 19. (0.4) Removing the tunnel instance while a `through` destination
     points at it is refused on the CLI and from the portal and names the
     destination.
+20. (0.6) A closed instance has no direct route to the target. Bind a target that is not
+    allowed: refused. Allow it with a reason and bind: the call reaches the target, and
+    the internet and other LAN hosts stay closed. Take the allowance out by hand: the
+    call gets 403 with a sentence. A `tcp` destination can be neither bound nor allowed, and
+    its credential is not in the container. Close a tenant with a binding that is not allowed:
+    refused, named, nothing changed.
 
 ## 6. Dependencies
 
@@ -596,6 +628,15 @@ weiterhin nicht. Wichtig sind vier Dinge:
   Zugangsdaten danach im Container liegen.
 - **Ein Bedarf, den das Manifest nicht nennt,** und das Anlegen neuer
   Destinationen bleiben an der Kommandozeile.
+
+## Deutsche Zusammenfassung (0.6 — die geschlossene Instanz, RFC-0068 Stufe 2)
+
+Für eine geschlossene Instanz ist eine Destination der einzige Weg hinaus, und zwar nur eine,
+die der Server-Admin für den Mandanten mit Begründung erlaubt hat. Das Binden wird abgewiesen, das
+Gateway lehnt auch alte Bindungen im Moment des Aufrufs ab, und eine TCP-Übergabe legt nichts in
+den Container. TCP und `through` gehen auf einer geschlossenen Instanz gar nicht. Wer ein Ziel
+erlaubt, sagt damit: Diese Daten dürfen dorthin, denn was eine Anfrage trägt, sieht die Plattform
+nicht.
 
 ## Deutsche Zusammenfassung (0.4 — `through`, RFC-0060 Stufe 1)
 

@@ -1,7 +1,8 @@
 # oaap.core.tenant — Account and Tenant, the Boundary of Belonging
 
 - **ID:** `oaap.core.tenant`
-- **Version:** 1.0.2 (a provider-made account outside the default tenant is named `<label>.<suggestion>`, 2.8; 1.0.1: a created tenant's address answers at once, 2.2; 1.0: RFC-0041 K6 — **a tenant can leave this node**: the archive carries the tenant's own record, an empty node can adopt one, and the provider it arrives with is carried rather than put in force. See 2.11, conformance tests 24–26; 0.9 — the switches inside that space, and the truth about them; 0.8 — the platform may MAKE that provider, not only name it; 0.7 — a tenant may name who lets people
+- **Version:** 1.1 (**closed egress**, RFC-0068: a tenant is open or closed, an exception per
+  instance needs a reason, new 2.12; 1.0.2: a provider-made account outside the default tenant is named `<label>.<suggestion>`, 2.8; 1.0.1: a created tenant's address answers at once, 2.2; 1.0: RFC-0041 K6 — **a tenant can leave this node**: the archive carries the tenant's own record, an empty node can adopt one, and the provider it arrives with is carried rather than put in force. See 2.11, conformance tests 24–26; 0.9 — the switches inside that space, and the truth about them; 0.8 — the platform may MAKE that provider, not only name it; 0.7 — a tenant may name who lets people
   in**: an OIDC provider object that is a URL and says nothing about
   where the server runs, plus a policy for what a first login through
   it BECOMES. The binding is a platform rule and is not configurable:
@@ -899,6 +900,54 @@ onto the node it came from, and nothing deletes there. An
 implementation SHOULD say so: until a person lets go on the old node,
 the tenant exists twice.
 
+### 2.12 Closed egress (1.1, RFC-0068)
+
+A tenant is **open** (default) or **closed**. A closed tenant's instances start no
+connection of their own: not to the internet, not to the LAN, not to the node. The
+mechanism is in `oaap.apps.runtime` 2.27.
+
+- **The record** is `egress` on the tenant: `closed`, `since`, `by`, and `reason` once it
+  was opened again. It travels with the tenant's archive (2.11), so an adopted tenant
+  stays closed.
+- **An exception** names one instance and carries a reason (`egress_exception` on the
+  instance). A redeploy keeps it. A record without a reason is no exception. A rehearsal
+  holds a copy of the production data: it is closed whatever its source is, and it has no
+  exception.
+- **Nothing in a manifest** changes any of this.
+
+| Act | Who |
+|---|---|
+| Close | `tenant_admin`, `server_admin` |
+| Open, except an instance, end an exception, allow a destination or take that back (`oaap.net.destinations` 2.10) | `server_admin`; opening, excepting and allowing need a reason |
+| Read the page | both |
+
+Each act is in the tenant log, and so is a fault the platform acted on:
+`egress.close`, `egress.open`, `egress.exception`, `egress.exception-ended`,
+`egress.fault-stopped`, `egress.rule-missing`, `egress.destination-allowed`,
+`egress.destination-disallowed`.
+
+```
+oaap tenant egress <label>                                  # the page
+oaap tenant egress <label> --close [--yes]
+oaap tenant egress <label> --open --reason "..." [--yes]
+oaap tenant egress <label> --except-instance <instance> --reason "..." [--yes]
+oaap tenant egress <label> --end-exception <instance> [--yes]
+oaap tenant egress <label> --allow-destination <name> --reason "..."
+oaap tenant egress <label> --disallow-destination <name>
+```
+
+Without `--yes` an act names the instances it stops and changes nothing; closing also names
+each binding to settle first. In this version
+only the command line carries these acts, and it runs as root; a `tenant_admin`'s door
+comes with the portal page (RFC-0068 stage 4).
+
+**The page** reads each line from its source at that moment: exceptions; allowed
+destinations with who is bound; links to another tenant or to an open instance; public routes; remote access; AI;
+backups and what this node can see of copies leaving it; faults. It ends with what the
+rule does not do: a person can copy out what they can read, a public route serves what
+the app serves, a cooperating instance can pass data on, an off-site backup leaves the
+node, and the gateway cannot tell what a request carries.
+
 ### 2.5 Resolution rules
 
 Two rules, and the difference between them is the whole safety
@@ -965,6 +1014,10 @@ On a node with one tenant: none that anyone can observe, exactly as in
    into a different tenant than the retained data belonged to is
    refused, and deleting that data is an operator act recorded in the
    audit log of the tenant it belonged to.
+10. **Closed means Docker and the node say so, not the record** (1.1). A closed instance
+    does not start on a network Docker does not report as internal, nor without the node
+    rule. Opening and excepting carry a reason and appear in the tenant log. A rehearsal
+    of a closed tenant's instance is closed. Nothing in a manifest changes this.
 
 ## 4. Conformance tests
 
@@ -1201,6 +1254,14 @@ On a node with one tenant: none that anyone can observe, exactly as in
     is left behind. Ask for a space this credential may not have: it
     is refused, nothing is written, and the refusal says the space is
     somebody else's rather than absent.
+27. **Closed egress** (1.1). Close a tenant: without `--yes` nothing changes. With it, its
+    instances reach neither the internet, the LAN nor the node, DNS of an outside name has
+    no answer, and platform doors and requests from outside still work. Attach an ordinary
+    second network by hand: it is reported as a fault and the instance is stopped within
+    the minute. Delete the node rule: the bridge's SSH answers, the rule returns within the
+    minute, and the tenant log says so. A rehearsal of an excepted instance is closed. A
+    `tenant_admin` may close and may not open or except. Reboot: the rule is set before
+    Docker starts, and all of the above holds.
 
 ## 5. Dependencies
 
@@ -1737,6 +1798,16 @@ und sein Protokolleintrag stehen. Vorher gab es bis zum nächsten
 `external set` oder Update einen TLS-Fehler an der neuen Adresse.
 Scheitert das Neuladen, bleibt der Mandant bestehen, und die Antwort sagt
 in einem Satz, was zu tun ist. Ohne externen Namen gibt es nichts zu tun.
+
+## Deutsche Zusammenfassung (1.1 — der geschlossene Mandant)
+
+Ein Mandant ist offen oder geschlossen. Geschlossen heißt: Seine Instanzen bauen von sich aus
+keine Verbindung auf, weder ins Internet noch ins LAN noch zum Knoten. Schließen darf der
+Mandanten-Admin, öffnen und ausnehmen nur der Server-Admin mit Begründung, alles steht im
+Mandanten-Log. Eine Generalprobe ist immer geschlossen, im Manifest lässt sich nichts davon
+ändern. `oaap tenant egress <label>` zeigt, auf welchen Wegen Daten trotzdem hinauskommen.
+Vorerst geht das nur über die Kommandozeile, die Tür für den Mandanten-Admin kommt mit der
+Portal-Seite (RFC-0068 Stufe 4).
 
 ## Deutsche Zusammenfassung (1.0.2 — Benutzernamen tragen das Kürzel)
 

@@ -1,7 +1,9 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.46 (**disk grants**, RFC-0063: one grant base per
+- **Version:** 0.2.47 (**closed egress**, RFC-0068: the network of a closed instance is
+  internal, one node rule, read back from Docker, fail closed; new 2.27;
+  0.2.46 (**disk grants**, RFC-0063: one grant base per
   instance at `/oaap/disks`, `rslave`, the start rule before any
   container is removed, none for a rehearsal; new 2.26;
   0.2.45 (**platform keys follow the instance**, RFC-0062:
@@ -1892,6 +1894,36 @@ The rules for that mount:
   reboot. Docker starts the container before the boot unit has opened
   the disks, and until then the placeholders are empty and read-only.
 
+### 2.27 Closed egress: the mechanism (0.2.47, RFC-0068)
+
+The rule belongs to the tenant (`oaap.core.tenant` 2.12). Here is what it does to an instance.
+
+- **Every network a closed instance joins is internal** and has a bridge named `oaapc<hash>`:
+  its own and every link network. One closed end makes a link network internal; an existing
+  ordinary one is replaced.
+- **One node rule** drops what arrives on such a bridge: `INPUT -i oaapc+ -j DROP`, IPv4 and
+  IPv6. `oaap-egress.service` sets it before `docker.service` on every node, written by
+  install and update alike.
+- **Docker's answer decides.** Before any container is removed, every door that recreates a
+  closed instance asks Docker about its network and the node about its rule, and refuses
+  if either is wrong. Waking asks too. The flag cannot be changed, so
+  `oaap tenant egress <label> --close --yes` moves an instance: containers removed, network
+  replaced, containers made again, the gateway reconnected.
+- **A sweep every minute** (`appctl.py egress-sweep`, in the instance watch) sets a missing
+  rule and stops a running closed instance that is on a wrong network. Both go to the tenant
+  log. Without a closed instance it asks Docker nothing.
+- **An update does not repair into the open**: it warns about a faulty closed instance and
+  leaves it.
+- **Refused while closed:** a non-HTTP endpoint (2.13, RFC-0015) and `tun: true` (2.23), at the
+  grant, at install before anything is built, and at start. Closing a tenant is refused while
+  an instance that is not excepted holds one. An open remote access or a running deployment
+  blocks moving the instance, in either direction.
+- **`oaap status`** shows one line with what Docker and the node say, `FAULT` makes the node
+  DEGRADED. Nothing on a node without a closed instance. It only reads.
+
+Building an image is not affected: it happens outside the instance network and holds no
+instance data.
+
 ## 3. Configuration
 
 - Level-1 port range (default 8100–8199, expert-configurable;
@@ -2212,6 +2244,13 @@ The rules for that mount:
 tests 1–11 on the reference platform. 0.2 target: tests 12–16 with the
 pilot CRM's test instance and its AI coding agent as the first real
 remote deployer.
+
+## Deutsche Zusammenfassung (2.27, v0.2.47 — der geschlossene Abfluss)
+
+Jedes Netz einer geschlossenen Instanz ist intern, und eine einzige Regel auf dem Knoten sperrt
+die eigene Bridge, die sonst zum Knoten führt. Docker wird gefragt, nicht unser Datensatz: Auf dem
+falschen Netz oder ohne Regel startet die Instanz nicht. Jede Minute stoppt eine Prüfung, was
+trotzdem falsch läuft, und `oaap status` meldet es. Endpunkte und Tunnel werden abgewiesen.
 
 ## German summary / Deutsche Zusammenfassung (2.6/2.7, v0.2.2)
 
