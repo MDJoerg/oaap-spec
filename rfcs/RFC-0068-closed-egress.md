@@ -1,7 +1,7 @@
 # RFC-0068: Closed Egress — A Tenant's Instances Start No Connection of Their Own
 
-- **Status:** **Accepted (2026-11-02, D1–D7 as recommended).** Stages 0, 1 and 2 measured
-  on `oaap-test` (§11, §12), reference 0.1.217, not rolled out. Stages 3 and 4 open.
+- **Status:** **Accepted (2026-11-02, D1–D7 as recommended).** Stages 0 to 3 measured
+  on `oaap-test` (§11–§13), reference 0.1.218, not rolled out. Stage 4 open.
 - **Date:** 2026-11-01
 - **Authors:** Claude (measurement, proposal), Jörg (requirement, decides)
 - **Depends on:** RFC-0016 (instance networks; its Q4 left egress on and named this as a
@@ -105,7 +105,7 @@ all is a separate question and not part of this RFC.
 
 | Way | With a closed instance |
 |---|---|
-| App-to-app link (`setup_link_network`) | the link network is internal; a link to an open instance is allowed and shown, since that instance can pass data on |
+| App-to-app link (`setup_link_network`) | the link network is internal; a link to an open instance is allowed and shown, since that instance can pass data on. **Not to an open AI gateway** (stage 3, §13): over a link the app holds its own key |
 | Non-HTTP endpoint (`-p`, RFC-0015) | refused while closed: it does not work on an internal network, and it is a way in that bypasses the gateway |
 | Tunnel, `tun`, `through` (RFC-0060) | refused while closed, unless excepted: it is a route out by construction |
 | Remote-access peer (RFC-0044) | allowed and shown: a person in the instance network can carry data out. An open access blocks moving the instance to another network; close it first |
@@ -135,9 +135,11 @@ allowed list exists and needs no new concept: the local AI node is one destinati
 - The rule is asked at the moment of use too. A binding can be older than the closing,
   restored or adopted, so the listener answers such a call with 403 and a sentence.
 - **The AI gateway.** A key's light (`oaap.ai.gateway`) already caps what a consumer may
-  use. A closed instance's key must be `green`, the only light where data stays. How the
-  platform enforces that against a gateway that is an ordinary app is to be measured in
-  stage 3, not assumed here.
+  use. A closed instance's key must be `green`, the only light where data stays. Stage 3
+  (§13) enforces it on the one path where the platform holds the key: a destination.
+  Before allowing a target, the platform **reads** it with the destination's credential;
+  an OAAP AI gateway answers with the key's ceiling, and only `green` is allowed. A link
+  to an open AI gateway is refused, since there the app holds the key.
 
 ## 5. The page: every way out
 
@@ -175,7 +177,7 @@ All of it in the tenant log.
 | **0** | Does an internal network hold? (§1) | done, `oaap-test` |
 | **1** | Spec; tenant rule, exception, internal network, node rule, links, rehearsal, refusals, CLI | done, `oaap-test` (§11); `oaap update` itself after the push |
 | **2** | Destinations: allowed targets, existing bindings settled first; a real LAN target | done, `oaap-test` (§12) |
-| **3** | The AI gateway's light for a closed instance | `oaap-test`, local model only |
+| **3** | The AI gateway's light for a closed instance | done, `oaap-test`, local model only (§13) |
 | **4** | The page in the portal (the CLI of §5 grows along stages 1–3) | `oaap-test`, real browser |
 
 Nothing goes to another node without Jörg's word.
@@ -314,6 +316,72 @@ authentication, read in the code), the portal's bind button (it calls the same f
 a target is the decision that this data may go there, which is why it has a reason and stands
 on the page.
 
+## 13. Stage 3 as measured (2026-11-02)
+
+**How the platform knows a key's light.** The light is a declaration the gateway holds: a
+key's **ceiling**, fixed when it is issued (`oaap.ai.gateway` §2, §7). The gateway is an
+ordinary app, so the platform asks it, the one way the gateway already answers a key holder:
+`GET /v1/usage` with that key returns, among the counts, `ceiling`.
+
+- **Reading a target.** Allowing a destination for a closed tenant now reads its target first,
+  from the node, with the credential the listener would send, without following a redirect and
+  without a proxy. It asks `/v1/usage` at the root of the host and under the target's own path.
+  - An answer with `ceiling`: an OAAP AI gateway. Allowed only when the ceiling is `green`. The
+    allowance records the ceiling, the time and a 16-hex fingerprint of the key, never the key.
+  - No answer, a 5xx, a 401 or 403: **refused**. A gateway that happens to be down must not pass
+    as a plain target.
+  - Anything else (a 404, a redirect, a page): not an OAAP gateway, allowed as in stage 2, and
+    the page says what was read.
+  - A target behind a connector tunnel (`via`) cannot be read from the node and is **refused**.
+    Stage 2 allowed it; nobody uses it yet, and it was never measured.
+- **Three doors, one rule.** Binding and the listener ask the same function as before. It now
+  also refuses an allowance **without a reading** (every allowance from stage 2), a reading
+  that refused, a ceiling other than `green`, and a key whose fingerprint is not the one read.
+- **A new credential is a new key.** `set-secret` on an allowed destination reads the target
+  again at once. A refusal replaces the old reading, so the listener never sends a key nobody
+  looked at.
+- **Links.** A link between a closed instance and an **open** AI gateway (app id `ai-gateway`)
+  is refused at the command, at the portal's request and when the link network is built, so a
+  restored link gets no wire. Closing, ending an exception, excepting the gateway or opening its
+  tenant are refused while such a link would result. A gateway closed itself is no way out and
+  may be linked.
+- **The sweep writes the listener** every minute while a closed instance exists, and the file
+  is replaced only when it says something else. Found by measuring: code copied by hand left
+  the old listener in place, and it kept forwarding an allowance the new rule refuses.
+
+| On `oaap-test`, reference 0.1.218, gateway `aigw-test` 0.5.0 with a local model | Answer |
+|---|---|
+| **Before, on 0.1.217:** a key with ceiling `yellow` as a destination | allowed, bound, `/models` 200 |
+| After copying the code, old allowances | **still forwarded** (old listener file) |
+| Allowing the LAN target again | read "no OAAP AI gateway (HTTP 303)", allowed, 303 from the target |
+| Allowing the `yellow` key again | **refused**, names `yellow` |
+| A key with ceiling `green`: allow, bind, call `/models` | 200, three aliases, all `green` |
+| A chat completion through it | 200, answer from `qwen2.5:0.5b` on the node |
+| `set-secret` with a `yellow` key | read at once, refused; the key is not in the listener; the call gets 403 with the sentence |
+| `set-secret` back to `green` | read, forwarded again |
+| `oaap app link add` in either direction | refused, names the destination as the way |
+| Gateway stopped, allowing again | refused (502 from the node's gateway); the old reading stays and works |
+| A listener written by 0.1.217 code | closed by the sweep within its next run (about 5 s here); with the timer stopped, by `migrate.sh` |
+
+**On this node the aliases are all green anyway.** The `yellow` key reached only green models.
+The rule is about the key's ceiling, not today's configuration: the gateway's operator can add
+a `yellow` supplier tomorrow, and a `yellow` key would use it without anybody asking the tenant.
+
+**What this does not do.** The rule holds against the declaration the gateway makes. A gateway
+operator who labels an external provider `green` defeats it (`oaap.ai.gateway` §7: a
+declared light is a ceiling, never a floor, and nobody checks the label). An AI behind any
+other target, an OAAP gateway behind a proxy that hides `/v1/usage`, or an open instance that
+calls an AI for the closed one are not recognised; the page says so.
+
+**Tests.** `test_closed_egress.py` 175 checks, the stage-3 reading against a real HTTP service
+in the test. All 26 new mutations turn it red, as do the 56 of stages 1 and 2. Five of the 82
+turn it red by a crash rather than a FAIL line. One mutation stayed green at first: the
+listener's check of the ceiling was never reached, because reading again already stores a
+`yellow` key as a refusal. A reading edited to `yellow` by hand now tests it.
+
+**Not measured:** a gateway on another node, a gateway behind a path, the portal's link
+request (it calls the same function), `oaap update` itself.
+
 ## Deutsche Zusammenfassung
 
 **Der Befund.** Heute erreicht eine Instanz alles, was ihr Knoten erreicht: Internet,
@@ -347,8 +415,25 @@ nennt jede, die den Knoten verlässt. Das ist die heikelste Entscheidung: Ob Kop
 Haus verschlüsselt sind, habe ich noch nicht geprüft. D7 eine Generalprobe erbt die
 Regel, Tunnel und Nicht-HTTP-Endpunkte werden abgelehnt, solange geschlossen ist.
 
-**Stufen.** 0, 1 und 2 gemessen · 3 KI-Licht · 4 Seite im Portal. Nichts geht ohne dein Wort
-auf einen anderen Knoten.
+**Stufen.** 0 bis 3 gemessen · 4 Seite im Portal. Nichts geht ohne dein Wort auf einen
+anderen Knoten.
+
+**Stufe 3 (gemessen).** Eine geschlossene Instanz benutzt ein KI-Gateway nur mit einem
+**grünen** Schlüssel. Die Plattform fragt das Gateway mit dem Schlüssel der Destination, bevor
+sie das Ziel erlaubt. Das Gateway antwortet mit der Obergrenze des Schlüssels, und nur grün geht
+durch. Ein Ziel, das nicht antwortet oder den Schlüssel abweist, wird nicht erlaubt. Ein neuer
+Schlüssel wird sofort neu gelesen. Eine direkte App-Verbindung zu einem offenen KI-Gateway wird
+abgelehnt, weil dort die App den Schlüssel hält und niemand seine Farbe sieht. Gemessen mit dem
+lokalen Modell auf oaap-test: grüner Schlüssel antwortet, gelber wird abgewiesen, auch nach einem
+Schlüsseltausch.
+**Drei Dinge, die du wissen solltest:** Alle Erlaubnisse aus Stufe 2 gelten nach dem Update erst
+wieder, wenn der Server-Admin sie einmal neu erteilt, denn sie wurden nie gelesen. Ein Ziel hinter
+einem Connector-Tunnel (`via`) kann der Knoten nicht lesen und wird jetzt abgewiesen; das ging in
+Stufe 2 noch, benutzt hat es niemand. Und die Regel hält nur so weit wie die Farben im Gateway: Wer
+dort einen externen Anbieter grün nennt, hebelt sie aus.
+**Befund beim Messen:** Nach dem Einspielen von Hand leitete der alte Listener ungelesene
+Erlaubnisse weiter. Jetzt schreibt die minütliche Prüfung den Listener neu, und `oaap update` tat
+es ohnehin schon.
 
 **Stufe 2 (gemessen).** Eine geschlossene Instanz erreicht ein Ziel nur noch über eine erlaubte
 Destination. Direkt zum Pi im LAN hatte sie keine Route, durch die Destination antwortete sein

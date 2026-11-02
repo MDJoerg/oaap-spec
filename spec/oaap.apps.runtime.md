@@ -1,7 +1,9 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.47 (**closed egress**, RFC-0068: the network of a closed instance is
+- **Version:** 0.2.48 (**no link to an open AI gateway** from a closed instance, and the sweep
+  writes the destination listener, RFC-0068 stage 3; 2.27;
+  0.2.47 (**closed egress**, RFC-0068: the network of a closed instance is
   internal, one node rule, read back from Docker, fail closed; new 2.27;
   0.2.46 (**disk grants**, RFC-0063: one grant base per
   instance at `/oaap/disks`, `rslave`, the start rule before any
@@ -1920,6 +1922,15 @@ The rule belongs to the tenant (`oaap.core.tenant` 2.12). Here is what it does t
   blocks moving the instance, in either direction.
 - **`oaap status`** shows one line with what Docker and the node say, `FAULT` makes the node
   DEGRADED. Nothing on a node without a closed instance. It only reads.
+- **No link to an open AI gateway** (0.2.48, RFC-0068 stage 3). A link between a closed instance
+  and an open instance of the app `ai-gateway` is refused at `oaap app link add`, at the
+  portal's request, and when the link network is built, so a restored link gets no wire. Over a
+  link the app holds its own key, and nobody can read that key's light; a destination holds it
+  on the platform (`oaap.net.destinations` 2.10.1). Closing, ending an exception, excepting the
+  gateway or opening its tenant are refused while such a link would result. A closed gateway may
+  be linked.
+- **The sweep also writes the destination listener** while a closed instance exists
+  (`oaap.net.destinations` 2.10.1).
 
 Building an image is not affected: it happens outside the instance network and holds no
 instance data.
@@ -2244,6 +2255,13 @@ instance data.
 tests 1–11 on the reference platform. 0.2 target: tests 12–16 with the
 pilot CRM's test instance and its AI coding agent as the first real
 remote deployer.
+
+## Deutsche Zusammenfassung (2.27, v0.2.48 — kein Link zum offenen KI-Gateway)
+
+Eine geschlossene Instanz darf nicht direkt mit einem offenen KI-Gateway verbunden werden. Über
+einen Link hielte die App ihren eigenen Schlüssel, und niemand sähe seine Farbe. Der Weg ist eine
+Destination, deren Schlüssel die Plattform hält und liest. Ein zurückgespielter Link bekommt kein
+Netz. Die minütliche Prüfung schreibt außerdem den Listener der Destinations neu.
 
 ## Deutsche Zusammenfassung (2.27, v0.2.47 — der geschlossene Abfluss)
 

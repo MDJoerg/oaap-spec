@@ -1,7 +1,7 @@
 # oaap.net.destinations — Reaching Outward Without Holding the Key
 
 - **ID:** `oaap.net.destinations`
-- **Version:** 0.6
+- **Version:** 0.7
 - **Maturity:** draft (0.1 was RFC-0033 stage 1: destinations with
   `direct` targets, bindings as grants, the HTTP proxy and the TCP
   handover, no bindings in a rehearsal. 0.2 adds stage 2's `via`
@@ -12,7 +12,9 @@
   `principal_propagation` — the signed-in person carried through to the
   target as a short-lived client certificate, RFC-0066 stage 1, §2.9.
   0.6 adds closed egress: the one way out of a closed instance is a
-  destination allowed for its tenant, RFC-0068 stage 2, §2.10)
+  destination allowed for its tenant, RFC-0068 stage 2, §2.10. 0.7 reads
+  the target before allowing it, and an AI gateway's key must be
+  `green`, RFC-0068 stage 3, §2.10.1)
 - **Based on:** RFC-0033 (§1, D1, D5), RFC-0016 (instance networks, the
   shape a binding copies from app-to-app links), RFC-0015 (declaration
   is not publication), RFC-0022 / `oaap.core.tenant` (a destination
@@ -424,6 +426,28 @@ Closing a tenant, and ending an instance's exception, is refused while a binding
 instance would be refused here; the refusal names each one. Allowing a target says that this
 data may go there: the platform cannot tell what a request carries.
 
+#### 2.10.1 Reading the target, and the AI gateway's light (0.7, RFC-0068 stage 3)
+
+- **An allowance carries a reading.** Before it allows, the node asks the target `GET
+  /v1/usage`, at the root of its host and under its own path, with the credential the listener
+  would send, following no redirect and using no proxy. An answer carrying `ceiling` is an
+  OAAP AI gateway (`oaap.ai.gateway` §2, §7). The reading records what came back and when; for
+  a gateway also the ceiling and a fingerprint of the key (the first 16 hex characters of its
+  SHA-256), never the key.
+- **Allowed only:** a target that is not an OAAP AI gateway, or one whose key's ceiling is
+  `green`. **Refused:** no answer, a 5xx, a 401 or 403, any other ceiling, and a `via` target,
+  which the node cannot read.
+- **The three doors of 2.10 also refuse** an allowance without a reading (an allowance made
+  before 0.7 has none and has to be given again), a reading that refused, a ceiling other than
+  `green`, and a credential whose fingerprint is not the one read.
+- **`set-secret` on an allowed destination reads again at once.** A refusal replaces the
+  earlier reading.
+- **The listener is written again by the minute check** of `oaap.apps.runtime` while a closed
+  instance exists, and replaced only when it differs. A listener file is the door of use; one
+  written by older code, by hand or by a restore would otherwise hold a binding open.
+- **What this cannot see:** the light is the gateway's declaration. An AI that is not an OAAP
+  gateway, or one behind something that hides `/v1/usage`, is what its allowance says it is.
+
 ## 3. Configuration
 
 None beyond the objects. The listener port (8098 in the reference) is
@@ -628,6 +652,16 @@ weiterhin nicht. Wichtig sind vier Dinge:
   Zugangsdaten danach im Container liegen.
 - **Ein Bedarf, den das Manifest nicht nennt,** und das Anlegen neuer
   Destinationen bleiben an der Kommandozeile.
+
+## Deutsche Zusammenfassung (0.7 — Ziel lesen, KI nur grün, RFC-0068 Stufe 3)
+
+Bevor der Server-Admin ein Ziel für einen geschlossenen Mandanten erlaubt, fragt der Knoten das Ziel
+mit dem Schlüssel der Destination. Ist es ein OAAP-KI-Gateway, nennt es die Obergrenze des
+Schlüssels, und nur **grün** wird erlaubt. Ein Ziel, das nicht antwortet oder den Schlüssel
+abweist, wird nicht erlaubt, ebenso ein Ziel hinter einem Connector-Tunnel. Erlaubnisse aus 0.6
+wurden nie gelesen und müssen einmal neu erteilt werden. Ein neuer Schlüssel wird sofort neu
+gelesen. Die minütliche Prüfung schreibt den Listener neu, damit keine alte Datei eine Bindung
+offen hält.
 
 ## Deutsche Zusammenfassung (0.6 — die geschlossene Instanz, RFC-0068 Stufe 2)
 
