@@ -12,8 +12,8 @@ before the full specification is written.
 ## Index
 
 - [oaap.core.host](oaap.core.host.md) — platform installer & node baseline (draft, v0.3.8)
-- [oaap.core.updates](oaap.core.updates.md) — one update engine per node, three triggers: a node updates its platform core from its recorded source, shows what would change first, and never touches app instances or user data; since 0.6 the plan is an event on a broker node (draft, v0.6)
-- [oaap.core.portal](oaap.core.portal.md) — web portal (draft, v0.3.27)
+- [oaap.core.updates](oaap.core.updates.md) — one update engine per node, three triggers: a node updates its platform core from its recorded source, shows what would change first, and never touches app instances or user data; since 0.6 the plan is an event on a broker node; since 0.7 a tenant_admin protects an instance on its portal page (draft, v0.7)
+- [oaap.core.portal](oaap.core.portal.md) — web portal (draft, v0.3.28)
 - [oaap.core.management](oaap.core.management.md) — the tenant's own hand on the platform as an API: the cohort commands under `/api/v1/tenant`, for a session or an API key, jobs for what takes minutes, a template uploaded as ZIP, the handout as a one-time ZIP with a password the trainer chooses; operator routes for tenant builds (draft, v0.1.2)
 - [oaap.core.identity](oaap.core.identity.md) — identity & roles (draft, v0.6.2)
 - [oaap.core.authorization](oaap.core.authorization.md) — business authorization inside an app, apart from the platform roles: manifest declaration, roles, collections, assignments, `effective`, provider groups, administration by an app, setup from the declaration (draft, v0.5.1)

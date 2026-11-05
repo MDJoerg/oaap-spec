@@ -12,7 +12,10 @@
   (§12); the desk on `oaap-demo` waits for Jörg's word. **Stage 4 (the broker event)
   built the same night** as `oaap.core.updates` 0.6 §2.7.8, `oaap.events.broker` 0.2.2;
   measured on `oaap-test` with a tenant key's subscriber and the broker stopped and
-  back (§13). All four stages are built; rolled to no other node.
+  back (§13). **Stage 5 (the `tenant_admin`'s own door in the portal) built the same
+  night** as `oaap.core.updates` 0.7 §2.7.2, `oaap.core.portal` 0.3.28 §2.13; measured
+  on `oaap-test` with a tenant admin signed in through the gateway (§14). All five
+  stages are built; rolled to no other node.
 - **Date:** 2026-11-05
 - **Authors:** Claude (measurement, proposal), Jörg (requirement, decides)
 - **Depends on:** `oaap.core.updates` 0.2 §2.6 (host care — the measurement this stands
@@ -227,6 +230,7 @@ the platform on an app's behalf. It is a person's statement about a person's wor
 | **2** | Cases: one per plan in the operator tenant's inbox and in every tenant's inbox that has one; the closing line after the reboot — **built, §11** | `oaap-test` with an inbox instance (done, with a real reboot); `oaapx01` only on Jörg's word |
 | **3** | `/platform/care.json` inside the node, `OAAP_CARE_URL`; the desk reads it (an `oaap-apps` change to `webtop`) — **built, §12** | `oaap-test` (done, the reader run inside a container against the real door), then `oaap-demo` with `joerg-desk` on Jörg's word — the first real user of D2 |
 | **4** | The broker event on `broker` nodes — **built, §13** | `oaap-test` (done: a tenant key's subscriber in the broker container, the broker stopped and back) |
+| **5** | The `tenant_admin`'s own door: the card "Neustart-Schutz" on the instance page, one function behind both doors — **built, §14** | `oaap-test` (done: a tenant admin signed in through the gateway protects, extends and releases; a forged request through the real worker) |
 
 Advisory matching (I-40 field 1), the first measurement of a *computed* reboot on a
 real kernel (whenever the next one arrives, on `oaap-test`), and any outside channel are
@@ -412,6 +416,47 @@ broker coming up late — the pending path is proven with the broker stopped by 
 the fleet only `oaap-test` and `oaap-demo` carry the `broker` profile. Rolled to no
 other node.
 
+## 14. Stage 5 as measured (2026-11-05, `oaap-test`, reference 0.1.225 staged)
+
+Spec first: `oaap.core.updates` 0.7 §2.7.2 ("The doors"), `oaap.core.portal` 0.3.28
+§2.13. The instance page's "Diagnose" tab carries the card **"Neustart-Schutz"**: for an
+unprotected instance a form with a required reason and an end bounded by today and
+today + 30 days; for a protected one its end and reason, a form to extend (the reason
+again) and a button to release; for an overridden one the sentence that the protection
+does not hold. Each button is one request through the spool (`action: care`); the worker
+takes role and tenant from the actor's record and calls the function the command line
+calls — the CLI branch was rewritten onto the same two functions, so there is one rule
+behind both doors. A done act recomputes the plan at once. The card reads only the care
+file; it never shows who set the protection. The band on the tenant's place now points at
+the card instead of only at the command line.
+
+| On `oaap-test`, reference 0.1.225, tenant `abfl`, measuring account `care5-admin` (tenant_admin), signed in through the gateway over HTTP | Answer |
+|---|---|
+| The instance page, tab Diagnose | the card, the protect form, no release |
+| Protect without a reason | the page refuses before the spool ("Bitte eine Begründung angeben"); nothing in the log |
+| **Protect** with a reason | 303 with the node's sentence; the card says `GESCHÜTZT bis 2026-11-12`; the care file carries the row; the protections file names `care5-admin` and the tenant; the tenant log: `care5-admin (tenant_admin) instance.protected abfl-a -- until 2026-11-12: …` |
+| Extend to +20 days | the end moves to 2026-11-25, one more log line with the new reason |
+| A hand-made plan for 2026-11-09 02:00 while protected | the plan lands on 2026-11-26 02:00, "held by abfl-a until 2026-11-25" |
+| Another tenant's instance (`vorgaenge`), GET and POST | 404 both, nothing of it |
+| A post with a foreign `Origin` | 403, still protected |
+| **Release** | 303 "abfl-a released."; the card offers protecting again; the plan is back on 2026-11-09 02:00 in the same second (recomputed at once, not next minute); the log line with her name |
+
+**Tests.** `test_care_portal.py`, 43 checks: forged requests through the real worker
+(roles, the tenant boundary with the worker's own sentence for an instance that does not
+exist, reason and end, the log with person and role, the recompute), the CLI branch
+calling the same functions, the card rendered for the four states, the page's door with
+its decorators removed. The neighbours stay green (`test_host_care` 160,
+`test_platform_feedback`, `test_egress_portal`).
+
+**Found while measuring.** A password file with a trailing newline: `oaap user add
+--password-file` strips it, `curl --data-urlencode name@file` sends it — the first
+sign-in was a 401 of my own making, not the node's.
+
+**Not measured, said plainly.** The card in a browser with a person at it (measured over
+HTTP with a real sign-in); the `server_admin`'s view of the card (the same template, the
+same door; the tests render it). Rolled to no other node. Advisory matching (I-40 field 1)
+is RFC-0070.
+
 ## Deutsche Zusammenfassung
 
 **Der Befund.** Stufe 1 (0.1.220, seit heute auf allen sechs Knoten) sagt an drei Orten
@@ -437,7 +482,9 @@ Mandanten-Log, Flottenstatus, eine Tür `/platform/care.json` nur innerhalb des 
 aus der der Desk die Uhrzeit liest, und auf Broker-Knoten ein Ereignis (Stufe 4, gebaut
 und auf oaap-test gemessen, §13: gehaltene Nachricht je Bewegung des Plans auf
 `oaap/<mandant>/node/<knoten>`, vom Host als `oaap.relay`, Wartedatei bei fehlendem
-Broker). Keine Mail in der Plattform — das ist später eine Konnektor-App. Der Server-Admin darf außerdem einen
+Broker). Keine Mail in der Plattform — das ist später eine Konnektor-App. Seit Stufe 5
+(§14) schützt der Mandanten-Admin selbst: Karte „Neustart-Schutz“ auf der Instanzseite,
+dieselbe Funktion wie die Befehlszeile, der Knoten rechnet den Plan sofort neu. Der Server-Admin darf außerdem einen
 Neustart **von Hand planen** (glibc-Fall), mit demselben Vorlauf und denselben Regeln —
 und so lässt sich der Mechanismus auf oaap-test messen, bevor der nächste Kernel kommt.
 

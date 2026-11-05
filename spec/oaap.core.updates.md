@@ -1,7 +1,7 @@
 # oaap.core.updates — Platform Updates
 
 - **ID:** `oaap.core.updates`
-- **Version:** 0.6
+- **Version:** 0.7
 - **Maturity:** draft — accepted by Jörg 2026-08-06 (CLI trigger
   implemented and validated on real hardware); 0.1.1 (2026-08-07)
   updates the reserved portal-trigger role to `server_admin` per
@@ -24,7 +24,11 @@
   on the node, opened with the announcement, written on at every move,
   closed with the proof; **0.5 (2026-11-05, RFC-0069 stage 3) adds
   §2.7.7**: the door an instance reads — when and how urgent, never
-  which kernel or why
+  which kernel or why; **0.6 (2026-11-05, RFC-0069 stage 4) adds §2.7.8**:
+  the plan is an event on a broker node; **0.7 (2026-11-05, RFC-0069
+  stage 5) adds the portal's door to 2.7.2**: a `tenant_admin` protects,
+  extends and releases on the instance's page, one function behind both
+  doors
 - **Based on:** RFC-0001 (capability model); program decision 2026-08-03
   ("one update engine per node, three triggers"); git-based delivery;
   RFC-0012 §4 (shipped sources survive a move)
@@ -332,6 +336,29 @@ does not do: hold a `critical` plan. A protection on a critical plan
 is **shown as overridden** — the person who set it must learn that it
 did not hold — and the plan says why.
 
+**The doors (0.7, RFC-0069 stage 5).** Two doors, one rule. At the
+machine, `oaap node care protect <instance> --reason "…" [--until
+YYYY-MM-DD]` and `oaap node care release <instance>` (`server_admin`).
+In the portal, the instance's page carries a card **"Neustart-Schutz"**
+for a `tenant_admin` of the instance's tenant and for `server_admin`:
+protect, extend (the same form again, with the reason again) and
+release. Each button is one request through the spool (`action: care`,
+ops `protect` and `release`). The worker takes role and tenant from
+the **actor's own record**, never from the request, and calls the
+function the command line calls, so the three conditions above hold at
+both doors. An instance of another tenant is answered as one that does
+not exist (`oaap.core.tenant` 2.3 rule 2). A refusal is recorded in
+the log of the tenant the act was meant for, with the person and the
+role; a done act records itself (`instance.protected`,
+`instance.released`). After a done act the node recomputes the plan
+**at once**, so the card, the band of 2.7.5 and every other reader see
+the move now, not next minute. The card reads only the care file of
+2.6.2: it shows the plan, this instance's protection (end and reason)
+and whether a `critical` plan overrides it; it never shows who set the
+protection — that is the tenant log's. The page's door refuses a
+protection without a reason and an end that is not a day before
+anything is queued, and names what the node answered on the same page.
+
 #### 2.7.3 The urgency
 
 Two levels, **derived from recorded facts**, never typed in:
@@ -621,6 +648,16 @@ What an app does with the hour is the app's.
     `OAAP_CARE_URL` answers the plan's time, urgency, `held` and state
     and nothing else; from the LAN the port does not answer; without a
     plan every value is null; before the first measurement it is 404.
+22. **Two doors, one rule (2.7.2, 0.7):** a `protect` request through
+    the spool by a `tenant_admin` of the instance's tenant writes the
+    same record and the same log entry as the command line, with the
+    person and the role; by a `tenant_admin` of another tenant it is
+    refused with the sentence for an instance that does not exist, and
+    the instance's tenant learns nothing; by a person without an admin
+    role it is refused and recorded in their own tenant; without a
+    reason, or with an end past 30 days, it is refused; a done act
+    recomputes the plan at once; the page queues nothing without a
+    reason.
 
 ## 6. Dependencies
 
@@ -663,6 +700,23 @@ Secrets werden nie angefasst. Stick-Installationen (ohne Git-Kopie)
 klonen beim ersten Update das hinterlegte Repo. Rollback ist in 0.1
 dokumentiert-manuell; signierte Releases und automatische Updates
 kommen, bevor der Zeitplan-Auslöser scharf wird.
+
+## Deutsche Zusammenfassung (0.7 — die Tür des Mandanten-Admins im Portal, §2.7.2)
+
+**Zwei Türen, eine Regel.** Bisher konnte nur der Server-Admin an der
+Maschine eine Instanz schützen (`oaap node care protect`). Seit 0.7 trägt
+die Instanzseite im Portal eine Karte **„Neustart-Schutz“** — für den
+Mandanten-Admin der Instanz und für den Server-Admin: schützen,
+verlängern (dasselbe Formular noch einmal, mit Begründung noch einmal),
+aufheben. Jeder Knopf ist ein Auftrag durch den Spool; der Knoten nimmt
+Rolle und Mandant aus dem Datensatz des Handelnden, nie aus der Anfrage,
+und ruft dieselbe Funktion wie die Befehlszeile. Eine Instanz eines
+anderen Mandanten gibt es für ihn nicht — derselbe Satz wie für eine, die
+es nicht gibt. Jede Absage steht im Protokoll des Mandanten, mit Person
+und Rolle; nach einer Handlung rechnet der Knoten den Plan sofort neu,
+damit Karte, Band und alle anderen Leser die Verschiebung jetzt sehen.
+Die Karte liest nur die Pflegedatei: Plan, Ende und Begründung des
+Schutzes, und ob ein dringender Neustart ihn überstimmt.
 
 ## Deutsche Zusammenfassung (0.6 — das Ereignis auf einem Broker-Knoten, §2.7.8)
 

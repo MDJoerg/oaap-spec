@@ -1,8 +1,8 @@
 # oaap.core.portal — Web Portal
 
 - **ID:** `oaap.core.portal`
-- **Version:** 0.3.27
-- **Maturity:** draft (0.3.27 adds the node page **Datenträger** — §2.12, specified in `oaap.data.disks` 0.2 §2.6, RFC-0063 stage 2; 0.3.26 adds **profile upload, download and delete** and tick boxes for `bool` parameters on the build pages — §2.11, RFC-0055 §14; 0.3.25 adds **invitations and requests** — the prospect's public form and the operator's list, §2.10, RFC-0055 stage 4; 0.3.24 adds the **tenant build pages** — a wizard over the operator API, §2.9, RFC-0055 stage 3; 0.3.23 shows the **Cohorts menu entry to every
+- **Version:** 0.3.28
+- **Maturity:** draft (0.3.28 adds the card **Neustart-Schutz** to the instance page — §2.13, RFC-0069 stage 5, `oaap.core.updates` 0.7 §2.7.2; 0.3.27 adds the node page **Datenträger** — §2.12, specified in `oaap.data.disks` 0.2 §2.6, RFC-0063 stage 2; 0.3.26 adds **profile upload, download and delete** and tick boxes for `bool` parameters on the build pages — §2.11, RFC-0055 §14; 0.3.25 adds **invitations and requests** — the prospect's public form and the operator's list, §2.10, RFC-0055 stage 4; 0.3.24 adds the **tenant build pages** — a wizard over the operator API, §2.9, RFC-0055 stage 3; 0.3.23 shows the **Cohorts menu entry to every
   administrator**, not only where a cohort exists, and puts a **step-by-step
   guide and a downloadable example template** on the create page — §2.8;
   0.3.22 adds **Add a seat** to the cohorts page, with
@@ -774,6 +774,26 @@ specified in `oaap.data.disks` 0.2 §2.6.
 - **The instance page** gets a read-only card "Datenträger" in its
   "Verwaltung" tab when the instance has grants.
 
+### 2.13 Neustart-Schutz on the instance page (RFC-0069 stage 5)
+
+The instance page's "Diagnose" tab carries a card **"Neustart-Schutz"**,
+specified in `oaap.core.updates` 0.7 §2.7.2.
+
+- **Doors:** a `tenant_admin` of the instance's tenant and
+  `server_admin`, the same guard as the page itself (2.4: another
+  tenant's instance is one that does not exist).
+- **Writes:** none of its own. One request per button, action `care`,
+  ops `protect` (reason, optional end) and `release`; judged again by
+  the host from the actor's record. The page waits for the node's
+  answer and shows it on the same page; it queues nothing without a
+  reason, and an end that is not a day is refused before the spool.
+- **Reads:** only the node's care file (`host-care.json`): the plan in
+  words, this instance's protection (end and reason), whether a
+  `critical` plan overrides it. Never who set it.
+- **Offers what the worker accepts:** unprotected — protect; protected —
+  extend (reason again) and release. The band of 2.7.5 on the tenant's
+  place points here instead of only at the command line.
+
 ## 3. Configuration
 
 None beyond the platform version passed at start. Appearance
@@ -922,6 +942,15 @@ configuration is a later stage (2.2).
     keeps its stored value byte for byte. With the host's view removed,
     the card says the values are unknown and offers no save, and a save
     request sent anyway is refused without writing.
+24. **Neustart-Schutz (0.3.28, RFC-0069 stage 5)**: the card renders
+    for an unprotected instance a protect form with a required reason
+    and a date bounded by today and today + 30, no release; for a
+    protected one its end and reason, extend and release; for an
+    overridden one the sentence that it does not hold; the page's door
+    queues `care`/`protect` with reason and end and nothing else, no
+    role and no tenant, and queues nothing without a reason, on an end
+    that is not a day, on an unknown op or on a foreign origin
+    (`test_care_portal.py`).
 23. **Instance diagnostics (RFC-0038, 0.3.16)**: with the host's state
     view present, the object page names each service's state and start
     time and needs no activation for it; with the view removed it says
@@ -1525,3 +1554,20 @@ Menüpunkt **Datenträger**. Was die Seite zeigt und was sie darf, steht in
 - Jede Schaltfläche stellt einen Auftrag, den der Knoten noch einmal
   prüft.
 - Die Instanzseite zeigt ihre Freigaben lesend im Reiter „Verwaltung“.
+
+## Deutsche Zusammenfassung (Nachtrag 0.3.28 — die Karte „Neustart-Schutz“)
+
+Die Instanzseite trägt im Reiter „Diagnose“ die Karte **Neustart-Schutz**
+(RFC-0069 Stufe 5, `oaap.core.updates` 0.7 §2.7.2). Der Mandanten-Admin
+der Instanz und der Server-Admin schützen hier eine Instanz gegen einen
+geplanten Neustart, der warten kann — mit Begründung und Ende —,
+verlängern den Schutz und heben ihn auf.
+
+- Sie liest nur die Pflegedatei des Knotens: den Plan in Worten, Ende
+  und Begründung des Schutzes, und ob ein dringender Neustart ihn
+  überstimmt. Wer ihn gesetzt hat, steht im Protokoll des Mandanten.
+- Jede Schaltfläche stellt einen Auftrag (`care`), den der Knoten noch
+  einmal prüft — mit Rolle und Mandant aus dem Datensatz des Handelnden.
+  Ohne Begründung geht nichts in den Spool.
+- Das Band am Mandantenort verweist jetzt hierher, nicht nur auf die
+  Befehlszeile.
