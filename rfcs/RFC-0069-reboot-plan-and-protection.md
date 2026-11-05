@@ -3,7 +3,10 @@
 - **Status:** **Accepted (2026-11-05, D6–D11 as recommended — Jörg: „alles wie
   vorgeschlagen“).** D1–D5 decided the same morning (CURRENT_STATE 387). Stage 1
   built as `oaap.core.updates` 0.3 §2.7, `oaap.core.host` 0.3.8, `oaap.fleet.status`
-  0.6, `oaap.core.tenant` 1.3; measured on `oaap-test` (§10).
+  0.6, `oaap.core.tenant` 1.3; measured on `oaap-test` (§10). **Stage 2 (the cases)
+  built the same evening** as `oaap.core.updates` 0.4 §2.7.6, `oaap.core.gateway`
+  0.2.19 (`/platform/cases/node`), `vorgaenge` 0.3.0; measured on `oaap-test` with a
+  real reboot (§11).
 - **Date:** 2026-11-05
 - **Authors:** Claude (measurement, proposal), Jörg (requirement, decides)
 - **Depends on:** `oaap.core.updates` 0.2 §2.6 (host care — the measurement this stands
@@ -215,7 +218,7 @@ the platform on an app's behalf. It is a person's statement about a person's wor
 | Stage | Content | Measured on |
 |---|---|---|
 | **1** | Spec (§2.7 of the updates spec, host 0.3.8, fleet 0.6, tenant 1.7 entries); the plan in the care file; the protection with reason and end (`oaap instance protect <inst> --until <date> --reason "…"` / `release`); urgency from origin and exposure; the window owned by the minute job; `reboot at` / `cancel` by hand; the three stage-1 readers extended; the tenant-place band | `oaap-test`: a hand-made plan with a real reboot of the node; a protection that holds a `care` plan and is overridden by a `critical` one (urgency forced only through the test's fake measurement, never by a command) |
-| **2** | Cases: one per plan in the operator tenant's inbox and in every tenant's inbox that has one; the closing line after the reboot | `oaap-test` with an inbox instance; `oaapx01` only on Jörg's word |
+| **2** | Cases: one per plan in the operator tenant's inbox and in every tenant's inbox that has one; the closing line after the reboot — **built, §11** | `oaap-test` with an inbox instance (done, with a real reboot); `oaapx01` only on Jörg's word |
 | **3** | `/platform/care.json` inside the node, `OAAP_CARE_URL`; the desk reads it (an `oaap-apps` change to `webtop`) | `oaap-test`, then `oaap-demo` with `joerg-desk` on Jörg's word — the first real user of D2 |
 | **4** | The broker event on `broker` nodes | `oaap-test` |
 
@@ -288,6 +291,44 @@ are proven on the hand-made plan and in the tests with a recorded oaapx02. The
 `tenant_admin`'s own door to protect in the portal is not built; in stage 1 the
 `server_admin` protects on the tenant's word at the machine. Stages 2–4 (cases, the
 instance door, the broker event) are not built. Rolled to no other node.
+
+## 11. Stage 2 as measured (2026-11-05, `oaap-test`, reference 0.1.222 staged, `vorgaenge` 0.3.0)
+
+Spec first: `oaap.core.updates` 0.4 §2.7.6 (the cases), `oaap.core.gateway` 0.2.19
+(`/platform/cases/node` on a `vorgaenge` site only). Then the app: `vorgaenge` 0.3.0
+takes `open` / `note` / `close` at that door from the principal `platform:<this
+instance>` and nothing else (33 checks, `test_node.py`). Then the platform: the door in
+the site generator (block format 5, so every site on disk is rewritten at update), the
+key per inbox (`/var/lib/oaap/apps/node-case-keys.json`, root only, renewed 30 days
+before it expires, revoked with the inbox), `host_care.case_ops` — the events of the
+plan turned into the tenants' words — wired into the announcement, so every place that
+files `reboot.*` in the tenant logs also tells the inboxes. 28 new checks in
+`test_host_care.py` and `test_platform_feedback.py`, among them the inbox that answers
+503 and gets its case at the next event. Found on the way and fixed: Debian 13 has no
+`/etc/timezone` on any node of the fleet, so `local_tz` fell back to a fixed offset
+everywhere; it now reads the `/etc/localtime` link (`Europe/Berlin` with its DST rule).
+
+On `oaap-test` (one inbox, `vorgaenge`, tenant of the node; window 04:15):
+
+| Step | Measured |
+|---|---|
+| Update rewrites the sites | `oaap update` to the staged 0.1.222: "28 instance site(s) rewritten"; only `vorgaenge.caddy` carries `handle /platform/cases/node` with `instance=oaap.cases.node:vorgaenge`, no roles, the source headers naming the inbox itself |
+| The key | first `reboot at` mints `platform:vorgaenge` in the inbox's tenant, key `bd290ad1`, scope `oaap.cases.node:vorgaenge`, until 2027-11-05, file mode 0600; `oaap key list` shows it like any machine key |
+| Plan by hand → a case | `reboot at "2026-11-08 02:00" --reason …` → **V-2026-0010** in `eingang`: "Neustart des Knotens oaap-test: 2026-11-08 02:00 CET (Pflege)", reporter "Knoten oaap-test", kind internal, object `reboot` / `manual:hand:2026-11-05T18:58:11Z`, attested source the inbox itself plus `node: oaap-test`; the plan file carries `cases: {vorgaenge: V-2026-0010}` |
+| A protection moves it | `protect abfl-a --reason "Schulung bis Mittwoch"` → one second later the comment "Verschoben auf 2026-11-13 02:00 CET: gehalten durch abfl-a bis 2026-11-12 (Schulung bis Mittwoch)." |
+| Release | `release abfl-a` → "Verschoben auf 2026-11-08 02:00 CET: nicht mehr gehalten." |
+| Cancel | `reboot cancel --reason "Messung beendet"` → status `closed` (`by: node`, from `new`), text "Abgesagt — vom Betreiber zurückgenommen: Messung beendet.", `ended` set so the retention runs; plan file gone |
+| **The real reboot** | `reboot at now --reason …` at 18:58:58 UTC → a **second** case (V-2026-0011) with the plan, then "Der Knoten startet jetzt neu.", then `systemctl reboot`; `/proc/stat btime` afterwards 18:59:25 UTC. The first minute job after the boot closed it: 19:00:13 UTC, 48 s after the boot — status `closed` ("Neustart erfolgt nach 2026-11-05 19:58 CET; der Knoten oaap-test läuft wieder.", `by: node`), the care file says `plan: None`, `oaap status` back to three lines, 30/30 apps, the minute job's journal without an inbox failure |
+
+**What the case does not carry, checked:** no kernel version in title or body (the
+origin only as a phrase: "ein Kernel-Update wartet (aus dem Sicherheitsarchiv …)"
+for a computed plan; here the operator's words, "Messung RFC-0069 Stufe 2").
+
+**Not measured, said plainly.** A computed plan on a real waiting kernel — still none
+has arrived. A second inbox of another tenant on the same node (the rule "one per
+tenant, production only" is proven in the tests, not live). The 503 path live. The
+`tenant_admin`'s own door to protect in the portal is still not built. Stages 3–4
+(`/platform/care.json`, the broker event) are not built. Rolled to no other node.
 
 ## Deutsche Zusammenfassung
 

@@ -1,8 +1,10 @@
 # oaap.core.gateway — HTTP Gateway (outline)
 
 - **ID:** `oaap.core.gateway`
-- **Version:** 0.2.18
+- **Version:** 0.2.19
 - **Maturity:** draft (outline — full specification to follow;
+  `/platform/cases/node` on every `vorgaenge` site, the node's own
+  door for its reboot case, 2026-11-05 per RFC-0069 stage 2;
   the gateway's listeners are plain TCP — Multipath TCP off in its
   namespace, 2026-11-05 after CVE-2026-98432;
   `/platform/cases/submit` on every instance site, the door of an app's
@@ -126,6 +128,14 @@ happened and never see credentials.
      machine principal (`oaap.apps.runtime` 2.24). Proxied with the
      same source headers to the same `vorgaenge` instance; 404 without
      one.
+  4. `/platform/cases/node` (0.2.19, RFC-0069 stage 2), on a
+     `vorgaenge` site **only**: forward auth with no roles and the
+     instance `oaap.cases.node:<this instance>` — the key the platform
+     minted for the node's principal `platform:<this instance>` in this
+     tenant, and nothing else (`oaap.core.updates` 2.7.6). Proxied with
+     the source headers naming this instance as the source, to the
+     instance itself; 404 where it does not receive. An app's site
+     never carries this block.
 
   The source headers MUST be stripped from **every** request of every
   instance site before any handler runs; otherwise a client could send

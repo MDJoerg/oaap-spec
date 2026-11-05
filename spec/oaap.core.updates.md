@@ -1,7 +1,7 @@
 # oaap.core.updates — Platform Updates
 
 - **ID:** `oaap.core.updates`
-- **Version:** 0.3
+- **Version:** 0.4
 - **Maturity:** draft — accepted by Jörg 2026-08-06 (CLI trigger
   implemented and validated on real hardware); 0.1.1 (2026-08-07)
   updates the reserved portal-trigger role to `server_admin` per
@@ -19,7 +19,10 @@
   reboot and announces it 24 h ahead, an instance may hold a `care`
   reboot with a reason and an end, urgency from the waiting kernel's
   origin and the node's exposure overrides it; the window moves from
-  the distribution to the platform's minute job
+  the distribution to the platform's minute job; **0.4 (2026-11-05,
+  RFC-0069 stage 2) adds §2.7.6**: the plan is a case in every inbox
+  on the node, opened with the announcement, written on at every move,
+  closed with the proof
 - **Based on:** RFC-0001 (capability model); program decision 2026-08-03
   ("one update engine per node, three triggers"); git-based delivery;
   RFC-0012 §4 (shipped sources survive a move)
@@ -381,9 +384,40 @@ three places, so `oaap status`, the portal and the fleet document say
 the same time; and the portal shows **every signed-in person** of a
 tenant a band on the tenant's place (RFC-0042) with the time and the
 urgency — a reboot nobody can read is a surprise with a timestamp.
-Cases per tenant (RFC-0061), a door an instance reads
+The cases are 2.7.6 (0.4); a door an instance reads
 (`/platform/care.json`) and the broker event are the later stages of
-RFC-0069 and not part of 0.3.
+RFC-0069.
+
+#### 2.7.6 The cases (0.4, RFC-0069 stage 2)
+
+Where a tenant on the node has an inbox (a `vorgaenge` instance,
+RFC-0061), the plan is also a **case** there: one per plan, opened with
+the announcement, written on at every move (a protection arrived or
+went, an override, overdue, "rebooting now"), closed with the proof
+after the reboot or with the cancellation. Every production inbox on
+the node receives it, one per tenant; a test inbox and a rehearsal
+never do (the rule of `oaap.core.gateway` 0.2.16 for a production
+source). The node is the reporter. The case carries the time, the
+urgency, the reason in words — the origin of the waiting kernel as a
+phrase, the operator's own words for a plan by hand — and the
+protections held or overridden. It carries **no kernel version**:
+`oaap status` and the fleet document say which kernel, the inbox says
+when and why. Nobody has to act on the case; it is the record a tenant
+reads where they read everything else.
+
+The way in is the way of an app's backend (RFC-0061 §3.2), not a new
+one. The platform mints, per inbox, a machine principal
+`platform:<inbox instance>` in the inbox's tenant, with a key limited
+to the scope `oaap.cases.node:<inbox instance>`; the gateway admits
+that key only at `/platform/cases/node` on that inbox's own site
+(`oaap.core.gateway` 0.2.19) and attests the source; the inbox checks
+the same principal against the source once more. The key lives on the
+node readable by root only, is renewed before it expires like an
+instance's own keys (RFC-0062 D3) and goes when the inbox goes. The
+case numbers travel with the stored plan, so the minute job writes on
+and closes the case it opened — across the reboot. An inbox that does
+not answer never holds the plan: the failure is logged, and the case
+is opened at the plan's next event.
 
 ## 3. Configuration
 
@@ -431,6 +465,12 @@ RFC-0069 and not part of 0.3.
   (`--critical` on a hand-made plan) filed as such; the distribution's
   own automatic reboot MUST be off on a 0.3 node; a plan whose time
   has passed MUST be visible as overdue.
+- The cases (2.7.6): the node's key for an inbox MUST be limited to
+  that inbox's door and that inbox's tenant, MUST be readable by root
+  only, and MUST be revoked when the inbox is removed; the inbox MUST
+  refuse the door to every other principal, a person's session
+  included; a case MUST NOT carry a kernel version; a failing inbox
+  MUST NOT delay or hold the plan.
 
 ## 5. Conformance tests (described)
 
@@ -503,6 +543,16 @@ RFC-0069 and not part of 0.3.
 18. **One mechanism (2.7.4):** on a 0.3 node the settings file says
     `Automatic-Reboot "false"` whatever the window is; a 2.6.3-style
     file is rewritten by the first measurement with the window kept.
+19. **The inboxes hear it (2.7.6):** a plan announced on a node with
+    an inbox opens one case there, in the tenant's words, without a
+    kernel version; a protection arriving adds a note with the new
+    time and the holder; the reboot closes it with the proof; a
+    cancellation closes it as cancelled; a second inbox of the same
+    tenant, a test inbox and a rehearsal receive nothing; a person's
+    session and an app's backend key are refused at the door.
+20. **The case follows the plan (2.7.6):** the case number is in the
+    stored plan a minute later and after the reboot; an inbox that
+    answered 503 at the announcement gets its case at the next event.
 
 ## 6. Dependencies
 
@@ -514,7 +564,9 @@ and the host-task channel. Host care (2.6) is read by
 Host care 2.7 writes entries defined by `oaap.core.tenant` 1.7
 (`reboot.*`, `instance.protected`, `instance.released`) and is read by
 `oaap.fleet.status` 0.6 (`reboot_plan`, `protections`, three attention
-kinds). Its CLI is `oaap.core.host` 2.3 (0.3.8).
+kinds). Its CLI is `oaap.core.host` 2.3 (0.3.8). The cases of 2.7.6 go
+through `oaap.core.gateway` 0.2.19 (`/platform/cases/node`) into the
+`vorgaenge` app of RFC-0061 (0.3.0 or later).
 
 ## 7. Maturity
 
@@ -541,6 +593,35 @@ Secrets werden nie angefasst. Stick-Installationen (ohne Git-Kopie)
 klonen beim ersten Update das hinterlegte Repo. Rollback ist in 0.1
 dokumentiert-manuell; signierte Releases und automatische Updates
 kommen, bevor der Zeitplan-Auslöser scharf wird.
+
+## Deutsche Zusammenfassung (0.4 — Vorgänge je Posteingang, §2.7.6)
+
+**Der Plan wird ein Vorgang.** Hat ein Mandant auf dem Knoten einen
+Posteingang (eine `vorgaenge`-Instanz, RFC-0061), legt der Knoten dort
+bei der Ankündigung einen Vorgang an — einen je Plan, im Bereich
+„Eingang“, gemeldet vom „Knoten *name*“ —, schreibt ihn bei jeder
+Änderung fort (Schutz gekommen oder gegangen, überstimmt, überfällig,
+„startet jetzt“) und schließt ihn nach dem Neustart mit dem Beweis oder
+mit der Absage. Jeden Produktions-Eingang auf dem Knoten, einen je
+Mandant; einen Test-Eingang oder eine Generalprobe nie. Der Vorgang
+sagt wann, wie dringend und warum in Worten (die Herkunft des Kernels
+als Satz, beim Plan von Hand die Worte des Betreibers), welche Schutze
+halten oder überstimmt sind — und **keine Kernel-Version**: die stehen
+in `oaap status` und im Flottenstatus. Niemand muss etwas tun; wer den
+Eingang liest, weiß Bescheid.
+
+**Der Weg hinein** ist der Weg des App-Backends (RFC-0061 §3.2), kein
+neuer: Die Plattform prägt je Posteingang einen Maschinenprinzipal
+`platform:<posteingang>` im Mandanten des Eingangs mit einem Schlüssel,
+der nur den Scope `oaap.cases.node:<posteingang>` trägt. Das Gateway
+lässt diesen Schlüssel nur an `/platform/cases/node` auf der Site
+genau dieses Eingangs durch und setzt die Herkunft; die App prüft den
+Prinzipal gegen die Herkunft noch einmal. Der Schlüssel liegt auf dem
+Knoten nur für root lesbar, wird wie die Instanzschlüssel 30 Tage vor
+Ablauf erneuert und geht mit dem Eingang. Die Vorgangsnummern reisen
+mit dem gespeicherten Plan, über den Neustart hinweg. Ein Eingang, der
+nicht antwortet, hält den Plan nie auf: der Fehler steht im Journal,
+der Vorgang wird beim nächsten Ereignis angelegt.
 
 ## Deutsche Zusammenfassung (0.3 — Neustart-Plan, Schutz, Dringlichkeit, §2.7)
 
