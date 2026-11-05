@@ -1,7 +1,7 @@
 # oaap.core.updates — Platform Updates
 
 - **ID:** `oaap.core.updates`
-- **Version:** 0.2
+- **Version:** 0.3
 - **Maturity:** draft — accepted by Jörg 2026-08-06 (CLI trigger
   implemented and validated on real hardware); 0.1.1 (2026-08-07)
   updates the reserved portal-trigger role to `server_admin` per
@@ -14,7 +14,12 @@
   care**: the operating system under the platform is measured and the
   node says what to do — reboot required, automatic updates, the
   gateway's listeners — in `oaap status`, the portal and the fleet
-  document; and two node settings the platform writes itself
+  document; and two node settings the platform writes itself;
+  **0.3 (2026-11-05, RFC-0069) adds §2.7**: the node plans its
+  reboot and announces it 24 h ahead, an instance may hold a `care`
+  reboot with a reason and an end, urgency from the waiting kernel's
+  origin and the node's exposure overrides it; the window moves from
+  the distribution to the platform's minute job
 - **Based on:** RFC-0001 (capability model); program decision 2026-08-03
   ("one update engine per node, three triggers"); git-based delivery;
   RFC-0012 §4 (shipped sources survive a move)
@@ -236,6 +241,150 @@ files:
 Both commands require local administrator rights, are idempotent, and
 re-measure when done, so the status answers the change at once.
 
+### 2.7 Reboot plan, protection and urgency (0.3, RFC-0069)
+
+**Why this is here.** 2.6 gave the node a window and the window did
+what a window does: on its first day the reboot of a node ended a
+person's desk session with its open applications (oaap-demo,
+2026-11-05). A window is a time; it knows nothing of the work on the
+node. And the distribution's own mechanism, which 2.6.3 used, can never
+know it either — it fires on a marker file and a clock. So in 0.3 the
+platform owns the reboot: it plans it, says so ahead, lets an instance
+hold a reboot that can wait, and derives from facts whether this one
+can.
+
+#### 2.7.1 The plan
+
+A **reboot plan** is the node's statement "I will reboot at *T*,
+because *R*, with urgency *U*", and it is **the only way the node
+reboots itself**.
+
+- A plan comes into being when the measurement of 2.6.1 says
+  `reboot_required` **and** the node has a window (2.6.3). Without a
+  window there is no plan, only the line "a new kernel waits for a
+  manual reboot".
+- *T* is the window hour on the first day the rules of 2.7.3 allow,
+  **at least 24 h after the plan was first announced**. The first
+  announcement is the minute the plan is computed; the announcement
+  time is kept with the plan and does not move while the same kernel
+  waits, so a plan that is moved later never gains a shorter lead.
+- The plan is **recomputed every minute** by the node's minute job,
+  from the latest measurement, the live protections and the stored
+  plan. It may move later (a protection arrived) or earlier (a
+  `server_admin`'s hand, 2.7.4). Every move is announced again.
+- At *T* the node **measures again** and reboots only when the reboot
+  is still required and the rules of 2.7.3 still allow it. A plan is
+  a prediction; the reboot is an act on fresh facts. The minute job
+  carries it out within a short grace after *T*; a plan whose time
+  passed without a reboot (the minute job was not running) MUST be
+  shown as **overdue** in every reader, never silently rescheduled.
+- The first measurement after the reboot **closes** the plan with the
+  proof — "running 6.12.115, newest installed" — and that closing is
+  announced the same way the opening was.
+
+A `server_admin` MAY **make a plan by hand** when no kernel waits
+(`oaap node care reboot at <time> --reason "…"`, `oaap.core.host`
+2.3): a library update the comparison cannot see, a disk that needs a
+cold start. A hand-made plan carries its reason and its maker, goes
+through the same announcement and the same protection rules, has
+urgency `care` unless the maker says `--critical`, and is the way the
+whole mechanism is measured on a test node before a kernel arrives. A
+hand-made plan MAY be sooner than 24 h: that is the `server_admin`'s
+explicit act of 2.7.4, and it is recorded as such.
+
+#### 2.7.2 The protection
+
+An instance MAY be **protected** against a planned reboot. The
+protection is built like the backup exclusion of `oaap.data.backup`
+2.1.2 (RFC-0029 D5b), with the same three conditions, none optional:
+
+1. **A reason**, in the words of the person who sets it, shown
+   wherever the protection is shown. A protection with no reason MUST
+   be refused.
+2. **An end.** A protection expires on a calendar day (inclusive);
+   the default is 7 days, the maximum 30. Extending it is the same
+   command again, with a reason again. There is no protection without
+   an end.
+3. **Visibility to everybody it concerns**: an entry in the log of the
+   instance's tenant (`oaap.core.tenant` 1.7, `instance.protected` /
+   `instance.released`), the instance's page in the portal, the care
+   state ("held by `joerg-desk` until 2026-11-12: reason"), and the
+   fleet document (`oaap.fleet.status` 0.6).
+
+Who: a `tenant_admin` of the instance's tenant, or `server_admin`.
+The platform has no role "owner of an instance" (`created_by` is a
+record, not a right); the tenant's administrator is the nearest
+responsible person. A protection is **per instance**: the thing that
+must not be interrupted is a running desk, not a customer. A
+protection that names an instance the node no longer has is ignored,
+never trusted (the posture of the backup exclusion). A manifest
+cannot ask for a protection and the platform never sets one on an
+app's behalf.
+
+What a protection does: it moves a `care` plan to the first window on
+the day **after** the last live protection on the node ends. What it
+does not do: hold a `critical` plan. A protection on a critical plan
+is **shown as overridden** — the person who set it must learn that it
+did not hold — and the plan says why.
+
+#### 2.7.3 The urgency
+
+Two levels, **derived from recorded facts**, never typed in:
+
+| Urgency | When | The plan |
+|---|---|---|
+| `care` | the waiting kernel did not come from the distribution's **security origin** (a point release, a vendor kernel), **or** the node is not exposed | waits for the first window with no live protection, at least 24 h ahead; says it is waiting and for whom |
+| `critical` | the waiting kernel came from the security origin **and** the node is **exposed**: it has an external name (`oaap external`, RFC-0043) or its gateway listeners negotiate MPTCP (2.6.1) | the first window at least 24 h after announcement; protections are shown and overridden; `server_admin` may shorten, down to now |
+
+The origin of the waiting kernel is read from the package manager's
+policy for the installed kernel package (the archive it was fetched
+from: the security archive, the distribution's main archive, a vendor
+archive). This is deliberately coarser than "publicly exploitable
+from the remote" (D3 of 2026-11-05): the node can read the origin
+today and an advisory not yet. Every security kernel on an exposed
+node is treated as the one of 2026-11-05. A later advisory match MAY
+only lower a `critical` to `care` when the advisory says local-only,
+never raise one the origin did not flag.
+
+A `care` plan that protections have held for more than **7 days**
+after its announcement is `deferred`: still a plan, but an attention
+of its own in the fleet document, because a fix that has waited a week
+needs a look.
+
+#### 2.7.4 The window moves to the platform
+
+2.6.3 wrote the distribution's `Automatic-Reboot`. Since 0.3 the
+platform's settings file says `Automatic-Reboot "false"` **always** and
+keeps the window as a key of the platform's own
+(`OAAP::Care::Reboot-Window` in the reference). The minute job
+evaluates the plan, and at *T* it is the minute job that runs the
+reboot, as root, after a last measurement and after announcing
+"rebooting now". The measurement no longer writes the distribution's
+marker file (2.6.3); the marker is read as the hint it always was. An
+updated node with a 2.6.3-style file has it rewritten by the first
+measurement; the window value is kept. Two reboot mechanisms on one
+machine are two truths; a node on 0.3 MUST have the distribution's off.
+
+`server_admin` MAY **shorten** a `critical` plan, or make or cancel a
+hand-made one, with a reason; the act is filed in every tenant's log on
+the node. A cancelled computed plan returns the next minute when the
+kernel still waits, with a fresh 24 h lead. No backup is taken by the
+plan: 2.6.3 put the window after the backup on purpose.
+
+#### 2.7.5 What everyone is told
+
+No new channel. The plan, every move, the override of a protection,
+the start of the reboot and the closing proof are **filed in the log of
+every tenant on the node** (`oaap.core.tenant` 1.7, `reboot.*`). The
+care state of 2.6.2 carries the plan and the live protections in all
+three places, so `oaap status`, the portal and the fleet document say
+the same time; and the portal shows **every signed-in person** of a
+tenant a band on the tenant's place (RFC-0042) with the time and the
+urgency — a reboot nobody can read is a surprise with a timestamp.
+Cases per tenant (RFC-0061), a door an instance reads
+(`/platform/care.json`) and the broker event are the later stages of
+RFC-0069 and not part of 0.3.
+
 ## 3. Configuration
 
 - Recorded source: repository URL, branch/ref, working-copy path
@@ -247,6 +396,9 @@ re-measure when done, so the status answers the change at once.
   configuration directory (`/etc/apt/apt.conf.d/52oaap-care` in the
   reference); the latest measurement in `host-care.json` beside the
   registry, world-readable, facts only.
+- Reboot plan and protections (2.7): the stored plan (`reboot-plan.json`)
+  and the protections (`reboot-protections.json`) beside the registry;
+  the care file carries the live view of both for the readers.
 
 ## 4. Security requirements
 
@@ -269,6 +421,16 @@ re-measure when done, so the status answers the change at once.
   platform's own configuration file; the portal reads and never writes;
   nothing but the kernel's name and the verdicts leaves the node (no
   package list — a package list is a map for an attacker).
+- Reboot plan (2.7, RFC-0069 §6): the node MUST NOT reboot itself
+  without a measurement taken in the same minute that says the reboot
+  is still required, or a hand-made plan by `server_admin`; a
+  protection MUST carry a reason and an end within the maximum and
+  MUST be filed in the tenant's log; a `critical` plan MUST NOT be held
+  by a protection and the override MUST be shown and filed; urgency
+  MUST be derived from recorded facts, the one exception
+  (`--critical` on a hand-made plan) filed as such; the distribution's
+  own automatic reboot MUST be off on a 0.3 node; a plan whose time
+  has passed MUST be visible as overdue.
 
 ## 5. Conformance tests (described)
 
@@ -319,6 +481,28 @@ re-measure when done, so the status answers the change at once.
 13. **The window is a node setting (2.6.3):** `reboot-window 04:15`
     appears in the care state of all three places; `off` removes it;
     neither command touches the distribution's own files.
+14. **The plan needs a window and a reason (2.7.1):** with a newer
+    kernel installed and no window there is no plan; with a window the
+    plan's time is the window hour on the first day at least 24 h after
+    the announcement; recomputing it an hour later keeps the
+    announcement and the time.
+15. **A protection holds `care` and not `critical` (2.7.2, 2.7.3):**
+    a live protection until day *D* moves a `care` plan to the window
+    on *D+1*; the same protection on a `critical` plan leaves the time
+    and lists the protection as overridden; a protection without a
+    reason, or with an end beyond the maximum, is refused; one naming
+    an instance the node does not have is ignored.
+16. **Urgency from facts (2.7.3):** a security-origin kernel on a node
+    with an external name is `critical`; the same kernel on a node
+    without one is `care`; a kernel from the main archive on an exposed
+    node is `care`; a hand-made plan is `care` unless `--critical`.
+17. **The plan closes with proof (2.7.1):** after a reboot the next
+    measurement files `reboot.done` with the running kernel and the
+    plan is gone; a plan whose time passed without a reboot is shown
+    as overdue in all three readers.
+18. **One mechanism (2.7.4):** on a 0.3 node the settings file says
+    `Automatic-Reboot "false"` whatever the window is; a 2.6.3-style
+    file is rewritten by the first measurement with the window kept.
 
 ## 6. Dependencies
 
@@ -327,6 +511,10 @@ The portal trigger will additionally depend on `oaap.core.portal`
 and the host-task channel. Host care (2.6) is read by
 `oaap.fleet.status` 0.5 (`host` block) and states a rule of
 `oaap.core.gateway` 0.2.18 (plain TCP listeners).
+Host care 2.7 writes entries defined by `oaap.core.tenant` 1.7
+(`reboot.*`, `instance.protected`, `instance.released`) and is read by
+`oaap.fleet.status` 0.6 (`reboot_plan`, `protections`, three attention
+kinds). Its CLI is `oaap.core.host` 2.3 (0.3.8).
 
 ## 7. Maturity
 
@@ -353,6 +541,55 @@ Secrets werden nie angefasst. Stick-Installationen (ohne Git-Kopie)
 klonen beim ersten Update das hinterlegte Repo. Rollback ist in 0.1
 dokumentiert-manuell; signierte Releases und automatische Updates
 kommen, bevor der Zeitplan-Auslöser scharf wird.
+
+## Deutsche Zusammenfassung (0.3 — Neustart-Plan, Schutz, Dringlichkeit, §2.7)
+
+**Anlass.** Das Fenster aus 2.6 hat am ersten Tag getan, was ein
+Fenster tut: Der Neustart von oaap-demo hat eine Desk-Sitzung mit
+offenen Anwendungen beendet. Eine Uhrzeit weiß nichts von der Arbeit
+auf dem Knoten, und der Mechanismus der Distribution kann einen Schutz
+nie kennen — er feuert auf Markierungsdatei und Uhr.
+
+**Der Plan (2.7.1).** Der Knoten sagt „ich starte am … um … neu, weil
+…, Dringlichkeit …“ — mindestens 24 Stunden vorher, rechnet den Plan
+jede Minute neu, misst am Termin noch einmal und startet nur, wenn der
+Neustart dann noch nötig und erlaubt ist. Danach schließt die erste
+Messung den Plan mit dem Beweis „läuft 6.12.115“. Ein verpasster
+Termin wird als **überfällig** gezeigt, nie still verschoben. Der
+Server-Admin darf einen Neustart **von Hand planen** (glibc-Fall), mit
+Begründung, durch dieselben Regeln — so wird der Mechanismus auf dem
+Testknoten gemessen, bevor ein Kernel kommt.
+
+**Der Schutz (2.7.2).** Eine Instanz kann gegen einen geplanten
+Neustart geschützt werden — wie die Backup-Ausnahme: mit Begründung
+(ohne wird abgelehnt), mit Ende (Standard 7 Tage, höchstens 30,
+Verlängern heißt noch einmal begründen) und sichtbar im Mandanten-Log,
+im Portal, im Pflegestand und in der Flotte. Setzt der Mandanten-Admin
+oder der Server-Admin, je Instanz. Ein Schutz verschiebt einen
+Pflege-Neustart auf den Tag nach dem letzten Schutz; einen kritischen
+hält er nicht, wird aber als überstimmt gezeigt.
+
+**Die Dringlichkeit (2.7.3).** Aus Messwerten, nie von Hand:
+**kritisch** = der wartende Kernel stammt aus der Security-Quelle
+(Paketmanager-Policy) **und** der Knoten ist exponiert (externer Name
+oder MPTCP an); alles andere **Pflege**. Bewusst gröber als
+„öffentlich aus der Ferne ausnutzbar“ — die Quelle kann der Knoten
+heute lesen, ein Advisory noch nicht; ein späterer Abgleich darf nur
+herabstufen. Ein Pflege-Plan, der über 7 Tage gehalten wird, ist
+„aufgeschoben“ und ein eigener Hinweis in der Flotte.
+
+**Das Fenster wandert (2.7.4).** Die Plattformdatei sagt immer
+`Automatic-Reboot "false"` und trägt das Fenster als eigenen Schlüssel;
+der Minutenlauf plant und startet neu. Die Markierungsdatei wird nicht
+mehr geschrieben. Eine Datei im Stil von 2.6.3 wird bei der ersten
+Messung umgeschrieben, das Fenster bleibt. Zwei Mechanismen wären zwei
+Wahrheiten.
+
+**Mitteilen (2.7.5).** Kein neuer Kanal: Einträge im Log jedes
+Mandanten auf dem Knoten, der Plan und die Schutze an den drei Orten
+des Pflegestands, und ein Band am Mandantenort für jeden Angemeldeten.
+Vorgänge, die Tür `/platform/care.json` und das Broker-Ereignis sind
+spätere Stufen von RFC-0069.
 
 ## Deutsche Zusammenfassung (0.2 — Pflegestand des Knotens, §2.6)
 

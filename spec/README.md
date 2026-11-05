@@ -11,8 +11,8 @@ before the full specification is written.
 
 ## Index
 
-- [oaap.core.host](oaap.core.host.md) — platform installer & node baseline (draft, v0.3.7)
-- [oaap.core.updates](oaap.core.updates.md) — one update engine per node, three triggers: a node updates its platform core from its recorded source, shows what would change first, and never touches app instances or user data (draft, v0.2)
+- [oaap.core.host](oaap.core.host.md) — platform installer & node baseline (draft, v0.3.8)
+- [oaap.core.updates](oaap.core.updates.md) — one update engine per node, three triggers: a node updates its platform core from its recorded source, shows what would change first, and never touches app instances or user data (draft, v0.3)
 - [oaap.core.portal](oaap.core.portal.md) — web portal (draft, v0.3.27)
 - [oaap.core.management](oaap.core.management.md) — the tenant's own hand on the platform as an API: the cohort commands under `/api/v1/tenant`, for a session or an API key, jobs for what takes minutes, a template uploaded as ZIP, the handout as a one-time ZIP with a password the trainer chooses; operator routes for tenant builds (draft, v0.1.2)
 - [oaap.core.identity](oaap.core.identity.md) — identity & roles (draft, v0.6.2)
@@ -20,10 +20,10 @@ before the full specification is written.
 - [oaap.core.gateway](oaap.core.gateway.md) — HTTP gateway (outline, v0.2.18)
 - [oaap.apps.runtime](oaap.apps.runtime.md) — app runtime: install, instances, contract delivery, remote deployment (draft, v0.2.48)
 - [oaap.data.backup](oaap.data.backup.md) — platform backup, restore & relocation (draft, v0.4.1)
-- [oaap.fleet.status](oaap.fleet.status.md) — read-only fleet status document & fleet keys (draft, v0.5)
+- [oaap.fleet.status](oaap.fleet.status.md) — read-only fleet status document & fleet keys (draft, v0.6)
 - [oaap.ai.gateway](oaap.ai.gateway.md) — AI supply behind one keyed, OpenAI-compatible endpoint (draft, v0.4)
 - [oaap.ai.mcp-gateway](oaap.ai.mcp-gateway.md) — MCP tool servers behind one keyed endpoint per view: bundles of tools, resources and prompts across servers, fixed arguments and bounds, catalog with default deny, pinned descriptions, effect classes, sign-in at the tenant IdP with access profiles, token exchange, protection limits (draft, v0.3)
-- [oaap.core.tenant](oaap.core.tenant.md) — account and tenant, the boundary of belonging (draft, v1.2)
+- [oaap.core.tenant](oaap.core.tenant.md) — account and tenant, the boundary of belonging (draft, v1.3)
 - [oaap.data.store](oaap.data.store.md) — managed Postgres per node, schema per tenant/purpose, closed for untrusted clients (draft, v0.2)
 - [oaap.data.model](oaap.data.model.md) — type registry for the digital twin: object/attribute/group/relation/activity types, origin, binding (draft, v0.1)
 - [oaap.data.files](oaap.data.files.md) — where the bytes live: the node's own content-addressed store, tenant-isolated by path, put/get/verify by hash; external backings are RFC-0034 Stufe 4 and not yet specified (draft, v0.1.1)

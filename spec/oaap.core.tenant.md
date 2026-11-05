@@ -1,7 +1,8 @@
 # oaap.core.tenant — Account and Tenant, the Boundary of Belonging
 
 - **ID:** `oaap.core.tenant`
-- **Version:** 1.2 (closed egress in the portal: the page and the `tenant_admin`'s door to
+- **Version:** 1.3 (the reboot entries, filed in every tenant's log on the node,
+  RFC-0069, 1.7; 1.2: closed egress in the portal: the page and the `tenant_admin`'s door to
   close, RFC-0068 stage 4, 2.12; 1.1: **closed egress**, RFC-0068: a tenant is open or closed, an exception per
   instance needs a reason, new 2.12; 1.0.2: a provider-made account outside the default tenant is named `<label>.<suggestion>`, 2.8; 1.0.1: a created tenant's address answers at once, 2.2; 1.0: RFC-0041 K6 — **a tenant can leave this node**: the archive carries the tenant's own record, an empty node can adopt one, and the provider it arrives with is carried rather than put in force. See 2.11, conformance tests 24–26; 0.9 — the switches inside that space, and the truth about them; 0.8 — the platform may MAKE that provider, not only name it; 0.7 — a tenant may name who lets people
   in**: an OIDC provider object that is a URL and says nothing about
@@ -296,6 +297,25 @@ that were confirmed. This is the one act where the platform cannot
 vouch for the origin of the code (packages are unsigned, RFC-0019), so
 the record of who accepted which bytes is what takes the place of that
 proof — and it is the customer's record, in the customer's log.
+
+**And the reboot entries (RFC-0069, `oaap.core.updates` 2.7):** a
+planned reboot concerns every tenant on the node, so its entries are
+filed in **every** tenant's log, with `who` the person whose act they
+record or `root` for the minute job's own:
+
+| `action`             | filed when                                                    |
+| -------------------- | ------------------------------------------------------------- |
+| `reboot.planned`     | a plan is announced; `detail`: time, urgency, reason, source   |
+| `reboot.moved`       | the plan's time or urgency changed; `detail` says why          |
+| `reboot.override`    | a `critical` plan overrides a protection; `subject` names it   |
+| `reboot.cancelled`   | `server_admin` cancelled the stored plan                       |
+| `reboot.started`     | the minute job is about to run the reboot                      |
+| `reboot.done`        | the first measurement after it; `detail`: the running kernel   |
+| `instance.protected` | an instance is protected; `detail`: until when, the reason     |
+| `instance.released`  | the protection is released or has expired                      |
+
+The two `instance.*` entries are filed in the instance's own tenant
+only.
 
 **Never the contents.** The entry says who opened a window on which
 instance for how long — it is not a copy of what they saw. The same

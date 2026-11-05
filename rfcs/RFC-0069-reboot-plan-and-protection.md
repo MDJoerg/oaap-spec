@@ -1,7 +1,9 @@
 # RFC-0069: Reboot Plan and Protection — The Node Announces Its Reboot, an Instance May Hold It, Urgency Decides
 
-- **Status:** Proposed (2026-11-05). D1–D5 decided by Jörg on 2026-11-05 (CURRENT_STATE
-  387); D6–D11 open, recommendations below. Nothing built.
+- **Status:** **Accepted (2026-11-05, D6–D11 as recommended — Jörg: „alles wie
+  vorgeschlagen“).** D1–D5 decided the same morning (CURRENT_STATE 387). Stage 1
+  built as `oaap.core.updates` 0.3 §2.7, `oaap.core.host` 0.3.8, `oaap.fleet.status`
+  0.6, `oaap.core.tenant` 1.3; measured on `oaap-test` (§10).
 - **Date:** 2026-11-05
 - **Authors:** Claude (measurement, proposal), Jörg (requirement, decides)
 - **Depends on:** `oaap.core.updates` 0.2 §2.6 (host care — the measurement this stands
@@ -252,6 +254,40 @@ fix that might have been local-only. `oaap-demo` is exposed (projects.joomp.de) 
 the desk; `oaap-demo` has no window today, and that is the operator's lever until the
 advisory step exists: no window, no plan, the stage-1 line in `oaap status` and the fleet
 document say the kernel waits.
+
+## 10. Stage 1 as measured (2026-11-05, `oaap-test`, reference 0.1.221 staged)
+
+Spec first: `oaap.core.updates` 0.3 §2.7, `oaap.core.host` 0.3.8, `oaap.fleet.status` 0.6,
+`oaap.core.tenant` 1.3. Then the module (`host_care.py`: origin, protections, plan,
+urgency, the readers), `oaap node care reboot at|cancel`, `protect`, `release`, the three
+readers and the tenant-place band; 118 checks in `test/test_host_care.py` without a node.
+On `oaap-test` (Europe/Berlin, window 04:15 from stage 1):
+
+| Step | Measured |
+|---|---|
+| Update rewrites the settings file (§3, D7) | `52oaap-care` after `migrate.sh`: `Automatic-Reboot "false"`, `OAAP::Care::Reboot-Window "04:15"` — the stage-1 lines gone, the window kept |
+| Origin of the kernel | `apt-cache policy` of the running 6.12.115 names `security.debian.org … trixie-security` → `origin: security`; no kernel waits, so no computed plan |
+| Protection (§2.2) | `protect abfl-a --reason "…"` → until 2026-11-12 (default 7 days), `instance.protected` in tenant `abfl`'s log only; without `--reason` refused; the care state shows "Reboot protection: abfl-a until 2026-11-12 (reason)" |
+| Hand-made `care` plan while protected (§2.1, §2.2) | `reboot at "2026-11-07 04:15"` → the plan is **moved to 2026-11-13 04:15 CET**, the day after the protection ends; `reboot.planned` then `reboot.moved … held by abfl-a` in every tenant's log (23 tenants on the node); `deferred: true` |
+| Three readers (§4) | `oaap status`: the plan line after the kernel line, held by abfl-a. `/fleet/status` 0.6 (temporary key, revoked): `host.reboot_plan` without the reason, `host.protections {count 1, until 2026-11-12}`, kinds `reboot_planned`, `reboot_deferred`. Portal (test client inside the container): a plain `user` sees the band "Geplanter Neustart dieses Knotens … gehalten durch abfl-a bis 2026-11-12" and **not** the `server_admin` band; the health page carries rows "Neustart-Plan" and "Neustart-Schutz" |
+| Release | `release abfl-a` → the plan moves back to 2026-11-07 04:15 (`reboot.moved … no longer held`), `instance.released`; `reboot cancel` removes the plan file, `reboot.cancelled` |
+| **The real reboot (§2.1, D10)** | `reboot at now --reason "…"` at 14:51:50 UTC: `reboot.planned (care, by hand, sooner than 24 h)`, the command measures once more, files `reboot.started` as root, runs `systemctl reboot`; the SSH session ends. `/proc/stat btime` afterwards: 14:52:17 UTC — 27 s after the plan. 38 containers back, 0 unhealthy, like before |
+| The closing proof | First measurement after the boot: plan file gone, `reboot.done — rebooted after 2026-11-05 15:51 CET; running 6.12.115+deb13.1-amd64` in every tenant's log; `oaap status` back to three lines |
+
+**One finding, fixed before the push.** The minute job trusted a measurement younger than
+ten minutes and so, after the boot, evaluated the plan against the *old* boot time: the
+plan stayed `rebooting` for three minutes until the staging's own measurement closed it.
+Now `sample` re-measures whenever the recorded boot time differs from `/proc/stat` —
+proven by writing a wrong boot time into the care file: the next `sample` measured afresh.
+The stage-1 rule "a stored value right after a reboot describes the old kernel"
+(`oaap.core.updates` 2.6.1) applied to its own file.
+
+**Not measured, said plainly.** A *computed* plan on a real waiting kernel — none has
+arrived since the fleet was rebooted this morning; the lead, the move and the override
+are proven on the hand-made plan and in the tests with a recorded oaapx02. The
+`tenant_admin`'s own door to protect in the portal is not built; in stage 1 the
+`server_admin` protects on the tenant's word at the machine. Stages 2–4 (cases, the
+instance door, the broker event) are not built. Rolled to no other node.
 
 ## Deutsche Zusammenfassung
 

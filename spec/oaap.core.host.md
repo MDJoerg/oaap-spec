@@ -1,8 +1,9 @@
 # oaap.core.host — Platform Installer & Node Baseline
 
 - **ID:** `oaap.core.host`
-- **Version:** 0.3.7
-- **Maturity:** draft (0.3.7: `oaap status` states the node's care
+- **Version:** 0.3.8
+- **Maturity:** draft (0.3.8: reboot plan and protection verbs under
+  `oaap node care`, 2.3, RFC-0069; 0.3.7: `oaap status` states the node's care
   state and `oaap node care` sets it, 2.3, per `oaap.core.updates` 2.6;
   0.2.1 adds the `oaap user` rescue commands, 2.3;
   0.3.0 adds **node profiles** — what a node is for — in 2.5, with the
@@ -175,6 +176,19 @@ Every node provides a local command-line entry point (reference name:
   itself after a kernel update. `care` alone is a display and MAY run
   unprivileged (it then shows the last measurement); the two settings
   MUST require local administrator privileges.
+- `oaap node care reboot at <YYYY-MM-DD HH:MM | now> --reason "…"
+  [--critical]` / `oaap node care reboot cancel` /
+  `oaap node care protect <instance> --reason "…" [--until YYYY-MM-DD]`
+  / `oaap node care release <instance>` (0.3.8, `oaap.core.updates`
+  2.7, RFC-0069) — plan a reboot by hand with a reason, or cancel the
+  stored plan (a computed one returns the next minute with a fresh
+  lead); protect an instance against a `care` reboot until a day
+  (default 7 days, at most 30), with a reason, or release it. All four
+  MUST require local administrator privileges and are filed in the
+  tenant logs (`oaap.core.tenant` 1.7). The care display shows the
+  plan, its urgency and the live protections. (RFC-0069 wrote
+  `oaap instance protect`; the reference puts every care verb under
+  `node care`, one door for the host's care.)
 - `oaap node show` / `oaap node add-profile <p>` /
   `oaap node remove-profile <p>` (RFC-0011) — read and change what this
   node is for (2.5). `show` is a pure display and MAY run unprivileged;
@@ -572,6 +586,18 @@ und die Verbindung sonst zurückholt.
 Warum das überhaupt Plattformsache ist: Unsere Knoten sind dem Zielbild
 nach **kopflose Geräte** — Werkstattrechner, IoT-Gateway am Standort.
 Dort steht niemand, der ein Passwort nachreicht.
+
+## Deutsche Zusammenfassung (2.3, v0.3.8 — Neustart-Plan und Schutz, RFC-0069)
+
+Vier Befehle mehr unter `oaap node care`: `reboot at "2026-11-07 04:15"
+--reason "…"` plant einen Neustart von Hand (mit `--critical` als
+kritisch), `reboot cancel` nimmt den gespeicherten Plan zurück (ein
+berechneter kommt eine Minute später mit frischem Vorlauf wieder),
+`protect <instanz> --reason "…" [--until 2026-11-12]` schützt eine
+Instanz gegen einen Pflege-Neustart (Standard 7 Tage, höchstens 30),
+`release <instanz>` hebt den Schutz auf. Alle vier brauchen
+Administratorrechte und stehen im Mandanten-Log. Die Anzeige zeigt
+Plan, Dringlichkeit und Schutze.
 
 ## Deutsche Zusammenfassung (2.3, v0.3.7 — der Pflegestand in `oaap status`)
 

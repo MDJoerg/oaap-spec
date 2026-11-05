@@ -1,7 +1,9 @@
 # oaap.fleet.status — Read-Only Fleet Status Document
 
 - **ID:** `oaap.fleet.status`
-- **Version:** 0.5 (the `host` block — the care state of the machine
+- **Version:** 0.6 (the reboot plan and the protections in the `host`
+  block and three attention kinds for them, RFC-0069, 2026-11-05;
+  0.5: the `host` block — the care state of the machine
   under the platform, `oaap.core.updates` 2.6 — and three attention
   kinds for it, 2026-11-05 after CVE-2026-98432; 0.4: an instance row's
   `state` may be `standby` — RFC-0059; 0.3 added `auto_address` and
@@ -47,7 +49,7 @@ minutes → 1 attempt/minute), in a throttle namespace of their own.
 
 ```json
 {
-  "schema": "oaap.fleet.status/0.5",
+  "schema": "oaap.fleet.status/0.6",
   "node": "oaap.joomp.de",
   "platform_version": "0.1.46",
   "profiles": [],
@@ -60,8 +62,13 @@ minutes → 1 attempt/minute), in a throttle namespace of their own.
     "reboot_required": true,
     "auto_updates": "ok",
     "auto_updates_last_run": "2026-11-05T06:42:00Z",
-    "reboot_window": "off",
-    "gateway_mptcp": "off"
+    "reboot_window": "04:15",
+    "gateway_mptcp": "off",
+    "reboot_plan": {"at": "2026-11-07T03:15:00Z",
+                    "at_local": "2026-11-07 04:15 CET",
+                    "urgency": "critical", "source": "kernel",
+                    "held": false, "overridden": true, "state": "planned"},
+    "protections": {"count": 1, "until": "2026-11-12"}
   },
   "core": [
     {"name": "identity", "state": "ok"},
@@ -116,7 +123,9 @@ Rules:
    kinds today: `core_service_down`, `dns_drift`, `dns_unresolved`,
    `confirmation_pending`, `instance_unhealthy`, and since 0.5 the
    three of the `host` block (rule 8): `reboot_required`,
-   `auto_updates_off`, `gateway_mptcp`. The list is open —
+   `auto_updates_off`, `gateway_mptcp`, and since 0.6 three more of
+   the same block: `reboot_planned` (informational), `reboot_deferred`
+   and `reboot_overdue`. The list is open —
    consumers MUST tolerate unknown kinds. Everything in `attention`
    is derived from facts already elsewhere in the document or on the
    node; it adds urgency, not information channels.
@@ -202,6 +211,24 @@ Rules:
      public listeners negotiate Multipath TCP (`oaap.core.gateway`
      0.2.18 says they must not). A fact about the listeners in the
      gateway's own network namespace, not a reachability claim.
+   - `reboot_plan` (0.6, `oaap.core.updates` 2.7) — omitted when there
+     is none; else `at` (ISO-8601 UTC), `at_local` (the node's own
+     clock, for a human), `urgency` (`care | critical`), `source`
+     (`kernel | manual`), `held` (`true` when live protections hold
+     it), `overridden` (`true` when protections were overridden by a
+     `critical` plan), `state` (`planned | rebooting | overdue`).
+     Never the reason: that is a person's words and stays in the
+     tenant log.
+   - `protections` (0.6) — omitted when none is live; else `count` and
+     `until` (the latest end, a calendar day). Instance names are not
+     repeated here: an instance's row already carries its name, and a
+     fleet watcher needs to know *that* the node is held, not by whom.
+
+   Three more `attention` kinds derive from these (0.6):
+   `reboot_planned` (detail: time and urgency — informational, so a
+   watcher knows a node will go away), `reboot_deferred` (a `care`
+   plan held more than seven days past its announcement),
+   `reboot_overdue` (the plan's time passed without a reboot).
 
    Nothing else: no package list, no file contents, no sources — rule
    1 holds for this block as for every other. Three `attention` kinds
@@ -268,6 +295,16 @@ noch kaputt — also nie ein `attention`-Eintrag, und der automatische
 Name einer schlafenden Instanz bleibt `ok` (er antwortet mit der
 Weckseite). Kerndienste und Namen kennen den Wert nicht. Ein 0.3-
 Konsument, der ihn nicht kennt, behandelt ihn als `unknown`.
+
+**Seit 0.6** (RFC-0069) trägt der Block `host` den **Neustart-Plan**
+(`reboot_plan`: Zeitpunkt in UTC und in der Uhr des Knotens,
+Dringlichkeit `care`/`critical`, Quelle `kernel`/`manual`, ob Schutze
+ihn halten oder überstimmt wurden, Zustand geplant/startet/überfällig —
+nie die Begründung, die bleibt im Mandanten-Log) und die **Schutze**
+(`protections`: Anzahl und spätestes Ende, keine Instanznamen). Drei
+weitere `attention`-Arten: `reboot_planned` (ein Knoten geht weg —
+Information), `reboot_deferred` (ein Pflege-Plan über sieben Tage
+gehalten), `reboot_overdue` (Termin verstrichen ohne Neustart).
 
 **Seit 0.5** trägt das Dokument den Block **`host`** — den
 **Pflegestand** der Maschine unter der Plattform (festgelegt in
