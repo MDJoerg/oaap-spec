@@ -1,19 +1,23 @@
 # oaap.ai.mcp-gateway — Tool Servers Behind One Keyed Endpoint per View
 
 - **ID:** `oaap.ai.mcp-gateway`
-- **Version:** 0.2 (RFC-0065 stages 1 and 2: views that bundle tools,
+- **Version:** 0.3 (RFC-0065 stage 3: sign-in of a person at the
+  tenant's identity provider, access profiles, procedure X token
+  exchange; one `401` for every failure; RFC-0065 D14–D16). 0.2 of
+  2026-11-02 (stages 1 and 2: views that bundle tools,
   resources, resource templates and prompts of several servers under
   their own names, with fixed arguments and bounds; server-to-client
   requests configurable per view; technical access, keys, catalog with
   default deny and pinned descriptions, effect classes, protection
   limits, usage and report; §14 A1–A4; deliberate answer to MCP
-  `2026-07-28` clients). 0.1 of 2026-11-02 was stage 1 alone.
+  `2026-07-28` clients); 0.1 of 2026-11-02 was stage 1 alone.
 - **Maturity:** draft
 - **Based on:** RFC-0065 (the MCP gateway), RFC-0064 and
   `oaap.ai.gateway` 0.4 (keys, context, volume, report, vault — shared
   module), RFC-0033 and `oaap.net.destinations` (reaching outward),
   RFC-0068 (closed egress), RFC-0002 (default deny), RFC-0010 (public
-  route brake), RFC-0019 (token hygiene)
+  route brake), RFC-0019 (token hygiene); RFC 9728, RFC 8707, RFC 8693,
+  the MCP authorization specification 2025-11-25
 - **Implemented by:** `oaap-apps/apps/mcp-gateway`
 
 ## Purpose
@@ -26,25 +30,59 @@ metered with a copy of the key's context. The client sees one MCP
 server per view and never learns which server stands behind it, or
 where.
 
-Version 0.2 covers **views across several servers** (bundles) with
-tools, resources and prompts, and **technical access** (procedure T).
-Sign-in of a person and carrying that person through to the backend
-follow in later versions (RFC-0065 §11).
+Version 0.3 covers **views across several servers** (bundles) with
+tools, resources and prompts; **two ways in** — a key, or a person
+signed in at the tenant's identity provider and billed through an
+access profile; and two procedures toward servers — **technical**
+access (T) and **token exchange** (X), where the server sees the person.
+Carrying the person into SAP by a certificate (procedure P) follows
+(RFC-0065 §11, RFC-0066).
 
 ## 1. Routes
 
 | Path | Role in the manifest | Who |
 |---|---|---|
-| `/mcp/<view>` | `public` | MCP clients, with a gateway key (§2) |
+| `/mcp/<view>` | `public` | MCP clients, with a gateway key or a sign-in token (§2) |
+| `/.well-known/oauth-protected-resource…` | `public` | MCP clients looking for where to sign in (§2.2) |
 | `/report/v1/…` | `admin` | a billing system with a platform API key (RFC-0027) |
 | `/` and everything else | `admin` | the operator |
 | `/healthz` | — | the platform |
 
 `/mcp/<view>` is `public`: the platform authenticates nothing there,
 strips client-sent identity headers and brakes per client address
-(RFC-0010). The gateway authorizes every request itself.
+(RFC-0010); the `Authorization` header passes unchanged. The gateway
+authorizes every request itself.
 
-## 2. The key is the identity
+## 2. Two ways in: a key, or a person signed in
+
+Every request to `/mcp/<view>` carries `Authorization: Bearer <value>`.
+A value starting with `mcp-oaap-` is a **key** (§2.1); a value of three
+dot-separated parts is a **sign-in token** (§2.2). A view states which
+ways it accepts (§5): `key`, `signin` or both.
+
+- **One answer for every failure.** No credential, an unknown or revoked
+  key, a token that fails any check of §2.2, and — for a key — a view
+  that does not exist, does not accept keys, is not named by the key or
+  is lit worse than the key allows (§3.3): all get
+  **`401`** with the same body and the header
+
+  `WWW-Authenticate: Bearer resource_metadata="<origin>/.well-known/oauth-protected-resource/mcp/<view>"`
+
+  which depends on nothing but the requested path. Whoever probes learns
+  nothing — not whether a key exists, not whether a view exists. (0.1
+  and 0.2 answered `403`; the MCP authorization specification requires
+  `401` for a missing or invalid credential, so all failures moved.)
+- **`403`** is given only to a person with a **valid** token who may not
+  use this view: no access profile for the view matches (§2.3), or the
+  view does not exist, does not accept sign-in or is lit worse than the
+  profile allows. Sign-in proves who someone is, not that they may
+  consume. A `401` here would send the client into a new sign-in that
+  changes nothing; and the person learns only about views of their own
+  tenant's gateway.
+- Five failed attempts from one address within five minutes are
+  answered with `429` for the rest of the window.
+
+### 2.1 Keys
 
 - A key is shown **once**, stored only as SHA-256, revocable; its value
   starts with `mcp-oaap-`. Taken over from `oaap.ai.gateway` §2
@@ -56,13 +94,77 @@ strips client-sent identity headers and brakes per client address
   tool server reaches into systems; nothing is reachable by default.
 - A key carries the **highest effect class** it may use (§5.2, default
   `read`), the **worst light** it may use (§3.3, default `yellow`), a
-  **rate** (requests per minute) and a **budget** in tool calls (0 = no
+  **rate** (requests per minute) and a **budget** in calls (0 = no
   limit).
-- No key, an unknown key and a revoked key get **the identical answer**:
-  `403` with the same body. A key that is valid but not entitled to the
-  view gets the same `403`. Whoever probes learns nothing.
-- Five failed attempts from one address within five minutes are
-  answered with `429` for the rest of the window.
+
+### 2.2 Sign-in (RFC-0065 §5.1, §15)
+
+The gateway is an OAuth **protected resource** (RFC 9728) of **one**
+issuer — the tenant's identity provider — named in its configuration
+(`MCPGW_ISSUER`, RFC-0065 D14). Without an issuer, sign-in is off and
+the well-known path answers `404` for every view alike.
+
+**Resource metadata.** `GET /.well-known/oauth-protected-resource/mcp/<view>`
+(and `/.well-known/oauth-protected-resource` for the gateway as a whole)
+returns `{"resource": "<origin>/mcp/<view>", "authorization_servers":
+[issuer], "bearer_methods_supported": ["header"], "resource_name":
+"<view>"}` — for **any** view name, existing or not. `<origin>` is the
+scheme and host the request came in with (`X-Forwarded-Proto`, `Host`).
+
+**The token check**, in this order; any failure is the `401` of §2:
+
+1. a JWT with header `alg` = `RS256` and a `kid`; no other algorithm,
+   in particular never `none` and never a symmetric one;
+2. the signature verifies against the issuer's key with that `kid`; keys
+   shorter than 2048 bits are not accepted;
+3. `iss` equals `MCPGW_ISSUER` exactly;
+4. `aud` (a string or a list) contains `MCPGW_AUDIENCE` (RFC 8707: the
+   token was issued for this gateway — a valid token for anything else
+   is refused);
+5. `exp` is in the future and `nbf`/`iat` not in the future, each with
+   30 seconds of leeway;
+6. `sub` is present.
+
+**The issuer's keys.** The gateway reads the issuer's OpenID discovery
+document (`<issuer>/.well-known/openid-configuration`) and from it the
+`jwks_uri` — which it uses **only if it has the same scheme, host and
+port as the issuer**; otherwise sign-in fails and the operator page
+says why (A4: never connect to an address only an answer names). Keys
+are cached; an unknown `kid` causes at most one new fetch per minute.
+Reaching the issuer is subject to the instance's egress (RFC-0068) like
+any server.
+
+**No token passthrough.** A sign-in token never leaves the gateway
+toward a server (RFC-0065 §6); procedure X (§3.5) exchanges it for
+another.
+
+**The client registration** is not the gateway's: a client such as
+Claude Code signs in through a **pre-registered public client** in the
+tenant's realm whose tokens carry `MCPGW_AUDIENCE` in `aud` (RFC-0065
+D15). The operator page names the client id to pass when adding the
+server.
+
+### 2.3 Access profiles (RFC-0065 §5.2)
+
+A signed-in person consumes through an **access profile**: the same
+context, effect class, light, rate and budget as a key, and the same
+list of views — but instead of a secret it names **groups** of the
+identity provider (the token's `groups` claim, full paths such as
+`/sap-dev`), or `*` for every person of the issuer.
+
+- The profile that applies is chosen **per view**, among the profiles
+  that name the view: the first, by name, whose groups intersect the
+  token's groups; only if none does, the first with `*`. A person
+  matching no profile for the view gets `403`. (Chosen without regard to
+  the view, a person with two profiles for two views could never reach
+  the second — found in the conformance test.)
+- The **rate** of a profile applies **per person**; its **budget** is
+  shared by all persons of the profile.
+- Profiles are revocable and audited like keys; changing a profile's
+  groups is audited with old and new value.
+- **The person** is identified by the token's `sub` together with the
+  issuer (RFC-0065 D16) — never by name or e-mail. That pair is what
+  the usage row records (§9).
 
 ## 3. Servers
 
@@ -73,7 +175,7 @@ supported (RFC-0065 D2).
 |---|---|
 | name | `[a-z0-9-]`, unique; shown to the operator, never to a client |
 | address | an `http(s)://` URL, or `destination:<need>` (§3.1) |
-| access | procedure **T**: `none`, `bearer`, `basic` or `header:<Name>`; the credential is stored only encrypted (§3.4) |
+| access | procedure **T**: `none`, `bearer`, `basic` or `header:<Name>`; or procedure **X**: `exchange` (§3.5); a credential is stored only encrypted (§3.4) |
 | light | `green`, `yellow`, `red` — what the server does with data sent to it (`oaap.ai.gateway` §7) |
 | limits | §8 |
 
@@ -141,6 +243,39 @@ replace or remove; never shown again, never in an answer, an error, a
 log line or a usage record. A server credential is sent only to that
 server's address.
 
+### 3.5 Procedure X: token exchange
+
+A server with access `exchange` is called **as the signed-in person**,
+with a token the identity provider issued for that server alone
+(RFC 8693; Keycloak's standard token exchange):
+
+| Field | Meaning |
+|---|---|
+| token endpoint | the issuer's token endpoint, as an `https://` URL or `destination:<need>` — the same rules as a server address (§3.1, A4) |
+| client id | the gateway's **confidential** client in the realm; must equal `MCPGW_AUDIENCE`, because the exchange is only granted to a client the person's token is addressed to |
+| client secret | stored only encrypted (§3.4) |
+| audience | the client id of the backend the new token is for |
+
+For a call, the gateway sends `grant_type=urn:ietf:params:oauth:grant-type:token-exchange`
+with the person's token as `subject_token`, `requested_token_type`
+access token and the `audience`, authenticated as its client; the
+answer's `access_token` goes to the server as `Authorization: Bearer`.
+An exchanged token is kept per person and server until 30 seconds
+before it expires, never written to storage, never shown.
+
+- **No fallback** (RFC-0065 D8): when the exchange fails, or the call
+  came with a key (no person), the call is refused with JSON-RPC error
+  `-32003` and a sentence naming the view; the server is never called
+  with any other credential.
+- A view holding an entry of a server with access `exchange` accepts
+  **sign-in only**; saving such a combination with `key` is refused.
+- Reading the catalog of such a server needs a person too; the operator
+  reads it with a token of their own (`server read --token-stdin`), or
+  the catalog stays as last read.
+- Upstream sessions are never shared between persons (RFC-0065 §2.2):
+  a downstream session belongs to one person, and its upstream sessions
+  with it.
+
 ## 4. The catalog: default deny, pinned
 
 ### 4.1 Reading
@@ -200,9 +335,11 @@ operator confirmed it (RFC-0065 §4.2, "rug pull").
 
 ## 5. Views
 
-A view has a name (`[a-z0-9-]`, the path segment), a **highest effect
-class** (default `read`), a setting for **server-to-client requests**
-(§6.1) and a list of **entries**. An entry is one catalog entry of
+A view has a name (`[a-z0-9-]`, the path segment), the **ways in** it
+accepts (`key`, `signin` or both, §2; default `key`, and a view carried
+over from 0.2 keeps `key`), a **highest effect class** (default `read`),
+a setting for **server-to-client requests** (§6.1) and a list of
+**entries**. An entry is one catalog entry of
 **any** server, under a **name of the view**. Entries of several
 servers in one view form a **bundle** (RFC-0065 §3); the client sees
 one MCP server and never learns which server answers which call.
@@ -300,8 +437,11 @@ HTTP. The gateway is the client's MCP server.
   URI that matches **several** templates of the view is refused (the
   operator has to make them unambiguous); one that matches none is
   refused like an unknown resource.
-- **Sessions.** A downstream session belongs to the key and view that
-  opened it; presented with another key it is unknown (`404`). A
+- **Sessions.** A downstream session belongs to the key — or the
+  person (issuer and `sub`) and their profile — and the view that opened
+  it; presented with another key or by another person it is unknown
+  (`404`). A person's token may be renewed during a session; every
+  request carries a valid one. A
   request other than `initialize` **without** a session gets `400`;
   with an unknown or expired one (idle 30 minutes) it gets `404` — the
   MCP signal for the client to initialize again.
@@ -430,9 +570,11 @@ answers — with a result, `isError` or a JSON-RPC error — is working.
 ## 9. Usage
 
 One row per `tools/call`, `resources/read` and `prompts/get` that
-reaches the gateway with a valid key and session: time, key, view,
+reaches the gateway with a valid key or person and a session: time, key
+or access profile, for a person their `sub` and issuer (RFC-0065 D16),
+view,
 **kind** (`tool`, `resource`, `template`, `prompt`), **name in the
-view**, server, **name at the server**, access procedure, outcome,
+view**, server, **name at the server**, access procedure (`T` or `X`), outcome,
 duration, **bytes up** (the client's request body) and **bytes down**
 (what the client received), and the **context snapshot** of the key
 (`oaap.ai.gateway` §5).
@@ -461,9 +603,9 @@ traffic**, not as consumption.
 `GET /report/v1/usage` and the operator's charts read **one query**
 (`oaap.ai.gateway` §5.1): parameters `from`, `to` (required),
 `group_by`, filters, `format=json|csv`; dimensions `account`,
-`project`, `cost_center`, `application`, `owner`, `key`, `view`,
-`kind`, `tool` (the name in the view), `server`, `outcome`, `day`,
-`month`; metrics `calls`,
+`project`, `cost_center`, `application`, `owner`, `key` (a key or an
+access profile), `user` (the `sub`), `view`, `kind`, `tool` (the name in
+the view), `server`, `outcome`, `day`, `month`; metrics `calls`,
 `bytes_up`, `bytes_down`; `complete_until` in every answer. Volume,
 never money. `GET /report/v1/keys` lists keys with their current
 context and views, never a key value.
@@ -472,7 +614,8 @@ context and views, never a key value.
 
 **No tool argument, no tool result, no resource content and no prompt
 text** in any log, usage row, audit entry or error message — in any
-operating mode (RFC-0065 D11). The usage table has no column a payload
+operating mode (RFC-0065 D11). **No token** — neither a person's nor an
+exchanged one — and no name or e-mail of a person. The usage table has no column a payload
 would fit into. Access log lines carry method and path only.
 
 ## 11. Configuration
@@ -481,6 +624,9 @@ would fit into. Access log lines carry method and path only.
 |---|---|
 | `MCPGW_MASTER_KEY` | key to the vault for server credentials (secret, `generate: token`) |
 | `MCPGW_CATALOG_MINUTES` | catalog re-read interval, default 15, 0 = only on demand |
+| `MCPGW_ISSUER` | the tenant's issuer, exactly as in `iss` (e.g. `https://auth.<node>/realms/<tenant>`); empty = sign-in off (§2.2, RFC-0065 D14) |
+| `MCPGW_AUDIENCE` | the value a sign-in token must carry in `aud`: the client id of the gateway's confidential client (§2.2, §3.5) |
+| `MCPGW_SIGNIN_CLIENT` | the id of the public client persons sign in with — only shown on the operator page and in the line for Claude Code (RFC-0065 D15) |
 
 Servers, views and keys are maintained on the operator page and through
 the command line inside the container (`app.py key|server|view …`).
@@ -488,7 +634,7 @@ the command line inside the container (`app.py key|server|view …`).
 ## 12. Conformance tests (described)
 
 1. A key without views reaches no view; no key, unknown, revoked and
-   unentitled keys get byte-identical `403` answers.
+   unentitled keys get byte-identical `401` answers (§2).
 2. A tool the server offers but no view contains is neither listed nor
    callable.
 3. After the server changes a listed tool's description, the next
@@ -530,7 +676,7 @@ the command line inside the container (`app.py key|server|view …`).
     the server's identifier; sampling is refused by default even if the
     client declared it.
 17. A view is never greener than its worst server: a key whose light
-    allows only the better server gets the same `403` as everyone else.
+    allows only the better server gets the same `401` as everyone else.
 18. A server that no longer declares a capability leaves its entries of
     that kind `missing`.
 19. `server/discover` and a request with a version in `_meta` without a
@@ -540,6 +686,26 @@ the command line inside the container (`app.py key|server|view …`).
     server-to-client requests.
 21. A read through a template records the template, never the filled-in
     URI; a refused unapproved URI is not recorded.
+22. No credential, unknown and revoked keys, tokens that fail any check
+    (wrong signature, `alg` other than RS256, wrong issuer, wrong
+    audience, expired), a view that does not exist or does not accept the
+    way in: byte-identical `401` with the same `WWW-Authenticate`.
+23. The resource metadata names the configured issuer for every view
+    name alike; without an issuer it is `404` for every view alike.
+24. A `jwks_uri` on another origin than the issuer is not fetched.
+25. A valid token whose groups match no profile for the view gets
+    `403`; one that matches is billed to that profile with its `sub`; a
+    person with two profiles for two views reaches both; a view limited
+    to `key` answers a valid token with `403`, a view limited to
+    `signin` answers a valid key with the `401` of §2; a person's
+    session is unknown to another person of the same profile, and the
+    profile's rate counts per person.
+26. A server with procedure X receives a token whose audience is the
+    configured backend, never the person's token and never a technical
+    credential; when the exchange fails, or the call came with a key,
+    the server is not called.
+27. The usage row of a signed-in call carries profile, `sub` and issuer;
+    no row, log line or page contains a token.
 
 ## 13. Dependencies
 
@@ -547,7 +713,7 @@ the command line inside the container (`app.py key|server|view …`).
 (manifest, storage, configuration), `oaap.net.destinations` (§3.1),
 `oaap.ai.gateway` (shared books), RFC-0068 (egress).
 
-## 14. Not in 0.2
+## 14. Not in 0.3
 
 - **MCP `2026-07-28` itself** (stateless, without `initialize` and
   sessions, server-to-client requests as multi round-trip results,
@@ -558,9 +724,13 @@ the command line inside the container (`app.py key|server|view …`).
   client: they need a server-initiated stream (`GET`), which 0.2 does
   not open; in the `2026-07-28` era they are replaced altogether.
 - `completion/complete` and `logging/setLevel`.
-- Sign-in of a person, access profiles, procedure X (0.3); procedure P
-  (0.4, RFC-0066); P-saml and Entra (0.5); `pattern` and `format`
-  enforcement in input schemas.
+- Procedure P (0.4, RFC-0066); P-saml and Entra (0.5); `pattern` and
+  `format` enforcement in input schemas.
+- Signature algorithms other than RS256; several issuers per gateway.
+- Creating the clients in the realm: by hand in 0.3, a job of the IdP
+  connector later (RFC-0065 D15).
+- Scopes: the gateway names none and checks none; the access profile
+  decides.
 
 ## Deutsche Zusammenfassung
 
@@ -663,3 +833,32 @@ Inhalte, Prompt-Texte und die Antworten von Menschen auf Rückfragen.
   Strom vom Server zum Client
 - Anmeldung eines Menschen (0.3) und der Benutzer bis ins SAP-System
   (0.4)
+
+**Neu in 0.3 (RFC-0065 Stufe 3, deine Entscheidungen D14–D16):**
+
+- **Zwei Wege hinein:** ein Schlüssel oder ein angemeldeter Mensch.
+- **Anmeldung:** Der Mensch meldet sich am Keycloak des Mandanten an. Den
+  Issuer trägt der Betreiber in die Konfiguration ein (D14). Claude Code
+  nimmt dafür einen fest angelegten öffentlichen Client, dessen ID es
+  mit `--client-id` bekommt (D15).
+- **Tokenprüfung:** Das Gateway prüft das Token selbst: RS256, Signatur,
+  Issuer, Audience, Ablauf. Die Schlüssel holt es nur von der Adresse
+  des Issuers.
+- **Zugangsprofile:** Wer zahlt, entscheidet ein Zugangsprofil, das über
+  die Keycloak-Gruppen zugeordnet wird. Es trägt denselben Kontext wie
+  ein Schlüssel. Die Rate gilt je Mensch, das Budget für das ganze
+  Profil.
+- **Messzeile:** Sie trägt den Menschen als `sub` mit Issuer, nie mit
+  Namen oder E-Mail (D16).
+- **Einheitliche 401:** Jede Ablehnung ist dieselbe `401`, auch für
+  Schlüssel. Nur wer gültig angemeldet ist, die Sicht aber nicht
+  benutzen darf, bekommt `403`. Eine 401 schickte den Client sonst in
+  eine neue Anmeldung, die nichts ändert.
+- **Profilwahl je Sicht:** Das Profil wird unter denen gewählt, die die
+  Sicht nennen. Sonst käme jemand mit zwei Profilen für zwei Sichten nie
+  in die zweite; das hat der Test gefunden.
+- **Verfahren X:** Das Gateway tauscht das Token des Menschen bei
+  Keycloak gegen eines nur für das Backend. Das Token des Menschen
+  selbst gibt es nie weiter. Klappt der Tausch nicht, wird abgelehnt,
+  nie auf den technischen Zugang ausgewichen. Eine Sicht mit so einem
+  Server nimmt nur Anmeldungen an.

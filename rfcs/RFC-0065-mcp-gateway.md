@@ -32,7 +32,8 @@
   resources, resource templates and prompts, server-to-client requests
   per view; the answer to MCP `2026-07-28` clients is now deliberate
   (that era is stateless and needs a redesign, not an addition). Not
-  rolled out. **Third-party measurement of stage 2 the same day**
+  rolled out. Stage 3 decisions D14–D16 of 2026-11-02 in §15.
+  **Third-party measurement of stage 2 the same day**
   (Jörg's approval): two official reference servers bundled in one
   view, official Python SDK 2.3.0 through the platform's route —
   collisions refused, fixed argument and bounds, resources, template,
@@ -626,6 +627,46 @@ token per tenant, verifiable by the server against a published key —
 not a shared secret. Exposing REST/OData services as MCP tools
 automatically is an idea for its own RFC (capability ideas, I-39).
 
+## 15. Amendment of 2026-11-02: stage 3 on a platform that hides the IdP from apps
+
+Before stage 3 was specified, a look at the platform showed three
+things this RFC took for granted and the platform deliberately does not
+provide (RFC-0041 §4: "no login built by an app"; apps only receive
+`X-OAAP-*` headers):
+
+1. An app is told **nothing** about its tenant's identity provider — no
+   issuer, no keys, no client.
+2. Keycloak realms carry **one confidential client per node** (the
+   platform's own); dynamic client registration is off. A client such
+   as Claude Code has no client to sign in with.
+3. The RFC-0040 user UUID is **not** in a Keycloak token; Keycloak's
+   own `sub` is. No app can translate one into the other.
+
+**Decided by Jörg (2026-11-02, by form):**
+
+| # | Decision |
+|---|---|
+| **D14** | The gateway learns its issuer from **instance configuration** set by the operator (`MCPGW_ISSUER`, with `MCPGW_AUDIENCE`), as RFC-0048 does for its Keycloak. No platform change; the platform keeps hiding the IdP from every other app. |
+| **D15** | Clients sign in through a **pre-registered public client** per gateway instance in the tenant's realm (audience mapper onto the gateway, redirect only to `localhost`). The person passes its client id once when adding the server (Claude Code: `--client-id`, `--callback-port`). Created by hand for the measurement; a job of the IdP connector later. No dynamic client registration. |
+| **D16** | The usage row records the person as **Keycloak's `sub` together with the issuer**, which survives realm export and import (RFC-0041 M1) — not the RFC-0040 UUID (§5.2 changes accordingly). Never a name, never an e-mail. |
+
+**Consequences carried into `oaap.ai.mcp-gateway` 0.3** (technical, not
+decisions of their own):
+
+- **One answer for every failure, now `401`.** The MCP authorization
+  specification requires `401` with `WWW-Authenticate` pointing at the
+  resource metadata for a missing, invalid or expired credential. The
+  rule of 0.1 — whoever probes learns nothing — is kept by answering
+  **every** failure that way, keys included, byte-identical. A signed-in
+  person with a valid token but no access profile gets `403` (they
+  already know their token is valid).
+- **Token check with the standard library only** (RS256, keys of at
+  least 2048 bits), keys fetched from the issuer's own origin — never
+  from an address only an answer names (A4).
+- **Procedure X** needs a second, confidential client of the gateway
+  (Keycloak's standard token exchange requires the requesting client in
+  the token's audience); `MCPGW_AUDIENCE` is that client's id.
+
 ## Deutsche Zusammenfassung
 
 **Was gebaut werden soll:** Ein MCP-Gateway als eigene OAAP-App, nach
@@ -751,6 +792,28 @@ REST/OData automatisch als MCP-Tools als eigene Idee I-39.
   Sitzungen. Das Gateway antwortet einem Client dieser Version jetzt
   bewusst so, dass er zurückfällt. Die neue Version selbst zu
   unterstützen ist ein Umbau und eine eigene Stufe.
+
+**Nachtrag 02.11. (Stufe 3, deine Entscheidungen, §15):** Ein Blick
+auf die Plattform hat gezeigt, dass sie Apps den Anmeldedienst bewusst
+verbirgt. Eine App kennt keinen Issuer und keine Schlüssel, im Realm
+gibt es nur den Client der Plattform, und die UUID aus RFC-0040 steht
+nicht im Token. Entschieden hast du:
+
+- **D14:** Den Issuer trägt der Betreiber in die Konfiguration der
+  Instanz ein. Die Plattform bleibt dafür unverändert.
+- **D15:** Je Gateway gibt es einen fest angelegten öffentlichen Client.
+  Claude Code bekommt dessen ID mit `--client-id`.
+- **D16:** In der Messzeile steht der Mensch als Keycloak-`sub` mit dem
+  Issuer, nie mit Namen oder E-Mail.
+
+Dazu kommen technische Folgen:
+
+- **Einheitliche 401:** Jede Ablehnung ist künftig eine gleichlautende
+  `401`, auch für Schlüssel. Das verlangt MCP für die Anmeldung, und
+  wer probiert, lernt trotzdem nichts.
+- **Tokenprüfung** mit der Standardbibliothek.
+- **Verfahren X** braucht einen zweiten, vertraulichen Client des
+  Gateways.
 
 **Offen (§13):** Rückfragen vom Server an den Client (mein Vorschlag:
 Rückfragen an den Menschen erlauben, Sampling vorerst sperren);
