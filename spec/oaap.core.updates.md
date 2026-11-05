@@ -1,7 +1,7 @@
 # oaap.core.updates — Platform Updates
 
 - **ID:** `oaap.core.updates`
-- **Version:** 0.4
+- **Version:** 0.5
 - **Maturity:** draft — accepted by Jörg 2026-08-06 (CLI trigger
   implemented and validated on real hardware); 0.1.1 (2026-08-07)
   updates the reserved portal-trigger role to `server_admin` per
@@ -22,7 +22,9 @@
   the distribution to the platform's minute job; **0.4 (2026-11-05,
   RFC-0069 stage 2) adds §2.7.6**: the plan is a case in every inbox
   on the node, opened with the announcement, written on at every move,
-  closed with the proof
+  closed with the proof; **0.5 (2026-11-05, RFC-0069 stage 3) adds
+  §2.7.7**: the door an instance reads — when and how urgent, never
+  which kernel or why
 - **Based on:** RFC-0001 (capability model); program decision 2026-08-03
   ("one update engine per node, three triggers"); git-based delivery;
   RFC-0012 §4 (shipped sources survive a move)
@@ -419,6 +421,30 @@ and closes the case it opened — across the reboot. An inbox that does
 not answer never holds the plan: the failure is logged, and the case
 is opened at the plan's next event.
 
+#### 2.7.7 The door an instance reads (0.5, RFC-0069 stage 3)
+
+An app on the node may need the hour, not the reason: a desk saves its
+session before it, a long job does not start into it. So the node
+answers one door **inside the node only**: `/platform/care.json` on a
+gateway listener that is never published on the host
+(`oaap.core.gateway` 0.2.20), reachable from every container network
+the gateway joins and from nowhere else. Every instance is told the
+address as `OAAP_CARE_URL` (`oaap.apps.runtime` 2.28) — an address, not
+a credential; a rehearsal gets it too, its sessions end with the same
+reboot.
+
+The answer is written by the minute job with every evaluation of the
+plan and carries exactly: `reboot_at` (UTC) and `at_local`, `urgency`,
+`held` (a protection holds the plan), `state` (`planned`, `overdue`,
+`rebooting`) and `measured` — all null and `held: false` without a
+plan. It MUST NOT carry a kernel version, a reason, an instance name or
+a protection's words: an app sees when, not why. Until the node's first
+measurement after the update the door answers 404, which an app MUST
+read as "no plan". The desk (`webtop` 0.1.10) is the first reader: it
+tells the person at the desktop the hour, warns 30 and 10 minutes
+before, and leaves a note on the desktop that disappears with the plan.
+What an app does with the hour is the app's.
+
 ## 3. Configuration
 
 - Recorded source: repository URL, branch/ref, working-copy path
@@ -471,6 +497,10 @@ is opened at the plan's next event.
   refuse the door to every other principal, a person's session
   included; a case MUST NOT carry a kernel version; a failing inbox
   MUST NOT delay or hold the plan.
+- The door (2.7.7): `/platform/care.json` MUST NOT be reachable from
+  outside the node — a listener the host never publishes, never a path
+  on a published site — and MUST NOT carry a kernel version, a reason,
+  an instance name or a protection's words.
 
 ## 5. Conformance tests (described)
 
@@ -553,6 +583,10 @@ is opened at the plan's next event.
 20. **The case follows the plan (2.7.6):** the case number is in the
     stored plan a minute later and after the reboot; an inbox that
     answered 503 at the announcement gets its case at the next event.
+21. **The door says when, not why (2.7.7):** from inside a container
+    `OAAP_CARE_URL` answers the plan's time, urgency, `held` and state
+    and nothing else; from the LAN the port does not answer; without a
+    plan every value is null; before the first measurement it is 404.
 
 ## 6. Dependencies
 
@@ -593,6 +627,23 @@ Secrets werden nie angefasst. Stick-Installationen (ohne Git-Kopie)
 klonen beim ersten Update das hinterlegte Repo. Rollback ist in 0.1
 dokumentiert-manuell; signierte Releases und automatische Updates
 kommen, bevor der Zeitplan-Auslöser scharf wird.
+
+## Deutsche Zusammenfassung (0.5 — die Tür, die eine Instanz liest, §2.7.7)
+
+**Wann, nicht warum.** Eine App auf dem Knoten braucht die Stunde, nicht
+den Grund: Ein Desk sichert vorher seine Sitzung, ein langer Lauf fängt
+nicht hinein an. Der Knoten beantwortet darum **eine** Tür nur von innen:
+`/platform/care.json` auf einem Gateway-Port, den der Host nie
+veröffentlicht — erreichbar aus jedem Container-Netz des Knotens, von
+sonst nirgends. Jede Instanz erfährt die Adresse als `OAAP_CARE_URL`
+(eine Adresse, kein Schlüssel; auch eine Generalprobe). Die Antwort
+schreibt der Minutenlauf: Termin (UTC und Ortszeit), Dringlichkeit,
+gehalten ja/nein, Zustand, Messzeit — ohne Plan alles leer. **Keine**
+Kernel-Version, kein Grund, kein Instanzname. Vor der ersten Messung
+nach dem Update antwortet die Tür 404, was eine App als „kein Plan“
+liest. Erster Leser ist der Desk (`webtop` 0.1.10): Meldung beim Termin,
+dringend 30 und 10 Minuten vorher, eine Datei auf dem Schreibtisch, die
+mit dem Plan verschwindet.
 
 ## Deutsche Zusammenfassung (0.4 — Vorgänge je Posteingang, §2.7.6)
 

@@ -1,7 +1,10 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.48 (**no link to an open AI gateway** from a closed instance, and the sweep
+- **Version:** 0.2.49 (**the care door**, RFC-0069 stage 3: every
+  instance is told `OAAP_CARE_URL`, where the node says when it reboots
+  and how urgent, never which kernel; new 2.28;
+  0.2.48 (**no link to an open AI gateway** from a closed instance, and the sweep
   writes the destination listener, RFC-0068 stage 3; 2.27;
   0.2.47 (**closed egress**, RFC-0068: the network of a closed instance is
   internal, one node rule, read back from Docker, fail closed; new 2.27;
@@ -1934,6 +1937,25 @@ The rule belongs to the tenant (`oaap.core.tenant` 2.12). Here is what it does t
 
 Building an image is not affected: it happens outside the instance network and holds no
 instance data.
+
+### 2.28 The care door: every instance is told when the node reboots (0.2.49, RFC-0069 stage 3)
+
+Every instance — every channel, a rehearsal too — receives one more
+platform-owned variable (2.8, never operator-editable):
+
+- `OAAP_CARE_URL`: `http://<gateway>:<care port>/platform/care.json`,
+  the node's care door (`oaap.core.updates` 2.7.7, `oaap.core.gateway`
+  0.2.20).
+
+It is an **address, not a credential**: the door needs no key, answers
+only inside the node, and says when the node reboots and how urgent —
+`reboot_at`, `at_local`, `urgency`, `held`, `state`, `measured` — never
+which kernel or why. An app that reads it MUST treat 404 and every
+error as "no plan"; a door that does not answer holds nothing. Existing
+instances learn the address in their recorded environment at the
+platform update and in their container at its next restart — an update
+is not the moment to restart every app on the node (2.22's rule). The
+first reader is the desk (`webtop` 0.1.10).
 
 ## 3. Configuration
 

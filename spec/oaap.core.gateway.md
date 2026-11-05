@@ -1,8 +1,11 @@
 # oaap.core.gateway — HTTP Gateway (outline)
 
 - **ID:** `oaap.core.gateway`
-- **Version:** 0.2.19
+- **Version:** 0.2.20
 - **Maturity:** draft (outline — full specification to follow;
+  the **care listener**, `/platform/care.json` on a port the host never
+  publishes, answering every container network the gateway joins,
+  2026-11-05 per RFC-0069 stage 3;
   `/platform/cases/node` on every `vorgaenge` site, the node's own
   door for its reboot case, 2026-11-05 per RFC-0069 stage 2;
   the gateway's listeners are plain TCP — Multipath TCP off in its
@@ -485,6 +488,16 @@ reach a destination they are bound to (`oaap.net.destinations` 2.3).
 
 The internal **health** listener (runtime 2.11) follows the same rule
 since 0.2.12: it answers callers from the platform network only.
+
+The internal **care** listener (0.2.20, `oaap.core.updates` 2.7.7,
+RFC-0069 stage 3) is the third never-published port. It serves one
+path, `/platform/care.json`, and answers **every** container network
+the gateway joins — the node's reboot plan (when, how urgent, held,
+state; never which kernel or why) is every instance's business. The
+document is a file next to the site files, written by the node's
+minute job and served without caching; 404 before the first
+measurement. `/platform/care.json` MUST NOT be served on any published
+site — the public `/platform/*` static block never carries it.
 
 **Since 0.2.13 (`oaap.net.connector` 0.1):**
 

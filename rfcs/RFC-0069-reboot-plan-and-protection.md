@@ -6,7 +6,10 @@
   0.6, `oaap.core.tenant` 1.3; measured on `oaap-test` (§10). **Stage 2 (the cases)
   built the same evening** as `oaap.core.updates` 0.4 §2.7.6, `oaap.core.gateway`
   0.2.19 (`/platform/cases/node`), `vorgaenge` 0.3.0; measured on `oaap-test` with a
-  real reboot (§11).
+  real reboot (§11). **Stage 3 (the door an instance reads) built the same night** as
+  `oaap.core.updates` 0.5 §2.7.7, `oaap.core.gateway` 0.2.20, `oaap.apps.runtime` 0.2.49
+  §2.28, `webtop` 0.1.10 (the desk's reader); measured on `oaap-test` without a desk
+  (§12); the desk on `oaap-demo` waits for Jörg's word.
 - **Date:** 2026-11-05
 - **Authors:** Claude (measurement, proposal), Jörg (requirement, decides)
 - **Depends on:** `oaap.core.updates` 0.2 §2.6 (host care — the measurement this stands
@@ -219,7 +222,7 @@ the platform on an app's behalf. It is a person's statement about a person's wor
 |---|---|---|
 | **1** | Spec (§2.7 of the updates spec, host 0.3.8, fleet 0.6, tenant 1.7 entries); the plan in the care file; the protection with reason and end (`oaap instance protect <inst> --until <date> --reason "…"` / `release`); urgency from origin and exposure; the window owned by the minute job; `reboot at` / `cancel` by hand; the three stage-1 readers extended; the tenant-place band | `oaap-test`: a hand-made plan with a real reboot of the node; a protection that holds a `care` plan and is overridden by a `critical` one (urgency forced only through the test's fake measurement, never by a command) |
 | **2** | Cases: one per plan in the operator tenant's inbox and in every tenant's inbox that has one; the closing line after the reboot — **built, §11** | `oaap-test` with an inbox instance (done, with a real reboot); `oaapx01` only on Jörg's word |
-| **3** | `/platform/care.json` inside the node, `OAAP_CARE_URL`; the desk reads it (an `oaap-apps` change to `webtop`) | `oaap-test`, then `oaap-demo` with `joerg-desk` on Jörg's word — the first real user of D2 |
+| **3** | `/platform/care.json` inside the node, `OAAP_CARE_URL`; the desk reads it (an `oaap-apps` change to `webtop`) — **built, §12** | `oaap-test` (done, the reader run inside a container against the real door), then `oaap-demo` with `joerg-desk` on Jörg's word — the first real user of D2 |
 | **4** | The broker event on `broker` nodes | `oaap-test` |
 
 Advisory matching (I-40 field 1), the first measurement of a *computed* reboot on a
@@ -329,6 +332,41 @@ has arrived. A second inbox of another tenant on the same node (the rule "one pe
 tenant, production only" is proven in the tests, not live). The 503 path live. The
 `tenant_admin`'s own door to protect in the portal is still not built. Stages 3–4
 (`/platform/care.json`, the broker event) are not built. Rolled to no other node.
+
+## 12. Stage 3 as measured (2026-11-05, `oaap-test`, reference 0.1.223 staged, `webtop` 0.1.10 unbuilt as an image)
+
+Spec first: `oaap.core.updates` 0.5 §2.7.7 (the door: when, how urgent, held, state —
+never which kernel or why), `oaap.core.gateway` 0.2.20 (the care listener, the third
+never-published port), `oaap.apps.runtime` 0.2.49 §2.28 (`OAAP_CARE_URL` for every
+instance, an address, not a credential). Then the platform: `host_care.door_facts` and
+the file `_care-door.json` next to the site files (the gateway mounts that directory
+already — no new mount, no gateway restart), the listener `_internal-care.caddy` on
+`:8097`, written by `refresh_generated_sites` and, for a node updated before 0.1.223, by
+the minute job itself; the address in every new instance's environment and, by the
+migration `migrate-care-url`, in every existing `instance.env` (a running container
+learns it at its next restart — the RFC-0043 rule). Then the app: `webtop` 0.1.10 runs
+`oaap-care-watch` as a linuxserver custom service — a plain `python3` loop that reads
+the door every minute and tells the person: a message at a new or moved time, a critical
+one 30 and 10 minutes before and at "rebooting now", a note `NEUSTART-GEPLANT.txt` on
+the desktop that disappears with the plan; 18 checks against a fake door and a fake
+`notify-send`, without a desk. Found on the way: the first port chosen, 8098, was the
+destination listener's — Caddy refused the reload ("ambiguous site definition") and the
+update said so; moved to 8097.
+
+| Step | Measured |
+|---|---|
+| Update opens the door | `migrate-care-url`: "listener written; OAAP_CARE_URL told to 28 instance(s)" — 28 of 30 `instance.env` files (the two without are data-model artefacts, no container); the running containers do not have it yet, as the rule says |
+| From inside a container | `oaap-app-vorgaenge` → `http://oaap-gateway-1:8097/platform/care.json`: `{"schema": "oaap.care-door/0.1", "reboot_at": null, "at_local": null, "urgency": null, "held": false, "state": null, "measured": …}` |
+| From the LAN | `10.10.10.96:8097` — connection refused (the port is not published); `/platform/care.json` on a published instance site (8118) and on the apex: 404, the public static block never carries it |
+| A plan by hand | `reboot at "2026-11-08 02:00"` → `reboot_at 2026-11-08T01:00:00Z`, `at_local 2026-11-08 02:00 CET`, `urgency care`, `held false`, `state planned` — no reason, no kernel |
+| A protection | `protect abfl-a` → `reboot_at 2026-11-13T01:00:00Z`, `held true`; `release` + `cancel` → every value null again |
+| **The desk's reader** | `oaap-care-watch` run once inside `oaap-app-vorgaenge` against the real door with a plan set: "Plan: 2026-11-08 02:00 CET (care)", the note written with "Wann: 2026-11-08 02:00 CET / Dringlichkeit: Pflege" |
+
+**Not measured, said plainly.** The desk itself: no `webtop` image was built tonight
+(4–6 GB, Eclipse and Chrome downloads); the reader is proven against a fake door locally
+and against the real door inside another container. The first real user of D2 — the
+desk on `oaap-demo` with a window set and `joerg-desk` protected — waits for Jörg's
+word. Stage 4 (the broker event) is not built. Rolled to no other node.
 
 ## Deutsche Zusammenfassung
 
