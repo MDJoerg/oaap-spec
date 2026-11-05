@@ -9,7 +9,10 @@
   real reboot (§11). **Stage 3 (the door an instance reads) built the same night** as
   `oaap.core.updates` 0.5 §2.7.7, `oaap.core.gateway` 0.2.20, `oaap.apps.runtime` 0.2.49
   §2.28, `webtop` 0.1.10 (the desk's reader); measured on `oaap-test` without a desk
-  (§12); the desk on `oaap-demo` waits for Jörg's word.
+  (§12); the desk on `oaap-demo` waits for Jörg's word. **Stage 4 (the broker event)
+  built the same night** as `oaap.core.updates` 0.6 §2.7.8, `oaap.events.broker` 0.2.2;
+  measured on `oaap-test` with a tenant key's subscriber and the broker stopped and
+  back (§13). All four stages are built; rolled to no other node.
 - **Date:** 2026-11-05
 - **Authors:** Claude (measurement, proposal), Jörg (requirement, decides)
 - **Depends on:** `oaap.core.updates` 0.2 §2.6 (host care — the measurement this stands
@@ -178,7 +181,7 @@ No new channel. The ways that exist, each with the part it can carry:
 | every tenant on the node | a **band on the tenant's place** (RFC-0042) for every signed-in person: "Dieser Knoten startet am … um … neu (Pflege / kritisch)"; a **case** in that tenant's own inbox when it has one; a **tenant log** entry (1.7) always | time, urgency; the reason only in the operator's words where the operator wrote one |
 | the protection's setter | the same band names their protection and whether it holds | "gehalten bis 12.11." or "überstimmt: kritisch" |
 | the instance itself | one door **inside the node only**: `/platform/care.json` on the instance's own site, answered by the gateway only to callers from the node's own networks (the shape of `OAAP_CASES_URL`, told as `OAAP_CARE_URL`) | `{"reboot_at": …, "urgency": …, "held": true/false}` — no kernel versions, no reasons: an app sees when, not why |
-| a broker node | an event on the operator tenant's tree, `oaap/<operator tenant>/node/<hostname>`, the shape of RFC-0032; only where the `broker` profile runs; the relay is the twin's and is not extended for this — the minute job publishes with the platform principal | the same five fields as the case |
+| a broker node | an event on the operator tenant's tree, `oaap/<operator tenant>/node/<hostname>`, the shape of RFC-0032; only where the `broker` profile runs; the relay is the twin's and is not extended for this — the minute job publishes with the platform principal (built as §2.7.8: the operator tenant is the one that holds an inbox, with several inboxes each of their trees; retained, the last message is the plan's last state) | the same five fields as the case: time, urgency, reason in words, held by, overridden — and the case's sentence |
 
 The desk (`webtop`) is the first reader of `/platform/care.json`: it shows the time in
 the session and can save the session before it. That is the app's part, and the
@@ -223,7 +226,7 @@ the platform on an app's behalf. It is a person's statement about a person's wor
 | **1** | Spec (§2.7 of the updates spec, host 0.3.8, fleet 0.6, tenant 1.7 entries); the plan in the care file; the protection with reason and end (`oaap instance protect <inst> --until <date> --reason "…"` / `release`); urgency from origin and exposure; the window owned by the minute job; `reboot at` / `cancel` by hand; the three stage-1 readers extended; the tenant-place band | `oaap-test`: a hand-made plan with a real reboot of the node; a protection that holds a `care` plan and is overridden by a `critical` one (urgency forced only through the test's fake measurement, never by a command) |
 | **2** | Cases: one per plan in the operator tenant's inbox and in every tenant's inbox that has one; the closing line after the reboot — **built, §11** | `oaap-test` with an inbox instance (done, with a real reboot); `oaapx01` only on Jörg's word |
 | **3** | `/platform/care.json` inside the node, `OAAP_CARE_URL`; the desk reads it (an `oaap-apps` change to `webtop`) — **built, §12** | `oaap-test` (done, the reader run inside a container against the real door), then `oaap-demo` with `joerg-desk` on Jörg's word — the first real user of D2 |
-| **4** | The broker event on `broker` nodes | `oaap-test` |
+| **4** | The broker event on `broker` nodes — **built, §13** | `oaap-test` (done: a tenant key's subscriber in the broker container, the broker stopped and back) |
 
 Advisory matching (I-40 field 1), the first measurement of a *computed* reboot on a
 real kernel (whenever the next one arrives, on `oaap-test`), and any outside channel are
@@ -366,7 +369,48 @@ update said so; moved to 8097.
 (4–6 GB, Eclipse and Chrome downloads); the reader is proven against a fake door locally
 and against the real door inside another container. The first real user of D2 — the
 desk on `oaap-demo` with a window set and `joerg-desk` protected — waits for Jörg's
-word. Stage 4 (the broker event) is not built. Rolled to no other node.
+word. Stage 4 (the broker event) followed the same night (§13). Rolled to no other node.
+
+## 13. Stage 4 as measured (2026-11-05, `oaap-test`, reference 0.1.224 staged)
+
+Spec first: `oaap.core.updates` 0.6 §2.7.8, `oaap.events.broker` 0.2.2 (§2.3 a second
+publisher, §2.4 the relay principal from the host, test 7). The event is one retained
+message per move of the plan on `oaap/<tenant>/node/<hostname>` for every tenant that
+holds an inbox: the RFC-0032 envelope (`kind`, `object_id` `urn:oaap:node:<host>`,
+`group_key` `care`, `origin` `oaap.node.care`, `recorded_at`), the five facts of the
+case (`at`/`at_local`, `urgency`, `reason` in words, `held_by`, `overridden`), the
+`state` (`done` and `cancelled` for the closing messages), a `ref` per plan without the
+kernel, and the case's sentence as `text`. The same function that decides a case entry
+decides a message (`host_care.event_messages` on top of `case_ops`), so the two cannot
+disagree. The minute job publishes from the host with `oaap.relay` and the node's
+`BROKER_RELAY_KEY` (`metrics_sender.Client`, MQTT 5, client id `oaap-node-care`), to
+the broker's address on the platform network, plain port, never leaving the node. What
+the broker did not take waits in `care-events-pending.json` beside the registry and goes
+with the next minute. 18 new checks (test_host_care 22, test_platform_feedback 10).
+
+| Step | Measured |
+|---|---|
+| The reader | a machine principal `care-sub` in tenant `default` (the inbox's tenant), a one-day key, `mosquitto_sub` inside the broker container on `oaap/<default>/node/#`; before any plan: no retained message |
+| `reboot at "2026-11-09 02:00"` | one retained message: `kind reboot.planned`, `state planned`, `at 2026-11-09T01:00:00Z`, `at_local 2026-11-09 02:00 CET`, `urgency care`, `ref manual:<announced>`, the reason in the operator's words |
+| `protect abfl-a` | the next message: `reboot.moved`, held by `abfl-a` |
+| The broker stopped, then `release abfl-a` | the move waits in `care-events-pending.json` (one message), the command says so in a sentence (after the fix below), nothing is lost |
+| `oaap broker sync`, then one minute run | the broker is started again, the pending file is gone, the retained message is the `reboot.moved` of the release |
+| `cancel` | the last message: `reboot.cancelled`, `state cancelled` — and it stays on the topic |
+| No kernel | no message carries a kernel version; the `ref` of the event is `source:announced`, unlike the case's ref |
+
+**A find while measuring.** With the broker stopped, `docker inspect` answers
+`<no value>` for the container's address, not an empty string; the first build took that
+for an address and the sender raised a configuration error the minute job did not
+expect — a traceback in the command's output, though the message was already in the
+pending file and went when the broker was back. Fixed: the address is checked as an IP
+address, and a sender's configuration error is one more reason to wait, said in a
+sentence.
+
+**Not measured, said plainly.** A subscriber outside the node (the broker's plain port
+is not published on `oaap-test`); the `done` message after a real reboot with the
+broker coming up late — the pending path is proven with the broker stopped by hand. On
+the fleet only `oaap-test` and `oaap-demo` carry the `broker` profile. Rolled to no
+other node.
 
 ## Deutsche Zusammenfassung
 
@@ -390,8 +434,10 @@ MPTCP an) überstimmt den Schutz nach 24 Stunden Vorlauf, der Server-Admin darf 
 der Plattform. Mitgeteilt wird über die Wege, die es gibt: Vorgang beim Betreiber und bei
 jedem Mandanten mit Postkasten, Band am Mandantenort für jeden Angemeldeten,
 Mandanten-Log, Flottenstatus, eine Tür `/platform/care.json` nur innerhalb des Knotens,
-aus der der Desk die Uhrzeit liest, und auf Broker-Knoten ein Ereignis. Keine Mail in
-der Plattform — das ist später eine Konnektor-App. Der Server-Admin darf außerdem einen
+aus der der Desk die Uhrzeit liest, und auf Broker-Knoten ein Ereignis (Stufe 4, gebaut
+und auf oaap-test gemessen, §13: gehaltene Nachricht je Bewegung des Plans auf
+`oaap/<mandant>/node/<knoten>`, vom Host als `oaap.relay`, Wartedatei bei fehlendem
+Broker). Keine Mail in der Plattform — das ist später eine Konnektor-App. Der Server-Admin darf außerdem einen
 Neustart **von Hand planen** (glibc-Fall), mit demselben Vorlauf und denselben Regeln —
 und so lässt sich der Mechanismus auf oaap-test messen, bevor der nächste Kernel kommt.
 

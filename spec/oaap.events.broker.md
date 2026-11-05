@@ -1,8 +1,10 @@
 # oaap.events.broker — The MQTT Broker per Node
 
 - **ID:** `oaap.events.broker`
-- **Version:** 0.2.1
-- **Maturity:** draft (0.2.1: the broker keeps its data and its place, §2.1 — measured 2026-10-22; 0.2 adds the platform principal `oaap.relay`,
+- **Version:** 0.2.2
+- **Maturity:** draft (0.2.2: a second publisher with the relay principal — the node's own
+  care event, `oaap.core.updates` 2.7.8, from the host, §2.3/§2.4 — measured 2026-11-05;
+  0.2.1: the broker keeps its data and its place, §2.1 — measured 2026-10-22; 0.2 adds the platform principal `oaap.relay`,
   §2.4, with which `oaap.data.twin` 0.3's outbox relay publishes — the
   first thing that actually arrives on the topic tree)
 - **Based on:** RFC-0032 (events, states, and the unified namespace —
@@ -117,6 +119,14 @@ each topic without a separate round trip. Published by
 `oaap.data.twin` 0.3's relay (§2.13 there), not by anything in this
 spec.
 
+**A second publisher (0.2.2):** the node's own care event,
+`oaap/<tenant-id>/node/<hostname>` (`oaap.core.updates` 2.7.8 — type
+`node`, object the hostname, no group level), published by the
+platform's minute job from the host with the relay principal of §2.4,
+retained, QoS 1, the same envelope fields plus the plan's facts. It is
+the first message on the tree that no twin row stands behind: a
+subscriber of `oaap/<tenant-id>/node/#` hears when the node will reboot.
+
 ### 2.4 Authentication and authorization (RFC-0032 D2, RFC-0027 reused)
 
 No local password file, no local ACL file — every `CONNECT` and every
@@ -158,6 +168,12 @@ that knows" posture `/verify` already uses for every HTTP route.
 - It may **publish only** — never subscribe, never read — and only to a
   literal topic of the shape of §2.2 (with or without the group level)
   whose `<tenant-id>` is a tenant this node knows.
+- Since 0.2.2 the platform's minute job on the host presents the same
+  principal for the node's care event (§2.3), from the broker's
+  container address on the platform network, with a client id of its
+  own (`oaap-node-care`) so that it never displaces the relay's
+  session. The secret stays where §3 says; the host reads it from the
+  platform's own environment file and stores it nowhere else.
 
 Identity exposes two internal routes for this
 (`/mqtt-auth/getuser`, `/mqtt-auth/aclcheck`, matching the
@@ -189,7 +205,8 @@ surface, RFC-0027).
   the migration step, whether or not the node carries `broker`, so it
   is in place the day the profile is added. Held by `identity` (which
   checks it) and `relay` (which presents it) only — not by the broker,
-  the twin, or the portal.
+  the twin, or the portal; since 0.2.2 also read by the host's minute
+  job for the care event (§2.3), from the platform's environment file.
 - Data path: under the platform data directory (MQTT persistence —
   retained messages, session state — never a tenant's own tree).
 - Raw device port: 1883. WebSocket listener: 9001 (internal only, see
@@ -253,6 +270,14 @@ surface, RFC-0027).
    may publish to `oaap/<known tenant>/<type>/<object>[/<group>]`, and
    is refused a subscription, a read, a wildcard, an unknown tenant's
    tree and anything outside `oaap/`.
+7. **The node's care event (0.2.2):** on a `broker` node with an inbox, a
+   reboot plan by hand (`oaap node care reboot at …`) puts one retained
+   message on `oaap/<inbox tenant>/node/<hostname>` that a tenant key's
+   subscriber receives, with the plan's time and urgency and without a
+   kernel version; a protection and a cancellation each put the next;
+   with the broker stopped the message waits in the pending file and
+   arrives once the broker is back, in order. On a node without the
+   profile nothing is published and no file is written.
 
 ## 6. Dependencies
 
@@ -272,7 +297,8 @@ reference platform (`oaap-test`), including the port-gating round trip
 (test 2) verified with an actual external client, not only a container
 on the platform network. Tests 1–5 passed there on 2026-09-11/12
 (CURRENT_STATE 135 and 137, the WebSocket path of test 5 with a real
-MQTT-over-WebSocket client through a logged-in session).
+MQTT-over-WebSocket client through a logged-in session). Test 7 passed
+on `oaap-test` on 2026-11-05 (RFC-0069 §13).
 
 ## Deutsche Zusammenfassung (v0.1)
 
@@ -328,6 +354,18 @@ nicht mit leerem Passwort.
 einem Knoten mit `broker` **und** `exposed` hätte jedes `oaap update`
 Port 1883 geschlossen. Noch trägt kein Knoten beide Profile; behoben,
 bevor es einen trifft.
+
+## Deutsche Zusammenfassung (Nachtrag v0.2.2)
+
+**Ein zweiter Sender mit dem Relais-Prinzipal.** Seit RFC-0069 Stufe 4
+(`oaap.core.updates` 2.7.8) legt der Minutenlauf des Knotens — vom Host
+aus, nicht aus einem Container — das Neustart-Ereignis des Knotens auf
+`oaap/<mandant>/node/<knoten>`: gehalten, mit Termin, Dringlichkeit, Grund
+in Worten, Schutz und Zustand, ohne Kernel-Version. Er meldet sich als
+`oaap.relay` mit dem `BROKER_RELAY_KEY` des Knotens, mit eigener Client-ID
+(`oaap-node-care`), damit er das Relais des Zwillings nie verdrängt. Es ist
+die erste Nachricht auf dem Baum, hinter der keine Zwillingszeile steht.
+Prüfung 7 beschreibt die Messung.
 
 ## Deutsche Zusammenfassung (Nachtrag v0.2.1)
 

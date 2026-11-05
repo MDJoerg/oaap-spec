@@ -1,7 +1,7 @@
 # oaap.core.updates — Platform Updates
 
 - **ID:** `oaap.core.updates`
-- **Version:** 0.5
+- **Version:** 0.6
 - **Maturity:** draft — accepted by Jörg 2026-08-06 (CLI trigger
   implemented and validated on real hardware); 0.1.1 (2026-08-07)
   updates the reserved portal-trigger role to `server_admin` per
@@ -421,6 +421,35 @@ and closes the case it opened — across the reboot. An inbox that does
 not answer never holds the plan: the failure is logged, and the case
 is opened at the plan's next event.
 
+#### 2.7.8 The event on a broker node (0.6, RFC-0069 stage 4)
+
+Where the node runs a broker (`oaap.events.broker`, profile `broker`),
+every move of the plan is also one **retained message** on the operator
+tenant's tree — the tenant that holds an inbox (2.7.6); with several
+inboxes, each of their tenants' trees — at
+`oaap/<tenant-id>/node/<hostname>`: the shape of RFC-0032 (`kind`,
+`object_id` = `urn:oaap:node:<hostname>`, `group_key` = `care`, `origin`
+= `oaap.node.care`, `recorded_at`), the five facts the case carries
+(`at`/`at_local`, `urgency`, `reason` in words, `held_by`, `overridden`),
+the plan's `state` (`planned`, `overdue`, `rebooting`, `done`,
+`cancelled`), a `ref` that is the same for every message of one plan,
+and the case's own sentence as `text`. The same rule decides a message
+and a case entry, so the two never disagree; a message MUST NOT carry a
+kernel version. The last message on the topic is the plan's last state
+— `done` or `cancelled` — so a subscriber arriving later still knows;
+the topic is not cleared.
+
+The minute job publishes **from the host** with the platform's relay
+principal (`oaap.events.broker` 2.4), on the broker's container address
+and plain port that never leave the node; the twin's relay container is
+not extended for this. A message the broker did not take — it comes up
+late after the very reboot the `done` message is about — waits in a
+file beside the registry and goes with the next minute, oldest first,
+never lost to a broker that is still starting; a broker that stays away
+is said in the minute job's journal. A node without the profile
+publishes nothing and keeps no file; a broker node without an inbox has
+no operator tenant and publishes nothing, said once per event.
+
 #### 2.7.7 The door an instance reads (0.5, RFC-0069 stage 3)
 
 An app on the node may need the hour, not the reason: a desk saves its
@@ -459,6 +488,11 @@ What an app does with the hour is the app's.
 - Reboot plan and protections (2.7): the stored plan (`reboot-plan.json`)
   and the protections (`reboot-protections.json`) beside the registry;
   the care file carries the live view of both for the readers.
+- The broker event (2.7.8): messages the broker has not taken yet in
+  `care-events-pending.json` beside the registry (at most the newest
+  50), removed when empty; the relay principal's secret is the node's
+  `BROKER_RELAY_KEY` of `oaap.events.broker` 3, read from the platform's
+  own environment file, never stored again.
 
 ## 4. Security requirements
 
@@ -595,6 +629,8 @@ The portal trigger will additionally depend on `oaap.core.portal`
 and the host-task channel. Host care (2.6) is read by
 `oaap.fleet.status` 0.5 (`host` block) and states a rule of
 `oaap.core.gateway` 0.2.18 (plain TCP listeners).
+Host care 2.7.8 publishes with the relay principal of
+`oaap.events.broker` 0.2.2 (2.4) into the tenant tree of 2.2 there.
 Host care 2.7 writes entries defined by `oaap.core.tenant` 1.7
 (`reboot.*`, `instance.protected`, `instance.released`) and is read by
 `oaap.fleet.status` 0.6 (`reboot_plan`, `protections`, three attention
@@ -627,6 +663,30 @@ Secrets werden nie angefasst. Stick-Installationen (ohne Git-Kopie)
 klonen beim ersten Update das hinterlegte Repo. Rollback ist in 0.1
 dokumentiert-manuell; signierte Releases und automatische Updates
 kommen, bevor der Zeitplan-Auslöser scharf wird.
+
+## Deutsche Zusammenfassung (0.6 — das Ereignis auf einem Broker-Knoten, §2.7.8)
+
+**Wo ein Broker läuft, ist der Plan auch ein Ereignis.** Auf einem Knoten
+mit Profil `broker` geht jede Bewegung des Plans als gehaltene
+(„retained“) Nachricht auf den Baum des Betreiber-Mandanten — des
+Mandanten mit Posteingang, bei mehreren auf jeden —
+`oaap/<mandant>/node/<knoten>`: die Form von RFC-0032 (Art, Objekt,
+Gruppe `care`, Herkunft, Zeit), dieselben fünf Tatsachen wie der Vorgang
+(Termin, Dringlichkeit, Grund in Worten, gehalten durch, überstimmt), der
+Zustand, ein fester Bezug je Plan und der Satz des Vorgangs. Dieselbe Regel
+entscheidet über Nachricht und Vorgang, darum widersprechen sie sich nie;
+**keine Kernel-Version**. Die letzte Nachricht auf dem Thema ist der letzte
+Zustand (`done`, `cancelled`) — wer später abonniert, weiß Bescheid.
+
+Der Minutenlauf veröffentlicht **vom Host aus** mit dem Relais-Prinzipal
+der Plattform (`oaap.relay`, `oaap.events.broker` 2.4), auf der
+Container-Adresse des Brokers und dem Klartext-Port, der den Knoten nie
+verlässt; das Relais des Zwillings wird dafür nicht erweitert. Was der
+Broker nicht nahm, wartet in einer Datei neben der Registry und geht mit
+der nächsten Minute — der Broker kommt nach genau dem Neustart, von dem
+die letzte Nachricht handelt, erst spät hoch. Ohne Profil nichts, nicht
+einmal die Datei; ein Broker-Knoten ohne Posteingang hat keinen
+Betreiber-Mandanten und schweigt, einmal je Ereignis im Journal gesagt.
 
 ## Deutsche Zusammenfassung (0.5 — die Tür, die eine Instanz liest, §2.7.7)
 
