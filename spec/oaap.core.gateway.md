@@ -1,8 +1,10 @@
 # oaap.core.gateway — HTTP Gateway (outline)
 
 - **ID:** `oaap.core.gateway`
-- **Version:** 0.2.17
+- **Version:** 0.2.18
 - **Maturity:** draft (outline — full specification to follow;
+  the gateway's listeners are plain TCP — Multipath TCP off in its
+  namespace, 2026-11-05 after CVE-2026-98432;
   `/platform/cases/submit` on every instance site, the door of an app's
   backend, 2026-10-16 per RFC-0061 §3.2;
   `/platform/*` reserved on every instance site, with an attested
@@ -510,6 +512,31 @@ since 0.2.12: it answers callers from the platform network only.
   destination listener: 0600, its own file, regenerated with the other
   generated sites and carried forward by an update step.
 
+## Plain TCP listeners (0.2.18)
+
+The gateway's public listeners MUST NOT negotiate **Multipath TCP**
+unless an operator asks for it on purpose. Nobody decided that they
+should: the reference gateway is written in Go, and since Go 1.24 every
+listener accepts MPTCP by default — so on 2026-11-05 every OAAP gateway
+was an MPTCP listener, and an MPTCP listener was exactly the path of a
+remote kernel fault (CVE-2026-98432). A door that opened by a language
+default is the kind of surface this spec exists to name.
+
+- The switch is set **when the gateway's container starts**, in the
+  gateway's own network namespace (`net.mptcp.enabled=0`; the reference
+  sets it in the compose definition of the service). Setting it on a
+  *running* gateway does nothing: a listener keeps what it was created
+  with (measured on oaap-test, 2026-11-05 — the sysctl flipped and the
+  listener kept negotiating). A gateway that already runs therefore
+  needs one recreate, which `oaap update` does on the version that
+  introduces this.
+- The node **measures** it rather than trusting the definition:
+  `gateway_mptcp` in the care state (`oaap.core.updates` 2.6, fleet
+  document `host`), read from the gateway's namespace. A node whose
+  gateway negotiates MPTCP is told so with the recommendation.
+- Clients that offer MPTCP fall back to TCP without noticing; no
+  function of the platform depends on it.
+
 ## Dependencies
 
 `oaap.core.identity`
@@ -820,6 +847,23 @@ Plattform die Sites eines Mandanten neu, wenn dessen `vorgaenge` kommt,
 geht oder umzieht. Ein Update trägt die Blöcke außerdem in die Dateien
 nach, die schon auf dem Knoten liegen. Das ist zum dritten Mal dieselbe
 Lehre wie bei 0.1.117.
+
+## Deutsche Zusammenfassung (v0.2.18 — die Listener des Gateways sind reines TCP)
+
+Die öffentlichen Listener des Gateways dürfen **kein Multipath TCP**
+aushandeln, es sei denn, ein Betreiber will das ausdrücklich. Niemand
+hat es je entschieden: Das Referenz-Gateway ist in Go geschrieben, und
+seit Go 1.24 nimmt jeder Listener MPTCP von sich aus an — am 05.11.2026
+war damit jedes OAAP-Gateway ein MPTCP-Listener, und genau so ein
+Listener war der Weg des Kernel-Fehlers CVE-2026-98432. Der Schalter
+wird **beim Start des Gateway-Containers** in dessen Netz-Namensraum
+gesetzt (`net.mptcp.enabled=0` in der Compose-Definition); auf einem
+laufenden Gateway bewirkt er nichts, ein Listener behält, womit er
+angelegt wurde (gemessen auf oaap-test). Ein laufendes Gateway braucht
+darum einmal ein Neuanlegen — das tut `oaap update` mit der Fassung,
+die das einführt. Der Knoten **misst** es (`gateway_mptcp` im
+Pflegestand), statt der Definition zu glauben. Clients fallen unbemerkt
+auf TCP zurück; nichts an der Plattform hängt an MPTCP.
 
 ## Deutsche Zusammenfassung (v0.2.17 — die Tür für das Backend einer App, RFC-0061 §3.2)
 

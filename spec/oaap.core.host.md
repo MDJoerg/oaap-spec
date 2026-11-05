@@ -1,8 +1,10 @@
 # oaap.core.host — Platform Installer & Node Baseline
 
 - **ID:** `oaap.core.host`
-- **Version:** 0.3.6
-- **Maturity:** draft (0.2.1 adds the `oaap user` rescue commands, 2.3;
+- **Version:** 0.3.7
+- **Maturity:** draft (0.3.7: `oaap status` states the node's care
+  state and `oaap node care` sets it, 2.3, per `oaap.core.updates` 2.6;
+  0.2.1 adds the `oaap user` rescue commands, 2.3;
   0.3.0 adds **node profiles** — what a node is for — in 2.5, with the
   wizard question in 2.2 and `oaap node` in 2.3; 0.3.1 adds **wireless
   resilience** to the readiness step in 2.2, after a headless node lost
@@ -159,10 +161,20 @@ Every node provides a local command-line entry point (reference name:
 
 - `oaap status` — one-screen health summary of **this node**: core
   services up/down, disk space, platform version, the node's profiles
-  (2.5), and (on workers, later) connection state to the controller.
-  Intended for technicians and service partners; end users consume
-  health through the portal, which is responsible for whole-landscape
-  health (RFC-0003).
+  (2.5), since 0.3.7 the node's **care state** (`oaap.core.updates`
+  2.6: reboot required, automatic updates, gateway listeners — each
+  line with its recommendation), and (on workers, later) connection
+  state to the controller. Intended for technicians and service
+  partners; end users consume health through the portal, which is
+  responsible for whole-landscape health (RFC-0003).
+- `oaap node care` / `oaap node care auto-updates on` /
+  `oaap node care reboot-window <HH:MM|off>` (0.3.7, `oaap.core.updates`
+  2.6) — show the care state, measured afresh; switch the
+  distribution's automatic security updates on, the platform writing
+  the switch itself; set or clear the hour at which the node reboots
+  itself after a kernel update. `care` alone is a display and MAY run
+  unprivileged (it then shows the last measurement); the two settings
+  MUST require local administrator privileges.
 - `oaap node show` / `oaap node add-profile <p>` /
   `oaap node remove-profile <p>` (RFC-0011) — read and change what this
   node is for (2.5). `show` is a pure display and MAY run unprivileged;
@@ -560,6 +572,17 @@ und die Verbindung sonst zurückholt.
 Warum das überhaupt Plattformsache ist: Unsere Knoten sind dem Zielbild
 nach **kopflose Geräte** — Werkstattrechner, IoT-Gateway am Standort.
 Dort steht niemand, der ein Passwort nachreicht.
+
+## Deutsche Zusammenfassung (2.3, v0.3.7 — der Pflegestand in `oaap status`)
+
+`oaap status` zeigt seit 0.3.7 den **Pflegestand** des Knotens
+(`oaap.core.updates` 2.6): Neustart nötig (laufender gegen installierter
+Kernel), automatische Updates (Programm, Schalter, Zeitgeber), die
+Gateway-Listener — jede Zeile mit ihrer Empfehlung. Dazu `oaap node
+care` (Anzeige, frisch gemessen), `oaap node care auto-updates on` und
+`oaap node care reboot-window 04:15 | off`. Die Anzeige darf ohne
+`sudo` laufen und zeigt dann die letzte Messung; die beiden Einstellungen
+brauchen Administratorrechte.
 
 ## Deutsche Zusammenfassung (2.5, v0.3.6 — das Profil `gateway-only`)
 

@@ -1,9 +1,11 @@
 # oaap.fleet.status — Read-Only Fleet Status Document
 
 - **ID:** `oaap.fleet.status`
-- **Version:** 0.4 (an instance row's `state` may be `standby` —
-  RFC-0059; 0.3 added `auto_address` and `auto_state` to instance rows,
-  implemented by the reference 0.1.46)
+- **Version:** 0.5 (the `host` block — the care state of the machine
+  under the platform, `oaap.core.updates` 2.6 — and three attention
+  kinds for it, 2026-11-05 after CVE-2026-98432; 0.4: an instance row's
+  `state` may be `standby` — RFC-0059; 0.3 added `auto_address` and
+  `auto_state` to instance rows, implemented by the reference 0.1.46)
 - **Maturity:** draft
 - **Based on:** RFC-0021; RFC-0008 (`server_admin`), RFC-0010
   (throttling precedent), RFC-0019 (token hygiene precedent)
@@ -45,11 +47,22 @@ minutes → 1 attempt/minute), in a throttle namespace of their own.
 
 ```json
 {
-  "schema": "oaap.fleet.status/0.4",
+  "schema": "oaap.fleet.status/0.5",
   "node": "oaap.joomp.de",
   "platform_version": "0.1.46",
   "profiles": [],
   "time": "2026-08-23T10:15:00Z",
+  "host": {
+    "measured": "2026-11-05T10:12:00Z",
+    "os": "Debian GNU/Linux 13 (trixie)",
+    "kernel_running": "6.12.111+deb13.1-amd64",
+    "kernel_installed": "6.12.115+deb13.1-amd64",
+    "reboot_required": true,
+    "auto_updates": "ok",
+    "auto_updates_last_run": "2026-11-05T06:42:00Z",
+    "reboot_window": "off",
+    "gateway_mptcp": "off"
+  },
   "core": [
     {"name": "identity", "state": "ok"},
     {"name": "gateway", "state": "ok"},
@@ -71,7 +84,9 @@ minutes → 1 attempt/minute), in a throttle namespace of their own.
   "public_ip": "203.0.113.7",
   "attention": [
     {"kind": "dns_drift", "detail": "name.example: points elsewhere"},
-    {"kind": "confirmation_pending", "instance": "bdt-hub-test"}
+    {"kind": "confirmation_pending", "instance": "bdt-hub-test"},
+    {"kind": "reboot_required",
+     "detail": "running 6.12.111+deb13.1-amd64, installed 6.12.115+deb13.1-amd64"}
   ]
 }
 ```
@@ -99,7 +114,9 @@ Rules:
    value it does not know and must treat it as `unknown`.
 4. **`attention` is the machine-readable "needs a human".** Defined
    kinds today: `core_service_down`, `dns_drift`, `dns_unresolved`,
-   `confirmation_pending`, `instance_unhealthy`. The list is open —
+   `confirmation_pending`, `instance_unhealthy`, and since 0.5 the
+   three of the `host` block (rule 8): `reboot_required`,
+   `auto_updates_off`, `gateway_mptcp`. The list is open —
    consumers MUST tolerate unknown kinds. Everything in `attention`
    is derived from facts already elsewhere in the document or on the
    node; it adds urgency, not information channels.
@@ -148,6 +165,50 @@ Rules:
    (RFC-0015) and stay where they are. `auto_state` is an **inside**
    statement, and the spec says so plainly so that no consumer renders
    it as "reachable from the internet".
+
+8. **`host`** (0.5) is the **care state** of the machine under the
+   platform — the one block about the operating system, defined by
+   `oaap.core.updates` 2.6 and only summarised here. It exists because
+   a fleet watcher is exactly who has to see "a fix is installed and
+   this node has not been rebooted for ten weeks" (oaapx01, 2026-11-05,
+   CVE-2026-98432): the platform had the fact and nobody had the view.
+
+   The block is the node's **own latest measurement** with its time
+   (`measured`), taken on the machine — a portal in a container cannot
+   read the package database — and it is **omitted entirely** when the
+   node has not measured yet (an older platform, or a node that has
+   just been installed). Fields:
+
+   - `os` — the distribution's own name for itself.
+   - `kernel_running`, `kernel_installed` — the running kernel, and
+     the newest installed kernel package **of the same flavour** (the
+     suffix after the version; a node may hold several flavours).
+   - `reboot_required` — `true` when the two differ. **By comparison,
+     never by the distribution's marker file**: the marker is written
+     by a hook that only exists on a node with the auto-update program
+     installed, so its absence proves nothing (oaapx02, 2026-11-05: the
+     marker said no, the kernel said yes).
+   - `auto_updates` — rule 3 vocabulary: `ok` (the program is
+     installed, its periodic switch is set, and its timer is active —
+     all three), `warn` (installed, but not switched on or not
+     scheduled — installing the package alone does **not** set the
+     switch), `error` (not installed), `unknown`.
+   - `auto_updates_last_run` — when it last ran; omitted when never.
+   - `reboot_window` — `off`, or the local `HH:MM` at which the node
+     reboots itself after a kernel update (`oaap.core.updates` 2.6.3).
+     This is the one *setting* the block names, deliberately: a
+     watcher has to know when a node will go away.
+   - `gateway_mptcp` — `on | off | unknown`: whether the gateway's
+     public listeners negotiate Multipath TCP (`oaap.core.gateway`
+     0.2.18 says they must not). A fact about the listeners in the
+     gateway's own network namespace, not a reachability claim.
+
+   Nothing else: no package list, no file contents, no sources — rule
+   1 holds for this block as for every other. Three `attention` kinds
+   derive from it: `reboot_required` (detail: running and installed
+   kernel), `auto_updates_off` (detail: which of the three parts is
+   missing), `gateway_mptcp` (detail: the listeners that negotiate it).
+   A 0.4 consumer ignores the block and the kinds, as rule 4 requires.
 
 ## 4. Consumers
 
@@ -206,7 +267,26 @@ sein (RFC-0059): die Instanz schläft mit Absicht. Das ist weder gesund
 noch kaputt — also nie ein `attention`-Eintrag, und der automatische
 Name einer schlafenden Instanz bleibt `ok` (er antwortet mit der
 Weckseite). Kerndienste und Namen kennen den Wert nicht. Ein 0.3-
-Konsument, der ihn nicht kennt, behandelt ihn als `unknown`. Autorisiert wird mit einem **Flotten-
+Konsument, der ihn nicht kennt, behandelt ihn als `unknown`.
+
+**Seit 0.5** trägt das Dokument den Block **`host`** — den
+**Pflegestand** der Maschine unter der Plattform (festgelegt in
+`oaap.core.updates` 2.6, hier nur zusammengefasst): laufender Kernel,
+neuester installierter Kernel derselben Bauart, daraus `reboot_required`
+(durch Vergleich, nie aus der Markierungsdatei — die fehlt auf einem
+Knoten ohne das Auto-Update-Programm und beweist dann nichts),
+`auto_updates` (`ok` nur, wenn Programm, Schalter **und** Zeitgeber da
+sind — das Paket allein setzt den Schalter nicht), der letzte Lauf, das
+Neustart-Fenster (`off` oder `HH:MM`, die eine Einstellung, die ein
+Flottenbeobachter kennen muss) und `gateway_mptcp` (ob die öffentlichen
+Listener des Gateways Multipath TCP aushandeln — sollen sie nicht,
+`oaap.core.gateway` 0.2.18). Gemessen vom Knoten selbst auf der
+Maschine, mit Zeitstempel; fehlt ganz, solange der Knoten noch nicht
+gemessen hat. Drei neue `attention`-Arten leiten sich daraus ab:
+`reboot_required`, `auto_updates_off`, `gateway_mptcp`. Anlass war
+CVE-2026-98432 am 05.11.2026: Der Fix lag zwei Tage installiert auf
+einem Internet-Knoten, der zehn Wochen nicht neu gestartet worden war —
+die Plattform hatte die Tatsache und niemand die Sicht. Autorisiert wird mit einem **Flotten-
 Schlüssel**: `sudo oaap fleet key issue <label>` zeigt ihn genau
 einmal, gespeichert wird nur der SHA-256-Digest; `list` nennt nie
 Schlüsselmaterial, `revoke` wirkt sofort; Ausstellung und Entzug

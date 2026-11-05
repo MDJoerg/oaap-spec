@@ -1,7 +1,7 @@
 # oaap.core.updates — Platform Updates
 
 - **ID:** `oaap.core.updates`
-- **Version:** 0.1.3
+- **Version:** 0.2
 - **Maturity:** draft — accepted by Jörg 2026-08-06 (CLI trigger
   implemented and validated on real hardware); 0.1.1 (2026-08-07)
   updates the reserved portal-trigger role to `server_admin` per
@@ -9,7 +9,12 @@
   store sources, per RFC-0012 §4; 0.1.3 (2026-08-09) states where
   consistency steps must live and when they must run — the engine
   replaces itself while running, so a step written into it is skipped
-  by the very update that introduces it (found on oaap-demo)
+  by the very update that introduces it (found on oaap-demo); **0.2
+  (2026-11-05, Jörg's decision after CVE-2026-98432) adds §2.6 host
+  care**: the operating system under the platform is measured and the
+  node says what to do — reboot required, automatic updates, the
+  gateway's listeners — in `oaap status`, the portal and the fleet
+  document; and two node settings the platform writes itself
 - **Based on:** RFC-0001 (capability model); program decision 2026-08-03
   ("one update engine per node, three triggers"); git-based delivery;
   RFC-0012 §4 (shipped sources survive a move)
@@ -28,7 +33,10 @@ never touches app instances or user data in the process.
 Out of scope for 0.1: updating apps (that is the store/deploy path of
 `oaap.apps.runtime`), operating-system updates (recommendation:
 `unattended-upgrades`), and multi-node orchestration (future fleet
-capability; this spec is the per-node engine it will call).
+capability; this spec is the per-node engine it will call). Since 0.2
+the operating system is no longer a recommendation in a parenthesis:
+§2.6 measures its care state and lets the platform write the two
+settings that make the recommendation true.
 
 ## 2. Interface
 
@@ -105,12 +113,140 @@ triggers; 0.1 implements the CLI, the others are reserved:
 - Every run writes a transcript (`/var/log/oaap-update.log` in the
   reference) and is idempotent.
 
+### 2.6 Host care: the operating system under the platform (0.2)
+
+**Why this is here.** On 2026-11-05 a kernel fix for a remotely
+exploitable fault (CVE-2026-98432, reachable through exactly the kind
+of listener our gateway had become) was measured across the fleet. The
+fix had been *installed* on the internet node for two days and was
+*not running*, because nobody had rebooted it in ten weeks; four nodes
+had no automatic updates at all; on one node the auto-update package
+was installed by hand and did nothing, because the periodic switch the
+package is supposed to set was missing. Every one of these was a fact
+on the machine, and the platform said nothing. 0.1 wrote "recommendation:
+unattended-upgrades" and left the rest to the operator; 0.2 makes the
+node measure it and say what to do.
+
+What 2.6 is **not** (later stages of the same programme idea, each
+its own RFC): matching installed packages against security advisories,
+a notification channel, a reboot *protection* per instance and urgency
+levels that may override it (the Jörg decisions D1–D5 of 2026-11-05
+describe them). 2.6 is the measurement they will all stand on.
+
+#### 2.6.1 The measurement
+
+Every node measures its own **care state** — on the machine, with
+administrator rights, never from inside a container (the portal cannot
+read the package database, and must not be able to). The measurement
+is a small set of facts, each with the rule that produces it:
+
+- **Running kernel** and **newest installed kernel of the same
+  flavour**. The flavour is the suffix behind the version (`-amd64`,
+  `+rpt-rpi-v8`); a machine may hold several, and a newer kernel of a
+  *different* flavour is not an update for this one.
+- **Reboot required** = the two differ. **By comparison, never by the
+  distribution's marker file.** The marker (`/var/run/reboot-required`)
+  is written by a hook that ships *with the auto-update package*; on a
+  node without that package the marker never appears, and "no marker"
+  then reads as "no reboot needed" while a newer kernel waits on disk
+  (oaapx02, 2026-11-05). The marker MAY be shown as a hint; it MUST NOT
+  be the verdict.
+- **Automatic updates**, one verdict from **three** parts, each named
+  in the detail when it fails: the distribution's auto-update program
+  is installed; its periodic switch is set (the package does **not**
+  guarantee this — it writes the switch only when a pre-seeded answer
+  says so, see 2.6.3); its timer is active. `ok` needs all three,
+  `warn` is installed-but-not-running, `error` is not installed.
+  Plus the time of the last run, when there was one.
+- **Reboot window** — `off`, or the local hour the node reboots itself
+  after a kernel update (2.6.3).
+- **Gateway listeners** — whether the gateway's public listeners
+  negotiate Multipath TCP, read from the gateway's own network
+  namespace (`oaap.core.gateway` 0.2.18 says they must not; on the day
+  of the CVE they did, by a language default nobody had chosen).
+- **The time of the measurement.** A fact without its time is a
+  trap: a status read right after a reboot describes the old kernel.
+
+The node keeps the latest measurement in one file beside the registry
+(`host-care.json` in the reference). It is refreshed by the node's
+minute job when older than ten minutes, by every update run (the file
+must exist the moment a node can show it), and on demand. A fresh
+measurement right after a reboot is what closes the loop: "running
+6.12.115" is the proof the reboot was the right advice.
+
+#### 2.6.2 Three places, one measurement
+
+The same file feeds three readers; none measures on its own, so they
+can never disagree:
+
+1. **`oaap status`** prints the care state as its own block — one line
+   each for the kernel, for automatic updates, for the gateway —
+   **with the recommendation as text** on every line that is not fine:
+   "reboot required — running 6.12.111, installed 6.12.115: `sudo
+   systemctl reboot` in a quiet hour". A technician must not have to
+   know the package manager to read the line. When the measurement is
+   missing or older than a day, the block says so instead of guessing.
+2. **The portal** shows a `server_admin` a band with the same lines on
+   the app overview and on the health page, and the health page's node
+   table carries the facts. Only `server_admin`: the machine is the
+   operator's, and a tenant administrator can do nothing about a
+   kernel (telling tenants about a planned reboot is D4 of the later
+   RFC, not this).
+3. **`/fleet/status`** carries the facts as the `host` block and the
+   three attention kinds (`oaap.fleet.status` 0.5), so the operator's
+   inner node sees "needs a reboot" across the whole fleet without a
+   login — the view that was missing on 2026-11-05.
+
+#### 2.6.3 Two settings the platform writes
+
+Hand-editing the same two things on every node is how a fleet drifts;
+the platform writes them, in **a file of its own** that the package
+manager reads beside its defaults, never by editing the distribution's
+files:
+
+- **`oaap node care auto-updates on`** installs the distribution's
+  auto-update program **and writes the periodic switch itself**
+  (reference: `/etc/apt/apt.conf.d/52oaap-care`, with the pre-seeded
+  answer set first so the package's own file appears too). It changes
+  **no origins**: the distribution's security origin is what gets
+  installed automatically, and nothing else — a vendor kernel origin
+  (Raspberry Pi) stays out unless the operator adds it by hand, because
+  it brings firmware jumps with it (Jörg's decision, 2026-11-05). The
+  installer runs this on every new node; an updated node is *told* in
+  the care state when it is missing and is not switched on behind the
+  operator's back.
+- **`oaap node care reboot-window HH:MM | off`** — with a window set,
+  the node reboots itself at that local hour **when, and only when, a
+  newer kernel is installed than the one running** (the distribution's
+  own mechanism, `Automatic-Reboot` with `Automatic-Reboot-Time`; also
+  with users logged in, since a node is headless and an operator's
+  idle shell must not keep a security fix from running). **Off by
+  default**: when a node reboots is the operator's decision per node
+  (after the backup, D1), and the settings file says in a comment who
+  wrote it and why. The window is shown in all three places of 2.6.2.
+  One more thing the window needs, learned on oaapx02: the
+  distribution's mechanism reboots only when its **marker file** exists,
+  and the marker is written by a hook that runs when *the auto-update
+  program* installs a kernel — a kernel installed before the switch was
+  set never gets one. So with a window set, the measurement **writes
+  the marker itself** whenever the comparison of 2.6.1 says the reboot
+  is required. That is the only system file the measurement touches,
+  and only with a window set.
+
+Both commands require local administrator rights, are idempotent, and
+re-measure when done, so the status answers the change at once.
+
 ## 3. Configuration
 
 - Recorded source: repository URL, branch/ref, working-copy path
   (set at install; changeable only by an administrator on the node).
 - Reserved: update channel (e.g. `stable`/`testing`), maintenance
   windows (for the schedule trigger).
+- Host care (2.6): the auto-update switch and the reboot window, in
+  one file of the platform's own under the package manager's
+  configuration directory (`/etc/apt/apt.conf.d/52oaap-care` in the
+  reference); the latest measurement in `host-care.json` beside the
+  registry, world-readable, facts only.
 
 ## 4. Security requirements
 
@@ -127,6 +263,12 @@ triggers; 0.1 implements the CLI, the others are reserved:
 - Updates must not weaken the platform: secrets, app data, and the
   instance registry are never rewritten by an update; gateway
   default-deny must hold before and after.
+- Host care (2.6): the measurement runs with administrator rights but
+  **writes only its own file** (and, with a reboot window set, the
+  distribution's reboot marker — 2.6.3); the two settings touch only the
+  platform's own configuration file; the portal reads and never writes;
+  nothing but the kernel's name and the verdicts leaves the node (no
+  package list — a package list is a map for an attacker).
 
 ## 5. Conformance tests (described)
 
@@ -157,12 +299,34 @@ triggers; 0.1 implements the CLI, the others are reserved:
    has it applied on the next run even though there is no code to
    install. A step that fails is reported and leaves the update
    standing.
+9. **Reboot verdict by comparison (2.6.1):** a node whose newest
+   installed kernel of the running flavour is newer than the running
+   one reports `reboot_required` even when no marker file exists; a
+   node whose newest installed kernel of *another* flavour is newer
+   does not.
+10. **Three parts, one verdict (2.6.1):** with the auto-update program
+    installed but the periodic switch missing, the verdict is `warn`
+    and the detail names the switch; with the switch present and the
+    timer inactive, the detail names the timer.
+11. **Three places, one measurement (2.6.2):** `oaap status`, the
+    portal band and `/fleet/status` show the same kernel pair and the
+    same verdicts, taken from one file; after a fresh measurement all
+    three change together.
+12. **The switch is written, not assumed (2.6.3):** `auto-updates on`
+    on a node where the package is already installed without the
+    switch leaves the node with the switch set; running it again
+    changes nothing and says so.
+13. **The window is a node setting (2.6.3):** `reboot-window 04:15`
+    appears in the care state of all three places; `off` removes it;
+    neither command touches the distribution's own files.
 
 ## 6. Dependencies
 
 `oaap.core.host` (installation layout, recorded configuration).
 The portal trigger will additionally depend on `oaap.core.portal`
-and the host-task channel.
+and the host-task channel. Host care (2.6) is read by
+`oaap.fleet.status` 0.5 (`host` block) and states a rule of
+`oaap.core.gateway` 0.2.18 (plain TCP listeners).
 
 ## 7. Maturity
 
@@ -189,6 +353,69 @@ Secrets werden nie angefasst. Stick-Installationen (ohne Git-Kopie)
 klonen beim ersten Update das hinterlegte Repo. Rollback ist in 0.1
 dokumentiert-manuell; signierte Releases und automatische Updates
 kommen, bevor der Zeitplan-Auslöser scharf wird.
+
+## Deutsche Zusammenfassung (0.2 — Pflegestand des Knotens, §2.6)
+
+**Anlass (05.11.2026, CVE-2026-98432):** Der Kernel-Fix lag auf dem
+Internet-Knoten zwei Tage **installiert** und lief nicht, weil seit zehn
+Wochen kein Neustart war; vier Knoten hatten gar keine automatischen
+Updates; auf einem Knoten war das Auto-Update-Paket von Hand installiert
+und tat nichts, weil der Schalter fehlte, den das Paket setzen soll.
+Lauter Tatsachen auf der Maschine — und die Plattform hat keine davon
+gesagt. Jörgs Entscheidung: „Eine Prüfung mit Empfehlung sollten wir in
+oaap aufnehmen.“ Das ist §2.6.
+
+**Die Messung (2.6.1)** macht jeder Knoten selbst, auf der Maschine, nie
+aus einem Container: laufender Kernel und neuester installierter Kernel
+**derselben Bauart**; daraus **Neustart nötig** — durch Vergleich, **nie
+aus der Markierungsdatei** (die schreibt ein Hook, der nur mit dem
+Auto-Update-Paket kommt; ohne das Paket heißt „keine Markierung“ gar
+nichts — oaapx02). **Automatische Updates** als ein Urteil aus **drei**
+Teilen (Programm da, Schalter gesetzt, Zeitgeber aktiv — das Paket allein
+setzt den Schalter nicht), plus letzter Lauf. **Neustart-Fenster** (aus
+oder Uhrzeit). **Gateway-Listener**: handeln sie Multipath TCP aus
+(sollen sie nicht, `oaap.core.gateway` 0.2.18). Und der **Zeitpunkt** der
+Messung — direkt nach einem Neustart beschreibt ein alter Wert den alten
+Kernel.
+
+**Drei Orte, eine Messung (2.6.2):** `oaap status` druckt den Pflegestand
+als eigenen Block, je eine Zeile Kernel / Auto-Updates / Gateway, **mit
+der Empfehlung als Text** („Neustart nötig — läuft 6.12.111, installiert
+6.12.115: `sudo systemctl reboot` in einer ruhigen Stunde“). Das Portal
+zeigt dem `server_admin` ein Band mit denselben Zeilen auf der
+App-Übersicht und der Gesundheitsseite, nur ihm — ein Mandanten-Admin
+kann an einem Kernel nichts tun (Mandanten über einen geplanten Neustart
+informieren ist D4 des späteren RFC). Der Flottenstatus trägt die Fakten
+als Block `host` (0.5). Alle drei lesen **dieselbe Datei**
+(`host-care.json` neben der Registry), keiner misst selbst — also können
+sie sich nicht widersprechen. Die Datei frischt der Minutenlauf auf, wenn
+sie älter als zehn Minuten ist, jedes Update, und `oaap node care` auf
+Zuruf.
+
+**Zwei Einstellungen, die die Plattform schreibt (2.6.3)** — in einer
+**eigenen Datei** (`/etc/apt/apt.conf.d/52oaap-care`), nie in denen der
+Distribution: `sudo oaap node care auto-updates on` installiert das
+Auto-Update-Programm **und schreibt den Schalter selbst**; es ändert
+**keine Quellen** — nur die Sicherheitsquelle der Distribution wird
+automatisch eingespielt, die Raspberry-Pi-Kernelquelle bleibt bewusst
+draußen (Jörg, 05.11.). Der Installer macht das auf jedem neuen Knoten;
+ein aktualisierter Knoten bekommt es nur **gesagt**, nicht heimlich
+eingeschaltet. `sudo oaap node care reboot-window 04:15 | off`: Mit
+Fenster startet der Knoten sich zu dieser Uhrzeit selbst neu — **nur
+wenn** ein neuerer Kernel installiert ist als der laufende, auch mit
+angemeldeten Benutzern (ein Knoten ist kopflos; eine vergessene Shell
+darf keinen Sicherheitsfix aufhalten). **Ab Werk aus**: Wann ein Knoten
+neu startet, entscheidet der Betreiber je Knoten (nach dem Backup, D1).
+Und die Lehre von oaapx02: Der Mechanismus der Distribution startet nur
+neu, wenn die **Markierungsdatei** da ist — und die schreibt ein Hook
+nur, wenn das Auto-Update-Programm selbst einen Kernel einspielt. Mit
+gesetztem Fenster schreibt darum die Messung die Markierung selbst,
+sobald der Vergleich „Neustart nötig“ sagt.
+
+**Nicht in 0.2** (spätere Stufen, je ein eigener RFC): Abgleich gegen
+Sicherheitsmeldungen, ein Benachrichtigungsweg, Neustart-Schutz je
+Instanz und Dringlichkeitsstufen (D2–D5 vom 05.11.). 2.6 ist die
+Messung, auf der das alles stehen wird.
 
 ## Nachtrag 0.1.3 — das Programm, das sich selbst ersetzt
 
