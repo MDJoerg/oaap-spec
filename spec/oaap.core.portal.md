@@ -1,8 +1,8 @@
 # oaap.core.portal — Web Portal
 
 - **ID:** `oaap.core.portal`
-- **Version:** 0.3.29
-- **Maturity:** draft (0.3.29 adds **care at a glance** to the store and the instance list -- an update in the catalogue and open advisories of the image reading, as a filter, a hint line and a badge, plus filters on the instance list -- §2.14; 0.3.28 adds the card **Neustart-Schutz** to the instance page — §2.13, RFC-0069 stage 5, `oaap.core.updates` 0.7 §2.7.2; 0.3.27 adds the node page **Datenträger** — §2.12, specified in `oaap.data.disks` 0.2 §2.6, RFC-0063 stage 2; 0.3.26 adds **profile upload, download and delete** and tick boxes for `bool` parameters on the build pages — §2.11, RFC-0055 §14; 0.3.25 adds **invitations and requests** — the prospect's public form and the operator's list, §2.10, RFC-0055 stage 4; 0.3.24 adds the **tenant build pages** — a wizard over the operator API, §2.9, RFC-0055 stage 3; 0.3.23 shows the **Cohorts menu entry to every
+- **Version:** 0.3.30
+- **Maturity:** draft (0.3.30 lets a `server_admin` confirm an app that administers its tenant's grants in the store -- §2.6, `oaap.core.authorization` 0.5.2 §2.10; the card "Abbild" says whether a rebuild can be expected to help -- §2.14; 0.3.29 adds **care at a glance** to the store and the instance list -- an update in the catalogue and open advisories of the image reading, as a filter, a hint line and a badge, plus filters on the instance list -- §2.14; 0.3.28 adds the card **Neustart-Schutz** to the instance page — §2.13, RFC-0069 stage 5, `oaap.core.updates` 0.7 §2.7.2; 0.3.27 adds the node page **Datenträger** — §2.12, specified in `oaap.data.disks` 0.2 §2.6, RFC-0063 stage 2; 0.3.26 adds **profile upload, download and delete** and tick boxes for `bool` parameters on the build pages — §2.11, RFC-0055 §14; 0.3.25 adds **invitations and requests** — the prospect's public form and the operator's list, §2.10, RFC-0055 stage 4; 0.3.24 adds the **tenant build pages** — a wizard over the operator API, §2.9, RFC-0055 stage 3; 0.3.23 shows the **Cohorts menu entry to every
   administrator**, not only where a cohort exists, and puts a **step-by-step
   guide and a downloadable example template** on the create page — §2.8;
   0.3.22 adds **Add a seat** to the cohorts page, with
@@ -520,6 +520,17 @@ from and in which class, which other lists also carry it, and whether
 the package is pinned. The install button lives here; a `new` badge is
 **computed** from the release date and never stored.
 
+**An app that administers grants** (`authorization.administer: true`,
+`oaap.core.authorization` §2.10). Its first install is refused by the host until
+the operator confirms. The store turns that refusal into a question on the object
+page: what the key can do (for ONE tenant, in the name of the tenant administrator
+using it: roles, collections, assignments, mappings) and what it can never do
+(platform roles, users, declarations, another tenant). A `server_admin` gets a
+required tick box and the same install once more, the confirmation naming the
+app; a `tenant_admin` gets the sentence that the node's operator confirms this.
+The portal sends the confirmation only for a `server_admin`, and the host counts
+it only for one by their own record.
+
 **Sources (list report).** `server_admin` only -- see above. They add,
 rename, enable,
 disables, removes a source and sets its trust class. Two rules:
@@ -824,6 +835,11 @@ answer both with ONE rule, so they never disagree.
   -- a hint line, and filters: search (instance and app name), status,
   channel, tenant (multi-tenant `server_admin`) and **Pflege**. A filter
   that keeps nothing says so and offers the reset.
+- **Will a rebuild help?** "May the node rebuild" is not "will it help". The
+  card "Abbild" says, for open advisories, whether the base moved upstream (a
+  rebuild fetches it), equals upstream (only a build that upgrades packages helps,
+  otherwise a new app version), or the node does not know (a pinned or unreadable
+  base). One function for the card and `oaap node care images`.
 - **Reads, writes.** Reads the catalogue (cached for a minute for the
   instance list; any store read refreshes it) and the care file. Writes
   nothing; healing stays where it is -- the store update (RFC-0050) and
@@ -1627,3 +1643,16 @@ Hinweis darauf und überhaupt ein Filter (§2.14).
 - Gezählt wird nur, was der Aufrufer sieht — ein Mandanten-Admin erfährt
   nichts über fremde Instanzen. Die Seiten schreiben nichts; geheilt wird
   wie bisher per Store-Update oder Neubau.
+
+## Deutsche Zusammenfassung (Nachtrag 0.3.30 — Rechte-Apps im Store, „Hilft ein Neubau?“)
+
+- **Rechte-Apps im Store (§2.6):** Eine App mit `authorization.administer: true`
+  (z. B. „Rollen & Rechte“) fragt beim ersten Installieren nach der Zusage. Der
+  Store zeigt dann, was ihr Schlüssel kann und was nie, und — nur dem Server-Admin
+  — ein Pflicht-Häkchen mit demselben Auftrag noch einmal. Der Mandanten-Admin
+  liest, dass der Server-Admin das bestätigt.
+- **„Hilft ein Neubau?“ (§2.14):** Die Karte „Abbild“ sagt bei offenen Meldungen,
+  ob die Basis upstream weitergezogen ist (Neubau hilft voraussichtlich), gleich
+  upstream ist (hilft nur, wenn die App beim Bau Pakete aktualisiert, sonst neue
+  Version) oder ob der Knoten es nicht weiß (festgenagelte Basis). Anlass:
+  code-server auf oaapx01 — „Selbstheilung möglich“ stimmte, geholfen hätte es nicht.

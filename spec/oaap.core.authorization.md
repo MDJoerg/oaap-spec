@@ -1,9 +1,10 @@
 # oaap.core.authorization — Business Authorization
 
 - **ID:** `oaap.core.authorization`
-- **Version:** 0.5.1 (a delegate finds one person by exact name, §2.12; the reference
-  client keeps no empty answer, §2.4; RFC-0067 D7, D8)
-- **Previous versions:** 0.5 (**delegation**, §2.12: `may_grant` is enforced at a door
+- **Version:** 0.5.2 (the operator's confirmation of §2.10 may also be given in the
+  portal's store, by a `server_admin` -- judged by the host from the actor's record)
+- **Previous versions:** 0.5.1 (a delegate finds one person by exact name, §2.12; the reference
+  client keeps no empty answer, §2.4; RFC-0067 D7, D8), 0.5 (**delegation**, §2.12: `may_grant` is enforced at a door
   where the signed assertion proves the person; **agents**, §2.13: a machine principal
   with its own assignments, one act to make one; RFC-0067), 0.4 (setup from the declaration, §2.11: one explicit act
   makes roles, collections, mappings and the realm's groups for every template of
@@ -266,7 +267,14 @@ different caller.
 **The key.** A second key scope, **`oaap.authz.admin`**, minted at the install
 of an instance whose manifest has `authorization.administer: true`, and only if
 the operator confirms (`--confirm-administer`; without it the install stops and
-says what the key can and cannot do). One key per instance, minted once like the
+says what the key can and cannot do). Since 0.5.2 the same confirmation may be
+given **in the portal's store** (`oaap.core.portal` §2.6): the refused install
+comes back as a question (`needs: confirm_administer`), the store shows what the
+key can and can never do, and the install is queued once more with the
+confirmation **naming the app**. The host counts it only if the actor is a
+**`server_admin` by their own record** -- never by the request -- and only for
+exactly that app id; a `tenant_admin`'s confirmation is ignored. An update of an
+instance whose door is already open does not ask again, wherever it comes from. One key per instance, minted once like the
 others, bound — by what the host recorded, never by the request — to the **tenant
 of that instance**. It is not the key of §2.4 and cannot be used for it; the key
 of §2.4 cannot be used here.
@@ -676,3 +684,20 @@ Referenz-Client prüft mit `may(...)` und **verweigert im Zweifel**. Nicht in 0.
 nur angenommen und gespeichert: Weitergabe (`may_grant`), Gruppen-Abbildung (als
 Nächstes), semantische Typen, Prüfung des Kontextes am Zwilling. Erster
 Abnehmer ist die `partnerverwaltung`.
+
+## Deutsche Zusammenfassung (0.5.2: Zusage auch im Portal)
+
+Jörg, 06.11.: Eine App, die Rechte verwaltet (`authorization.administer: true`,
+z. B. „Rollen & Rechte“), ließ sich bisher nur auf der Maschine mit
+`--confirm-administer` installieren — dabei gehört sie zur Grundeinrichtung eines
+Mandanten. Jetzt geht die Zusage auch **im Store des Portals**:
+
+- Die erste Installation ohne Zusage wird abgelehnt wie bisher; das Portal macht
+  daraus eine **Frage**: es zeigt, was der Schlüssel kann und was nie, und
+  bietet denselben Auftrag noch einmal mit einem Pflicht-Häkchen.
+- Die Zusage zählt nur, wenn der Handelnde laut **seinem eigenen Datensatz**
+  `server_admin` ist, und nur für **genau diese App**. Die Zusage eines
+  Mandanten-Admins wird ignoriert; er sieht den Satz „Das bestätigt der
+  Server-Admin“.
+- Ein Update einer Instanz, deren Tür schon offen ist, fragt nicht noch einmal
+  (wie bisher).
