@@ -1,7 +1,8 @@
 # RFC-0072: Mail From the Node — One SMTP Mailbox for the Realms, Later One per Tenant
 
-- **Status:** **Accepted (2026-11-06)** for stage 1; **stage 2 with the portal page
-  "Nachrichten" proposed (§8, D9-D16 asked)** -- stage 1: Jörg: "Mach alles so wie empfohlen"
+- **Status:** **Accepted (2026-11-06)**; stage 2 with the portal page "Nachrichten"
+  accepted 2026-11-07 ("passt alles. wir machen a" -- D9-D16 as recommended, D10 (a))
+  and **built (reference 0.1.234, §9)** -- stage 1: Jörg: "Mach alles so wie empfohlen"
   (D1-D8 as recommended). **Stage 1 built (reference 0.1.233, §7).**
 - **Date:** 2026-11-06
 - **Authors:** Jörg (the need, the stages, a mail server for it), Claude
@@ -285,3 +286,33 @@ frei, oder er führt eine Liste erlaubter Mailserver.
 Anmeldung klappt; Entfernen fällt zurück; Passwort über das Portal nur einmal
 eingegeben, danach nie wieder angezeigt; Knotenpostfach auch im Portal;
 Posteingang und Messenger erst, wenn sie gebaut sind.
+
+## 9. Stage 2 built and measured (2026-11-07, reference 0.1.234)
+
+- `oaap.core.portal` 0.3.32 §2.15 (page *Nachrichten*), `oaap.net.destinations` 0.9
+  §2.11 (a tenant's own mailbox). Spool action `mail` (ops `set`, `remove`,
+  `test`); role and tenant from the actor's record; realms follow.
+- **Measured on oaap-test through the real spool** (actor `vverwalter`,
+  `tenant_admin` of `vuebung`; mail server from `test/.env`): a private address,
+  port 25 and a wrong password are refused, nothing stored, the request file gone;
+  the right password -> saved, the server accepted the login, the realm written;
+  Keycloak's "update your account" mail arrived **with the tenant's own sender's
+  name**; test mail through the tenant's mailbox arrived; remove -> the realm
+  sends with the node's mailbox again under the tenant's title; a plain member
+  (`vtrainer`) refused. The real portal answers `/nachrichten` 200 for the
+  `tenant_admin` (who reads only the node's sender), 403 for a member, 200 with
+  the tenant list for `server_admin`.
+- **The certificate claim of D10, measured:** the realm given the mail server's
+  IP address instead of its name -> Keycloak refuses to send (`SSLHandshakeException:
+  No subject alternative names matching IP address`); the host's own login check
+  refuses the same (`CERTIFICATE_VERIFY_FAILED`). Restored afterwards.
+
+## Zusammenfassung Stufe 2 (deutsch, gebaut)
+
+**Gebaut (0.1.234) und auf oaap-test über den echten Spool gemessen:** Der
+Mandanten-Admin trägt im Portal unter „Nachrichten“ ein eigenes Postfach ein;
+private Adresse, Port 25, falsches Passwort werden abgelehnt (nichts
+gespeichert); richtig -> gespeichert und in den Realm geschrieben; Keycloak
+verschickt mit dem eigenen Absendernamen des Mandanten; Entfernen schaltet
+zurück auf das Knotenpostfach. **Die Zertifikatsprüfung von Keycloak ist
+gemessen** -- die Grundlage von D10.

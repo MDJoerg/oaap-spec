@@ -1,8 +1,8 @@
 # oaap.core.portal — Web Portal
 
 - **ID:** `oaap.core.portal`
-- **Version:** 0.3.31
-- **Maturity:** draft (0.3.31 lets the start form of a build install an app that administers its tenant's grants by one tick, which is the operator's confirmation -- §2.11, RFC-0055 §14 item 4; 0.3.30 lets a `server_admin` confirm an app that administers its tenant's grants in the store -- §2.6, `oaap.core.authorization` 0.5.2 §2.10; the card "Abbild" says whether a rebuild can be expected to help -- §2.14; 0.3.29 adds **care at a glance** to the store and the instance list -- an update in the catalogue and open advisories of the image reading, as a filter, a hint line and a badge, plus filters on the instance list -- §2.14; 0.3.28 adds the card **Neustart-Schutz** to the instance page — §2.13, RFC-0069 stage 5, `oaap.core.updates` 0.7 §2.7.2; 0.3.27 adds the node page **Datenträger** — §2.12, specified in `oaap.data.disks` 0.2 §2.6, RFC-0063 stage 2; 0.3.26 adds **profile upload, download and delete** and tick boxes for `bool` parameters on the build pages — §2.11, RFC-0055 §14; 0.3.25 adds **invitations and requests** — the prospect's public form and the operator's list, §2.10, RFC-0055 stage 4; 0.3.24 adds the **tenant build pages** — a wizard over the operator API, §2.9, RFC-0055 stage 3; 0.3.23 shows the **Cohorts menu entry to every
+- **Version:** 0.3.32
+- **Maturity:** draft (0.3.32 adds the page **Nachrichten** -- "Postausgang": which mailbox a tenant's realm sends with, the tenant's own mailbox for its `tenant_admin`, the node's for `server_admin` -- §2.15, RFC-0072 stage 2, `oaap.net.destinations` 0.9; 0.3.31 lets the start form of a build install an app that administers its tenant's grants by one tick, which is the operator's confirmation -- §2.11, RFC-0055 §14 item 4; 0.3.30 lets a `server_admin` confirm an app that administers its tenant's grants in the store -- §2.6, `oaap.core.authorization` 0.5.2 §2.10; the card "Abbild" says whether a rebuild can be expected to help -- §2.14; 0.3.29 adds **care at a glance** to the store and the instance list -- an update in the catalogue and open advisories of the image reading, as a filter, a hint line and a badge, plus filters on the instance list -- §2.14; 0.3.28 adds the card **Neustart-Schutz** to the instance page — §2.13, RFC-0069 stage 5, `oaap.core.updates` 0.7 §2.7.2; 0.3.27 adds the node page **Datenträger** — §2.12, specified in `oaap.data.disks` 0.2 §2.6, RFC-0063 stage 2; 0.3.26 adds **profile upload, download and delete** and tick boxes for `bool` parameters on the build pages — §2.11, RFC-0055 §14; 0.3.25 adds **invitations and requests** — the prospect's public form and the operator's list, §2.10, RFC-0055 stage 4; 0.3.24 adds the **tenant build pages** — a wizard over the operator API, §2.9, RFC-0055 stage 3; 0.3.23 shows the **Cohorts menu entry to every
   administrator**, not only where a cohort exists, and puts a **step-by-step
   guide and a downloadable example template** on the create page — §2.8;
   0.3.22 adds **Add a seat** to the cohorts page, with
@@ -851,6 +851,40 @@ answer both with ONE rule, so they never disagree.
   nothing; healing stays where it is -- the store update (RFC-0050) and
   the rebuild on the instance page (RFC-0071).
 
+### 2.15 Nachrichten (0.3.32, RFC-0072 stage 2)
+
+A menu entry **Nachrichten** for `server_admin` and `tenant_admin`. One page per
+tenant: a `tenant_admin` sees their own, a label naming another tenant is
+answered `404`; a `server_admin` without a label is at the node and may name any
+tenant (`?tenant=<label>`). Today it has one section; incoming mail and
+messengers come as further sections, each specified first, and nothing is shown
+for them before.
+
+**Postausgang.**
+- *Which mailbox the tenant's realm sends with:* its own (address, sender, login,
+  "password set"), or the node's -- of which a `tenant_admin` sees **only the
+  sender**, never server or login -- or none ("sends no mail"). A tenant without
+  a realm of its own reads that the mailbox takes effect once it has one.
+- *A form* for the tenant's own mailbox (the node's at the node): address
+  (`smtps://` or `smtp://`), sender, sender's name, reply-to, login, password.
+  The password field is empty; a stored password shows as "set -- leave empty =
+  unchanged", and is never shown again. **Save** is one request (action `mail`,
+  op `set`); the host logs in at the server first and stores nothing if that
+  fails, then writes the mailbox into the realm(s) that send with it, and the
+  page shows the host's sentence. **Test mail** (op `test`) sends one mail to a
+  typed address through this mailbox. **Remove** (op `remove`, with a required
+  tick) puts the realm back on the node's mailbox, or empties its mail block;
+  removing the node's leaves the realms as they are.
+- *At the node:* a list of tenants -- realm yes/no, and which mailbox each
+  sends with.
+- **The host decides** (`oaap.net.destinations` 2.11): role and tenant from the
+  actor's own record, only a `server_admin` names a tenant, only a
+  `server_admin` touches the node's mailbox, and a tenant's mailbox passes the
+  checks of 2.11 (ports, public addresses) at save, test and every realm write.
+  The request file is written `0600`; the worker moves the password into the
+  secret store and the request goes with its claim. No sentence and no log line
+  carries the password.
+
 ## 3. Configuration
 
 None beyond the platform version passed at start. Appearance
@@ -1670,3 +1704,15 @@ Rechte“ mitinstallieren. Neben dem Haken steht, dass er die Zusage des
 Server-Admins ist und was der Schlüssel der App kann und nie kann; die
 Schritt-Liste markiert den Schritt mit „verwaltet Rechte“. Das
 Antragsformular für Interessenten zeigt diesen Haken nicht.
+
+## Deutsche Zusammenfassung (Nachtrag 0.3.32 — Nachrichten)
+
+Neuer Menüpunkt **„Nachrichten“** für Server- und Mandanten-Admins. Abschnitt
+**„Postausgang“**: womit der Realm des Mandanten verschickt (eigenes Postfach,
+das des Knotens -- davon sieht der Mandanten-Admin nur den Absender -- oder
+keines), ein Formular für das eigene Postfach (Speichern prüft zuerst die
+Anmeldung am Server, dann wird es gespeichert und in den Realm geschrieben;
+Testmail; Entfernen fällt auf das Knotenpostfach zurück). Am Knoten pflegt der
+Server-Admin das Knotenpostfach und sieht, welcher Mandant womit verschickt.
+Das Passwort wird einmal eingegeben und nie wieder angezeigt. Posteingang und
+Messenger kommen später als weitere Abschnitte.

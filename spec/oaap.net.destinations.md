@@ -1,7 +1,7 @@
 # oaap.net.destinations — Reaching Outward Without Holding the Key
 
 - **ID:** `oaap.net.destinations`
-- **Version:** 0.8
+- **Version:** 0.9
 - **Maturity:** draft (0.1 was RFC-0033 stage 1: destinations with
   `direct` targets, bindings as grants, the HTTP proxy and the TCP
   handover, no bindings in a rehearsal. 0.2 adds stage 2's `via`
@@ -16,7 +16,9 @@
   the target before allowing it, and an AI gateway's key must be
   `green`, RFC-0068 stage 3, §2.10.1. 0.8 adds the kind `smtp` -- a
   mailbox; the node's mailbox is written into every realm the node
-  provisions, RFC-0072 stage 1, §2.11)
+  provisions, RFC-0072 stage 1, §2.11. 0.9: a tenant's own mailbox, written
+  by its `tenant_admin`, with the checks that make that safe, RFC-0072
+  stage 2, §2.11)
 - **Based on:** RFC-0033 (§1, D1, D5), RFC-0016 (instance networks, the
   shape a binding copies from app-to-app links), RFC-0015 (declaration
   is not publication), RFC-0022 / `oaap.core.tenant` (a destination
@@ -478,6 +480,22 @@ A destination of kind **`smtp`** is a mailbox to send through.
   or `absent`. A failed write does not undo the provisioning; it is said,
   with the command that writes it again. The password is therefore also
   held by the provider, and travels with an export of the space.
+- **A tenant's own mailbox (0.9).** The `smtp` destination `mail` of any other
+  tenant is that tenant's mailbox; its realm sends with it instead of the
+  node's. It may be written by the tenant's **`tenant_admin`** (portal page
+  *Nachrichten*, `oaap.core.portal` 2.15) -- the one exception to 2.7 -- and
+  by `server_admin`. Because a tenant chooses where the platform connects, a
+  tenant's mailbox MUST pass, at save, at test and at every write into a
+  realm: the port is **465 or 587**; the name resolves to **public
+  addresses only** (no private, loopback, link-local, multicast or
+  container-runtime range). Saving **logs in first** and stores nothing when
+  that fails. What remains is a name that turns inward after the check: the
+  provider then starts a TLS handshake there, and the provider checks the
+  certificate's name (measured for Keycloak 26.7.4: a server named by an
+  address its certificate does not carry is refused, `No subject alternative
+  names matching`). The sender's name of a tenant's own mailbox is its own;
+  the node's mailbox carries the tenant's title. Removing a tenant's mailbox
+  puts its realm back on the node's, or empties the realm's mail block.
 - **Not to apps.** An `smtp` destination cannot be bound to an instance in
   0.8, and the node's mailbox never will be: an app that spams would burn
   the node's sender for every tenant. A tenant's own mailbox (RFC-0072
@@ -769,3 +787,12 @@ bekommt es eingetragen, mit dem Mandantennamen als Absendernamen und Deutsch als
 Sprache; bestehende mit `oaap idp mail … --tenant` bzw. `--all`. Nachgelesen wird das
 Passwort nur als „verdeckt / im Klartext / fehlt“. Apps bekommen das Knotenpostfach
 nie; das Postfach je Mandant und Apps kommen in Stufe 2 und 3.
+
+## Deutsche Zusammenfassung (0.9 — Postfach je Mandant)
+
+Ein Mandant kann ein **eigenes Postfach** haben; sein Realm verschickt dann damit.
+Eintragen darf es sein **Mandanten-Admin** (Portal „Nachrichten“) -- die eine
+Ausnahme von 2.7 -- mit Prüfungen bei jedem Speichern, Testen und Eintragen: nur
+Port 465 oder 587, der Name zeigt nur auf öffentliche Adressen, Speichern
+meldet sich erst an. Was bleibt, fängt das Zertifikat ab: Keycloak prüft den
+Namen (gemessen). Entfernen fällt auf das Knotenpostfach zurück.
