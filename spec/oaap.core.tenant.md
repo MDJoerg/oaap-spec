@@ -1,7 +1,8 @@
 # oaap.core.tenant — Account and Tenant, the Boundary of Belonging
 
 - **ID:** `oaap.core.tenant`
-- **Version:** 1.3 (the reboot entries, filed in every tenant's log on the node,
+- **Version:** 1.4 (a provisioned space gets the node's mailbox and German as its
+  language, criterion 22, `oaap.net.destinations` 2.11, RFC-0072; 1.3: the reboot entries, filed in every tenant's log on the node,
   RFC-0069, 1.7; 1.2: closed egress in the portal: the page and the `tenant_admin`'s door to
   close, RFC-0068 stage 4, 2.12; 1.1: **closed egress**, RFC-0068: a tenant is open or closed, an exception per
   instance needs a reason, new 2.12; 1.0.2: a provider-made account outside the default tenant is named `<label>.<suggestion>`, 2.8; 1.0.1: a created tenant's address answers at once, 2.2; 1.0: RFC-0041 K6 — **a tenant can leave this node**: the archive carries the tenant's own record, an empty node can adopt one, and the provider it arrives with is carried rather than put in force. See 2.11, conformance tests 24–26; 0.9 — the switches inside that space, and the truth about them; 0.8 — the platform may MAKE that provider, not only name it; 0.7 — a tenant may name who lets people
@@ -1232,7 +1233,13 @@ On a node with one tenant: none that anyone can observe, exactly as in
     a method that could delete. Forgetting a connector changes nothing
     at the provider, and the tenants provisioned through it keep
     signing in. The credential is readable by no container, including
-    the one that performs logins.
+    the one that performs logins. **(1.4)** Where the node has a mailbox
+    (`oaap.net.destinations` 2.11) and the connector declares `mail`, a
+    provisioned space holds that mailbox and sends in German: ask for a
+    password reset or an "update your account" mail and it arrives, from
+    the node's sender with the tenant's name; read the space back and the
+    password shows only masked. Without a mailbox the provisioning says
+    that the space sends no mail, and how to change that.
 
 23. **The switch and the record are one thing, or the difference is
     visible** (0.9). Move self-registration and the second factor
@@ -1859,3 +1866,10 @@ den niemand gewählt hat, und ein Hinweis an Kunde B, dass es bei Kunde A
 ein `max` gibt. Bestehende Konten bleiben unverändert, der Standard-Mandant
 behält schlichte Namen, nach einer Umbenennung des Mandanten bleibt das
 alte Kürzel stehen: der Name ist nur ein Name, der Anker ist die Kennung.
+
+## Deutsche Zusammenfassung (1.4 — Postfach im Realm)
+
+Hat der Knoten ein Postfach, bekommt jeder Realm, den OAAP anlegt, es eingetragen und
+verschickt deutschsprachige Mails (Passwort zurücksetzen, Konto aktualisieren) mit dem
+Mandantennamen als Absendernamen. Ohne Postfach sagt `idp provision`, dass der Realm
+keine Mail verschickt und wie man das ändert.

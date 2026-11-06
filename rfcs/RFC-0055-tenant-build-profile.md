@@ -455,6 +455,11 @@ gets, and the portal should offer upload, download and a template.
    host sets it to `false` whatever arrives; the operator installs such an app
    later from the store, where it asks. Without the tick the step is skipped,
    like any `when`.
+5. **(2026-11-06)** A step **`idp.admin_group`** (no arguments) prepares, in the
+   tenant's realm, the group the club's own administrator belongs in (RFC-0056,
+   `oaap idp admin-group`): a group, never a person. Its check reads the realm
+   (the group with all its roles); it undoes nothing, like `idp.provision` --
+   the realm and what is in it stay.
 
 **Upload.** Decided: an uploaded profile may name **only catalogue apps** (the
 product owner accepted my restriction). A path typed into a web page is not an

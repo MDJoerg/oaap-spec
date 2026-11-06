@@ -1,7 +1,7 @@
 # oaap.net.destinations — Reaching Outward Without Holding the Key
 
 - **ID:** `oaap.net.destinations`
-- **Version:** 0.7
+- **Version:** 0.8
 - **Maturity:** draft (0.1 was RFC-0033 stage 1: destinations with
   `direct` targets, bindings as grants, the HTTP proxy and the TCP
   handover, no bindings in a rehearsal. 0.2 adds stage 2's `via`
@@ -14,7 +14,9 @@
   0.6 adds closed egress: the one way out of a closed instance is a
   destination allowed for its tenant, RFC-0068 stage 2, §2.10. 0.7 reads
   the target before allowing it, and an AI gateway's key must be
-  `green`, RFC-0068 stage 3, §2.10.1)
+  `green`, RFC-0068 stage 3, §2.10.1. 0.8 adds the kind `smtp` -- a
+  mailbox; the node's mailbox is written into every realm the node
+  provisions, RFC-0072 stage 1, §2.11)
 - **Based on:** RFC-0033 (§1, D1, D5), RFC-0016 (instance networks, the
   shape a binding copies from app-to-app links), RFC-0015 (declaration
   is not publication), RFC-0022 / `oaap.core.tenant` (a destination
@@ -448,6 +450,42 @@ data may go there: the platform cannot tell what a request carries.
 - **What this cannot see:** the light is the gateway's declaration. An AI that is not an OAAP
   gateway, or one behind something that hides `/v1/usage`, is what its allowance says it is.
 
+### 2.11 A mailbox (0.8, RFC-0072 stage 1)
+
+A destination of kind **`smtp`** is a mailbox to send through.
+
+- **Target.** `smtps://<host>[:<port>]` (TLS from the first byte, default
+  465) or `smtp://<host>[:<port>]` (STARTTLS, **required**, default 587).
+  There is no unencrypted mailbox: the password would cross the network in
+  clear. The target names no user, path, query or fragment; the platform
+  check of 2.1 applies to its host.
+- **Fields.** `mail.from` (the sender address the server allows),
+  `mail.from_name`, `mail.reply_to`; `auth` is `none` or `basic` (user +
+  password). The password lives in the secret store of 2.5. Unlike a header
+  secret it never reaches the gateway's configuration, so it may hold any
+  printable character; control characters are refused.
+- **The node's mailbox** is the `smtp` destination named `mail` of the
+  default tenant, recorded by a `server_admin` (`oaap mail set`; `show`,
+  `test <address>`, `clear`). `test` sends one plain mail from the host and
+  prints the server's answers, never the password.
+- **Realms.** Every space the node provisions through a connector that
+  declares the verb `mail` gets the mailbox written in, with the tenant's
+  title as the sender's name, and the space's language set to German with
+  English offered (`oaap.core.tenant` criterion 22). `oaap idp mail
+  <connector> --tenant <label> | --all` writes it into existing spaces. The
+  write is partial (the space's name, the mail block, the language) and is
+  read back; the read-back reports the password only as `masked`, `clear`
+  or `absent`. A failed write does not undo the provisioning; it is said,
+  with the command that writes it again. The password is therefore also
+  held by the provider, and travels with an export of the space.
+- **Not to apps.** An `smtp` destination cannot be bound to an instance in
+  0.8, and the node's mailbox never will be: an app that spams would burn
+  the node's sender for every tenant. A tenant's own mailbox (RFC-0072
+  stage 2) and binding it to apps (stage 3) come later. `smtp` is not a kind
+  a manifest may declare in 0.8.
+- **Egress.** The provider's own instance must reach the mail server; a
+  closed default tenant (2.10) names it there.
+
 ## 3. Configuration
 
 None beyond the objects. The listener port (8098 in the reference) is
@@ -719,3 +757,15 @@ Benutzer. Propagation ist eine **eigene Freigabe** je Bindung
 (`--propagate`); an jede andere Destination geht die Zusicherung nicht
 hinaus. Jedes ausgestellte Zertifikat steht im Prüfprotokoll, nie die
 Anfrage.
+
+## Deutsche Zusammenfassung (0.8 — Postfach, RFC-0072 Stufe 1)
+
+Neue Ziel-Art **`smtp`**: ein Postfach zum Versenden. `smtps://host:465` (TLS von
+Anfang an) oder `smtp://host:587` (STARTTLS, Pflicht) -- unverschlüsselt gibt es nicht.
+Dazu Absender, Anzeigename, Reply-To; das Passwort im Geheimnisspeicher. **Das
+Postfach des Knotens** ist das `smtp`-Ziel `mail` des Standardmandanten (`oaap mail
+set|show|test|clear`, nur `server_admin`). **Jeder Realm**, den der Knoten anlegt,
+bekommt es eingetragen, mit dem Mandantennamen als Absendernamen und Deutsch als
+Sprache; bestehende mit `oaap idp mail … --tenant` bzw. `--all`. Nachgelesen wird das
+Passwort nur als „verdeckt / im Klartext / fehlt“. Apps bekommen das Knotenpostfach
+nie; das Postfach je Mandant und Apps kommen in Stufe 2 und 3.

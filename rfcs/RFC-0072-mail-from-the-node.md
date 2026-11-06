@@ -1,6 +1,7 @@
 # RFC-0072: Mail From the Node — One SMTP Mailbox for the Realms, Later One per Tenant
 
-- **Status:** Proposed (2026-11-06)
+- **Status:** **Accepted (2026-11-06)** -- Jörg: "Mach alles so wie empfohlen"
+  (D1-D8 as recommended). **Stage 1 built (reference 0.1.233, §7).**
 - **Date:** 2026-11-06
 - **Authors:** Jörg (the need, the stages, a mail server for it), Claude
   (facts read in the reference code and the specs, design)
@@ -156,3 +157,31 @@ Knotenpostfach bekommen Apps nie; D8 Keycloak muss den Mailserver erreichen.
 
 **Nicht hier:** das automatische Anlegen des ersten Verwalters (Jörgs „b“) —
 geht erst, wenn Mail geht, und wird danach eigens entschieden.
+
+## 7. Stage 1 built and measured (2026-11-06, reference 0.1.233)
+
+- `oaap.net.destinations` 0.8 §2.11 (kind `smtp`), `oaap.core.tenant` 1.4
+  (criterion 22). `oaap mail set|show|test|clear`; `oaap idp mail <connector>
+  --tenant | --all`; `idp provision` writes the mailbox (D2) and says so when the
+  node has none; a new realm is German (D5). Connector verb `mail` (Keycloak:
+  a partial `PUT` of the realm -- name, `smtpServer`, language -- read back).
+- **Measured on oaap-test against Jörg's mail server** (port 465, TLS):
+  `oaap mail test` -> login 235, accepted, in the inbox one second later (read over
+  IMAP). `oaap idp mail auth --tenant vuebung` -> written by the narrow
+  `create-realm` account, **the password reads back masked** (§6 answered).
+  A throwaway person in `vuebung` (made and deleted by a measuring script, not by
+  OAAP) was sent Keycloak's "update your account" mail -> it arrived, **in
+  German** ("Aktualisieren Sie Ihr Konto").
+- **Not measurable on oaap-test:** a NEW realm through `idp provision` (the node
+  has no external name, finding of 2026-10-18) -- the automatic write of D2 is
+  tested without a node only; it wants a node with a name.
+- Found while measuring: `test/vm.sh` sources `test/.env` as shell; an unquoted
+  value with a space there runs part of it as a command.
+
+## Zusammenfassung Stufe 1 (deutsch)
+
+**Gebaut und auf oaap-test gegen Jörgs Mailserver gemessen:** Testmail kommt an;
+das Postfach steht im Realm `vuebung`, Keycloak zeigt das Passwort verdeckt; eine
+Mail von Keycloak selbst („Aktualisieren Sie Ihr Konto“) kam an, auf Deutsch.
+**Nicht messbar auf oaap-test:** ein neuer Realm über `idp provision` (kein
+Außenname) -- dafür braucht es oaapx01 oder oaapx02.
