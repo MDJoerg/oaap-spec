@@ -1,8 +1,8 @@
 # oaap.core.portal — Web Portal
 
 - **ID:** `oaap.core.portal`
-- **Version:** 0.3.28
-- **Maturity:** draft (0.3.28 adds the card **Neustart-Schutz** to the instance page — §2.13, RFC-0069 stage 5, `oaap.core.updates` 0.7 §2.7.2; 0.3.27 adds the node page **Datenträger** — §2.12, specified in `oaap.data.disks` 0.2 §2.6, RFC-0063 stage 2; 0.3.26 adds **profile upload, download and delete** and tick boxes for `bool` parameters on the build pages — §2.11, RFC-0055 §14; 0.3.25 adds **invitations and requests** — the prospect's public form and the operator's list, §2.10, RFC-0055 stage 4; 0.3.24 adds the **tenant build pages** — a wizard over the operator API, §2.9, RFC-0055 stage 3; 0.3.23 shows the **Cohorts menu entry to every
+- **Version:** 0.3.29
+- **Maturity:** draft (0.3.29 adds **care at a glance** to the store and the instance list -- an update in the catalogue and open advisories of the image reading, as a filter, a hint line and a badge, plus filters on the instance list -- §2.14; 0.3.28 adds the card **Neustart-Schutz** to the instance page — §2.13, RFC-0069 stage 5, `oaap.core.updates` 0.7 §2.7.2; 0.3.27 adds the node page **Datenträger** — §2.12, specified in `oaap.data.disks` 0.2 §2.6, RFC-0063 stage 2; 0.3.26 adds **profile upload, download and delete** and tick boxes for `bool` parameters on the build pages — §2.11, RFC-0055 §14; 0.3.25 adds **invitations and requests** — the prospect's public form and the operator's list, §2.10, RFC-0055 stage 4; 0.3.24 adds the **tenant build pages** — a wizard over the operator API, §2.9, RFC-0055 stage 3; 0.3.23 shows the **Cohorts menu entry to every
   administrator**, not only where a cohort exists, and puts a **step-by-step
   guide and a downloadable example template** on the create page — §2.8;
   0.3.22 adds **Add a seat** to the cohorts page, with
@@ -495,8 +495,9 @@ would then overrule. The runners-up are named on the object page
 instead.
 
 - **Filters:** categories, application class, audience, maturity,
-  status, trust class, source, licence, installed or not, and fit with
-  the node's profiles. **Search** additionally covers tags, name,
+  status, trust class, source, licence, installed or not, fit with
+  the node's profiles, and **care** (§2.14: an update for one of the
+  caller's instances, open advisories on one of them, or either). **Search** additionally covers tags, name,
   summary and description.
 - **Three defaults, each reversible with one click.** Apps whose
   `profiles` do not match this node are **filtered, not hidden**; so are
@@ -793,6 +794,40 @@ specified in `oaap.core.updates` 0.7 §2.7.2.
 - **Offers what the worker accepts:** unprotected — protect; protected —
   extend (reason again) and release. The band of 2.7.5 on the tenant's
   place points here instead of only at the command line.
+
+### 2.14 Care at a glance: store and instance list (RFC-0050, RFC-0071)
+
+Two questions an operator asks of a whole list, not of one page: **is a
+newer version in the catalogue**, and **does the node's image reading
+(RFC-0071 §3) report open advisories**. The store and the instance list
+answer both with ONE rule, so they never disagree.
+
+- **Update.** The catalogue version of the instance's app, if it is
+  newer than the installed one. Dotted numbers compare as numbers; an
+  OLDER catalogue entry (a test instance ahead of the list) is no
+  update. Anything else (a pre-release, a word) falls back to "differs",
+  the rule of the object page. The catalogue entry is the one the host
+  would install (2.6 resolution).
+- **Advisories.** The sum of `open` over the instance's services in the
+  care file's `images` block. A moved base without advisories is said
+  quietly ("Basis weitergezogen") and is not a reason for attention.
+- **Through the boundary.** Both lists count only the caller's visible
+  instances; a `tenant_admin` learns nothing of another tenant's
+  updates or advisories.
+- **Store.** A hint line with links to the filtered list, a filter
+  **Pflege** (update / advisories / either) and two badges per card
+  ("Update für n Instanzen", "n Sicherheitsmeldungen"). A care filter
+  overrides the two defaults of 2.6: an app with an open advisory MUST
+  NOT disappear because it is archived or wants another profile.
+- **Instance list.** A column **Pflege** -- the update badge links the
+  store's object page, the advisory badge the instance's card "Abbild"
+  -- a hint line, and filters: search (instance and app name), status,
+  channel, tenant (multi-tenant `server_admin`) and **Pflege**. A filter
+  that keeps nothing says so and offers the reset.
+- **Reads, writes.** Reads the catalogue (cached for a minute for the
+  instance list; any store read refreshes it) and the care file. Writes
+  nothing; healing stays where it is -- the store update (RFC-0050) and
+  the rebuild on the instance page (RFC-0071).
 
 ## 3. Configuration
 
@@ -1571,3 +1606,24 @@ verlängern den Schutz und heben ihn auf.
   Ohne Begründung geht nichts in den Spool.
 - Das Band am Mandantenort verweist jetzt hierher, nicht nur auf die
   Befehlszeile.
+
+## Deutsche Zusammenfassung (Nachtrag 0.3.29 — Pflege auf einen Blick)
+
+Anlass: Jörg beim Aktualisieren von oaapx01 — im Store fehlte ein Filter
+„Updates verfügbar / Sicherheitsmeldungen“, in der Instanzliste ein
+Hinweis darauf und überhaupt ein Filter (§2.14).
+
+- **Eine Regel für Store und Instanzliste.** „Update“ heißt: der Store
+  führt eine **neuere** Version der App (Zahlen werden als Zahlen
+  verglichen; ist der Katalog älter, ist es kein Update).
+  „Sicherheitsmeldungen“ sind die offenen Meldungen der Abbild-Lesung
+  (RFC-0071). „Basis weitergezogen“ ohne Meldungen wird leise genannt.
+- **Store:** Hinweiszeile mit Kurzlinks, Filter **Pflege** und je Karte
+  „Update für n Instanzen“ / „n Sicherheitsmeldungen“. Ein Pflegefilter
+  zeigt auch archivierte Apps und solche für ein anderes Profil.
+- **Instanzliste:** Spalte **Pflege** (Update → Store-Seite der App,
+  Meldungen → Karte „Abbild“), Hinweiszeile, Filter Suche, Status, Kanal,
+  Mandant und Pflege.
+- Gezählt wird nur, was der Aufrufer sieht — ein Mandanten-Admin erfährt
+  nichts über fremde Instanzen. Die Seiten schreiben nichts; geheilt wird
+  wie bisher per Store-Update oder Neubau.
