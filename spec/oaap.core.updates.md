@@ -1,7 +1,7 @@
 # oaap.core.updates — Platform Updates
 
 - **ID:** `oaap.core.updates`
-- **Version:** 0.8
+- **Version:** 0.9
 - **Maturity:** draft — accepted by Jörg 2026-08-06 (CLI trigger
   implemented and validated on real hardware); 0.1.1 (2026-08-07)
   updates the reserved portal-trigger role to `server_admin` per
@@ -32,7 +32,10 @@
   adds §2.8**: the node compares its installed packages with the
   distribution's advisory list and says how many are open and since
   when — `unknown` for other archives, `stale` for an old list, never
-  "0 open" without a list; the "last run" comes from the timer's stamp
+  "0 open" without a list; the "last run" comes from the timer's stamp;
+  **0.9 (2026-11-06, RFC-0071 stage 1, D1–D9) adds §2.9**: the same
+  comparison inside every image the instances run, the upstream digest
+  of every base, one word per instance — read, not rebuilt
 - **Based on:** RFC-0001 (capability model); program decision 2026-08-03
   ("one update engine per node, three triggers"); git-based delivery;
   RFC-0012 §4 (shipped sources survive a move)
@@ -599,6 +602,49 @@ update run; the gate for an external name; the tracker's CVE ratings.
 Lowering the urgency of 2.7.3 by a rating is decided **no, for now**
 (D7).
 
+### 2.9 Images: what the instances run on (0.9, RFC-0071 stage 1)
+
+The node's own packages are half of it: every instance runs an image
+with packages of its own, on a base the node pulled once. The care
+state therefore carries a second reading, made by the node (it needs
+Docker, which no container gets):
+
+- per image the instances and the platform's own containers run (by the
+  id the container **runs**, not by its tag): the comparison of 2.8.1
+  against the image's package database, read with no network,
+  read-only, without pulling, as the image's user. One image serving
+  many instances is read once. No package database (Alpine,
+  distroless) is `unknown`, never "0 open"; an image the container
+  still runs but the node has removed (a newer build took its tag —
+  measured on oaap-test, 2026-11-06: three platform containers) is
+  `unknown` with that reason;
+- per distinct base reference, once a day: the upstream index digest,
+  compared with the instance's base record (`oaap.apps.runtime` 2.29)
+  or, for a foreign image, with its own local digest;
+- the word per instance of `oaap.apps.runtime` 2.29.
+
+The reading is cached per image and list: a new list reads every image
+again, an unchanged one reads only new images. The minute job reads
+within a budget (25 s in the reference); what is left comes the next
+time. `sudo oaap node care images [--read]` reads everything now.
+
+**Told** in the three places, without a new channel: a line in `oaap
+status` ("Images: 28 instances — 19 with open advisories (the oldest
+since 2026-05-19), 3 behind upstream, 6 unknown; 3 platform
+container(s) with open advisories"); in the portal a row "Abbilder" in
+the node table and, on every instance's page, the card **Abbild** —
+per service the word, the count of open advisories and the oldest
+date, the base and whether upstream moved, **no package name**; in
+`/fleet/status` the counts as `host.images` and the attention kind
+`images_open` (`oaap.fleet.status` 0.8). The names are the
+`server_admin`'s, on the node (`sudo oaap node care images`). The door
+of 2.7.7 carries nothing of it.
+
+What 2.9 is not yet: the rebuild on a fresh base with the predecessor
+kept (RFC-0071 stage 2), the rebuild by itself in the window (stage 3),
+the platform's own images pulled by `oaap update` (stage 4), the app's
+own dependencies (stage 5).
+
 ## 3. Configuration
 
 - Recorded source: repository URL, branch/ref, working-copy path
@@ -807,6 +853,23 @@ Secrets werden nie angefasst. Stick-Installationen (ohne Git-Kopie)
 klonen beim ersten Update das hinterlegte Repo. Rollback ist in 0.1
 dokumentiert-manuell; signierte Releases und automatische Updates
 kommen, bevor der Zeitplan-Auslöser scharf wird.
+
+## Deutsche Zusammenfassung (0.9 — Abbilder, §2.9)
+
+Die Pakete des Knotens sind die halbe Wahrheit: jede Instanz läuft auf
+einem Abbild mit eigenen Paketen, auf einer Basis, die der Knoten einmal
+geholt hat. Seit 0.9 liest der Knoten je Abbild, das ein Container
+*wirklich* ausführt, dieselben Debian-Meldungen wie in 2.8 — ohne Netz,
+read-only, ohne Pull, einmal je Abbild auch für viele Instanzen —, fragt
+täglich je Basis den Upstream-Digest ab und gibt jeder Instanz ein Wort
+(`fresh`, `behind`, `open`, `unknown`, `stale`). Kein Paketverzeichnis im
+Abbild (Alpine) oder ein vom Knoten gelöschtes Abbild, auf dem der
+Container noch läuft (am 06.11. drei Plattform-Container auf oaap-test),
+heißt `unknown`, nie „0 offen“. Gezeigt: eine Zeile in `oaap status`, im
+Portal die Zeile „Abbilder“ und auf jeder Instanzseite die Karte
+**Abbild** (Wort, Anzahl, ältestes Datum, Basis — keine Paketnamen), im
+Flottendokument nur Zahlen. Die Namen zeigt `sudo oaap node care images`.
+Neu bauen kommt mit RFC-0071 Stufe 2.
 
 ## Deutsche Zusammenfassung (0.8 — Sicherheitsmeldungen, §2.8)
 

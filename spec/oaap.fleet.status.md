@@ -1,7 +1,10 @@
 # oaap.fleet.status — Read-Only Fleet Status Document
 
 - **ID:** `oaap.fleet.status`
-- **Version:** 0.7 (the advisories in the `host` block — count, oldest
+- **Version:** 0.8 (the images in the `host` block — counts per state
+  word and the oldest date, never an instance, a base or a package — and
+  the attention kind `images_open`, `oaap.core.updates` 2.9, RFC-0071,
+  2026-11-06; 0.7: the advisories in the `host` block — count, oldest
   date, stale, the number of uncovered packages, never a name — and
   two attention kinds for them, `oaap.core.updates` 2.8, RFC-0070,
   2026-11-06; 0.6: the reboot plan and the protections in the `host`
@@ -235,6 +238,13 @@ Rules:
      doors and stay with its `server_admin`. Two `attention` kinds
      derive from it: `advisories_open` (detail: count and oldest date)
      and `advisories_stale` (detail: when the list was read).
+   - `images` (0.8, `oaap.core.updates` 2.9) — omitted before the node
+     read its images; else `instances` (how many), `open`, `behind`,
+     `unknown`, `fresh`, `stale` (how many instances carry that word),
+     `core_open` (platform containers with open advisories), `oldest`
+     (the oldest open advisory in any instance's image). Counts only:
+     which instance runs on which base with which open package is the
+     node's (rule 1). The attention kind `images_open` derives from it.
    - `protections` (0.6) — omitted when none is live; else `count` and
      `until` (the latest end, a calendar day). Instance names are not
      repeated here: an instance's row already carries its name, and a
@@ -311,6 +321,12 @@ noch kaputt — also nie ein `attention`-Eintrag, und der automatische
 Name einer schlafenden Instanz bleibt `ok` (er antwortet mit der
 Weckseite). Kerndienste und Namen kennen den Wert nicht. Ein 0.3-
 Konsument, der ihn nicht kennt, behandelt ihn als `unknown`.
+
+**Seit 0.8** (RFC-0071) trägt der Block `host` die **Abbilder** als Zahlen:
+wie viele Instanzen, wie viele mit offenen Meldungen im Abbild, Basis
+weitergezogen, unbekannt, frisch, veraltet, Plattform-Container mit
+offenen Meldungen, das älteste Datum — nie eine Instanz, eine Basis oder
+ein Paket. Dazu die Aufmerksamkeitsart `images_open`.
 
 **Seit 0.7** (RFC-0070) trägt der Block `host` die **Sicherheitsmeldungen**
 als `advisories`: Anzahl offener Meldungen (`null`, wenn nie eine Liste

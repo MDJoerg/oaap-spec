@@ -1,7 +1,9 @@
 # RFC-0071: Rebuild — An Instance Is Built Again on a Fresh Base, and Falls Back
 
 - **Status:** **Accepted** (2026-11-06, Jörg: D1–D9 as recommended — D6 "no, for
-  now"). Stage 1 next, after RFC-0070 stage 1 (built 2026-11-06, reference 0.1.226).
+  now"). **Stage 1 built** (reference 0.1.227, `oaap.apps.runtime` 0.2.50 §2.29,
+  `oaap.core.updates` 0.9 §2.9, `oaap.fleet.status` 0.8), measured on oaap-test (§13).
+  Stages 2–5 not built.
 - **Date:** 2026-11-05
 - **Authors:** Claude (measurement, proposal), Jörg (requirement: "eine Instanz wird als
   auffällig gemeldet und wir können versuchen, sie mit einer neuen gepatchten Version neu
@@ -264,7 +266,66 @@ today: the gateway is reloaded, never restarted.
 - *And oaapx01's 22 instances?* Stage 1 says how many are `open`; stage 2 by hand on one
   of them, on Jörg's word; stage 3 only after a window night on oaap-test was measured.
 
+## 13. Stage 1 as built (2026-11-06)
+
+**The number D9 waited for (oaap-test, 07:35 CET, 37 images, 11 distinct
+references, 33 s for a full read, 1 s with the cache):**
+
+| | Instances (28) |
+|---|---|
+| `open` — advisories inside the image | **19** |
+| `behind` — 0 open, upstream moved (ollama, open-webui, stirling-pdf) | 3 |
+| `unknown` — no dpkg (Keycloak, Alpine, forgejo, n8n) or image removed | 6 |
+| `fresh` | 0 (no instance has a base record yet) |
+
+- The fourteen `python:3.1x-slim` apps carry 1–5 open advisories each (apt
+  2026-11-04; openssl, pcre2, xz-utils, ca-certificates since 2026-09-29) — the
+  base of 28 October. Layer 1 of §2: a rebuild on a fresh base heals them.
+- `vaultwarden` (moving tag, behind upstream): 8 open since 2026-08-14 — a pull heals it.
+- `uptime-kuma:2.5.3` (pinned, = upstream): 5 open since **2026-05-19** — layer 3, the
+  author's.
+- **Platform (field 5):** the broker `mosquitto-go-auth:3.0.0-mosquitto_2.0.18`
+  (pinned, = upstream) 5 open since **2025-05-29** — only a new tag in the platform
+  helps; portal and identity 1 open (apt); the gateway `caddy:2` is Alpine (`unknown`)
+  and behind upstream.
+- **Found while reading:** three platform containers (connect, twin, relay) and two
+  instances run on images the node has **removed** — a newer build took the tag, the
+  container kept running the old id. They are `unknown` with that reason. Stage 4 (core
+  images recreated in the window) will end the core case; for instances it is what the
+  predecessor tag of §4 has to keep in mind: an untagged image is gone at the next
+  prune.
+
+**What differs from §3 as written.**
+
+- The image read is the one the container **runs** (`docker inspect`), not the tag.
+- Inside an image the archives are not known (slim images carry no package lists):
+  every package is compared as Debian's. A vendor package with a Debian-like name could
+  be counted as open; the reverse — a vendor package taken as clean — cannot happen.
+- The platform's own containers are read in stage 1 already (shown as "platform"),
+  rebuilt only with stage 4.
+- The minute job reads inside a budget of 25 s; the rest comes ten minutes later.
+  `sudo oaap node care images --read` reads everything now.
+
+**Measured.** CLI with names on the node; `oaap status` line; the portal's node-table
+row and the card "Abbild" rendered for three instances (open with count and date;
+pinned = upstream; two services, both unknown with the reason); the base record
+taken with real Docker on a package (`python:3.12-slim`, local `aa94…`, upstream
+`4840…` → behind). A full install of a throw-away instance was **not** possible:
+oaap-test has no free Docker address pool left ("all predefined address pools have
+been fully subnetted") — a node condition, not this stage's; the half-installed probe
+left two keys, which were revoked. Tests: `test_images.py` (40), neighbours green.
+
 ## Deutsche Zusammenfassung
+
+**Stand 06.11.:** Angenommen (D1–D9 wie empfohlen, D6 „nein, vorerst“). Stufe 1
+gebaut (Referenz 0.1.227) und auf oaap-test gemessen: **19 von 28 Instanzen haben
+offene Debian-Meldungen im Abbild** — die vierzehn Python-Apps von der Basis vom
+28.10. (heilt ein Neubau), vaultwarden seit August (heilt ein Pull), uptime-kuma
+festgenagelt seit Mai (nur der Autor); der Broker der Plattform festgenagelt seit
+**Mai 2025** (nur ein neuer Tag der Plattform). Nebenbefund: drei
+Plattform-Container laufen auf Abbildern, die der Knoten schon gelöscht hat. Der
+Knoten oaap-test hat keine freien Docker-Adressbereiche mehr (kein neues
+Instanznetz möglich). Einzelheiten in §13.
 
 **Der Befund.** Das Abbild einer Instanz wird auf dem Knoten gebaut, aus dem Paket, auf
 einem Basis-Abbild, das der Knoten einmal geholt hat. Der Bau holt nie wieder nach — ohne

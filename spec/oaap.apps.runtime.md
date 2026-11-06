@@ -1,7 +1,10 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.49 (**the care door**, RFC-0069 stage 3: every
+- **Version:** 0.2.50 (**the base record**, RFC-0071 stage 1: every
+  built service records the base its image stands on, and the node reads
+  upstream and the advisories inside every image; new 2.29; 0.2.49:
+  **the care door**, RFC-0069 stage 3: every
   instance is told `OAAP_CARE_URL`, where the node says when it reboots
   and how urgent, never which kernel; new 2.28;
   0.2.48 (**no link to an open AI gateway** from a closed instance, and the sweep
@@ -1957,6 +1960,38 @@ platform update and in their container at its next restart — an update
 is not the moment to restart every app on the node (2.22's rule). The
 first reader is the desk (`webtop` 0.1.10).
 
+### 2.29 The base record: what an image stands on (0.2.50, RFC-0071 stage 1)
+
+An image the node builds from a package stands on the base its
+Dockerfile names, as the node holds it — the build does not pull again
+(RFC-0071 §1), so every later build stands on the base of the day the
+node first pulled it. The deploy therefore records, per built service,
+right after the build:
+
+- `base.ref` — the `FROM` reference of the final stage (followed through
+  stage aliases; a reference with a variable, or `scratch`, is not
+  guessed and stays empty);
+- `base.digest` — the index digest the node holds for that reference
+  (`RepoDigests`), i.e. the base the build actually used;
+- `base.built` — when.
+
+A foreign image (`image:` in the manifest) is its own base: its local
+digest is read from the image itself and needs no record. An instance
+built before 0.2.50 has no record; its base is **unknown, never fresh**
+until its next build.
+
+The node reads, beside the record (`oaap.core.updates` 2.9): once a day
+the upstream index digest of every distinct reference, and the Debian
+advisories inside every image the instances run — with no network,
+read-only, without pulling, as the image's own user, never inside a
+running container. One word per instance, the worst of its services:
+`fresh` (base equals upstream, 0 open), `behind` (upstream moved, 0
+open — informative), `open` (advisories inside), `unknown` (no record,
+no package database in the image, the image the container runs was
+removed, or no upstream answer for a week), `stale` (the upstream answer
+is older than two days). This version reads only; the rebuild on a fresh
+base with the running image kept as the predecessor is RFC-0071 stage 2.
+
 ## 3. Configuration
 
 - Level-1 port range (default 8100–8199, expert-configurable;
@@ -2277,6 +2312,20 @@ first reader is the desk (`webtop` 0.1.10).
 tests 1–11 on the reference platform. 0.2 target: tests 12–16 with the
 pilot CRM's test instance and its AI coding agent as the first real
 remote deployer.
+
+## Deutsche Zusammenfassung (2.29, v0.2.50 — der Basis-Record)
+
+Ein Abbild, das der Knoten aus einem Paket baut, steht auf der Basis, die
+sein Dockerfile nennt — so, wie der Knoten sie einmal geholt hat; der Bau
+holt nie nach. Seit 0.2.50 schreibt der Deploy direkt nach dem Bau je
+Dienst auf: `FROM`-Referenz der letzten Stufe, den Digest, den der Knoten
+dafür hält (also die Basis, die der Bau wirklich nahm), und wann. Ein
+Fremd-Abbild ist seine eigene Basis. Vor 0.2.50 gebaut heißt: Basis
+unbekannt, nie „frisch“, bis zum nächsten Bau. Daneben liest der Knoten
+täglich den Upstream-Digest jeder Referenz und die Debian-Meldungen *im*
+Abbild — ohne Netz, read-only, ohne Pull, nie im laufenden Container. Ein
+Wort je Instanz: `fresh`, `behind`, `open`, `unknown`, `stale`. Neu bauen
+kommt mit RFC-0071 Stufe 2.
 
 ## Deutsche Zusammenfassung (2.27, v0.2.48 — kein Link zum offenen KI-Gateway)
 
