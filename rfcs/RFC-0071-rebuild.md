@@ -1,9 +1,9 @@
 # RFC-0071: Rebuild — An Instance Is Built Again on a Fresh Base, and Falls Back
 
 - **Status:** **Accepted** (2026-11-06, Jörg: D1–D9 as recommended — D6 "no, for
-  now"). **Stage 1 built** (reference 0.1.227, `oaap.apps.runtime` 0.2.50 §2.29,
+  now"). **Stages 1 and 2 built** (reference 0.1.227 and 0.1.228; stage 2: `oaap.apps.runtime` 0.2.51 §2.30, §14 below; stage 1: `oaap.apps.runtime` 0.2.50 §2.29,
   `oaap.core.updates` 0.9 §2.9, `oaap.fleet.status` 0.8), measured on oaap-test (§13).
-  Stages 2–5 not built.
+  Stages 3–5 not built.
 - **Date:** 2026-11-05
 - **Authors:** Claude (measurement, proposal), Jörg (requirement: "eine Instanz wird als
   auffällig gemeldet und wir können versuchen, sie mit einer neuen gepatchten Version neu
@@ -315,7 +315,47 @@ oaap-test has no free Docker address pool left ("all predefined address pools ha
 been fully subnetted") — a node condition, not this stage's; the half-installed probe
 left two keys, which were revoked. Tests: `test_images.py` (40), neighbours green.
 
+## 14. Stage 2 as built (2026-11-06, reference 0.1.228)
+
+`oaap app rebuild <name> [--back]`, the buttons on the card "Abbild", the spool action
+`rebuild` — one function (`oaap.apps.runtime` 0.2.51 §2.30).
+
+**What differs from §4/§5 as written.**
+
+- **Only from the retained package** (§8.1) is taken literally: an instance with a
+  built service installed from a path or a branch is refused with that reason — on
+  oaap-test that is 27 of 28 instances (only `wegweiser` came as a package). On a
+  production node, where apps arrive as packages, it is the rule that holds; for the
+  test node it is the honest answer. A foreign image needs no package.
+- **Test first** is a check of the test instance's base record against the digest just
+  pulled, not a promotion: the same package, so "promote" would move nothing.
+- The predecessor tag is moved by **every** attempt, not only by a successful one: the
+  image that ran when the attempt started is the one to fall back to. It is removed
+  with the instance.
+- "Answers" is the probe of standby's wake (any HTTP status line within 120 s).
+
+**Measured on oaap-test (08:13–08:18 CET).**
+
+| Case | Result |
+|---|---|
+| Fallback — a probe package that refuses to start on any image but its first (`rbprobe`, installed from a zip on the base of 28 October, base record `ae14…` written by the real install) | pull `python:3.13-slim` → `09a17…`, build, recreate, no answer in 120 s → tag back, recreated from `a052…`, answering again; base record back to `ae14…`; tenant log `instance.rebuild [failed] … a0524dd7c53c -> 84d9bf780c10; not answering within 120 s, back on the previous image`; 143 s in all |
+| Success — `wegweiser` (package 0.4.1, 4 open: pcre2, xz-utils, ca-certificates, apt) | 13 s; `656e7c6f2ec4 -> 39ff70bc3fae`; afterwards `fresh`, **0 open**, base = upstream; gateway answers |
+| `--back` through the spool, as the portal sends it | `ok`, "rbprobe runs on the previous image again.", one log line |
+| The card, live | `wegweiser`: fresh, "Auf frischer Basis neu gebaut", both buttons; `studio` (git): no button, the §8.1 sentence |
+| Remove | `oaap app remove rbprobe --purge` removes the predecessor tag (added for this stage) |
+
+Afterwards oaap-test: 18 of 28 instances `open` (was 19). The install of the probe was
+the first on oaap-test after its Docker address pools were extended (§13): its network
+came from `10.240.0.0/16`.
+
 ## Deutsche Zusammenfassung
+
+**Stand 06.11. (Stufe 2):** Neubau gebaut (0.1.228) und auf oaap-test gemessen:
+wegweiser in 13 s von 4 offenen Meldungen auf 0; eine absichtlich kaputte Sonde fiel
+nach 120 s von selbst auf ihr voriges Abbild zurück, mit Protokollzeile; Zurück von
+Hand über die Portal-Tür ging. Neu gebaut wird nur aus dem zurückbehaltenen Paket — auf
+oaap-test hat das nur wegweiser, die anderen kamen aus Pfaden oder Git. Einzelheiten
+§14.
 
 **Stand 06.11.:** Angenommen (D1–D9 wie empfohlen, D6 „nein, vorerst“). Stufe 1
 gebaut (Referenz 0.1.227) und auf oaap-test gemessen: **19 von 28 Instanzen haben

@@ -1,7 +1,10 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.50 (**the base record**, RFC-0071 stage 1: every
+- **Version:** 0.2.51 (**the rebuild**, RFC-0071 stage 2: the same
+  retained package on a freshly pulled base, the running image kept as
+  the one predecessor, back to it when the new container does not
+  answer; new 2.30; 0.2.50: **the base record**, RFC-0071 stage 1: every
   built service records the base its image stands on, and the node reads
   upstream and the advisories inside every image; new 2.29; 0.2.49:
   **the care door**, RFC-0069 stage 3: every
@@ -1989,8 +1992,49 @@ running container. One word per instance, the worst of its services:
 open — informative), `open` (advisories inside), `unknown` (no record,
 no package database in the image, the image the container runs was
 removed, or no upstream answer for a week), `stale` (the upstream answer
-is older than two days). This version reads only; the rebuild on a fresh
-base with the running image kept as the predecessor is RFC-0071 stage 2.
+is older than two days). Reading is 0.2.50; the rebuild is 2.30.
+
+### 2.30 The rebuild: the same package on a fresh base, with a way back (0.2.51, RFC-0071 stage 2)
+
+`oaap app rebuild <instance>` and the button "Neu bauen" on the card
+**Abbild** (a `tenant_admin` of the instance's tenant or the
+`server_admin`; the worker judges role and tenant from the actor's
+record, another tenant's instance is one the node does not have) run one
+function:
+
+1. **Refused before anything changes** when the instance is held by a
+   reboot protection (`oaap.core.updates` 2.7.2), in standby, in a
+   deployment, or has a built service and **no retained package** — a
+   path or a branch may have moved since the install, and a rebuild must
+   not be a silent update. A service that runs a foreign image needs no
+   package: its rebuild is a pull.
+2. Every base reference (the `FROM` of 2.29) and every foreign image is
+   **pulled**. A refused pull changes nothing.
+3. **Test first:** a production instance whose tenant holds a test
+   instance of the same app is rebuilt only when that test instance
+   already stands on the bases just pulled (its base record). A
+   rehearsal does not count.
+4. The image each service **runs** is tagged as its **predecessor**
+   (`oaap-prev/<instance>[-<service>]:prev`) — exactly one per service,
+   moved by every attempt, removed with the instance.
+5. Built services are built from the retained package; the build MUST
+   stand on the digest just pulled. A failing build re-points the tag to
+   the predecessor and changes nothing else. When no image changed
+   (upstream had not moved) nothing is recreated.
+6. The containers are recreated and the instance must **answer** within
+   120 s (the same probe as standby's wake: any HTTP status line). It
+   answers: the new base record is kept, the tenant's log says
+   `instance.rebuild` with the old and the new image id. It does not: the
+   tag goes back to the predecessor, the containers are recreated from
+   it, the previous base record returns, and the log says so with
+   result `failed`.
+
+`--back` (and the button "Zurück auf das vorige Abbild") re-points every
+service to its predecessor and recreates. The instance carries the last
+rebuild as `rebuild` (`state`: `running`, `done`, `unchanged`,
+`build-failed`, `fallback`, `back`, `error`; time; who) for the card. A
+rebuild by the node itself, in the window, is RFC-0071 stage 3; the
+platform's own images are stage 4.
 
 ## 3. Configuration
 
@@ -2312,6 +2356,23 @@ base with the running image kept as the predecessor is RFC-0071 stage 2.
 tests 1–11 on the reference platform. 0.2 target: tests 12–16 with the
 pilot CRM's test instance and its AI coding agent as the first real
 remote deployer.
+
+## Deutsche Zusammenfassung (2.30, v0.2.51 — der Neubau)
+
+`oaap app rebuild <instanz>` und der Knopf „Neu bauen“ auf der Karte
+**Abbild** (Mandanten-Admin der Instanz oder Server-Admin) bauen dasselbe
+zurückbehaltene Paket auf einer frisch geholten Basis. Abgelehnt, bevor
+sich etwas ändert: geschützte Instanz, Standby, laufender Deploy, oder ein
+gebauter Dienst ohne zurückbehaltenes Paket (ein Pfad oder Zweig kann sich
+seit der Installation bewegt haben). Ein Fremd-Abbild braucht kein Paket,
+sein Neubau ist ein Pull. Erst die Testinstanz derselben App, dann die
+produktive. Das laufende Abbild bleibt als **Vorgänger**
+(`oaap-prev/<instanz>:prev`, genau einer). Bau gescheitert → nichts
+geändert; nichts weitergezogen → nichts neu angelegt; neuer Container
+antwortet nicht in 120 s → von selbst zurück auf den Vorgänger, alter
+Basis-Record zurück, Protokoll `failed`. `--back` bzw. „Zurück auf das
+vorige Abbild“ geht von Hand zurück. Von selbst im Fenster folgt mit
+Stufe 3, die Plattform-Abbilder mit Stufe 4.
 
 ## Deutsche Zusammenfassung (2.29, v0.2.50 — der Basis-Record)
 
