@@ -1,7 +1,9 @@
 # RFC-0070: Advisories — The Node Reads What Is Known About What It Runs
 
-- **Status:** Proposed (2026-11-05). Decisions D1–D8 open (§9). Nothing built; the
-  measurement in §1 was taken with a probe that is not part of the platform.
+- **Status:** **Accepted** (2026-11-06, Jörg: D1–D8 as recommended — D7 "no, for
+  now"). **Stage 1 built** (reference 0.1.226, `oaap.core.updates` 0.8 §2.8,
+  `oaap.fleet.status` 0.7), measured on oaap-test, raspberrypi and oaap-demo (§10).
+  Stages 2–4 not built.
 - **Date:** 2026-11-05
 - **Authors:** Claude (measurement, proposal), Jörg (requirement, decides)
 - **Depends on:** `oaap.core.updates` 0.2 §2.6 (host care: the kernel pair, the auto-update
@@ -267,7 +269,47 @@ and be right. The line will be wrong again the next time a node is installed, or
 timer is off, or a repository is unreachable — and nothing in the platform will notice,
 because the stage-1 line measures the switch and not the fact.
 
+## 10. Stage 1 as built (2026-11-06)
+
+**The first real timer run, before the build (06:23–07:00 CET).** On oaap-bernd,
+raspberrypi and oaap-demo `apt-daily-upgrade` ran for the first time with the program
+installed and installed 64, 18 and 384 packages; afterwards `apt list --upgradable`
+showed 0 from the security archive on all three and on oaapx01 (which has run it since
+August). No container was restarted. oaap-demo set the distribution's reboot marker
+with an empty package list — a library, not the kernel; the kernel pair said no
+reboot. Both are now said (§2.8.2 of the spec).
+
+**What differs from §2 as written.**
+
+- The list's headers vary over 24 years (`DSA-123` without a revision, no title,
+  several packages, a double space); the grammar takes the first word as the package.
+  On the real list 5 of 22 359 lines remain unknown and are counted (typos in the
+  list itself).
+- Besides `unknown` (another archive) there is `local` — a package no archive
+  carries any more (oaap-demo: `docker-desktop`). Named, never compared.
+- The kernel takes the **newest installed** version, not the oldest: the old images
+  stay on disk and would otherwise be open forever.
+- A fetched text whose first line is not an advisory header is refused (a captive
+  portal, an error page); the previous list stays.
+- §3 "every signed-in administrator of a tenant reads count, oldest, stale" is not in
+  stage 1: the portal shows the care band to `server_admin` only, as 2.6.2 did.
+
+**Measured.** oaap-test: 0 open, 4 uncovered (Docker CE), read in 3 s; the line in
+`oaap status`, the portal's band and node table, and the fleet block say the same.
+raspberrypi: 0 open, the Raspberry Pi archive's packages (kernel, glibc, chromium …)
+`unknown`, 20 s on the Pi. oaap-demo: 0 open, 7 uncovered, 1 local. Counter-check on
+oaap-test with the real list plus three invented entries: `bash 9.9-1` and `linux
+6.12.200-1` open (the signed kernel mapped from the real package database),
+`docker-ce 99.0` not compared and `unknown`; a page that is not the list → `open:
+null`, never 0. Tests: `test_advisories.py` (46), `test_host_care.py`,
+`test_care_portal.py`, `test_fleet_status.py` green.
+
 ## Deutsche Zusammenfassung
+
+**Stand 06.11.:** Angenommen (D1–D8 wie empfohlen, D7 „nein, vorerst“); Stufe 1
+gebaut (Referenz 0.1.226), auf oaap-test, raspberrypi und oaap-demo gemessen — überall
+0 offen nach dem ersten echten Timer-Lauf heute früh; die Gegenprobe mit drei
+erfundenen Meldungen schlägt richtig an. Abweichungen und Messwerte in §10.
 
 **Der Befund.** Heute Abend hat eine Sonde auf oaap-test Debians eigene Liste der
 Sicherheits-Advisories (eine Textdatei, 1,2 MB, 2,6 s) gegen die installierten Pakete

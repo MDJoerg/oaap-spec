@@ -12,7 +12,7 @@ before the full specification is written.
 ## Index
 
 - [oaap.core.host](oaap.core.host.md) — platform installer & node baseline (draft, v0.3.8)
-- [oaap.core.updates](oaap.core.updates.md) — one update engine per node, three triggers: a node updates its platform core from its recorded source, shows what would change first, and never touches app instances or user data; since 0.6 the plan is an event on a broker node; since 0.7 a tenant_admin protects an instance on its portal page (draft, v0.7)
+- [oaap.core.updates](oaap.core.updates.md) — one update engine per node, three triggers: a node updates its platform core from its recorded source, shows what would change first, and never touches app instances or user data; since 0.6 the plan is an event on a broker node; since 0.7 a tenant_admin protects an instance on its portal page; since 0.8 the node compares its packages with the distribution's advisories (draft, v0.8)
 - [oaap.core.portal](oaap.core.portal.md) — web portal (draft, v0.3.28)
 - [oaap.core.management](oaap.core.management.md) — the tenant's own hand on the platform as an API: the cohort commands under `/api/v1/tenant`, for a session or an API key, jobs for what takes minutes, a template uploaded as ZIP, the handout as a one-time ZIP with a password the trainer chooses; operator routes for tenant builds (draft, v0.1.2)
 - [oaap.core.identity](oaap.core.identity.md) — identity & roles (draft, v0.6.2)
@@ -20,7 +20,7 @@ before the full specification is written.
 - [oaap.core.gateway](oaap.core.gateway.md) — HTTP gateway (outline, v0.2.20)
 - [oaap.apps.runtime](oaap.apps.runtime.md) — app runtime: install, instances, contract delivery, remote deployment (draft, v0.2.49)
 - [oaap.data.backup](oaap.data.backup.md) — platform backup, restore & relocation (draft, v0.4.1)
-- [oaap.fleet.status](oaap.fleet.status.md) — read-only fleet status document & fleet keys (draft, v0.6)
+- [oaap.fleet.status](oaap.fleet.status.md) — read-only fleet status document & fleet keys (draft, v0.7)
 - [oaap.ai.gateway](oaap.ai.gateway.md) — AI supply behind one keyed, OpenAI-compatible endpoint (draft, v0.4)
 - [oaap.ai.mcp-gateway](oaap.ai.mcp-gateway.md) — MCP tool servers behind one keyed endpoint per view: bundles of tools, resources and prompts across servers, fixed arguments and bounds, catalog with default deny, pinned descriptions, effect classes, sign-in at the tenant IdP with access profiles, token exchange, protection limits (draft, v0.3)
 - [oaap.core.tenant](oaap.core.tenant.md) — account and tenant, the boundary of belonging (draft, v1.3)

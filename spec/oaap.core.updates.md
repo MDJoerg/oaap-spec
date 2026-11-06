@@ -1,7 +1,7 @@
 # oaap.core.updates — Platform Updates
 
 - **ID:** `oaap.core.updates`
-- **Version:** 0.7
+- **Version:** 0.8
 - **Maturity:** draft — accepted by Jörg 2026-08-06 (CLI trigger
   implemented and validated on real hardware); 0.1.1 (2026-08-07)
   updates the reserved portal-trigger role to `server_admin` per
@@ -28,7 +28,11 @@
   the plan is an event on a broker node; **0.7 (2026-11-05, RFC-0069
   stage 5) adds the portal's door to 2.7.2**: a `tenant_admin` protects,
   extends and releases on the instance's page, one function behind both
-  doors
+  doors; **0.8 (2026-11-06, RFC-0070 stage 1, Jörg's decisions D1–D8)
+  adds §2.8**: the node compares its installed packages with the
+  distribution's advisory list and says how many are open and since
+  when — `unknown` for other archives, `stale` for an old list, never
+  "0 open" without a list; the "last run" comes from the timer's stamp
 - **Based on:** RFC-0001 (capability model); program decision 2026-08-03
   ("one update engine per node, three triggers"); git-based delivery;
   RFC-0012 §4 (shipped sources survive a move)
@@ -501,6 +505,100 @@ tells the person at the desktop the hour, warns 30 and 10 minutes
 before, and leaves a note on the desktop that disappears with the plan.
 What an app does with the hour is the app's.
 
+### 2.8 Advisories: what is known about what the node runs (0.8, RFC-0070 stage 1)
+
+**Why this is here.** On the evening of 2026-11-05 the line of 2.6 said
+"Auto-updates: on, last run 13:17 UTC" on a node that carried 13 open
+Debian security advisories, the oldest since 14 August. The program,
+the switch and the timer were in place — since that morning — and the
+"last run" was the stamp of a dry run. A switch holds an intention; the
+operator's question after an announcement is "does this concern my
+node, and is it fixed here?", and only a comparison answers it.
+
+#### 2.8.1 The reading
+
+Every node reads **its own** installed packages and compares them with
+the distribution's advisory list; a reading taken elsewhere describes
+another machine (RFC-0070 D1). For Debian the list is the security
+team's DSA list (one text file, read over HTTPS from the
+distribution's own host) (D2). The node reads it once a day, after
+every automatic-update run, and on demand; a failed read is retried
+hourly. List and result lie beside the registry (`advisories.txt`,
+`advisories.json` in the reference), world-readable: the list is public
+data, and the package database it is compared with is readable by every
+user of the machine anyway.
+
+The rules, each a function in the reference:
+
+- The list is **data, parsed with a fixed grammar**: a header per
+  advisory, an optional line of CVE names, one line per release with
+  the source package and the fixed version, notes. A release line whose
+  version is not a version (`<not-affected>`, `<unfixed>`) is no fix. A
+  line the grammar does not know is **skipped and counted**, never read
+  as "no advisory". A fetched text whose first line is not an advisory
+  header is refused and the previous list kept.
+- Per installed **source** package the **newest** advisory for the
+  node's suite counts, and the package is **open** when its installed
+  version is older than that advisory's fixed version — compared with
+  the package manager's own comparator, never as a string.
+- **The kernel** is `linux` in the list and `linux-signed-<arch>` in the
+  package database (`6.12.115+2` there is `6.12.115-2` here). For the
+  kernel the **newest installed** version counts: older images are
+  inert files, and whether the newest one *runs* is 2.6.1's verdict.
+- A package whose installed and candidate versions come only from an
+  archive of **another origin** (Docker CE, a vendor kernel) is
+  `unknown` — named and counted, never compared, never clean. A package
+  no archive carries any more is `local`, named the same way.
+- Beside the comparison, the node records how many packages the package
+  manager would install from the security archive now — the second
+  reading, from the package manager's own knowledge, with no network.
+
+The result in the care file is the block `advisories`: `source`,
+`read_at`, `stale` (`read_at` older than two days, or never), `open`
+(a number, or **null when no list was ever read** — never 0), `oldest`
+and `oldest_package`, `items` (package, advisory, published, fixed,
+installed, number of CVEs), `unknown`, `local`,
+`security_candidates`, `skipped`, `error` (the last failed read). A
+failed read keeps the previous list and its count; after two days the
+count is shown as stale. A node that has never read the list has no
+block, and every reader says "not read yet".
+
+#### 2.8.2 What is told
+
+No new channel — the three places of 2.6.2:
+
+1. **`oaap status`** carries one more line: "Advisories: 13 open, the
+   oldest since 2026-08-14 (util-linux) — list read … — 4 package(s)
+   from other archives not covered. Which: `sudo oaap node care
+   advisories`". `sudo oaap node care advisories [--read]` names the
+   open ones (package, advisory, date, installed, fixed), the uncovered
+   packages and the skipped lines; it requires root — the names are the
+   operator's.
+2. **The portal** shows the same line in the `server_admin`'s care band
+   and a row "Sicherheitsmeldungen" in the node table, with the names.
+3. **`/fleet/status`** carries `host.advisories` with `open`, `oldest`,
+   `stale`, `read_at` and the **number** of uncovered packages — never a
+   package name (`oaap.fleet.status` 0.7) — and two attention kinds,
+   `advisories_open` and `advisories_stale`.
+
+The door an instance reads (2.7.7) carries nothing of it.
+
+**Two corrections of 2.6 that came with the reading.** The "last run"
+of automatic updates is the **timer's** stamp
+(`/var/lib/apt/periodic/upgrade-stamp`, written after a real run),
+not the program's own, which every invocation writes, a dry run
+included; without the timer's stamp the line says "no run yet". And
+the distribution's reboot marker, when it is set while the kernel pair
+says no reboot (a library asked for it — measured on oaap-demo,
+2026-11-06, after its first real run), is shown as a hint without a
+plan: 2.6.1 already says it may be a hint and never the verdict.
+
+What 2.8 is **not** yet (RFC-0070 stages 2–4, decided 2026-11-06): the
+case after a grace (24 h exposed, 7 days otherwise) and the one early
+update run; the gate for an external name; the tracker's CVE ratings.
+Lowering the urgency of 2.7.3 by a rating is decided **no, for now**
+(D7).
+
 ## 3. Configuration
 
 - Recorded source: repository URL, branch/ref, working-copy path
@@ -558,6 +656,15 @@ What an app does with the hour is the app's.
   refuse the door to every other principal, a person's session
   included; a case MUST NOT carry a kernel version; a failing inbox
   MUST NOT delay or hold the plan.
+- Advisories (2.8, RFC-0070 §4): the list is data — parsed with a fixed
+  grammar, nothing in it executed, an unknown line skipped and counted;
+  it MUST be read over HTTPS from the distribution's own host; a failed
+  read MUST keep the previous list, MUST set `stale` after two days and
+  MUST NOT yield "0 open"; versions MUST be compared with the package
+  manager's comparator; a package from an origin the list does not
+  cover MUST be reported as `unknown`, never as clean; the fleet
+  document MUST NOT carry package names; the "last run" MUST come from
+  the timer's stamp.
 - The door (2.7.7): `/platform/care.json` MUST NOT be reachable from
   outside the node — a listener the host never publishes, never a path
   on a published site — and MUST NOT carry a kernel version, a reason,
@@ -700,6 +807,35 @@ Secrets werden nie angefasst. Stick-Installationen (ohne Git-Kopie)
 klonen beim ersten Update das hinterlegte Repo. Rollback ist in 0.1
 dokumentiert-manuell; signierte Releases und automatische Updates
 kommen, bevor der Zeitplan-Auslöser scharf wird.
+
+## Deutsche Zusammenfassung (0.8 — Sicherheitsmeldungen, §2.8)
+
+Am Abend des 05.11. sagte die Zeile „Auto-Updates: an“ auf einem Knoten
+mit 13 offenen Debian-Sicherheitsmeldungen, die älteste vom 14. August.
+Seit 0.8 vergleicht jeder Knoten selbst seine installierten Pakete mit
+Debians DSA-Liste: einmal täglich, nach jedem automatischen Update-Lauf
+und auf Wunsch gelesen, mit fester Grammatik ausgewertet (unbekannte
+Zeilen werden gezählt, nie als „keine Meldung“ gelesen), mit dpkgs
+eigenem Versionsvergleich. Ein Paket ist **offen**, wenn die installierte
+Version älter ist als die Fix-Version der neuesten Meldung. Der Kernel
+heißt in der Liste `linux`, bei dpkg `linux-signed-amd64`; dort zählt
+das neueste installierte Abbild (ob es *läuft*, sagt weiter 2.6.1).
+Pakete aus fremden Archiven (Docker, Pi-Kernel) heißen `unknown`, nie
+„sauber“. Ohne gelesene Liste gibt es keine Zahl, nie „0 offen“; eine
+Liste älter als zwei Tage heißt „veraltet“.
+
+Gezeigt wird es an den drei Orten von 2.6.2: eine Zeile in `oaap status`
+(Namen mit `sudo oaap node care advisories`), Zeile und Tabellenzeile im
+Portal für den Server-Admin, im Flottendokument nur Zahl, Datum,
+„veraltet“ und die Anzahl nicht abgedeckter Pakete — keine Paketnamen.
+Nebenbei korrigiert: der „letzte Lauf“ kommt vom Stempel des Timers, nicht
+vom Programm (das auch beim Probelauf stempelt); ohne Stempel heißt es
+„noch kein Lauf“. Und die Neustart-Markierung der Distribution ohne neuen
+Kernel (eine Bibliothek, gemessen auf oaap-demo am 06.11.) wird als
+Hinweis gezeigt, ohne Plan. Vorgang nach Frist, vorgezogener Update-Lauf,
+Tor für externe Namen und CVE-Schwere folgen als Stufen 2–4 von
+RFC-0070; das Herabstufen der Neustart-Dringlichkeit ist vorerst nein
+(D7).
 
 ## Deutsche Zusammenfassung (0.7 — die Tür des Mandanten-Admins im Portal, §2.7.2)
 

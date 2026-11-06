@@ -1,7 +1,10 @@
 # oaap.fleet.status — Read-Only Fleet Status Document
 
 - **ID:** `oaap.fleet.status`
-- **Version:** 0.6 (the reboot plan and the protections in the `host`
+- **Version:** 0.7 (the advisories in the `host` block — count, oldest
+  date, stale, the number of uncovered packages, never a name — and
+  two attention kinds for them, `oaap.core.updates` 2.8, RFC-0070,
+  2026-11-06; 0.6: the reboot plan and the protections in the `host`
   block and three attention kinds for them, RFC-0069, 2026-11-05;
   0.5: the `host` block — the care state of the machine
   under the platform, `oaap.core.updates` 2.6 — and three attention
@@ -64,6 +67,8 @@ minutes → 1 attempt/minute), in a throttle namespace of their own.
     "auto_updates_last_run": "2026-11-05T06:42:00Z",
     "reboot_window": "04:15",
     "gateway_mptcp": "off",
+    "advisories": {"open": 13, "oldest": "2026-08-14", "stale": false,
+                   "read_at": "2026-11-05T21:15:00Z", "unknown": 4},
     "reboot_plan": {"at": "2026-11-07T03:15:00Z",
                     "at_local": "2026-11-07 04:15 CET",
                     "urgency": "critical", "source": "kernel",
@@ -219,6 +224,17 @@ Rules:
      `critical` plan), `state` (`planned | rebooting | overdue`).
      Never the reason: that is a person's words and stays in the
      tenant log.
+   - `advisories` (0.7, `oaap.core.updates` 2.8) — omitted when the
+     node never read an advisory list; else `open` (a number, or `null`
+     when no list could ever be read — a consumer MUST NOT read null as
+     0), `oldest` (the oldest open advisory's date, `""` when none),
+     `stale` (`true` when the list is older than two days), `read_at`,
+     `unknown` (how many installed packages come from archives the list
+     does not cover — a count, not the names). **Never a package
+     name**: the names of open advisories are a map of the node's open
+     doors and stay with its `server_admin`. Two `attention` kinds
+     derive from it: `advisories_open` (detail: count and oldest date)
+     and `advisories_stale` (detail: when the list was read).
    - `protections` (0.6) — omitted when none is live; else `count` and
      `until` (the latest end, a calendar day). Instance names are not
      repeated here: an instance's row already carries its name, and a
@@ -295,6 +311,14 @@ noch kaputt — also nie ein `attention`-Eintrag, und der automatische
 Name einer schlafenden Instanz bleibt `ok` (er antwortet mit der
 Weckseite). Kerndienste und Namen kennen den Wert nicht. Ein 0.3-
 Konsument, der ihn nicht kennt, behandelt ihn als `unknown`.
+
+**Seit 0.7** (RFC-0070) trägt der Block `host` die **Sicherheitsmeldungen**
+als `advisories`: Anzahl offener Meldungen (`null`, wenn nie eine Liste
+gelesen werden konnte — nie als 0 lesen), das Datum der ältesten,
+„veraltet“, wann gelesen, und wie viele Pakete aus fremden Archiven nicht
+abgedeckt sind. Nie ein Paketname — die Namen sind eine Karte der offenen
+Türen und bleiben beim Server-Admin des Knotens. Dazu zwei
+Aufmerksamkeitsarten: `advisories_open` und `advisories_stale`.
 
 **Seit 0.6** (RFC-0069) trägt der Block `host` den **Neustart-Plan**
 (`reboot_plan`: Zeitpunkt in UTC und in der Uhr des Knotens,

@@ -1,7 +1,7 @@
 # RFC-0071: Rebuild — An Instance Is Built Again on a Fresh Base, and Falls Back
 
-- **Status:** Proposed (2026-11-05, late). Decisions D1–D9 open (§11). Nothing built; the
-  measurement in §1 was taken by hand on `oaap-test`.
+- **Status:** **Accepted** (2026-11-06, Jörg: D1–D9 as recommended — D6 "no, for
+  now"). Stage 1 next, after RFC-0070 stage 1 (built 2026-11-06, reference 0.1.226).
 - **Date:** 2026-11-05
 - **Authors:** Claude (measurement, proposal), Jörg (requirement: "eine Instanz wird als
   auffällig gemeldet und wir können versuchen, sie mit einer neuen gepatchten Version neu
