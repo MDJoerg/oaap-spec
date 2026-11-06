@@ -1,8 +1,8 @@
 # oaap.core.portal — Web Portal
 
 - **ID:** `oaap.core.portal`
-- **Version:** 0.3.30
-- **Maturity:** draft (0.3.30 lets a `server_admin` confirm an app that administers its tenant's grants in the store -- §2.6, `oaap.core.authorization` 0.5.2 §2.10; the card "Abbild" says whether a rebuild can be expected to help -- §2.14; 0.3.29 adds **care at a glance** to the store and the instance list -- an update in the catalogue and open advisories of the image reading, as a filter, a hint line and a badge, plus filters on the instance list -- §2.14; 0.3.28 adds the card **Neustart-Schutz** to the instance page — §2.13, RFC-0069 stage 5, `oaap.core.updates` 0.7 §2.7.2; 0.3.27 adds the node page **Datenträger** — §2.12, specified in `oaap.data.disks` 0.2 §2.6, RFC-0063 stage 2; 0.3.26 adds **profile upload, download and delete** and tick boxes for `bool` parameters on the build pages — §2.11, RFC-0055 §14; 0.3.25 adds **invitations and requests** — the prospect's public form and the operator's list, §2.10, RFC-0055 stage 4; 0.3.24 adds the **tenant build pages** — a wizard over the operator API, §2.9, RFC-0055 stage 3; 0.3.23 shows the **Cohorts menu entry to every
+- **Version:** 0.3.31
+- **Maturity:** draft (0.3.31 lets the start form of a build install an app that administers its tenant's grants by one tick, which is the operator's confirmation -- §2.11, RFC-0055 §14 item 4; 0.3.30 lets a `server_admin` confirm an app that administers its tenant's grants in the store -- §2.6, `oaap.core.authorization` 0.5.2 §2.10; the card "Abbild" says whether a rebuild can be expected to help -- §2.14; 0.3.29 adds **care at a glance** to the store and the instance list -- an update in the catalogue and open advisories of the image reading, as a filter, a hint line and a badge, plus filters on the instance list -- §2.14; 0.3.28 adds the card **Neustart-Schutz** to the instance page — §2.13, RFC-0069 stage 5, `oaap.core.updates` 0.7 §2.7.2; 0.3.27 adds the node page **Datenträger** — §2.12, specified in `oaap.data.disks` 0.2 §2.6, RFC-0063 stage 2; 0.3.26 adds **profile upload, download and delete** and tick boxes for `bool` parameters on the build pages — §2.11, RFC-0055 §14; 0.3.25 adds **invitations and requests** — the prospect's public form and the operator's list, §2.10, RFC-0055 stage 4; 0.3.24 adds the **tenant build pages** — a wizard over the operator API, §2.9, RFC-0055 stage 3; 0.3.23 shows the **Cohorts menu entry to every
   administrator**, not only where a cohort exists, and puts a **step-by-step
   guide and a downloadable example template** on the create page — §2.8;
   0.3.22 adds **Add a seat** to the cohorts page, with
@@ -767,6 +767,12 @@ only, which the host judges again from the actor's own record.
 - **Tick boxes.** A parameter of kind `bool` is a checked-by-default box on the
   start form and on the prospect's form (2.10); an unticked box is sent as an
   explicit `false`. The step list names the tick a step depends on (`when`).
+- **A tick that confirms** (`confirm_administer`, RFC-0055 §14 item 4). On the
+  start form the box says, beside it, that ticking it is the operator's
+  confirmation, and what the app's key can and can never do (the same words as
+  the store's question, 2.6); the step list marks the step "verwaltet Rechte".
+  The prospect's form (2.10) does **not** show such a box and always sends
+  `false`; the host sets it to `false` again.
 - Doors as in 2.9: `403` for anyone but the operator, `404` at a tenant's
   place, `403` for a foreign origin, nothing in the spool for a request the
   page can already refuse.
@@ -1656,3 +1662,11 @@ Hinweis darauf und überhaupt ein Filter (§2.14).
   upstream ist (hilft nur, wenn die App beim Bau Pakete aktualisiert, sonst neue
   Version) oder ob der Knoten es nicht weiß (festgenagelte Basis). Anlass:
   code-server auf oaapx01 — „Selbstheilung möglich“ stimmte, geholfen hätte es nicht.
+
+## Deutsche Zusammenfassung (Nachtrag 0.3.31 — Rechte-App im Aufbau)
+
+Im Formular „Aufbau starten“ kann ein Haken eine Rechte-App wie „Rollen &
+Rechte“ mitinstallieren. Neben dem Haken steht, dass er die Zusage des
+Server-Admins ist und was der Schlüssel der App kann und nie kann; die
+Schritt-Liste markiert den Schritt mit „verwaltet Rechte“. Das
+Antragsformular für Interessenten zeigt diesen Haken nicht.

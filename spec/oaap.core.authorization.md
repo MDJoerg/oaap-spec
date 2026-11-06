@@ -1,9 +1,10 @@
 # oaap.core.authorization — Business Authorization
 
 - **ID:** `oaap.core.authorization`
-- **Version:** 0.5.2 (the operator's confirmation of §2.10 may also be given in the
-  portal's store, by a `server_admin` -- judged by the host from the actor's record)
-- **Previous versions:** 0.5.1 (a delegate finds one person by exact name, §2.12; the reference
+- **Version:** 0.5.3 (the confirmation of §2.10 may also be the tick of a tenant
+  build, RFC-0055 §14 item 4)
+- **Previous versions:** 0.5.2 (the operator's confirmation of §2.10 may also be given in the
+  portal's store, by a `server_admin` -- judged by the host from the actor's record), 0.5.1 (a delegate finds one person by exact name, §2.12; the reference
   client keeps no empty answer, §2.4; RFC-0067 D7, D8), 0.5 (**delegation**, §2.12: `may_grant` is enforced at a door
   where the signed assertion proves the person; **agents**, §2.13: a machine principal
   with its own assignments, one act to make one; RFC-0067), 0.4 (setup from the declaration, §2.11: one explicit act
@@ -274,7 +275,11 @@ key can and can never do, and the install is queued once more with the
 confirmation **naming the app**. The host counts it only if the actor is a
 **`server_admin` by their own record** -- never by the request -- and only for
 exactly that app id; a `tenant_admin`'s confirmation is ignored. An update of an
-instance whose door is already open does not ask again, wherever it comes from. One key per instance, minted once like the
+instance whose door is already open does not ask again, wherever it comes from.
+Since 0.5.3 a **tenant build** (RFC-0055 §14 item 4) may confirm too: a step
+`app.install` with `confirm_administer` naming the same tick as its `when`.
+The tick is given by the `server_admin` starting the build, never written into
+the profile in advance, and never taken from a prospect's request. One key per instance, minted once like the
 others, bound — by what the host recorded, never by the request — to the **tenant
 of that instance**. It is not the key of §2.4 and cannot be used for it; the key
 of §2.4 cannot be used here.
@@ -701,3 +706,10 @@ Mandanten. Jetzt geht die Zusage auch **im Store des Portals**:
   Server-Admin“.
 - Ein Update einer Instanz, deren Tür schon offen ist, fragt nicht noch einmal
   (wie bisher).
+
+## Deutsche Zusammenfassung (0.5.3: Zusage im Aufbau)
+
+Auch der Aufbau eines Mandanten kann die Zusage geben: Ein Haken im Formular
+„Aufbau starten“ installiert die Rechte-App und ist zugleich die Zusage des
+Server-Admins. Ein Profil kann nicht im Voraus zusagen, und der Antrag eines
+Interessenten gibt sie nie.

@@ -443,6 +443,18 @@ gets, and the portal should offer upload, download and a template.
    confirmation (`unverified`) is never served from a profile:** nobody is
    there to confirm, and the confirmation is the one thing that source asks
    for. The step fails with that reason.
+4. **(2026-11-06)** `app.install` may carry **`confirm_administer`** for an app
+   that administers its tenant's grants (`oaap.core.authorization` §2.10). Its
+   value is `"{p}"` naming **the same `bool` parameter as the step's `when`**;
+   anything else -- a literal `"true"`, another parameter, no `when` -- refuses
+   the whole profile. So **one tick both installs the app and is the operator's
+   confirmation**, given at the start of each build; a profile can never
+   confirm in advance. The host counts it only for the `server_admin` (or root)
+   driving the build, judged from the actor's own record. A prospect's request
+   (stage 4) never carries it: the public form does not show the box and the
+   host sets it to `false` whatever arrives; the operator installs such an app
+   later from the store, where it asks. Without the tick the step is skipped,
+   like any `when`.
 
 **Upload.** Decided: an uploaded profile may name **only catalogue apps** (the
 product owner accepted my restriction). A path typed into a web page is not an
@@ -557,3 +569,13 @@ Entscheidung darf ein **hochgeladenes** Profil nur Apps des Katalogs nennen, nie
 einen Pfad; der Knoten prüft die ganze Datei, bevor er sie ablegt. Eine
 Katalogquelle, die eine Bestätigung verlangt, bedient ein Profil nie.
 **Nicht gemessen:** der Weg mit einer echten Katalog-App an einem Knoten.
+
+**Rechte-Apps im Aufbau (06.11., §14 Punkt 4):** Auf Jörgs Wunsch kann der
+Server-Admin „Rollen & Rechte“ beim Aufbau eines Mandanten per Haken
+mitinstallieren. Im Profil steht dafür `"confirm_administer": "{p}"` mit
+**demselben** Haken wie `when` -- ein Haken installiert und ist zugleich die
+Zusage. Ein festes `"true"` lehnt der Knoten ab: ein Profil sagt nie im Voraus
+zu. Im Antragsformular für Interessenten erscheint der Haken nicht, und der
+Knoten setzt ihn dort immer auf „nein“. **Gemessen auf oaap-test:** Aufbau mit
+Haken über den Spool -> Mandant und Instanz in 7 s, Tür offen; ohne Haken
+übersprungen; beide zurückgebaut.
