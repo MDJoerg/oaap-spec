@@ -1,6 +1,7 @@
 # RFC-0072: Mail From the Node — One SMTP Mailbox for the Realms, Later One per Tenant
 
-- **Status:** **Accepted (2026-11-06)** -- Jörg: "Mach alles so wie empfohlen"
+- **Status:** **Accepted (2026-11-06)** for stage 1; **stage 2 with the portal page
+  "Nachrichten" proposed (§8, D9-D16 asked)** -- -- Jörg: "Mach alles so wie empfohlen"
   (D1-D8 as recommended). **Stage 1 built (reference 0.1.233, §7).**
 - **Date:** 2026-11-06
 - **Authors:** Jörg (the need, the stages, a mail server for it), Claude
@@ -185,3 +186,102 @@ das Postfach steht im Realm `vuebung`, Keycloak zeigt das Passwort verdeckt; ein
 Mail von Keycloak selbst („Aktualisieren Sie Ihr Konto“) kam an, auf Deutsch.
 **Nicht messbar auf oaap-test:** ein neuer Realm über `idp provision` (kein
 Außenname) -- dafür braucht es oaapx01 oder oaapx02.
+
+## 8. Stage 2 — the portal page "Nachrichten" and a mailbox per tenant (proposed 2026-11-06)
+
+Jörg, 2026-11-06: the mailbox is configured **in the portal, by the tenant
+administrator** -- "we need that anyway" -- under a new menu entry
+**"Nachrichten"**, because incoming mail and real-time messaging (Telegram)
+will follow.
+
+### 8.1 What stands in the way, read in the specs
+
+`oaap.net.destinations` §2.7: destinations are written by `server_admin`
+only, because whoever writes a target decides where the platform connects,
+and a name that later resolves inward is a way into the node's own networks.
+A tenant's mailbox is such a target: Keycloak, on the platform network, sends
+through it; `oaap mail test` connects from the host. Stage 2 therefore needs a
+rule that makes a tenant-written mailbox safe enough (D10).
+
+### 8.2 The page
+
+- **Menu "Nachrichten"** for `server_admin` and `tenant_admin`, beside the
+  others. One page per tenant (at a tenant's place: that tenant; at the node's
+  address: the node).
+- **Section "Postausgang"** (outgoing mail), today:
+  - Which mailbox this tenant's realm sends with: *its own* (address, sender,
+    login, "password set") or *the node's* (only its sender is shown).
+  - A form for the tenant's own mailbox: address (`smtps://` or `smtp://`),
+    sender, sender's name, reply-to, login, password. **Save** checks the login
+    at the server first (D11), then stores it and writes it into the tenant's
+    realm. **Test mail** sends one mail to an address the admin types.
+    **Remove** falls back to the node's mailbox (D12).
+  - At the node's address, the `server_admin` edits **the node's mailbox** the
+    same way (D15) and sees a list: which tenant sends with which mailbox.
+- **Later sections, each with its own RFC and only once built:** "Posteingang"
+  (incoming mail, mailboxes to read) and "Messenger" (e.g. Telegram). No
+  placeholders before (D16).
+
+### 8.3 Decisions asked of Jörg
+
+- **D9 -- The menu.** "Nachrichten", for `server_admin` and `tenant_admin`.
+  **Recommended.**
+- **D10 -- May a `tenant_admin` write a mailbox target?** (a) **Yes, with
+  checks that fit mail:** only ports 465 (TLS) and 587 (STARTTLS); the host
+  must resolve to **public addresses only** at save, at test and at every
+  write into a realm (no private, loopback, link-local or Docker range); TLS
+  is required, and Keycloak verifies the server certificate -- a service
+  inside the node has no certificate for a public name, so the handshake fails
+  before anything is said. What stays: a name that resolves inward only
+  *after* the check (DNS rebinding) could make Keycloak start a TLS handshake
+  there; it learns nothing back. (b) The tenant enters, the `server_admin`
+  releases. (c) The `server_admin` keeps a list of allowed mail servers, the
+  tenant chooses one and enters only the login. **Recommended: (a)** -- it is
+  the "tenant admins do it themselves" Jörg asked for, and the protocol plus
+  TLS keep the remaining door narrow; `destinations` §2.7 stays as it is for
+  HTTP and TCP.
+- **D11 -- Save means "the login works".** The host logs in at the server
+  (no mail is sent) before it stores anything. **Recommended.**
+- **D12 -- Remove falls back.** The realm gets the node's mailbox again
+  (or none, said so). **Recommended.**
+- **D13 -- What a tenant sees of the node's mailbox:** its sender only, never
+  server or login. **Recommended.**
+- **D14 -- The password through the portal.** A password field; the value
+  travels in the spool request to the host, which moves it into the secret
+  store and deletes the request; it is never shown again ("set"), changing it
+  means typing it again; nothing about it is logged. The portal keeps nothing.
+  **Recommended.**
+- **D15 -- The node's mailbox in the portal too**, for `server_admin` at the
+  node's address (the CLI stays). **Recommended.**
+- **D16 -- Incoming mail and messengers** come as further sections of the same
+  page, each specified on its own first; nothing is shown before it is built.
+  **Recommended.**
+
+Stage 3 (apps send through the tenant's mailbox) follows on this page as a
+third part of "Postausgang": which instances may use it.
+
+## Zusammenfassung Stufe 2 (deutsch, Vorschlag)
+
+**Jörgs Wunsch:** Das Postfach richtet der **Mandanten-Admin im Portal** ein,
+unter einem neuen Menü **„Nachrichten“** -- dort kommen später Posteingang und
+Messenger (Telegram) dazu.
+
+**Die Seite:** Abschnitt **„Postausgang“** zeigt, mit welchem Postfach der Realm
+des Mandanten verschickt (eigenes oder das des Knotens -- von dem nur der
+Absender zu sehen ist), und hat ein Formular für das eigene Postfach:
+Speichern prüft erst die Anmeldung am Server, dann wird es gespeichert und in
+den Realm geschrieben; Testmail; Entfernen fällt auf das Postfach des Knotens
+zurück. Am Knoten pflegt der Server-Admin dort das Knotenpostfach und sieht,
+welcher Mandant womit verschickt.
+
+**Die eine echte Frage (D10):** Heute dürfen Mandanten-Admins keine Ziele
+anlegen, weil ein Ziel bestimmt, wohin die Plattform sich verbindet. Für Mail
+empfehlen wir: **ja, mit Prüfungen** -- nur Port 465/587, der Name muss auf
+öffentliche Adressen zeigen (bei jedem Speichern, Testen, Schreiben), TLS
+Pflicht, Keycloak prüft das Zertifikat. Alternativen: der Server-Admin gibt
+frei, oder er führt eine Liste erlaubter Mailserver.
+
+**Weitere Empfehlungen (D9, D11-D16):** Menüname „Nachrichten“; Speichern =
+Anmeldung klappt; Entfernen fällt zurück; Passwort über das Portal nur einmal
+eingegeben, danach nie wieder angezeigt; Knotenpostfach auch im Portal;
+Posteingang und Messenger erst, wenn sie gebaut sind.
