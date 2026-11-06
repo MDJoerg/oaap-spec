@@ -1,7 +1,7 @@
 # RFC-0072: Mail From the Node — One SMTP Mailbox for the Realms, Later One per Tenant
 
 - **Status:** **Accepted (2026-11-06)** for stage 1; **stage 2 with the portal page
-  "Nachrichten" proposed (§8, D9-D16 asked)** -- -- Jörg: "Mach alles so wie empfohlen"
+  "Nachrichten" proposed (§8, D9-D16 asked)** -- stage 1: Jörg: "Mach alles so wie empfohlen"
   (D1-D8 as recommended). **Stage 1 built (reference 0.1.233, §7).**
 - **Date:** 2026-11-06
 - **Authors:** Jörg (the need, the stages, a mail server for it), Claude
