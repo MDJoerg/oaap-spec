@@ -1,7 +1,10 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.51 (**the rebuild**, RFC-0071 stage 2: the same
+- **Version:** 0.2.52 (**what a rebuild builds from**, RFC-0071 §15:
+  the retained package or the commit a Git install recorded; manifest
+  0.10 `care.rebuild: self | release`, the author's promise that gates
+  self-heal; new 2.31; 0.2.51: **the rebuild**, RFC-0071 stage 2: the same
   retained package on a freshly pulled base, the running image kept as
   the one predecessor, back to it when the new container does not
   answer; new 2.30; 0.2.50: **the base record**, RFC-0071 stage 1: every
@@ -2004,7 +2007,8 @@ function:
 
 1. **Refused before anything changes** when the instance is held by a
    reboot protection (`oaap.core.updates` 2.7.2), in standby, in a
-   deployment, or has a built service and **no retained package** — a
+   deployment, or has a built service and **no bytes in service** to
+   build from (2.31: the retained package or the recorded Git commit) — a
    path or a branch may have moved since the install, and a rebuild must
    not be a silent update. A service that runs a foreign image needs no
    package: its rebuild is a pull.
@@ -2017,7 +2021,7 @@ function:
 4. The image each service **runs** is tagged as its **predecessor**
    (`oaap-prev/<instance>[-<service>]:prev`) — exactly one per service,
    moved by every attempt, removed with the instance.
-5. Built services are built from the retained package; the build MUST
+5. Built services are built from the bytes in service (2.31); the build MUST
    stand on the digest just pulled. A failing build re-points the tag to
    the predecessor and changes nothing else. When no image changed
    (upstream had not moved) nothing is recreated.
@@ -2035,6 +2039,50 @@ rebuild as `rebuild` (`state`: `running`, `done`, `unchanged`,
 `build-failed`, `fallback`, `back`, `error`; time; who) for the card. A
 rebuild by the node itself, in the window, is RFC-0071 stage 3; the
 platform's own images are stage 4.
+
+### 2.31 What a rebuild builds from, and the author's promise (0.2.52, manifest 0.10, RFC-0071 §15)
+
+**The bytes in service.** A rebuild (2.30) builds a built service from
+the bytes the instance runs, and from nothing that may have moved since:
+
+- the **retained package** (RFC-0019), or
+- the **recorded commit** of a Git install: every install from a Git URL
+  records the commit it checked out (`source.commit`, 40 hex digits). The
+  rebuild fetches the repository (a blobless clone where the server
+  allows it) and checks out exactly that commit, detached; a commit the
+  repository no longer has (rewritten history) is a refusal, never a
+  fallback to the branch.
+
+A Git install from before the commit was recorded, a path install, and a
+missing package are refused with that sentence. One store update or
+reinstall records the commit; from then on the rebuild works. "The
+current state of the branch" is an **update**, not a rebuild: it stays
+the store update's (RFC-0050 — through the test instance where one
+exists). A credential inside a Git URL never appears in a sentence.
+
+**The author's promise (manifest 0.10).**
+
+```yaml
+care:
+  rebuild: self      # or: release
+```
+
+`self` promises that building the same source again on a freshly pulled
+base changes nothing but the base — the dependencies are pinned (a
+lockfile, exact versions), the build fetches nothing unpinned. `release`
+says only a new version heals. A missing field counts as `release`. Any
+other word, or `care` that is not an object, is a manifest error (a typo
+must not decide what the node does by itself). The node keeps the word
+verbatim on the instance (`care_rebuild`).
+
+**Self-heal.** The node may rebuild an instance **by itself** (RFC-0071
+stage 3) only when both hold: the rebuild has bytes in service to build
+from (above; an instance of foreign images only needs none) **and** the
+app declares `care.rebuild: self`. A person may rebuild by hand without
+the promise. The card "Abbild" and `oaap node care images` say per
+instance what a rebuild would build from (package, commit, pull) and
+"self-heal: possible / not possible, because …" — one function behind
+both.
 
 ## 3. Configuration
 
@@ -2356,6 +2404,30 @@ platform's own images are stage 4.
 tests 1–11 on the reference platform. 0.2 target: tests 12–16 with the
 pilot CRM's test instance and its AI coding agent as the first real
 remote deployer.
+
+## Deutsche Zusammenfassung (2.31, v0.2.52 — woraus ein Neubau baut, und die Zusage des Autors)
+
+Ein Neubau baut nur aus den Bytes, die laufen: aus dem **zurückbehaltenen
+Paket** oder aus dem **festgehaltenen Commit** einer Git-Installation. Jede
+Installation aus Git hält ab 0.1.229 den Commit fest, den sie ausgecheckt
+hat (`source.commit`). Der Neubau holt das Repository und checkt genau
+diesen Commit aus; gibt es ihn nicht mehr (umgeschriebene Historie), wird
+abgelehnt, nie auf den Zweig ausgewichen. Instanzen aus Git von vor
+0.1.229 werden abgelehnt, bis ein Store-Update oder eine Neuinstallation
+den Commit festhält. „Neuester Stand des Zweigs“ ist eine
+**Aktualisierung**, kein Neubau, und bleibt beim Store-Update (über die
+Testinstanz, wo es eine gibt).
+
+**Manifest 0.10:** `care.rebuild: self` sagt zu, dass ein Neubau derselben
+Quelle auf frischer Basis nur die Basis ändert (Abhängigkeiten
+festgeschrieben, z. B. Lockfile). `release` (und ein fehlendes Feld): nur
+eine neue Version heilt. Jedes andere Wort ist ein Manifestfehler.
+
+**Selbstheilung** (der Knoten baut von selbst neu, RFC-0071 Stufe 3) nur,
+wenn beides gilt: Bytes zum Bauen da **und** `self` zugesagt. Von Hand
+darf ein Mensch auch ohne Zusage neu bauen. Die Karte „Abbild“ und
+`oaap node care images` sagen je Instanz, woraus gebaut würde, und
+„Selbstheilung: möglich / nicht möglich, weil …“.
 
 ## Deutsche Zusammenfassung (2.30, v0.2.51 — der Neubau)
 

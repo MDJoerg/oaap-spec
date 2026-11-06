@@ -1,7 +1,7 @@
 # RFC-0071: Rebuild — An Instance Is Built Again on a Fresh Base, and Falls Back
 
 - **Status:** **Accepted** (2026-11-06, Jörg: D1–D9 as recommended — D6 "no, for
-  now"). **Stages 1 and 2 built** (reference 0.1.227 and 0.1.228; stage 2: `oaap.apps.runtime` 0.2.51 §2.30, §14 below; stage 1: `oaap.apps.runtime` 0.2.50 §2.29,
+  now"). **Stages 1, 2 and 2b built** (reference 0.1.227, 0.1.228, 0.1.229; stage 2b: the recorded Git commit and manifest 0.10 `care.rebuild`, `oaap.apps.runtime` 0.2.52 §2.31, §15 below; stage 2: `oaap.apps.runtime` 0.2.51 §2.30, §14 below; stage 1: `oaap.apps.runtime` 0.2.50 §2.29,
   `oaap.core.updates` 0.9 §2.9, `oaap.fleet.status` 0.8), measured on oaap-test (§13).
   Stages 3–5 not built.
 - **Date:** 2026-11-05
@@ -195,8 +195,9 @@ today: the gateway is reloaded, never restarted.
 
 ## 8. Security requirements (additions to `oaap.apps.runtime` §4)
 
-1. A rebuild builds from the **retained package** (RFC-0019) and nothing else — never from
-   a working copy, a URL, or a package that is not the one in service.
+1. A rebuild builds from the **bytes in service** and nothing else: the **retained
+   package** (RFC-0019) or the **commit a Git install recorded** (§15) — never from a
+   working copy, a branch, or a package that is not the one in service.
 2. The base is pulled by **reference**; the record holds the digest that came. A build
    whose base digest is not the one just pulled is refused (the cache must not win).
 3. The predecessor image is **never** removed by a rebuild that did not reach health.
@@ -218,7 +219,8 @@ today: the gateway is reloaded, never restarted.
 |---|---|---|
 | **1** | Spec (`oaap.apps.runtime`: the base record; `oaap.core.updates`: the image state in host care; fleet: counts); the record at build; the daily upstream question; the RFC-0070 reader against the image; the card, the status lines, the counts; `unknown` for everything built before | `oaap-test` (92 images, which are behind and which have open advisories — the number itself is the finding), `oaap-demo` |
 | **2** | `oaap app rebuild <name>` and the button: pull, predecessor tag, build, health, the fallback to the predecessor, `--back`; test-first and protection respected; audit with both digests | `oaap-test`: one instance with open advisories rebuilt, 0 open after; one rebuild made to fail at health (a broken package on purpose) and the fallback measured |
-| **3** | The node rebuilds by itself in the window on D3's trigger; the case before and after; the event | `oaap-test` with a real window night |
+| **2b** | The recorded Git commit; manifest 0.10 `care.rebuild: self \| release`; "Selbstheilung" on the card and in the CLI (§15) | `oaap-test`: a Git instance installed, rebuilt from its commit |
+| **3** | The node rebuilds by itself (only with `care.rebuild: self`, §15) in the window on D3's trigger; the case before and after; the event | `oaap-test` with a real window night |
 | **4** | Field 5: `oaap update` pulls the core images and recreates them in the window, the gateway announced like a reboot | `oaap-test`, then the fleet on Jörg's word |
 | **5** | The dependency layer: `pip list` / `npm ls` inside the image against OSV (PyPI, npm ecosystems); reporting and the store update only, no rebuild | `oaap-test` |
 
@@ -348,7 +350,93 @@ Afterwards oaap-test: 18 of 28 instances `open` (was 19). The install of the pro
 the first on oaap-test after its Docker address pools were extended (§13): its network
 came from `10.240.0.0/16`.
 
+## 15. Stage 2b: the recorded commit, and the author's promise (2026-11-06, reference 0.1.229)
+
+**Why.** Stage 2 refused every instance from a Git source — on oaapx01
+the six instances with open advisories in their image are all of them
+(`ai-gateway`, `ollama-models`, `bec-wegweiser`, `studio`, `fleetview`,
+`hbvp-rollen-rechte`), and these are apps we write ourselves. Jörg
+(2026-11-06): "wir sind für verschiedene Apps sogar selbst
+verantwortlich … Wenn es reicht, auf dem Knoten aktuelle Quellen zu
+ziehen und einfach ein neues Image zu erzeugen, wäre das … eine
+Zwischenlösung. Vielleicht sollten wir das aber auch im Manifest
+festhalten: Selbstheilung möglich vs. nicht möglich?" — and on the
+proposal: "1 und 2 OK".
+
+**What changed (`oaap.apps.runtime` 0.2.52 §2.31).**
+
+1. **The recorded commit.** Every install from a Git URL records the
+   commit it checked out (`source.commit`). A rebuild of a Git instance
+   fetches the repository and checks out exactly that commit — the bytes
+   in service, like the retained package. §8.1 reads from now on: *a
+   rebuild builds from the bytes in service — the retained package or the
+   recorded commit — and nothing else.* "Pull the current sources" is not
+   a rebuild but an update: new code may come with it, so it stays the
+   store update's, through the test instance where one exists (RFC-0050).
+   A Git install from before 0.1.229 has no recorded commit (the deploy
+   log holds one for three of 28 instances on oaap-test, resolved before
+   the clone and months old — not good enough to build from); it is
+   refused until one store update records it.
+2. **The promise, manifest 0.10.** `care.rebuild: self | release`. `self`
+   is the author's promise that building the same source again on a fresh
+   base changes nothing but the base (dependencies pinned, a lockfile);
+   `release`, and a missing field, says only a new version heals. The
+   platform judges whether a rebuild is *possible* (bytes in service);
+   the author says whether it is *safe*. Self-heal — the node rebuilding
+   by itself in its window, stage 3 — needs both. A person may rebuild by
+   hand without the promise.
+3. **Shown.** The card "Abbild" says what a rebuild would build from
+   (package, commit, pull) and "Selbstheilung: möglich / nicht möglich —
+   …"; `oaap node care images` prints the same per instance.
+
+**Two layers, two workflows** (the answer to "how do we look for
+security problems in our own apps"):
+
+| | the base (Debian packages in the image) | the app's own dependencies (pip, npm) |
+|---|---|---|
+| seen by | the image reading (stage 1) | not by the node (stage 5, or the repository) |
+| healed by | a rebuild on a fresh base (stage 2/2b), by itself with `self` (stage 3) | a new version from the author → store update, test first |
+
+**Measured on oaap-test (2026-11-06, 11:50 CET, 0.1.229 staged).**
+
+| Case | Result |
+|---|---|
+| `fleetview` (Git, test channel), installed before 0.1.229 | rebuild refused: "installed from Git before the commit was recorded -- one store update or reinstall records it" — nothing pulled |
+| reinstall from its source | `source.commit` = `063e4d1763d7…`, `care_rebuild` = `''` (the manifest is silent); 3 open → 0 (the tag `python:3.13-slim` on the node was already fresh from the morning's pull) |
+| `oaap app rebuild fleetview` | pull, blobless clone, checkout of exactly that commit, build, recreate, answers — 10 s; audit `commit 063e4d1763d7; service python:3.13-slim: 2ec654a52bb5 -> 235e18ea51d2` |
+| `--back` | "fleetview runs on the previous image again." |
+| `studio` (Git, before 0.1.229) | refused, one sentence |
+| `oaap node care images`, the card (the live portal's view function) | the same answer for `fleetview` (git + commit, self-heal no: no promise), `studio` (no commit), `wegweiser` (package), `ollama` (pull) |
+
+The image changed although base and commit were the same: a build is not
+byte-reproducible (layer metadata), which is why "changes nothing but the
+base" is the author's promise and not something the node can prove. The
+rebuild removes `.git` from the checkout: a build context at the
+repository's root would otherwise carry the clone's config — the URL,
+perhaps with a credential — into the image. (An *install* from Git still
+builds from the clone with `.git`; for every app on our nodes the build
+context is a subdirectory, so nothing is carried today. Noted, not changed.)
+
+**Documented for later (Jörg, 2026-11-06: "für später dokumentieren").**
+A CI template for our app repositories: a scheduled job (weekly, and on
+every push) that runs `osv-scanner` against the lockfiles and opens an
+issue when a dependency has a known vulnerability; Dependabot alerts
+switched on. CI here means: GitHub runs a small script by itself, on a
+schedule or on a push — nobody has to remember. The template is written
+once and copied into every app repository; together with `care.rebuild:
+self` it is what makes the promise checkable. Not built.
+
 ## Deutsche Zusammenfassung
+
+**Stand 06.11. (Stufe 2b):** Jede Installation aus Git hält ab 0.1.229 den
+Commit fest; der Neubau baut genau diesen Commit auf frischer Basis neu —
+die laufenden Bytes, wie beim Paket. „Neuester Stand aus Git“ bleibt ein
+Store-Update. Manifest 0.10: `care.rebuild: self | release` — die Zusage
+des Autors, dass ein Neubau nur die Basis ändert; Selbstheilung (Stufe 3)
+nur mit Zusage **und** Bytes zum Bauen. Ältere Git-Instanzen brauchen
+einmal ein Store-Update. Die CI-Vorlage für unsere App-Repos
+(`osv-scanner` wöchentlich, Dependabot) ist für später festgehalten, nicht
+gebaut. Einzelheiten §15.
 
 **Stand 06.11. (Stufe 2):** Neubau gebaut (0.1.228) und auf oaap-test gemessen:
 wegweiser in 13 s von 4 offenen Meldungen auf 0; eine absichtlich kaputte Sonde fiel

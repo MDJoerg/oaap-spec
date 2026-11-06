@@ -82,7 +82,7 @@ print("=== Versionen und Grundform ===")
 case("0.1-App ohne Zusaetze", app("0.1"), True)
 case("0.2-App mit app.class", app("0.2", app=dict(APP["app"], **{"class": "service"})), True)
 case("0.1 darf app.class nicht nutzen", app("0.1", app=dict(APP["app"], **{"class": "service"})), False)
-case("unbekannte Version 0.7 wird beim Schreiben abgelehnt", app("0.7"), False)
+case("unbekannte Version 0.99 wird beim Schreiben abgelehnt", app("0.99"), False)
 case("eine App ohne app.type wird abgelehnt", app("0.2", app={k: v for k, v in APP["app"].items() if k != "type"}), False)
 case("eine App ohne routes wird abgelehnt", {k: v for k, v in app("0.2").items() if k != "routes"}, False)
 
@@ -216,6 +216,17 @@ case("cases braucht Manifest 0.9",
      app("0.8", cases={"submit": True}), False)
 case("ein unbekannter Schluessel in cases wird abgelehnt",
      app("0.9", cases={"templates": []}), False)
+
+case("care.rebuild: self (Manifest 0.10, RFC-0071 §15)",
+     app("0.10", care={"rebuild": "self"}), True)
+case("care.rebuild: release",
+     app("0.10", care={"rebuild": "release"}), True)
+case("care.rebuild kennt nur zwei Woerter",
+     app("0.10", care={"rebuild": "yes"}), False)
+case("care braucht Manifest 0.10",
+     app("0.9", care={"rebuild": "self"}), False)
+case("ein unbekannter Schluessel in care wird abgelehnt",
+     app("0.10", care={"window": "night"}), False)
 
 files = sys.argv[1:]
 if files:

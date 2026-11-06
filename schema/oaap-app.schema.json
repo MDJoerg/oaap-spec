@@ -228,6 +228,33 @@
           ]
         }
       }
+    },
+    {
+      "$comment": "Same rule for the 0.10 field: 'care' may only be used by a manifest declaring at least 0.10 (RFC-0071 §15).",
+      "if": {
+        "properties": {
+          "oaap_manifest": {
+            "enum": [
+              "0.1",
+              "0.2",
+              "0.3",
+              "0.4",
+              "0.5",
+              "0.6",
+              "0.7",
+              "0.8",
+              "0.9"
+            ]
+          }
+        }
+      },
+      "then": {
+        "not": {
+          "required": [
+            "care"
+          ]
+        }
+      }
     }
   ],
   "properties": {
@@ -241,9 +268,10 @@
         "0.6",
         "0.7",
         "0.8",
-        "0.9"
+        "0.9",
+        "0.10"
       ],
-      "$comment": "MAJOR.MINOR. A new MINOR only adds; a new MAJOR is the only thing a node may refuse (RFC-0012 §8.2). Deliberately not the semver 0.x reading, where the minor would carry breaking changes. 0.2 adds app.class. 0.3 adds data_model/contributes/consumes (oaap.data.model 0.1 §2.2, RFC-0031 §5) and the data_models artefact shape (§2.8). 0.4 adds the 'launchpad' section (RFC-0036). 0.5 adds the 'destinations' section (oaap.net.destinations 0.1, RFC-0033 stage 1). 0.6 adds the 'authorization' section (oaap.core.authorization 0.1, RFC-0045 stages 1-2). 0.7 adds services.<name>.shm (oaap.apps.runtime 2.20). 0.8 adds services.<name>.tun (oaap.apps.runtime 2.23, RFC-0060). 0.9 adds the 'cases' section (cases.submit: an app's backend opens a case in its tenant, oaap.apps.runtime 2.24, RFC-0061 §3.2)."
+      "$comment": "MAJOR.MINOR. A new MINOR only adds; a new MAJOR is the only thing a node may refuse (RFC-0012 §8.2). Deliberately not the semver 0.x reading, where the minor would carry breaking changes. 0.2 adds app.class. 0.3 adds data_model/contributes/consumes (oaap.data.model 0.1 §2.2, RFC-0031 §5) and the data_models artefact shape (§2.8). 0.4 adds the 'launchpad' section (RFC-0036). 0.5 adds the 'destinations' section (oaap.net.destinations 0.1, RFC-0033 stage 1). 0.6 adds the 'authorization' section (oaap.core.authorization 0.1, RFC-0045 stages 1-2). 0.7 adds services.<name>.shm (oaap.apps.runtime 2.20). 0.8 adds services.<name>.tun (oaap.apps.runtime 2.23, RFC-0060). 0.9 adds the 'cases' section (cases.submit: an app's backend opens a case in its tenant, oaap.apps.runtime 2.24, RFC-0061 §3.2). 0.10 adds the 'care' section (care.rebuild: self | release -- the author's promise that a rebuild on a fresh base changes nothing but the base, oaap.apps.runtime 2.31, RFC-0071 §15)."
     },
     "must_understand": {
       "type": "array",
@@ -997,6 +1025,19 @@
       "properties": {
         "submit": {
           "type": "boolean"
+        }
+      }
+    },
+    "care": {
+      "type": "object",
+      "description": "Manifest 0.10, oaap.apps.runtime 2.31 (RFC-0071 §15): what the node may do to keep the app's image healthy. 'rebuild: self' promises that building the same source again on a freshly pulled base changes nothing but the base (dependencies pinned, e.g. by a lockfile) -- the node may then rebuild by itself in its window. 'release' (and a missing field) means: only a new version heals; a person may still rebuild by hand.",
+      "additionalProperties": false,
+      "properties": {
+        "rebuild": {
+          "enum": [
+            "self",
+            "release"
+          ]
         }
       }
     }
