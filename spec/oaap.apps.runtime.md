@@ -1,7 +1,9 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.52 (**what a rebuild builds from**, RFC-0071 §15:
+- **Version:** 0.2.53 (**MCP sources**, RFC-0073 stage 1: manifest 0.11
+  `mcp: {path}` and `mcp_sources: {read: true}`, the list on a gateway's
+  own site; new 2.32; 0.2.52: **what a rebuild builds from**, RFC-0071 §15:
   the retained package or the commit a Git install recorded; manifest
   0.10 `care.rebuild: self | release`, the author's promise that gates
   self-heal; new 2.31; 0.2.51: **the rebuild**, RFC-0071 stage 2: the same
@@ -2084,6 +2086,52 @@ instance what a rebuild would build from (package, commit, pull) and
 "self-heal: possible / not possible, because …" — one function behind
 both.
 
+### 2.32 MCP sources: a door in the manifest, a list on the gateway's own site (0.2.53, manifest 0.11, RFC-0073 stage 1)
+
+An app that serves MCP (Streamable HTTP) declares **one** door:
+
+```yaml
+mcp:
+  path: /mcp
+```
+
+- `path` is a local path (no scheme, no `//`, no `..`, no query) under one
+  of the app's own `routes`; the route's roles guard it like any page.
+  Anything else is refused where the manifest is validated.
+- The platform records the path in the instance's registry record and
+  interprets nothing else: it does not speak MCP and does not read tools.
+- **`openapi:` is reserved** and refused with a sentence naming I-39.
+
+A gateway app declares that it reads the sources of its tenant:
+
+```yaml
+mcp_sources:
+  read: true
+```
+
+- **What the instance gets.** Two platform-owned variables (2.8):
+  `OAAP_MCP_SOURCES_KEY`, an API key (RFC-0027) of `instance:<name>`
+  limited to the pseudo-instance `oaap.mcp.sources:<name>`, and
+  `OAAP_MCP_SOURCES_URL`,
+  `http://<gateway>:<the instance's own port>/platform/mcp/sources`.
+  Minted once, never for a rehearsal; renewed, reissued at rename and
+  retired at removal like the other platform keys (2.25). A redeploy
+  without the field stops handing the key to the app.
+- **The door.** Only the site of an instance with `mcp_sources` carries
+  `/platform/mcp/sources`, before `/platform/*` and every app route. The
+  gateway asks identity for that key and no role; the answer is JSON,
+  `{"v": 1, "sources": [...]}`, `Cache-Control: no-store`, written into the
+  site by the generator.
+- **The list.** Instances of **the same tenant on this node** that declare
+  `mcp:`, not a rehearsal, not the gateway itself, sorted by name. Each
+  entry: `name`, `app`, `version`, `channel`, `path`, and `address` — the
+  door as the platform gateway serves it on the source's own port, behind
+  the source's routes (stage 1; RFC-0073 stage 2 adds procedure I).
+- **Stale never.** The site marker carries a digest of the list, so the
+  site is rewritten whenever a source comes, goes or changes, by the same
+  refresh that keeps the feedback block current (block format 6).
+- An instance in maintenance or a rehearsal serves no list.
+
 ## 3. Configuration
 
 - Level-1 port range (default 8100–8199, expert-configurable;
@@ -3374,3 +3422,19 @@ ohne dass die Instanz neu startet.
   verschwindet ihr Freigabe-Ordner.
 - **Nach einem Neustart** startet Docker die App, bevor die Platten
   offen sind. Bis dahin sind die Platzhalter leer und schreibgeschützt.
+
+## Deutsche Zusammenfassung (2.32, v0.2.53 — MCP-Quellen, Manifest 0.11, RFC-0073 Stufe 1)
+
+Eine App, die MCP spricht, erklärt **eine** Tür: `mcp: {path: /mcp}`. Der Pfad
+muss unter einer ihrer eigenen Routen liegen, deren Rollen ihn schützen. Die
+Plattform merkt sich den Pfad und deutet sonst nichts. `openapi:` ist
+reserviert und wird abgewiesen (I-39).
+
+Ein Gateway erklärt `mcp_sources: {read: true}` und bekommt einen Schlüssel,
+der nur `/platform/mcp/sources` auf **seiner eigenen** Seite öffnet. Dort steht
+die Liste der MCP-Apps **seines Mandanten auf diesem Knoten**, ohne
+Generalproben und ohne sich selbst, mit Name, App, Version, Kanal, Pfad und
+der Adresse am Plattform-Gateway. Die Liste schreibt der Seitengenerator in
+die Seite; kommt, geht oder ändert sich eine Quelle, wird die Seite neu
+geschrieben. Der Schlüssel folgt der Instanz wie die anderen
+Plattform-Schlüssel (2.25).

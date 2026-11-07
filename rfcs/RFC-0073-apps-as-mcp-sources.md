@@ -1,7 +1,8 @@
 # RFC-0073: Apps as MCP Sources — The Manifest Declares a Door, the Gateway Finds It, the Platform Carries the Person
 
 - **Status:** **Accepted (2026-11-07)** — Jörg: "Ich folge Deinen Empfehlungen.
-  Akzeptiert und weiter" (D1–D8 as recommended); stage 1 in progress
+  Akzeptiert und weiter" (D1–D8 as recommended); **stage 1 built and measured on `oaap-test`
+  (reference 0.1.237, `mcp-gateway` 0.4.0, §12)**, not rolled out
 - **Date:** 2026-11-07
 - **Authors:** Jörg (direction: I-41 of 2026-11-05, "the manifest declares
   doors, the platform interprets nothing"), Claude (facts read in specs and
@@ -286,6 +287,65 @@ have TLS.
 
 **Decided (Jörg, 2026-11-07):** D1–D8 as recommended.
 
+## 12. Stage 1 built and measured (2026-11-07, reference 0.1.237, `mcp-gateway` 0.4.0, `kontext-probe` 0.1.4)
+
+**Built.** Manifest 0.11 (`mcp`, `mcp_sources`, `openapi` refused) in the
+schema and in `appctl.py`; the key `oaap.mcp.sources:<name>`, minted, renewed,
+reissued and retired like the other platform keys; the list written into the
+consuming gateway's own site, its digest in the site marker (block format 6);
+`oaap.apps.runtime` 0.2.53 §2.32, `oaap.ai.mcp-gateway` 0.4 §3.6. The gateway
+syncs at start, every 5 minutes, after a failure after 30 s, and by
+`source sync`.
+
+**Tests.** Reference `test_mcp_sources.py` (manifest, site, list, marker,
+keys; three mutations — tenant filter, rehearsal filter, key scope — each
+turned it red); `test_platform_feedback`, `test_instance_keys`,
+`test_rebuild_git` adjusted to format 6, five key kinds and manifest ≥ 0.10
+(the one failure left in `test_rebuild_git`, item 4, was there before);
+gateway `test_sources.py` (two mutations caught) and the existing 307 checks
+of the gateway green; schema `validate.py` ten new cases.
+
+**Measured on `oaap-test`** (staged 0.1.237, 28 sites rewritten, HEALTHY
+before and after):
+
+| Asked | Answer |
+|---|---|
+| `vuebung-mcpgw` (tenant `vuebung`) reads its list | `["vuebung-kp"]` |
+| `mcpgw-test` (tenant `default`) reads its list | `[]` |
+| A gateway's key at the other gateway's site | 403 |
+| The key at its own app root, at a source's site | 403, 404 |
+| No key | 303 to the login, no list |
+| Sync registers `vuebung-kp` | server with access `none`, light `red`, marked as source, in no view |
+| Operator sets the agent key (`mcp-agent`, collection "KP Lesen", `project = pA`, limited to `vuebung-kp`), approves three of four tools into view `kp` | catalog read, 4 tools |
+| Through the gateway with a view key (`messung_rfc0073_stufe1.py`) | 8/8: 401 without key; `tools/list` the three approved; `list_projects` → only pA; pB invisible; `add_entry` refused **by the app** (the agent reads only); `search` refused by the gateway |
+| A gateway removed with `--purge` | its sources key revoked, principal deleted |
+
+**Deviations from §3, decided while building:**
+
+- The list does **not** carry standby or maintenance state. The site is
+  rewritten when the registry changes, and standby flips often without an
+  install; a stale "awake" in a written list would be wrong. A source in
+  standby answers the way the platform makes it answer (RFC-0059).
+- The address in the list is the source's own LAN port behind its routes —
+  the path procedure T with an agent key takes. Stage 2 adds the door on the
+  gateway's site for procedure I.
+
+**Findings:**
+
+1. **On a first install the gateway's site is not yet rewritten when its
+   container starts**: the first read got 404 on both gateways. Fixed in the
+   app (retry after 30 s). The retry itself was not caught live a second time:
+   the measuring install recreated the container after the site was written.
+2. **`oaap authz agent-add` wants the full collection id**, while
+   `oaap authz collections` prints eight characters. The id had to be read
+   through the internal API. Small fix for the CLI, not done here.
+3. A new gateway instance needs `MCPGW_MASTER_KEY` set by hand
+   (`generate: token` fills nothing on the CLI, known since RFC-0041); without
+   it the agent key was refused and lost — revoked and issued again.
+
+**Not measured:** a source on another node (out of scope, D7), a source that
+disappears live (unit test only), procedure I (stage 2).
+
 ## Deutsche Zusammenfassung
 
 **Worum es geht:** Schritt 2 der KI-Chat-Reihenfolge (I-41). Eine OAAP-App, die
@@ -335,3 +395,13 @@ per Skript. (3) Portal und automatische Keycloak-Clients. Der Login mit Claude
 Code folgt, sobald `https` steht.
 
 **Entschieden (Jörg, 07.11.):** D1–D8 wie empfohlen.
+
+**Stufe 1 gebaut und gemessen (07.11., Referenz 0.1.237, mcp-gateway 0.4.0, §12):**
+Das Gateway im Mandanten `vuebung` findet `kontext-probe` und trägt es ein. Der
+Betreiber hinterlegt den Schlüssel eines Agenten (nur Lesen, Projekt pA) und
+gibt drei von vier Tools frei. Durch das Gateway sieht die App den Agenten: nur
+pA, Schreiben von der App abgelehnt, das nicht freigegebene Tool vom Gateway
+abgewiesen. Das Gateway im Mandanten `default` sieht nichts davon, und fremde
+Schlüssel kommen an keiner Tür durch. Befunde: Beim ersten Start fehlte die Tür
+noch (404, jetzt mit Wiederholung nach 30 s); `agent-add` will die volle
+Kennung der Sammlung; ein neues Gateway braucht `MCPGW_MASTER_KEY` von Hand.

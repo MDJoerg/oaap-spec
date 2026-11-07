@@ -228,6 +228,19 @@ case("care braucht Manifest 0.10",
 case("ein unbekannter Schluessel in care wird abgelehnt",
      app("0.10", care={"window": "night"}), False)
 
+print("\n=== 0.11: mcp / mcp_sources (oaap.apps.runtime 2.32, RFC-0073) ===")
+case("0.11 mit einer MCP-Tuer", app("0.11", mcp={"path": "/mcp"}), True)
+case("0.11 mit mcp_sources.read", app("0.11", mcp_sources={"read": True}), True)
+case("mcp braucht Manifest 0.11", app("0.10", mcp={"path": "/mcp"}), False)
+case("mcp_sources braucht Manifest 0.11", app("0.10", mcp_sources={"read": True}), False)
+case("mcp ohne path wird abgelehnt", app("0.11", mcp={}), False)
+case("mcp.path ohne fuehrenden Schraegstrich wird abgelehnt", app("0.11", mcp={"path": "mcp"}), False)
+case("mcp.path mit Abfrage wird abgelehnt", app("0.11", mcp={"path": "/mcp?x=1"}), False)
+case("zweite Tuer / fremder Schluessel in mcp wird abgelehnt",
+     app("0.11", mcp={"path": "/mcp", "extra": "/b"}), False)
+case("mcp_sources.read 'yes' wird abgelehnt", app("0.11", mcp_sources={"read": "yes"}), False)
+case("openapi ist reserviert und wird abgelehnt", app("0.11", openapi={"path": "/openapi.json"}), False)
+
 files = sys.argv[1:]
 if files:
     print("\n=== echte Manifeste ===")

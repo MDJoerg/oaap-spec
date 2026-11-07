@@ -1,7 +1,9 @@
 # oaap.ai.mcp-gateway — Tool Servers Behind One Keyed Endpoint per View
 
 - **ID:** `oaap.ai.mcp-gateway`
-- **Version:** 0.3 (RFC-0065 stage 3: sign-in of a person at the
+- **Version:** 0.4 (RFC-0073 stage 1: sources of the platform, §3.6 —
+  OAAP apps declaring an MCP door are found and registered, nothing in a
+  view without approval). 0.3 (RFC-0065 stage 3: sign-in of a person at the
   tenant's identity provider, access profiles, procedure X token
   exchange; one `401` for every failure; RFC-0065 D14–D16). 0.2 of
   2026-11-02 (stages 1 and 2: views that bundle tools,
@@ -275,6 +277,33 @@ before it expires, never written to storage, never shown.
 - Upstream sessions are never shared between persons (RFC-0065 §2.2):
   a downstream session belongs to one person, and its upstream sessions
   with it.
+
+### 3.6 Sources of the platform (0.4, RFC-0073 stage 1)
+
+An instance whose manifest declares `mcp_sources: {read: true}` receives
+`OAAP_MCP_SOURCES_URL` and `OAAP_MCP_SOURCES_KEY` from the platform
+(`oaap.apps.runtime` 2.32): a list of the instances of **its tenant on its
+node** that declare an MCP door.
+
+- **When.** At start and every 5 minutes; after a failed read again after
+  30 seconds (on a first install the platform writes the gateway's site
+  after the container starts). By hand: `app.py source sync`;
+  `app.py source list` shows the list as the platform sends it.
+- **Registering.** A listed instance becomes a server named after the
+  instance, access `none`, light `red`, marked as a source. **Nothing
+  appears in any view** until the operator approves entries (§4).
+- **The operator keeps the say.** Access, credential and light set on such
+  a server survive every later sync; only a changed address is followed.
+  In stage 1 the operator gives the server the key of an **agent
+  principal** (RFC-0067 §4) limited to that instance, with access
+  `bearer`: the app then sees the agent, never the gateway.
+- **A name already taken** by a server made by hand is left untouched; the
+  sync reports the conflict.
+- **A source that disappears** keeps its server, marked with the moment it
+  left the list; its entries stay in the views, shown, never removed in
+  silence. It returns unmarked.
+- Every movement is a line in the audit log (`server.source`). The key is
+  never written, logged or shown.
 
 ## 4. The catalog: default deny, pinned
 
@@ -862,3 +891,15 @@ Inhalte, Prompt-Texte und die Antworten von Menschen auf Rückfragen.
   selbst gibt es nie weiter. Klappt der Tausch nicht, wird abgelehnt,
   nie auf den technischen Zugang ausgewichen. Eine Sicht mit so einem
   Server nimmt nur Anmeldungen an.
+
+## Deutsche Zusammenfassung (0.4, RFC-0073 Stufe 1 — Quellen der Plattform)
+
+Ein Gateway mit `mcp_sources: {read: true}` im Manifest liest beim Start und
+alle 5 Minuten die Liste der MCP-Apps seines Mandanten auf diesem Knoten
+(nach einem Fehlschlag nach 30 Sekunden wieder). Jede wird ein Server mit dem
+Namen der Instanz, Zugang `none`, Ampel rot. In keiner Sicht erscheint etwas
+ohne Freigabe. Was der Betreiber einstellt (Zugang, Schlüssel, Ampel), bleibt
+bei jedem Abgleich stehen; in Stufe 1 ist das der Schlüssel eines Agenten, auf
+die Instanz beschränkt. Ein von Hand vergebener Name wird nicht angefasst. Eine
+verschwundene Quelle bleibt markiert stehen, ihre Einträge in den Sichten
+werden nicht still entfernt.
