@@ -2,7 +2,9 @@
 
 - **Status:** **Accepted (2026-11-07)** — Jörg: "Ich folge Deinen Empfehlungen.
   Akzeptiert und weiter" (D1–D8 as recommended); **stage 1 built and measured on `oaap-test`
-  (reference 0.1.237, `mcp-gateway` 0.4.0, §12)**, not rolled out
+  (reference 0.1.237, `mcp-gateway` 0.4.0, §12)**, rolled out to the four LAN nodes;
+  **stage 2 built and measured on `oaap-test` (reference 0.1.238, `mcp-gateway` 0.5.0,
+  §13)**, not rolled out
 - **Date:** 2026-11-07
 - **Authors:** Jörg (direction: I-41 of 2026-11-05, "the manifest declares
   doors, the platform interprets nothing"), Claude (facts read in specs and
@@ -346,6 +348,97 @@ before and after):
 **Not measured:** a source on another node (out of scope, D7), a source that
 disappears live (unit test only), procedure I (stage 2).
 
+## 13. Stage 2 built and measured (2026-11-07, reference 0.1.238, `mcp-gateway` 0.5.0)
+
+**Built.** The door `/platform/mcp/to/<source>` on a consuming gateway's own
+site, one block per source in its list (`oaap.apps.runtime` 0.2.54 §2.32.1);
+`/verify?act=` in identity with its own module for the act token (`act.py`,
+RS256 by hand as the gateway's `signin.py`; `oaap.core.identity` 0.6.3 §2.12);
+the list carries `door`; the site digest covers the door's roles, groups and
+target. In the gateway: access `platform`, the exchange with its own client
+for `MCPGW_PLATFORM_AUDIENCE`, the call with sources key and act token,
+procedure `I` in the measurement rows (`oaap.ai.mcp-gateway` 0.5 §3.7).
+
+**Tests.** Reference `test_mcp_act.py` (act module: signature, issuer,
+audience, expiry, `none`/HS256, short key, refetch brake; identity: both
+credentials, an **unlimited key of the same principal `instance:gw`** refused,
+another gateway's key, the cases key, other tenant, binding only in the
+source's tenant, no binding → §5 sentence and nothing created, route roles,
+audit lines without a token, an act token alone opens no ordinary route);
+`test_mcp_sources.py` section 7 (door blocks, order, strips, no door to a
+rehearsal or another tenant, digest follows route roles); `test_tenant.py`
+holds the act branch to the same rule as `/verify` (no tenant in an app's
+headers). Gateway `test_gateway.py` (+18: registration with door, exchange as
+own client for the platform client, sources key and act token at the door,
+never the person's token, cache, no fallback, `refused` not counted by the
+breaker) and `test_sources.py` (+5: none → platform, operator's access kept).
+Mutations caught: the exact-scope check (only after adding the bait of an
+unlimited key of `instance:gw` — without it the mutation survived), the
+assertion's audience, the binding check, the act header in upstream,
+procedure `I` in the rows, the breaker exemption, the stale-identity
+exception.
+
+**Measured on `oaap-test`** (staged 0.1.238; `vuebung-mcpgw` 0.5.0; realm
+`vuebung` of the `auth` Keycloak 26.7.4; `messung_rfc0073_stufe2.py`):
+
+| Asked | Answer |
+|---|---|
+| anna (bound, KP Mitarbeit pA) through view `kp-i`, procedure I | `tools/list` the three approved; `list_projects` → only pA; `add_entry` pA **accepted by the app** and listed as hers |
+| bert (bound, KP Lesen pB) | only pB; `add_entry` pB refused **by the app** |
+| the door directly with sources key + exchanged token | 200, the app sees anna; client-sent `X-OAAP-User`, `-Id`, `-Roles` do not arrive |
+| no act token / a token addressed to the gateway / tampered signature / no sources key | 401 / 401 („not addressed to the platform's client“) / 401 / 401 |
+| carl, valid token, never signed in at the place | 403, „Diese Person hat sich an diesem Ort noch nie angemeldet — einmal im Portal anmelden.“ |
+| a source without a door; the sources key at the source's own site; at `/platform/cases/submit` | 404; 403; 404 |
+| `mcpgw-test` (tenant `default`) with its own sources key at this door | 403 |
+| `vuebung-kp` limited to visibility group `kp-team`, only anna in it | gateway site rewritten by itself (`groups=kp-team` in the door); anna as before; bert: „Die Plattform lehnt ab (HTTP 403): Forbidden: not in a visibility group for this app“ |
+| tenant log | one `mcp.act` per call: 61 accepted, refusals for token, binding and route, no token in any line |
+| stage 1 again (view `kp` on a hand-made server `kp-agent` with a fresh agent key) | 8/8 |
+
+Total: part A 21/21, part B 8/8.
+
+**Deviations, decided while building:**
+
+- §4.1 check 4 (target of the same tenant, declares `mcp:`, not a rehearsal)
+  is enforced **where the door is written**: a door exists only for a source
+  in the gateway's list. Identity compares the tenants once more; it does
+  not read the registry.
+- The door path has no sub-paths: `/platform/mcp/to/<source>` and the same
+  with a trailing slash are rewritten to the declared `mcp.path` (Streamable
+  HTTP has one endpoint).
+- The gateway's two settings are explicit (`MCPGW_CLIENT_SECRET`,
+  `MCPGW_PLATFORM_AUDIENCE`); the list does not carry the platform client.
+  The IdP connector creating client and mapper is stage 3.
+
+**Findings:**
+
+1. **The tenant `vuebung` pointed at a client that no longer existed in its
+   realm** (`oaap-vuebung-uebung`, made at the tenant build on 18.10.): every
+   browser sign-in through the tenant's place would have failed. `oaap tenant
+   check` said „All records resolve“. Repaired with the platform's own path,
+   `oaap idp provision auth --tenant vuebung` (needs an external name; the
+   client is now `oaap-probe.oaap.invalid`). A check that asks the realm
+   whether the tenant's client exists is missing.
+2. **The gateway treated a refusal of the door as a failure of the server**:
+   the platform's sentence was lost („HTTP 403“) and every refusal counted
+   for the circuit breaker — five attempts of one person without a right
+   would have closed the source for everyone. Fixed in 0.5.0 before the
+   rollout (`upstream.Refused`, measured).
+3. **The first measuring script believed a JSON-RPC error was an accepted
+   call** (no `result`, so no `isError`): „add_entry accepted“ passed while
+   the profile's effect ceiling (`read`) had refused it. The checks now
+   require a `result`. The profile needed `--max-effect write`.
+4. **The act branch first stood between `verify()` and the next route** and
+   tripped `test_tenant`'s static reading of `/verify`; moved before it, and
+   the test now reads the act branch with the same rule.
+5. `oaap authz assign` wants the full collection id, like `agent-add`
+   (stage 1 finding 2), and a context, not a value, for `project`.
+6. Every MCP call is one line in the tenant log. Right for now (§8.7); the
+   volume for a chat is a question for stage 3 or the chat app.
+
+**Not measured:** an expired act token live (unit test only), a token of
+another realm at the door (unit test only), the browser sign-in with Claude
+Code (needs TLS), a source in standby behind a door.
+
 ## Deutsche Zusammenfassung
 
 **Worum es geht:** Schritt 2 der KI-Chat-Reihenfolge (I-41). Eine OAAP-App, die
@@ -405,3 +498,19 @@ abgewiesen. Das Gateway im Mandanten `default` sieht nichts davon, und fremde
 Schlüssel kommen an keiner Tür durch. Befunde: Beim ersten Start fehlte die Tür
 noch (404, jetzt mit Wiederholung nach 30 s); `agent-add` will die volle
 Kennung der Sammlung; ein neues Gateway braucht `MCPGW_MASTER_KEY` von Hand.
+
+**Stufe 2 gebaut und gemessen (07.11., Referenz 0.1.238, mcp-gateway 0.5.0, §13):**
+Die Tür `/platform/mcp/to/<quelle>` steht auf der Seite des Gateways; identity
+prüft Quellen-Schlüssel und getauschtes Token und gibt die Kopfzeilen der
+Person. Gegen den echten Keycloak (Realm `vuebung`): anna sieht nur pA und darf
+dort schreiben, bert sieht nur pB und darf nicht schreiben — entschieden von der
+App, weil sie die Person sieht. Kaputte, falsch adressierte und fehlende
+Nachweise: 401. carl, nie am Ort angemeldet: 403 mit dem Satz aus §5. Mit einer
+Sichtbarkeitsgruppe nur für anna scheitert bert an der Route, und der Satz der
+Plattform kommt bis zum Client. Jeder Akt steht im Mandantenprotokoll. 21/21
+und 8/8. Befunde: Der Mandant `vuebung` zeigte auf einen Keycloak-Client, den
+es nicht mehr gab (mit `oaap idp provision` repariert; eine Prüfung dafür
+fehlt). Das Gateway wertete eine Ablehnung der Plattform als Serverfehler und
+hätte so die Quelle für alle sperren können (vor dem Ausrollen behoben). Mein
+erstes Messskript hielt eine Fehlerantwort für einen angenommenen Aufruf
+(korrigiert).

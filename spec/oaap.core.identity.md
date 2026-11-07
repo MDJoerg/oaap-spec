@@ -1,7 +1,8 @@
 # oaap.core.identity — Identity & Roles
 
 - **ID:** `oaap.core.identity`
-- **Version:** 0.6.2 (**a signed assertion of the person for the
+- **Version:** 0.6.3 (**a person through an MCP gateway's door**,
+  procedure I, RFC-0073 stage 2: `/verify?act=`, 2.12; 0.6.2: **a signed assertion of the person for the
   way out**: a sixth header `X-OAAP-User-Assertion`, 2.11; RFC-0066
   stage 1;
   0.6.1, **business authorization lives here**,
@@ -616,6 +617,46 @@ X-OAAP-User-Assertion: <base64url header>.<base64url claims>.<base64url HMAC-SHA
   is not a propagation (destinations 2.9.7). An app treats the header
   as opaque: it copies it, it never parses or trusts it.
 
+### 2.12 A person through an MCP gateway's door: procedure I (0.6.3, RFC-0073 stage 2)
+
+A verify call with `act=oaap.mcp.sources:<gateway>` comes only from the
+door `oaap.apps.runtime` 2.32.1 writes (the parameter is part of the
+generated `forward_auth` URI, never of a client request). It is answered by
+a check of its own, every call, in this order:
+
+1. **The gateway's key.** `Authorization: Bearer` must be an API key
+   limited to **exactly** `oaap.mcp.sources:<gateway>` whose principal is
+   the machine `instance:<gateway>`. An unlimited key — also one of that
+   same principal — and a key limited to anything else are refused.
+   Missing: `401`; wrong scope: `403`.
+2. **The same tenant.** The gateway principal's tenant equals the tenant
+   the door names; otherwise `403`.
+3. **The act token** in `X-OAAP-Act-Token`: RS256 with at least 2048 bits
+   against the key with its `kid` from the tenant provider's JWKS (fetched
+   from the discovery document's `jwks_uri`, only on the issuer's own
+   origin, an unknown `kid` refetched at most once a minute); `iss` exactly
+   the tenant's issuer; `aud` contains the tenant's client (the platform's
+   own client of the realm, 2.8) — a token addressed to the gateway is
+   refused; `exp`/`nbf`/`iat` with 30 s leeway; `sub` present. Missing or
+   failing: `401` with the reason as a sentence, never the token.
+4. **The person** is the record bound to `{provider, sub}` in that tenant
+   (2.8), and nothing the gateway says. **No binding: `403`** with
+   „Diese Person hat sich an diesem Ort noch nie angemeldet — einmal im
+   Portal anmelden.“ — this door creates no record. A deactivated record or
+   a machine: `403`.
+5. **Maintenance** of the source as for a session (RFC-0059).
+6. **The route:** roles, visibility groups and tenant boundary exactly as
+   the ordinary verify, against the person: `403` with the same sentences.
+
+On success: `204` with the person's six headers (2.3, 2.11) built by the
+same function as for a session, the assertion's `aud` = the source.
+**Every act is a line `mcp.act` in the tenant's audit log** — subject the
+source, actor the gateway principal, the person in the detail; refusals
+(token, binding, route) with result `denied`. Never a token.
+
+There is **no fallback**: a failed act is a refusal, never a call as the
+gateway (RFC-0065 D8).
+
 ## 3. Configuration
 
 - Session secret and setup token are generated at install time
@@ -1029,3 +1070,19 @@ Aufruf eine Instanz nennt; sonst bleibt die Zeile leer — ebenso, wenn
 der Schlüssel fehlt. Die App reicht sie unverändert an eine
 Destination mit Principal Propagation weiter (`oaap.net.destinations`
 2.9); an jede andere Destination streicht das Gateway sie.
+
+## Deutsche Zusammenfassung (0.6.3, RFC-0073 Stufe 2 — eine Person durch die Tür eines MCP-Gateways)
+
+`/verify` kennt einen zweiten Weg: `act=oaap.mcp.sources:<gateway>`, nur aus
+der generierten Tür auf der Seite des Gateways. Geprüft wird bei jedem Aufruf:
+(1) der Schlüssel ist genau auf diese Tür beschränkt und gehört
+`instance:<gateway>` — ein unbeschränkter Schlüssel öffnet sie nicht;
+(2) Gateway und Quelle im selben Mandanten; (3) das Act-Token: RS256 gegen die
+veröffentlichten Schlüssel des Realms, Issuer des Mandanten, Audience = der
+Plattform-Client (ein Token für das Gateway wird abgewiesen), nicht
+abgelaufen; (4) die Person kommt **nur aus der Bindung** {Anbieter, sub} —
+ohne Bindung eine Ablehnung mit Satz, es wird niemand angelegt;
+(5) Wartung; (6) Rollen, Sichtbarkeit und Mandantengrenze der Route der Quelle.
+Erfolg: die sechs Kopfzeilen der Person. Jeder Akt steht als `mcp.act` im
+Mandantenprotokoll, auch die Ablehnungen, nie ein Token. Kein Rückfall auf
+das Gateway.

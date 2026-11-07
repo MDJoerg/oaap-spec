@@ -1,7 +1,9 @@
 # oaap.ai.mcp-gateway — Tool Servers Behind One Keyed Endpoint per View
 
 - **ID:** `oaap.ai.mcp-gateway`
-- **Version:** 0.4 (RFC-0073 stage 1: sources of the platform, §3.6 —
+- **Version:** 0.5 (RFC-0073 stage 2: **procedure I**, §3.7 — a signed-in
+  person reaches an OAAP app as themselves, carried by the platform).
+  0.4 (RFC-0073 stage 1: sources of the platform, §3.6 —
   OAAP apps declaring an MCP door are found and registered, nothing in a
   view without approval). 0.3 (RFC-0065 stage 3: sign-in of a person at the
   tenant's identity provider, access profiles, procedure X token
@@ -290,10 +292,15 @@ node** that declare an MCP door.
   after the container starts). By hand: `app.py source sync`;
   `app.py source list` shows the list as the platform sends it.
 - **Registering.** A listed instance becomes a server named after the
-  instance, access `none`, light `red`, marked as a source. **Nothing
-  appears in any view** until the operator approves entries (§4).
+  instance, light `red`, marked as a source: with access `platform`
+  (procedure I, §3.7) at its `door` when the list names one, else access
+  `none` at its `address`. A source registered before doors existed that
+  never got an access (`none`, no credential) moves to `platform` once the
+  list names a door. **Nothing appears in any view** until the operator
+  approves entries (§4).
 - **The operator keeps the say.** Access, credential and light set on such
-  a server survive every later sync; only a changed address is followed.
+  a server survive every later sync; only a changed address is followed —
+  the door for `platform`, the address otherwise.
   In stage 1 the operator gives the server the key of an **agent
   principal** (RFC-0067 §4) limited to that instance, with access
   `bearer`: the app then sees the agent, never the gateway.
@@ -304,6 +311,39 @@ node** that declare an MCP door.
   silence. It returns unmarked.
 - Every movement is a line in the audit log (`server.source`). The key is
   never written, logged or shown.
+
+### 3.7 Procedure I: a person to an OAAP app, through the platform (0.5, RFC-0073 stage 2)
+
+A server with access **`platform`** is a source of the platform reached at
+its door (`oaap.apps.runtime` 2.32.1). It exists only for sources; a server
+made by hand cannot have it.
+
+- **Configuration.** `MCPGW_CLIENT_SECRET` — the secret of the gateway's own
+  confidential client (`MCPGW_AUDIENCE`) — and `MCPGW_PLATFORM_AUDIENCE`, the
+  platform's client of the tenant's realm. The token endpoint is read from
+  the issuer's discovery document (same origin). Missing any of these or the
+  sources key: every call is refused with a sentence naming them.
+- **Per call.** The person's token (§2.2) is exchanged (RFC 8693, as §3.5)
+  **with the gateway's own client** for one addressed to
+  `MCPGW_PLATFORM_AUDIENCE`, cached per person until 30 s before it expires.
+  The gateway calls the door with `Authorization: Bearer <sources key>` and
+  `X-OAAP-Act-Token: <exchanged token>`. The person's own token never leaves
+  the gateway.
+- **Without a person, no call:** a key, an expired session or a refused
+  exchange is a refusal (`-32003`), never the sources key alone (D8). A view
+  with such a server accepts sign-ins only; adding it to a key view, or
+  switching such a view to keys, is refused. The catalog is read with a
+  person's token (`server read <name> --token-stdin ja`).
+- **A refusal of the platform is the person's, not the server's.** A `401`
+  or `403` from the door is passed on as „Die Plattform lehnt ab (HTTP n):
+  <sentence>“ (the platform's sentence, one printable line, at most 200
+  characters), measured as `refused`/`platform`, and **does not count for
+  the circuit breaker** — otherwise the attempts of one person without a
+  right would close the source for everyone.
+- **Measured as** procedure `I` with `user_sub` and `user_iss`, as X.
+- **Agents** reach the same app with procedure T: the operator registers
+  the instance a second time by hand, access `bearer`, with an agent
+  principal's key limited to it (RFC-0073 §6).
 
 ## 4. The catalog: default deny, pinned
 
@@ -903,3 +943,17 @@ bei jedem Abgleich stehen; in Stufe 1 ist das der Schlüssel eines Agenten, auf
 die Instanz beschränkt. Ein von Hand vergebener Name wird nicht angefasst. Eine
 verschwundene Quelle bleibt markiert stehen, ihre Einträge in den Sichten
 werden nicht still entfernt.
+
+## Deutsche Zusammenfassung (0.5, RFC-0073 Stufe 2 — Verfahren I)
+
+Eine Quelle, für die die Liste eine Tür nennt, wird mit Zugang `platform`
+eingetragen. Ruft ein angemeldeter Mensch über eine Sicht ein Tool dieser
+Quelle, tauscht das Gateway sein Token mit dem **eigenen** Client gegen eines
+für den Plattform-Client des Realms und ruft die Tür auf seiner eigenen Seite
+mit dem Quellen-Schlüssel und diesem Act-Token. Die App sieht den Menschen,
+das Gateway reicht sein eigenes Token nie weiter. Ohne Menschen kein Aufruf;
+eine Sicht mit so einem Server nimmt nur Anmeldungen an. Lehnt die Plattform
+die Person ab (Route, Bindung, Token), geht ihr Satz an den Client, gemessen
+als `refused`, **ohne** den Sicherungsautomaten zu zählen. Neue Einstellungen:
+`MCPGW_CLIENT_SECRET`, `MCPGW_PLATFORM_AUDIENCE`. Agenten bleiben bei Verfahren
+T mit eigenem Schlüssel.

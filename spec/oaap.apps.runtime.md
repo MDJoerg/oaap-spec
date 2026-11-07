@@ -1,7 +1,9 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.53 (**MCP sources**, RFC-0073 stage 1: manifest 0.11
+- **Version:** 0.2.54 (**the MCP door for a person**, RFC-0073 stage 2:
+  `/platform/mcp/to/<source>` on a consuming gateway's own site, procedure I;
+  2.32.1; 0.2.53: **MCP sources**, RFC-0073 stage 1: manifest 0.11
   `mcp: {path}` and `mcp_sources: {read: true}`, the list on a gateway's
   own site; new 2.32; 0.2.52: **what a rebuild builds from**, RFC-0071 §15:
   the retained package or the commit a Git install recorded; manifest
@@ -2124,13 +2126,57 @@ mcp_sources:
   site by the generator.
 - **The list.** Instances of **the same tenant on this node** that declare
   `mcp:`, not a rehearsal, not the gateway itself, sorted by name. Each
-  entry: `name`, `app`, `version`, `channel`, `path`, and `address` — the
+  entry: `name`, `app`, `version`, `channel`, `path`, `address` — the
   door as the platform gateway serves it on the source's own port, behind
-  the source's routes (stage 1; RFC-0073 stage 2 adds procedure I).
+  the source's routes (procedure T with an agent key) — and `door`, the
+  block on the gateway's own site that carries a signed-in person (2.32.1).
 - **Stale never.** The site marker carries a digest of the list, so the
   site is rewritten whenever a source comes, goes or changes, by the same
   refresh that keeps the feedback block current (block format 6).
 - An instance in maintenance or a rehearsal serves no list.
+
+#### 2.32.1 The door for a person: procedure I (0.2.54, RFC-0073 stage 2)
+
+The same site carries, for **each source in its list**, a door
+`/platform/mcp/to/<source>` (with and without a trailing slash), before
+`/platform/*` and every app route:
+
+```text
+handle /platform/mcp/to/<source> {
+    rewrite * <the source's mcp.path>
+    forward_auth identity:8000 {
+        uri /verify?roles=<roles of the source's route>&groups=<its visibility groups>
+                   &tenant=<tenant>&instance=<source>&act=oaap.mcp.sources:<gateway>
+        copy_headers <the six identity headers>
+    }
+    request_header -Authorization
+    request_header -X-OAAP-Act-Token
+    reverse_proxy <the container behind that route>
+}
+```
+
+- **Two credentials, both required:** the gateway's sources key as
+  `Authorization: Bearer`, and in `X-OAAP-Act-Token` the person's provider
+  token, exchanged by the gateway for one addressed to the platform's own
+  client of the tenant's realm. What identity checks is
+  `oaap.core.identity` 2.12; the answer is the person's six headers with the
+  assertion addressed to the source.
+- **The route of the source applies to the person:** the roles of the
+  route that covers the MCP path (the longest prefix, without `public`) and
+  the source's visibility groups, fresh on every call.
+- **The source never sees either credential.** Caddy runs `forward_auth`
+  before `request_header`, so identity reads both and the app gets neither;
+  client-sent identity headers are overwritten by `copy_headers`.
+- **Only for sources in the list** — same tenant, this node, a door
+  declared, not a rehearsal; RFC-0073 §4.1 check 4 is enforced where the
+  door is written. A source that leaves the list takes its door with it.
+- **Stale never.** The digest in the site marker covers the list **and**
+  what each door asks (roles, groups, target), so a source changing its
+  route roles or its visibility rewrites the gateway's site. `request_header
+  -X-OAAP-Act-Token` is not an identity strip; the check for stale identity
+  lists ignores it.
+- **One hop, inside the platform.** The gateway calls its own site; no
+  instance opens a connection to another instance's port (RFC-0068).
 
 ## 3. Configuration
 
@@ -3438,3 +3484,17 @@ der Adresse am Plattform-Gateway. Die Liste schreibt der Seitengenerator in
 die Seite; kommt, geht oder ändert sich eine Quelle, wird die Seite neu
 geschrieben. Der Schlüssel folgt der Instanz wie die anderen
 Plattform-Schlüssel (2.25).
+
+## Deutsche Zusammenfassung (2.32.1, v0.2.54 — die MCP-Tür für eine Person, RFC-0073 Stufe 2)
+
+Auf der Seite eines Gateways mit `mcp_sources` steht jetzt für **jede Quelle
+der Liste** eine Tür `/platform/mcp/to/<quelle>`. Sie verlangt zwei
+Nachweise: den Quellen-Schlüssel des Gateways und, in `X-OAAP-Act-Token`, das
+Token der angemeldeten Person, vom Gateway eingetauscht gegen eines für den
+Plattform-Client des Realms. identity prüft beides und gibt die sechs
+Kopfzeilen **der Person** zurück (Zusicherung an die Quelle adressiert). Die
+Rollen der Route, die den MCP-Pfad der Quelle trägt, und ihre
+Sichtbarkeitsgruppen gelten für die Person bei jedem Aufruf. Schlüssel und
+Act-Token kommen nie bei der App an. Ändert die Quelle Rollen oder
+Sichtbarkeit, wird die Seite des Gateways neu geschrieben. Die Liste nennt die
+Tür im Feld `door`.
