@@ -539,6 +539,80 @@ gateway — unchanged since RFC-0065), the page in a real browser (Jörg), a
 removal of a gateway with an active sign-in on the node (unit test only), a
 redeploy without `mcp_sources` (unit test of the rule only).
 
+## 15. TLS for the sign-in of Claude Code (2026-11-07, reference 0.1.240)
+
+**Decided (Jörg, 2026-11-07: "Ok a freigegeben mit t1-t5"):** way A —
+`oaap-test` gets a public name behind the existing edge `oaap-demo`
+instead of a private CA. T1 the name `oaap-test.oaap-demo.duckdns.org`
+(DuckDNS answers every depth under `oaap-demo.duckdns.org`; nothing to do
+at DuckDNS or the router); T2 close the platform gap below; T3 move the
+node, Keycloak and the tenant's binding; T4 check the test passwords
+before going public; T5 measure.
+
+**Two platform defects, both found on the way, both fixed in 0.1.240
+(`oaap.core.gateway` 0.2.21):**
+
+1. **An edge forwarded one level only.** Caddy's `*` is one label; an
+   edge route was `host, *.host`, and a tenant's instance is
+   `<instance>.<label>.<node>`. Measured on `oaap-demo` before the fix:
+   `x.y.oaap-bernd.duckdns.org` answered 303 to the *edge's own* login.
+   No edge has ever reached a tenant's instance — `oaap-bernd` has only
+   the default tenant. Now `host, *.host, *.*.host`; existing edges are
+   rewritten on update (measured: `oaap-bernd` unchanged, two levels now
+   301 → https).
+2. **Behind an edge every app believed it was served over http.** Caddy
+   keeps `X-Forwarded-Proto` only from a trusted proxy and none was
+   configured, though `_edge_guard` said the headers were trusted. The
+   gateway announced `http://…/mcp/kp-i` as its resource — a client that
+   checks the resource against the address it called (the MCP SDK does)
+   stops there. Now the edge's address is the only trusted proxy
+   (`edge-trust.servers`, imported in the global `servers` block).
+   Measured: resource `https://…`; a LAN client with the external name
+   still gets 403, a forged header at an instance port changes nothing.
+
+**Measured** (`oaap-lab/mcp-gateway-messung/messung_rfc0073_tls.py`,
+**15/15**, all through the public https names, as Claude Code sees them):
+
+| Asked | Answer |
+|---|---|
+| protected-resource metadata of view `kp-i` | resource `https://mcpgw.vuebung.oaap-test.oaap-demo.duckdns.org/mcp/kp-i`, authorization server the https issuer |
+| the realm's discovery document | issuer identical, token endpoint **https** (Claude Code's condition) |
+| without a token | 401 |
+| anna, bert: code + PKCE, back to `localhost:33418`, redeemed over https | tokens with the https issuer, addressed to `oaap-mcp-mcpgw` |
+| procedure I through the gateway over https | anna only pA and writes; bert only pB and is refused by the app |
+| the gateway client after `oaap idp mcp` at the new issuer | audience mapper onto the new platform client added; the old one stays (nothing else touched) |
+
+**Findings:**
+
+3. **A provider's new address voids every binding.** `oaap idp provision`
+   at the new issuer said so ("bindings made under the old one no longer
+   match anybody") and procedure I refused anna and bert ("never signed
+   in here"); their first portal sign-in would have made *new* accounts
+   without their roles. The platform re-points bindings only for a move
+   between nodes. On `oaap-test` this was done once by hand, after the
+   platform's own connector had found both bound subjects in the realm
+   at the new address: two bindings, one `tenant.idp-repointed` line.
+   **T6 (proposed):** `oaap idp provision` re-points when the issuer
+   changed but connector and space are the same, and only the bindings
+   whose subject the connector finds in that realm.
+4. **The connector's address has no command.** The issuer is derived
+   from it; it was changed by hand in the connector file (backup kept).
+5. **DuckDNS's IPv6 record points at the router**, not at `oaap-demo`
+   (`…62b5:8dff:fec8:e2f0`, belongs to none of the nodes; a self-signed
+   certificate answers). Every IPv6 client of `oaap-demo`, `oaap-bernd`
+   and now `oaap-test` lands there. Containers have no IPv6 and were
+   unaffected; the node itself prefers IPv4 now (`/etc/gai.conf`). The
+   record is in Jörg's DuckDNS account.
+6. After the issuer change the gateway client carries two audience
+   mappers; the old platform client was disabled by hand, not deleted.
+
+**T4 done:** the Keycloak passwords are long and random; six active
+portal test accounts with unknown passwords were deactivated, not
+deleted; `oaap-admin` unchanged.
+
+**Not measured:** Claude Code itself — the browser step happens at
+Jörg's PC.
+
 ## Deutsche Zusammenfassung
 
 **Worum es geht:** Schritt 2 der KI-Chat-Reihenfolge (I-41). Eine OAAP-App, die
@@ -631,3 +705,15 @@ im Portal zeigt Quelle, Leser und den Stand der Anmeldung; der Knopf geht durch
 den Worker und steht im Mandantenprotokoll. 37/37. Die handgemachten Clients von
 Stufe 2 sind aus dem Realm entfernt. Offen: Claude Code selbst (braucht TLS) und
 der Blick im echten Browser.
+
+**TLS für Claude Code (07.11., Referenz 0.1.240, §15):** oaap-test heißt jetzt
+`oaap-test.oaap-demo.duckdns.org` und steht hinter dem Edge oaap-demo. Dabei
+zwei Plattformfehler gefunden und behoben: Ein Edge reichte nur eine
+Namensebene weiter (Mandanten-Instanzen landeten im Portal des Edge), und
+hinter einem Edge hielt jede App die Verbindung für http. Gemessen über die
+öffentlichen https-Namen: Entdeckung, Anmeldung mit PKCE, Token über https,
+durch das Gateway in die App — 15/15. Befunde: Eine neue Adresse des
+Anmeldedienstes macht alle Bindungen ungültig (auf oaap-test geprüft und von
+Hand umgehängt; Vorschlag T6), die Konnektor-Adresse hat keinen Befehl, und
+der IPv6-Eintrag bei DuckDNS zeigt auf die Fritzbox. Offen: Claude Code selbst
+an Jörgs Rechner.

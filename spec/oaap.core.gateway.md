@@ -1,8 +1,12 @@
 # oaap.core.gateway — HTTP Gateway (outline)
 
 - **ID:** `oaap.core.gateway`
-- **Version:** 0.2.20
+- **Version:** 0.2.21
 - **Maturity:** draft (outline — full specification to follow;
+  an edge route covers **two** levels below its host (`*.*.host`), so a
+  tenant's instances behind an edge are forwarded, 2026-11-07 after a
+  measurement on `oaap-demo`; behind an edge the edge is the only trusted
+  proxy, so apps see the visitor's scheme (rule 5 of the backend side);
   the **care listener**, `/platform/care.json` on a port the host never
   publishes, answering every container network the gateway joins,
   2026-11-05 per RFC-0069 stage 3;
@@ -171,8 +175,15 @@ the name. Only the entry is shared; the platforms stay autonomous.
 
 - **Routing table**: administrator-maintained entries
   `hostname → target address[:port]`. Each entry covers the hostname
-  **and** its wildcard subtree (`host` and `*.host`) — RFC-0005 level 3
-  gives every app instance a subdomain, so a platform owns a subtree.
+  **and** its subtree two levels deep (`host`, `*.host`, `*.*.host`) —
+  RFC-0005 level 3 gives every app instance a subdomain, so a platform
+  owns a subtree, and a tenant's instance is `<instance>.<label>.<node>`
+  (`oaap.core.tenant` 2.4), an exposure `<name>.t.<node>`. A wildcard
+  covers exactly one label; with `*.host` alone a tenant's instance fell
+  through to the edge's own sites (measured 2026-11-07: a name two levels
+  below a routed host answered with the edge's own login). Nothing the
+  platform names lies deeper, so the route does not reach further. An
+  edge written before carries the second level on the next update.
   CLI: `oaap edge add <hostname> <target>` / `list` / `remove`.
 - The edge terminates TLS and obtains/renews certificates for all
   routed names (it is the only node that can answer ACME challenges).
@@ -213,7 +224,15 @@ In this mode the gateway, for the external hostname and its subtree:
    edge). Local entry points (LAN address, app listener ports) are
    unaffected;
 4. keeps every RFC-0002 guarantee: identity headers are stripped and
-   re-set by this gateway regardless of what the edge forwarded.
+   re-set by this gateway regardless of what the edge forwarded;
+5. **believes the edge's `X-Forwarded-Proto`/`-For`** and nobody
+   else's: the edge's address — exactly that one, never a range — is
+   the gateway's only trusted proxy, so an app sees the scheme and the
+   client the visitor used. Without it every app behind an edge believed
+   it was served over plain http (measured 2026-11-07: the MCP gateway
+   announced an `http://` resource to clients that reached it over
+   https, which a client checking the resource refuses). Rule 3 made
+   the trust *acceptable*; this rule makes it *real*.
 
 `oaap external show` reports the mode. Switching back to direct mode
 (`oaap external set <hostname>` without the flag) restores TLS sites
@@ -578,8 +597,12 @@ Rollenprüfung zusätzlich `groups=...` an — geprüft von Identity,
 Ein Knoten mit dem öffentlichen Eingang (Portfreigabe) kann Anfragen
 für die Hostnamen **anderer** Plattformen an deren Adresse
 weiterreichen: Der Administrator pflegt eine Tabelle `Hostname → Ziel`
-(`oaap edge add/list/remove`); jeder Eintrag gilt für den Namen samt
-aller Subdomains. Der Edge holt die Zertifikate für alle Namen und
+(`oaap edge add/list/remove`); jeder Eintrag gilt für den Namen und
+zwei Ebenen darunter (`*.host`, `*.*.host` — die zweite Ebene trägt die
+Instanzen eines Mandanten, `<instanz>.<mandant>.<knoten>`; bis 0.2.20
+landeten sie im eigenen Portal des Edge, gemessen 07.11.). Hinter dem
+Edge glaubt das Gateway dessen `X-Forwarded-*` (nur dieser einen Adresse),
+sonst hielte jede App die Verbindung für http. Der Edge holt die Zertifikate für alle Namen und
 leitet HTTP auf HTTPS um. Die Zielplattform wird mit
 `oaap external set <name> --behind-edge <edge-adresse>` in den Modus
 „hinter Edge" geschaltet: Sie liefert ihre externe Site dann über

@@ -17,7 +17,7 @@ before the full specification is written.
 - [oaap.core.management](oaap.core.management.md) — the tenant's own hand on the platform as an API: the cohort commands under `/api/v1/tenant`, for a session or an API key, jobs for what takes minutes, a template uploaded as ZIP, the handout as a one-time ZIP with a password the trainer chooses; operator routes for tenant builds (draft, v0.1.2)
 - [oaap.core.identity](oaap.core.identity.md) — identity & roles; since 0.6.3 a person through an MCP gateway's door (procedure I, RFC-0073) (draft, v0.6.3)
 - [oaap.core.authorization](oaap.core.authorization.md) — business authorization inside an app, apart from the platform roles: manifest declaration, roles, collections, assignments, `effective`, provider groups, administration by an app, setup from the declaration (draft, v0.5.3)
-- [oaap.core.gateway](oaap.core.gateway.md) — HTTP gateway (outline, v0.2.20)
+- [oaap.core.gateway](oaap.core.gateway.md) — HTTP gateway (outline, v0.2.21)
 - [oaap.apps.runtime](oaap.apps.runtime.md) — app runtime: install, instances, contract delivery, remote deployment; since 0.2.50 the base record of every built image, since 0.2.51 the rebuild on a fresh base with a way back, since 0.2.53 MCP sources (manifest 0.11, RFC-0073) and since 0.2.54 the door for a person (procedure I), since 0.2.52 the rebuild from the recorded Git commit and manifest 0.10 `care.rebuild` (draft, v0.2.55)
 - [oaap.data.backup](oaap.data.backup.md) — platform backup, restore & relocation (draft, v0.4.1)
 - [oaap.fleet.status](oaap.fleet.status.md) — read-only fleet status document & fleet keys (draft, v0.8)
