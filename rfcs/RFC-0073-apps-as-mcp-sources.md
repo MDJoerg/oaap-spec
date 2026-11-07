@@ -1,6 +1,7 @@
 # RFC-0073: Apps as MCP Sources — The Manifest Declares a Door, the Gateway Finds It, the Platform Carries the Person
 
-- **Status:** **Proposed (2026-11-07)** — D1–D8 open for Jörg
+- **Status:** **Accepted (2026-11-07)** — Jörg: "Ich folge Deinen Empfehlungen.
+  Akzeptiert und weiter" (D1–D8 as recommended); stage 1 in progress
 - **Date:** 2026-11-07
 - **Authors:** Jörg (direction: I-41 of 2026-11-05, "the manifest declares
   doors, the platform interprets nothing"), Claude (facts read in specs and
@@ -283,6 +284,8 @@ have TLS.
 | **D7** | Sources on the same node only in this RFC | yes |
 | **D8** | Rehearsal instances are neither sources nor consumers | yes |
 
+**Decided (Jörg, 2026-11-07):** D1–D8 as recommended.
+
 ## Deutsche Zusammenfassung
 
 **Worum es geht:** Schritt 2 der KI-Chat-Reihenfolge (I-41). Eine OAAP-App, die
@@ -331,4 +334,4 @@ einem Agentenschlüssel. (2) Die Tür und Verfahren I, gemessen mit anna und ber
 per Skript. (3) Portal und automatische Keycloak-Clients. Der Login mit Claude
 Code folgt, sobald `https` steht.
 
-**Empfehlung:** D1–D8 wie vorgeschlagen.
+**Entschieden (Jörg, 07.11.):** D1–D8 wie empfohlen.
