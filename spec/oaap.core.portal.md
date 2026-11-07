@@ -1,8 +1,8 @@
 # oaap.core.portal — Web Portal
 
 - **ID:** `oaap.core.portal`
-- **Version:** 0.3.33
-- **Maturity:** draft (0.3.33 moves administration out of the header into a **side bar in groups** and gives long pages without tabs **jump marks** -- §2.7, design guidelines 0.2 §5 and 6.2.3; 0.3.32 adds the page **Nachrichten** -- "Postausgang": which mailbox a tenant's realm sends with, the tenant's own mailbox for its `tenant_admin`, the node's for `server_admin` -- §2.15, RFC-0072 stage 2, `oaap.net.destinations` 0.9; 0.3.31 lets the start form of a build install an app that administers its tenant's grants by one tick, which is the operator's confirmation -- §2.11, RFC-0055 §14 item 4; 0.3.30 lets a `server_admin` confirm an app that administers its tenant's grants in the store -- §2.6, `oaap.core.authorization` 0.5.2 §2.10; the card "Abbild" says whether a rebuild can be expected to help -- §2.14; 0.3.29 adds **care at a glance** to the store and the instance list -- an update in the catalogue and open advisories of the image reading, as a filter, a hint line and a badge, plus filters on the instance list -- §2.14; 0.3.28 adds the card **Neustart-Schutz** to the instance page — §2.13, RFC-0069 stage 5, `oaap.core.updates` 0.7 §2.7.2; 0.3.27 adds the node page **Datenträger** — §2.12, specified in `oaap.data.disks` 0.2 §2.6, RFC-0063 stage 2; 0.3.26 adds **profile upload, download and delete** and tick boxes for `bool` parameters on the build pages — §2.11, RFC-0055 §14; 0.3.25 adds **invitations and requests** — the prospect's public form and the operator's list, §2.10, RFC-0055 stage 4; 0.3.24 adds the **tenant build pages** — a wizard over the operator API, §2.9, RFC-0055 stage 3; 0.3.23 shows the **Cohorts menu entry to every
+- **Version:** 0.3.34
+- **Maturity:** draft (0.3.34 lets the start form of a build **choose apps** from the store's catalogue, one tick box per app, for a parameter of kind `apps` -- §2.11, RFC-0055 §15; 0.3.33 moves administration out of the header into a **side bar in groups** and gives long pages without tabs **jump marks** -- §2.7, design guidelines 0.2 §5 and 6.2.3; 0.3.32 adds the page **Nachrichten** -- "Postausgang": which mailbox a tenant's realm sends with, the tenant's own mailbox for its `tenant_admin`, the node's for `server_admin` -- §2.15, RFC-0072 stage 2, `oaap.net.destinations` 0.9; 0.3.31 lets the start form of a build install an app that administers its tenant's grants by one tick, which is the operator's confirmation -- §2.11, RFC-0055 §14 item 4; 0.3.30 lets a `server_admin` confirm an app that administers its tenant's grants in the store -- §2.6, `oaap.core.authorization` 0.5.2 §2.10; the card "Abbild" says whether a rebuild can be expected to help -- §2.14; 0.3.29 adds **care at a glance** to the store and the instance list -- an update in the catalogue and open advisories of the image reading, as a filter, a hint line and a badge, plus filters on the instance list -- §2.14; 0.3.28 adds the card **Neustart-Schutz** to the instance page — §2.13, RFC-0069 stage 5, `oaap.core.updates` 0.7 §2.7.2; 0.3.27 adds the node page **Datenträger** — §2.12, specified in `oaap.data.disks` 0.2 §2.6, RFC-0063 stage 2; 0.3.26 adds **profile upload, download and delete** and tick boxes for `bool` parameters on the build pages — §2.11, RFC-0055 §14; 0.3.25 adds **invitations and requests** — the prospect's public form and the operator's list, §2.10, RFC-0055 stage 4; 0.3.24 adds the **tenant build pages** — a wizard over the operator API, §2.9, RFC-0055 stage 3; 0.3.23 shows the **Cohorts menu entry to every
   administrator**, not only where a cohort exists, and puts a **step-by-step
   guide and a downloadable example template** on the create page — §2.8;
   0.3.22 adds **Add a seat** to the cohorts page, with
@@ -786,6 +786,19 @@ only, which the host judges again from the actor's own record.
   the store's question, 2.6); the step list marks the step "verwaltet Rechte".
   The prospect's form (2.10) does **not** show such a box and always sends
   `false`; the host sets it to `false` again.
+- **A choice of apps** (kind `apps`, RFC-0055 §15, 0.3.34). The start form shows
+  one tick box per app, all under the parameter's name, with the app's name,
+  id and short text from the store's catalogue: with `choices` exactly those
+  (an id no catalogue lists is marked "nicht im Katalog"), without `choices`
+  the catalogue of this node minus archived apps and apps for a node profile
+  this node lacks. The profile's default is ticked; after a refused POST the
+  ticks stay. No tick is sent as an explicit empty choice. A catalogue that
+  cannot be read leaves the list empty with a hint, never a broken page. The
+  step list names a step over the choice "Je gewählte App eine Instanz
+  installieren (Test|Produktiv)". The prospect's form (2.10) shows a choice
+  only when the profile gives `choices`, and only those ids, without fetching
+  the catalogue; otherwise the field is not on the form and not sent. The host
+  judges the choice again (every id in a store source) before the first step.
 - Doors as in 2.9: `403` for anyone but the operator, `404` at a tenant's
   place, `403` for a foreign origin, nothing in the spool for a request the
   page can already refuse.
@@ -1729,6 +1742,15 @@ Testmail; Entfernen fällt auf das Knotenpostfach zurück). Am Knoten pflegt der
 Server-Admin das Knotenpostfach und sieht, welcher Mandant womit verschickt.
 Das Passwort wird einmal eingegeben und nie wieder angezeigt. Posteingang und
 Messenger kommen später als weitere Abschnitte.
+
+## Deutsche Zusammenfassung (Nachtrag 0.3.34 — Apps beim Aufbau auswählen)
+
+Hat ein Profil einen Parameter der Art `apps`, zeigt das Startformular des
+Aufbaus je App des Store-Katalogs einen Haken (Name, ID, Kurztext) — oder nur die
+Apps, die das Profil unter `choices` anbietet. Der Standard des Profils ist
+angehakt; kein Haken heißt ausdrücklich „keine App“. Im Antragsformular für
+Interessenten gibt es die Auswahl nur mit `choices`. Der Knoten prüft die Auswahl
+vor dem ersten Schritt noch einmal (RFC-0055 §15).
 
 ## Deutsche Zusammenfassung (Nachtrag 0.3.33 — Seitenleiste und Sprungmarken)
 

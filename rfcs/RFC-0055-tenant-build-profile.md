@@ -2,7 +2,7 @@
 
 - **Status:** **Accepted (2026-10-03)** — Jörg decided the four open questions
   of idea I-33 one by one (§9). **Stages 1–4 built (2026-10-03, §10–§13); profile upload and
-  app choice §14.**
+  app choice §14; choosing apps at the start §15 (2026-11-07).**
 - **Date:** 2026-10-03
 - **Authors:** Jörg (the wish: build tenants from portal or app), Claude
   (survey of today's steps, write-up)
@@ -486,6 +486,72 @@ anyone, upload unchecked) were all caught. **Not measured:** an upload and a
 build with a real catalogue app on a node, the pages in a browser, and the
 container image was not rebuilt for this stage when this was written.
 
+## 15. Choosing apps at the start (2026-11-07)
+
+Requested by the product owner: one profile for many customers, where the
+operator ticks **which apps** a tenant gets when starting the build, instead of
+one `bool` and one step per app written into the file in advance.
+
+**The language grows by one parameter kind and one placeholder, and by nothing
+that runs code.**
+
+1. A parameter of kind **`apps`**: the chosen app ids, written as a list or a
+   comma-separated text; order is kept, repeats are dropped, empty is no app
+   (an explicit empty choice is **not** the default). Optional keys:
+   `choices` (a non-empty list of ids; then only these may be chosen), `max`
+   (1 to 30, default 12), `default` (a list inside `choices`, if given),
+   `required` (at least one app).
+2. An `app.install` whose `app` is **exactly** `"{p}"` with `p` of kind `apps`
+   is a step **over the choice**. Before anything runs it becomes **one step per
+   chosen app**, in the order chosen, with the id `<step>-<app>`, `app` set to
+   the id, and **`{app}`** replaced by that id in its other texts. Its `name`
+   must contain `{app}` (every app gets its own instance; the tenant label is
+   put in front by the install verb as always). Test and production are two
+   such steps over the same choice (`channel: test` with `name: "{app}-test"`,
+   optionally behind a `when`, and `channel: production` with `name: "{app}"`).
+3. Refused whole, before anything runs: a parameter named `app`; `{p}` of kind
+   `apps` anywhere but as the whole `app` of an `app.install`; `{app}` outside
+   a step over a choice; a step over a choice without `{app}` in its `name`;
+   `confirm_administer` on a step over a choice (an app that administers its
+   tenant's grants keeps its own step and its own tick, §14 item 4); bad
+   `choices`, `max` or `default`; and at the start, an expanded id that
+   collides with another step's id.
+4. **The spreading is pure and repeatable.** A build keeps its values, so
+   continue and rollback spread the profile the same way and find the same
+   steps; each instance is its own step with its own `made` line, so a failure
+   at the second app stops there, continue does only what is missing, and a
+   rollback removes the instances one by one, in reverse. The profile file
+   itself never changes.
+5. **The host checks the choice before the first step.** Every chosen id must
+   be listed in a configured store source (`_catalogue_app_ids`, the same
+   reading as the upload check); an unknown id, or no readable source at all,
+   refuses the start, and no tenant is made. What can still stop a step later
+   is what stops any `app.install`: an unverified source (§14 item 3), or an app
+   that administers its tenant's grants (it needs the tick of its own step).
+6. **The prospect's form (stage 4)** offers a choice only from `choices`. A
+   parameter of kind `apps` without `choices` is not on the public form, and
+   the host drops whatever arrives for it, so the profile's default applies: the
+   whole catalogue is the operator's choice, not a stranger's.
+7. **The portal's start form** shows one tick box per app: with `choices`
+   exactly those (an id no catalogue lists is marked); without, the store's
+   catalogue of this node minus archived apps and apps for a node profile this
+   node lacks. The step list says "one instance per chosen app (test /
+   production)". `oaap.core.portal` 0.3.34 §2.11. The CLI needs nothing new:
+   `--param apps=n8n,forgejo`.
+
+An example profile `kunde-standard` (customer with own realm, store apps as
+test and production, optional rights app) lives beside `handballverein` in
+`oaap-docs/szenarien/profile/`.
+
+**Measured:** `test_tenant_build_apps.py` (the kind and every refusal with a
+bait, values, the spreading, a real run with a fault at the second app,
+continue, rollback; the host door with the real `appctl`: unknown app and
+unreadable catalogue refused before any tenant exists, a known app runs, a
+`tenant_admin` cannot start; the prospect cannot choose without `choices` and
+not outside them; the form helpers). Five deliberate faults against it were all
+caught. `test_tenant_build_page.py` renders the start form with the boxes and
+checks what a POST queues.
+
 ## Zusammenfassung für Jörg (Deutsch)
 
 **Was das ist:** Ein **Profil** ist eine kleine Datei auf dem Knoten. Sie sagt,
@@ -584,3 +650,15 @@ zu. Im Antragsformular für Interessenten erscheint der Haken nicht, und der
 Knoten setzt ihn dort immer auf „nein“. **Gemessen auf oaap-test:** Aufbau mit
 Haken über den Spool -> Mandant und Instanz in 7 s, Tür offen; ohne Haken
 übersprungen; beide zurückgebaut.
+
+**Apps beim Start auswählen (07.11., §15):** Ein Parameter der Art `apps` wird
+im Startformular zu einer Liste mit Haken, einer je App des Store-Katalogs (oder
+nur die Apps, die das Profil unter `choices` anbietet). Ein `app.install` mit
+`"app": "{apps}"` wird vor dem Lauf in **einen Schritt je gewählter App**
+aufgeteilt; `{app}` steht darin für die jeweilige App, z. B. `"name":
+"{app}-test"` mit `channel: test` und `"name": "{app}"` für Produktiv. So reicht
+**ein** Profil für viele Kunden. Der Knoten prüft vor dem ersten Schritt, dass
+jede gewählte App in einer Katalogquelle steht; sonst entsteht gar nichts.
+Fortsetzen und Rückbau arbeiten je Instanz. Rechte-Apps bleiben ein eigener
+Schritt mit eigenem Haken. Ein Interessent wählt nur aus `choices`, nie aus dem
+ganzen Katalog. Neue Beispielvorlage: `kunde-standard`.
