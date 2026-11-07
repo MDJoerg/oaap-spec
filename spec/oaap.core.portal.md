@@ -1,8 +1,8 @@
 # oaap.core.portal — Web Portal
 
 - **ID:** `oaap.core.portal`
-- **Version:** 0.3.32
-- **Maturity:** draft (0.3.32 adds the page **Nachrichten** -- "Postausgang": which mailbox a tenant's realm sends with, the tenant's own mailbox for its `tenant_admin`, the node's for `server_admin` -- §2.15, RFC-0072 stage 2, `oaap.net.destinations` 0.9; 0.3.31 lets the start form of a build install an app that administers its tenant's grants by one tick, which is the operator's confirmation -- §2.11, RFC-0055 §14 item 4; 0.3.30 lets a `server_admin` confirm an app that administers its tenant's grants in the store -- §2.6, `oaap.core.authorization` 0.5.2 §2.10; the card "Abbild" says whether a rebuild can be expected to help -- §2.14; 0.3.29 adds **care at a glance** to the store and the instance list -- an update in the catalogue and open advisories of the image reading, as a filter, a hint line and a badge, plus filters on the instance list -- §2.14; 0.3.28 adds the card **Neustart-Schutz** to the instance page — §2.13, RFC-0069 stage 5, `oaap.core.updates` 0.7 §2.7.2; 0.3.27 adds the node page **Datenträger** — §2.12, specified in `oaap.data.disks` 0.2 §2.6, RFC-0063 stage 2; 0.3.26 adds **profile upload, download and delete** and tick boxes for `bool` parameters on the build pages — §2.11, RFC-0055 §14; 0.3.25 adds **invitations and requests** — the prospect's public form and the operator's list, §2.10, RFC-0055 stage 4; 0.3.24 adds the **tenant build pages** — a wizard over the operator API, §2.9, RFC-0055 stage 3; 0.3.23 shows the **Cohorts menu entry to every
+- **Version:** 0.3.33
+- **Maturity:** draft (0.3.33 moves administration out of the header into a **side bar in groups** and gives long pages without tabs **jump marks** -- §2.7, design guidelines 0.2 §5 and 6.2.3; 0.3.32 adds the page **Nachrichten** -- "Postausgang": which mailbox a tenant's realm sends with, the tenant's own mailbox for its `tenant_admin`, the node's for `server_admin` -- §2.15, RFC-0072 stage 2, `oaap.net.destinations` 0.9; 0.3.31 lets the start form of a build install an app that administers its tenant's grants by one tick, which is the operator's confirmation -- §2.11, RFC-0055 §14 item 4; 0.3.30 lets a `server_admin` confirm an app that administers its tenant's grants in the store -- §2.6, `oaap.core.authorization` 0.5.2 §2.10; the card "Abbild" says whether a rebuild can be expected to help -- §2.14; 0.3.29 adds **care at a glance** to the store and the instance list -- an update in the catalogue and open advisories of the image reading, as a filter, a hint line and a badge, plus filters on the instance list -- §2.14; 0.3.28 adds the card **Neustart-Schutz** to the instance page — §2.13, RFC-0069 stage 5, `oaap.core.updates` 0.7 §2.7.2; 0.3.27 adds the node page **Datenträger** — §2.12, specified in `oaap.data.disks` 0.2 §2.6, RFC-0063 stage 2; 0.3.26 adds **profile upload, download and delete** and tick boxes for `bool` parameters on the build pages — §2.11, RFC-0055 §14; 0.3.25 adds **invitations and requests** — the prospect's public form and the operator's list, §2.10, RFC-0055 stage 4; 0.3.24 adds the **tenant build pages** — a wizard over the operator API, §2.9, RFC-0055 stage 3; 0.3.23 shows the **Cohorts menu entry to every
   administrator**, not only where a cohort exists, and puts a **step-by-step
   guide and a downloadable example template** on the create page — §2.8;
   0.3.22 adds **Add a seat** to the cohorts page, with
@@ -550,6 +550,19 @@ portal no reach the `server_admin` did not grant.
 `Einstellungen` (settings), `Store` (app store), `Studio` are reserved
 navigation points (design guidelines section 5); implementations MUST
 NOT use these routes for other purposes.
+
+**Layout (0.3.33).** The header carries the mark (or the tenant's title
+and address) and the **user menu** only -- name, roles, profile,
+password, sign out. Administration is a **side bar on the left**, in the
+groups of design guidelines §5; a group with no visible entry is left
+out, and a caller who would see one entry only (`Apps`) gets **no** side
+bar. Which entry a caller sees is unchanged: the same roles as before
+decide, and the filter stays UX only (§4). A page without tabs with four
+or more card headings gets a sticky row of **jump marks**, built from
+the rendered page (a section the caller does not see has no mark); a
+warning card gets none, and a page with tabs keeps its tabs as its one
+sticky bar (guidelines 6.2.3). Header, user menu and side bar work
+without JavaScript.
 
 ### 2.8 Cohorts (RFC-0046)
 
@@ -1716,3 +1729,15 @@ Testmail; Entfernen fällt auf das Knotenpostfach zurück). Am Knoten pflegt der
 Server-Admin das Knotenpostfach und sieht, welcher Mandant womit verschickt.
 Das Passwort wird einmal eingegeben und nie wieder angezeigt. Posteingang und
 Messenger kommen später als weitere Abschnitte.
+
+## Deutsche Zusammenfassung (Nachtrag 0.3.33 — Seitenleiste und Sprungmarken)
+
+Die Kopfzeile trägt nur noch Marke bzw. Mandant und das **Benutzermenü**
+(Profil, Passwort, Abmelden). Die Verwaltung steht in einer **Seitenleiste
+links**, in Gruppen (Betrieb, Menschen & Zugänge, Katalog & Daten,
+Kommunikation); leere Gruppen fehlen, und wer nur „Apps“ sieht, bekommt keine
+Seitenleiste. Wer was sieht, ändert sich nicht. Lange Seiten ohne Reiter
+(ab vier Abschnitten) bekommen eine fixierte Leiste **Sprungmarken** aus den
+Kartenüberschriften; Seiten mit Reitern behalten ihre Reiter. Alles ohne
+JavaScript bedienbar; nur das Mitleuchten der aktuellen Marke braucht ein
+kleines Skript. Einzelheiten: Design-Leitlinien 0.2, §5 und 6.2.3.
