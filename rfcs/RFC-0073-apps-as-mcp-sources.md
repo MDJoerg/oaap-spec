@@ -4,7 +4,8 @@
   Akzeptiert und weiter" (D1–D8 as recommended); **stage 1 built and measured on `oaap-test`
   (reference 0.1.237, `mcp-gateway` 0.4.0, §12)**, rolled out to the four LAN nodes;
   **stage 2 built and measured on `oaap-test` (reference 0.1.238, `mcp-gateway` 0.5.0,
-  §13)**, not rolled out
+  §13)**, rolled out to all five nodes; **stage 3 built and measured on `oaap-test`
+  (reference 0.1.239, `mcp-gateway` 0.6.0, D9–D13, §14)**, not rolled out
 - **Date:** 2026-11-07
 - **Authors:** Jörg (direction: I-41 of 2026-11-05, "the manifest declares
   doors, the platform interprets nothing"), Claude (facts read in specs and
@@ -439,6 +440,105 @@ Total: part A 21/21, part B 8/8.
 another realm at the door (unit test only), the browser sign-in with Claude
 Code (needs TLS), a source in standby behind a door.
 
+## 14. Stage 3 built and measured (2026-11-07, reference 0.1.239, `mcp-gateway` 0.6.0)
+
+**Decided before building (Jörg, 2026-11-07: "ja weiter mit D9–D13 wie
+vorgeschlagen"):**
+
+| # | Proposal | Decided |
+|---|---|---|
+| **D9** | The connector's result reaches the gateway as **platform-owned variables** (`OAAP_MCP_IDP_*`) of an instance with `mcp_sources`; the app takes them as defaults, its own settings set by hand win | yes |
+| **D10** | **On request only**: `oaap idp mcp <connector> --instance <gw>` with plan and `--dry-run`, and a portal button for `server_admin`; never at install | yes |
+| **D11** | `oaap-mcp-<instance>` (confidential, exchange only) and `oaap-mcp-<instance>-login` (public, PKCE, redirect only `http://localhost:33418/callback`) | yes |
+| **D12** | Switching off and removing the gateway **disable** both clients; nothing is deleted (RFC-0041 K3.3) | yes |
+| **D13** | `oaap tenant check` asks the provider whether the tenant's client (and the gateways' clients) exist and are enabled | yes |
+
+**Built.** The connector verb `mcp_clients` (`oaap.core.tenant` 1.5 §2.9.1):
+plan with the version first, the tenant's space and client required and
+never made here, both found clients judged **before** anything is written
+(a wrong kind under the second name leaves the first one unmade), a found
+client re-enabled and given the exchange switch, our redirect and the
+audience mapper and nothing else, disabling by `PUT enabled: false`.
+`oaap idp mcp` and the portal's worker call one function; it writes the five
+variables (`oaap.apps.runtime` 2.32.2), recreates the container only when
+they changed, records `mcp_idp` without the secret, writes one tenant-log
+line. A redeploy keeps record and variables; without `mcp_sources` or as a
+rehearsal the variables are dropped and the clients disabled. The gateway
+falls back setting by setting and its operator page says where each came
+from (`oaap.ai.mcp-gateway` 0.6 §3.8). The portal card **MCP** (`oaap.core.portal`
+0.3.35 §2.16). `tenant check` asks every connector (D13).
+
+**Tests.** Reference `test_mcp_idp.py` (60 checks against a paper Keycloak:
+bodies, plan, creation, second run writes nothing, no space / no tenant client
+refused, wrong kind refused without a half-made pair, a found disabled client
+completed and nothing else touched, disabling without DELETE, `not ours`,
+wrong version before any write; the platform's refusals before any call,
+dry run, variables, record without secret, log line, recreate once, off,
+removal disables or names both clients, `tenant check` findings and
+unreachable provider, the worker's role check), `test_mcp_portal.py` (21:
+the real worker refuses a `tenant_admin` and logs it, a `server_admin` calls
+the same function; the card for source, gateway, set up, off, a provider by
+hand, no provider, rehearsal; never the secret even if a record carried
+it), `test_care_portal.py` (+1, where the card sits). Gateway
+`test_platform_settings.py` (11, one process per case). Mutations caught: the
+kind check, the pre-check order, the tenant's client in `tenant check`, a
+secret in the record, enable instead of disable, the dry run returning,
+PKCE, the password grant, the worker's role check.
+
+**Measured on `oaap-test`** (staged 0.1.239; `vuebung-mcpgw` 0.6.0; `auth`
+Keycloak 26.7.4 with its narrow `create-realm` service account;
+`messung_rfc0073_stufe3.py`, 37/37 with the stage-2 clients still present,
+36/36 after removing them):
+
+| Asked | Answer |
+|---|---|
+| `oaap idp mcp auth --instance vuebung-mcpgw --dry-run` | the plan, nothing called |
+| the same without `--dry-run` | `oaap-mcp-mcpgw` and `oaap-mcp-mcpgw-login` created; five variables in the instance; container recreated; record without secret |
+| again | both "already there", nothing written, container not recreated |
+| the two clients, read with the admin API | exactly the shapes of §2.9.1 (confidential/exchange/audience → `oaap-probe.oaap.invalid`; public/code/PKCE S256/redirect only `localhost:33418`/audience → gateway client) |
+| anna and bert, **authorization code with PKCE** through Keycloak's login form, back to `http://localhost:33418/callback` | a code and a token addressed to the gateway client |
+| the same with port 33419, or with `127.0.0.1` instead of `localhost` | Keycloak 400 „Ungültiger Parameter: redirect_uri“, no form — **the port is fixed, there is no loopback wildcard** |
+| without PKCE; password grant at the sign-in client | `invalid_request`; `unauthorized_client` |
+| anna and bert through view `kp-i` with these tokens, MCPGW_* empty | as stage 2: anna only pA and `add_entry` accepted by the app, bert only pB and refused by the app — the exchange runs with the client and secret the platform handed in |
+| a token of the hand-made stage-2 client (audience `mcp-gw-vuebung`) | 401: the gateway takes the platform's values |
+| the sign-in client disabled by hand at the console; `tenant check` | exit 1, the client named; enabled again → exit 0 |
+| `--off` | both disabled, none deleted, the variables gone, record `off`; anna cannot sign in; `tenant check` 0 (an off sign-in is no finding) |
+| on again | the same two clients enabled (no new ones); anna through again after ~2 s |
+| portal as `server_admin`: gateway page, source page | card MCP: source `vuebung-kp` with a door for persons, issuer, both clients, button „Anmeldung abschalten“; on `vuebung-kp`: „Gelesen von: vuebung-mcpgw“; no secret |
+| the button „abschalten“ and „einrichten“ through the node's worker | both clients disabled and enabled again; two `mcp.idp` lines naming the person from the portal |
+
+Afterwards the hand-made clients of stage 2 (`mcp-gw-vuebung`, `mcp-claude`)
+were deleted from the realm by hand — the platform never deletes — and the
+stale secret taken out of `test/.env`. anna, bert and carl stay.
+
+**Deviations, decided while building:**
+
+- The clients are named after the instance's **local** name (`mcpgw`, not
+  the registry key `vuebung-mcpgw`): the realm belongs to one tenant, and
+  inside it the instance has that name.
+- The portal button is `server_admin`'s alone, as `oaap.core.tenant` 2.9 has
+  the connector's credential; a `tenant_admin` sees the state, not the button.
+
+**Findings:**
+
+1. **Keycloak takes the redirect URI literally**: another port on
+   `localhost`, or `127.0.0.1`, is refused. Claude Code must be started with
+   `--callback-port 33418`, as the gateway's line already says. Measured, not
+   assumed (it was an open question of D11).
+2. **„ready“ comes a moment too early**: `oaap idp mcp` reports when the
+   container has been recreated, and the gateway answers about two seconds
+   later. A client retries; the measuring script now does too.
+3. The stage-2 measuring scripts (`messung_rfc0073_stufe2.py`,
+   `tok_vuebung.py`) need the deleted hand-made clients; stage 3's script
+   fetches tokens through the login form and replaces them.
+4. Finding 6 of stage 2 (one tenant-log line per MCP call) stays open and
+   moves to the chat app, where the number of calls per conversation is known.
+
+**Not measured:** Claude Code itself signing in (needs TLS at provider and
+gateway — unchanged since RFC-0065), the page in a real browser (Jörg), a
+removal of a gateway with an active sign-in on the node (unit test only), a
+redeploy without `mcp_sources` (unit test of the rule only).
+
 ## Deutsche Zusammenfassung
 
 **Worum es geht:** Schritt 2 der KI-Chat-Reihenfolge (I-41). Eine OAAP-App, die
@@ -514,3 +614,20 @@ fehlt). Das Gateway wertete eine Ablehnung der Plattform als Serverfehler und
 hätte so die Quelle für alle sperren können (vor dem Ausrollen behoben). Mein
 erstes Messskript hielt eine Fehlerantwort für einen angenommenen Aufruf
 (korrigiert).
+
+**Stufe 3 gebaut und gemessen (07.11., Referenz 0.1.239, mcp-gateway 0.6.0, D9–D13, §14):**
+Ein `server_admin` richtet die Anmeldung eines Gateways mit einem Befehl
+(`oaap idp mcp auth --instance <gw>`) oder einem Knopf im Portal ein. Der
+Konnektor, der den Realm des Mandanten angelegt hat, legt die beiden Clients an
+(`oaap-mcp-<instanz>`, `oaap-mcp-<instanz>-login`). Die Plattform reicht die fünf
+Werte als `OAAP_MCP_IDP_*` an das Gateway; von Hand Gesetztes gewinnt. Abschalten
+und Entfernen deaktivieren beide Clients, gelöscht wird nichts. `oaap tenant
+check` fragt jetzt beim Realm nach. Gemessen gegen den echten Keycloak: anna und
+bert melden sich wie Claude Code an (Code mit PKCE über das Login-Formular,
+Rücksprung `localhost:33418`) und kommen durch das Gateway in die App wie in
+Stufe 2 — mit dem Client und Geheimnis von der Plattform. Ein anderer Port und
+`127.0.0.1` werden von Keycloak abgewiesen: Der Port ist fest. Die Karte „MCP“
+im Portal zeigt Quelle, Leser und den Stand der Anmeldung; der Knopf geht durch
+den Worker und steht im Mandantenprotokoll. 37/37. Die handgemachten Clients von
+Stufe 2 sind aus dem Realm entfernt. Offen: Claude Code selbst (braucht TLS) und
+der Blick im echten Browser.

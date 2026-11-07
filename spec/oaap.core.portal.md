@@ -1,8 +1,8 @@
 # oaap.core.portal — Web Portal
 
 - **ID:** `oaap.core.portal`
-- **Version:** 0.3.34
-- **Maturity:** draft (0.3.34 lets the start form of a build **choose apps** from the store's catalogue, one tick box per app, for a parameter of kind `apps` -- §2.11, RFC-0055 §15; 0.3.33 moves administration out of the header into a **side bar in groups** and gives long pages without tabs **jump marks** -- §2.7, design guidelines 0.2 §5 and 6.2.3; 0.3.32 adds the page **Nachrichten** -- "Postausgang": which mailbox a tenant's realm sends with, the tenant's own mailbox for its `tenant_admin`, the node's for `server_admin` -- §2.15, RFC-0072 stage 2, `oaap.net.destinations` 0.9; 0.3.31 lets the start form of a build install an app that administers its tenant's grants by one tick, which is the operator's confirmation -- §2.11, RFC-0055 §14 item 4; 0.3.30 lets a `server_admin` confirm an app that administers its tenant's grants in the store -- §2.6, `oaap.core.authorization` 0.5.2 §2.10; the card "Abbild" says whether a rebuild can be expected to help -- §2.14; 0.3.29 adds **care at a glance** to the store and the instance list -- an update in the catalogue and open advisories of the image reading, as a filter, a hint line and a badge, plus filters on the instance list -- §2.14; 0.3.28 adds the card **Neustart-Schutz** to the instance page — §2.13, RFC-0069 stage 5, `oaap.core.updates` 0.7 §2.7.2; 0.3.27 adds the node page **Datenträger** — §2.12, specified in `oaap.data.disks` 0.2 §2.6, RFC-0063 stage 2; 0.3.26 adds **profile upload, download and delete** and tick boxes for `bool` parameters on the build pages — §2.11, RFC-0055 §14; 0.3.25 adds **invitations and requests** — the prospect's public form and the operator's list, §2.10, RFC-0055 stage 4; 0.3.24 adds the **tenant build pages** — a wizard over the operator API, §2.9, RFC-0055 stage 3; 0.3.23 shows the **Cohorts menu entry to every
+- **Version:** 0.3.35
+- **Maturity:** draft (0.3.35 adds the card **MCP** to the instance page: source and readers, a gateway's sources and its sign-in, and the `server_admin`'s button that has a connector make the gateway's clients -- §2.16, RFC-0073 stage 3; 0.3.34 lets the start form of a build **choose apps** from the store's catalogue, one tick box per app, for a parameter of kind `apps` -- §2.11, RFC-0055 §15; 0.3.33 moves administration out of the header into a **side bar in groups** and gives long pages without tabs **jump marks** -- §2.7, design guidelines 0.2 §5 and 6.2.3; 0.3.32 adds the page **Nachrichten** -- "Postausgang": which mailbox a tenant's realm sends with, the tenant's own mailbox for its `tenant_admin`, the node's for `server_admin` -- §2.15, RFC-0072 stage 2, `oaap.net.destinations` 0.9; 0.3.31 lets the start form of a build install an app that administers its tenant's grants by one tick, which is the operator's confirmation -- §2.11, RFC-0055 §14 item 4; 0.3.30 lets a `server_admin` confirm an app that administers its tenant's grants in the store -- §2.6, `oaap.core.authorization` 0.5.2 §2.10; the card "Abbild" says whether a rebuild can be expected to help -- §2.14; 0.3.29 adds **care at a glance** to the store and the instance list -- an update in the catalogue and open advisories of the image reading, as a filter, a hint line and a badge, plus filters on the instance list -- §2.14; 0.3.28 adds the card **Neustart-Schutz** to the instance page — §2.13, RFC-0069 stage 5, `oaap.core.updates` 0.7 §2.7.2; 0.3.27 adds the node page **Datenträger** — §2.12, specified in `oaap.data.disks` 0.2 §2.6, RFC-0063 stage 2; 0.3.26 adds **profile upload, download and delete** and tick boxes for `bool` parameters on the build pages — §2.11, RFC-0055 §14; 0.3.25 adds **invitations and requests** — the prospect's public form and the operator's list, §2.10, RFC-0055 stage 4; 0.3.24 adds the **tenant build pages** — a wizard over the operator API, §2.9, RFC-0055 stage 3; 0.3.23 shows the **Cohorts menu entry to every
   administrator**, not only where a cohort exists, and puts a **step-by-step
   guide and a downloadable example template** on the create page — §2.8;
   0.3.22 adds **Add a seat** to the cohorts page, with
@@ -911,6 +911,29 @@ for them before.
   secret store and the request goes with its claim. No sentence and no log line
   carries the password.
 
+### 2.16 MCP on the instance page (0.3.35, RFC-0073 stage 3)
+
+A card **MCP** on the overview tab of an instance that has anything to do
+with MCP, for everybody who may see the instance page.
+
+- **A source** (the manifest declares `mcp: {path}`): the path, and which
+  gateway instances of the same tenant on this node read it — or "noch kein
+  Gateway liest diese Quelle". A rehearsal says it is no source
+  (`oaap.apps.runtime` 2.32).
+- **A gateway** (`mcp_sources: {read: true}`): its sources, each with its
+  path and whether the door for a person stands (2.32.1), and the
+  **sign-in**: issuer, the two clients, when and by whom they were made, or
+  "nicht eingerichtet", or "abgeschaltet" with the date (`mcp_idp`,
+  `oaap.apps.runtime` 2.32.2). Never the secret.
+- **The button** "Anmeldung einrichten" (and "abschalten" once it is set
+  up) is shown only to a `server_admin`, and only when the tenant's
+  provider was made by a connector of this node: the credential that
+  creates clients is the operator's (`oaap.core.tenant` 2.9). It is one
+  request (action `mcp_idp`, op `on` or `off`), queued like every write;
+  the host runs the same function as `oaap idp mcp`, with its checks, and
+  the page shows the host's sentence. A request from anybody else is
+  refused there and logged.
+
 ## 3. Configuration
 
 None beyond the platform version passed at start. Appearance
@@ -1763,3 +1786,13 @@ Seitenleiste. Wer was sieht, ändert sich nicht. Lange Seiten ohne Reiter
 Kartenüberschriften; Seiten mit Reitern behalten ihre Reiter. Alles ohne
 JavaScript bedienbar; nur das Mitleuchten der aktuellen Marke braucht ein
 kleines Skript. Einzelheiten: Design-Leitlinien 0.2, §5 und 6.2.3.
+
+## Deutsche Zusammenfassung (0.3.35 — MCP auf der Instanzseite, RFC-0073 Stufe 3)
+
+Die Instanzseite bekommt eine Karte **MCP**. Bei einer Quelle stehen dort der Pfad
+und welche Gateways des Mandanten sie lesen. Bei einem Gateway stehen seine Quellen
+(mit Tür für Personen ja/nein) und der Stand der Anmeldung: Issuer, die beiden
+Clients, wann und von wem angelegt — oder „nicht eingerichtet“ bzw. „abgeschaltet“.
+Nur ein `server_admin` sieht den Knopf „Anmeldung einrichten“ bzw. „abschalten“, und
+nur, wenn der Realm des Mandanten über einen Konnektor dieses Knotens entstand. Der
+Host prüft dieselben Dinge wie `oaap idp mcp`.

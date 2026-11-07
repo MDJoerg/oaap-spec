@@ -1,7 +1,10 @@
 # oaap.core.tenant — Account and Tenant, the Boundary of Belonging
 
 - **ID:** `oaap.core.tenant`
-- **Version:** 1.4 (a provisioned space gets the node's mailbox and German as its
+- **Version:** 1.5 (the **clients of an MCP gateway**: a connector makes them on an
+  operator's request and only ever disables them, 2.9.1, RFC-0073 stage 3; `tenant check`
+  asks the provider whether a tenant's client is there, 2.1, conformance test 28;
+  1.4: a provisioned space gets the node's mailbox and German as its
   language, criterion 22, `oaap.net.destinations` 2.11, RFC-0072; 1.3: the reboot entries, filed in every tenant's log on the node,
   RFC-0069, 1.7; 1.2: closed egress in the portal: the page and the `tenant_admin`'s door to
   close, RFC-0068 stage 4, 2.12; 1.1: **closed egress**, RFC-0068: a tenant is open or closed, an exception per
@@ -349,6 +352,11 @@ is shown.
   store it must check could not be read at all**. "Everything resolves"
   is a claim about records that were looked at; a check that silently
   counts an unreadable store as empty makes that claim about nothing.
+  Since 1.5 it also asks every connector this node holds whether the
+  client a tenant's provider names, and the clients of 2.9.1, exist and
+  are enabled. An absent or disabled client is a finding; a provider
+  that could not be asked is named and fails the check for the same
+  reason an unreadable store does.
 - `oaap tenant log [<label>] [-n <count>]` — the audit log (1.7), newest
   last.
 
@@ -792,6 +800,48 @@ actually gave.
 > for. "The version is checkable" and "the credential is narrow" cannot
 > both be had there, and what is kept is the substance: nothing is
 > created against a version nobody has checked.
+
+#### 2.9.1 The clients of an MCP gateway (1.5, RFC-0073 stage 3)
+
+A connector MAY make the two clients a gateway instance needs
+(`mcp_sources: {read: true}`, `oaap.apps.runtime` 2.32.2): one through
+which persons sign in, and one with which the gateway exchanges their
+token for one addressed to the platform (procedure I,
+`oaap.ai.mcp-gateway` §3.7). Only **on an operator's request** — a
+command or a button, never at install: installing an app does not change
+somebody else's server.
+
+- **In the space of the instance's tenant, made by this connector.** The
+  tenant's provider MUST have been made through the same connector (2.9);
+  a provider named by hand gets its clients by hand. The space is not
+  created here, and the tenant's own client — the target of the exchange
+  — MUST exist; otherwise the request is refused with a sentence and
+  nothing is written.
+- **`oaap-mcp-<instance>`**: confidential; no browser flow, no password
+  grant, no service account; the product's standard token exchange
+  enabled; an audience mapper that puts the tenant's client into the
+  access token.
+- **`oaap-mcp-<instance>-login`**: public; authorization code with PKCE
+  (`S256`) and nothing else; redirect only to
+  `http://localhost:33418/callback`; an audience mapper that puts the
+  gateway's client into the access token.
+- **The rules of 2.9 hold.** The version first, the plan printed
+  beforehand, a dry run calls nothing, nothing deletes. A client found
+  under one of these names is taken if it is of the expected kind
+  (confidential or public); it MAY be enabled again and given the exchange
+  switch, the redirect and the audience mapper, and nothing else about it
+  changes. One of the other kind is refused: it is somebody else's.
+- **What is handed on**: the issuer, both client ids, the secret of the
+  confidential client and the id of the tenant's client, as platform
+  variables of the instance (`oaap.apps.runtime` 2.32.2). The record says
+  which connector, which space, which clients, when and by whom, and the
+  tenant's log has one line.
+- **Disabled, never deleted.** Switching it off, and removing the
+  instance, sets both clients to disabled. This is the one change beyond
+  extending that 2.9 allows on a client, and only on the clients made
+  under these names for this instance. A provider that cannot be reached
+  at removal does not stop the removal; the operator is told which two
+  clients to disable by hand.
 
 ### 2.10 The switches inside that space (0.9, RFC-0041 K7)
 
@@ -1302,6 +1352,16 @@ On a node with one tenant: none that anyone can observe, exactly as in
     closes their tenant from the page, and Docker reports the network internal; a request
     to open or except, sent past the form, is refused and in the log with the person; the
     page of another tenant is answered like the page of none.
+28. **The clients of an MCP gateway** (1.5). Ask for a gateway's clients with a dry run:
+    the plan is printed and nothing is called. Ask for them: both exist in the tenant's
+    space with the shapes of 2.9.1, the instance has the five variables, the record and
+    the tenant's log say who and when. Ask again: nothing is written. Ask for an instance
+    without `mcp_sources`, for a rehearsal, for a tenant whose provider was named by hand,
+    and for a space without the tenant's client: each is refused with a sentence and
+    nothing is written. Put a public client under the confidential name: refused, and it
+    is unchanged. Switch it off: both clients are disabled, none is deleted, the
+    variables are gone. `oaap tenant check` names a tenant whose client is missing from
+    its space, and exits 1 when the provider cannot be asked.
 
 ## 5. Dependencies
 
@@ -1873,3 +1933,16 @@ Hat der Knoten ein Postfach, bekommt jeder Realm, den OAAP anlegt, es eingetrage
 verschickt deutschsprachige Mails (Passwort zurücksetzen, Konto aktualisieren) mit dem
 Mandantennamen als Absendernamen. Ohne Postfach sagt `idp provision`, dass der Realm
 keine Mail verschickt und wie man das ändert.
+
+## Deutsche Zusammenfassung (1.5 — die Clients eines MCP-Gateways)
+
+Ein Konnektor legt auf Wunsch des Betreibers — Befehl oder Knopf, nie bei der
+Installation — die zwei Clients an, die ein Gateway braucht: `oaap-mcp-<instanz>`
+(vertraulich, nur Token-Tausch, Audience = Plattform-Client des Mandanten) und
+`oaap-mcp-<instanz>-login` (öffentlich, PKCE, Rücksprung nur auf
+`http://localhost:33418/callback`, Audience = Gateway-Client). Nur in einem Realm,
+den derselbe Konnektor angelegt hat, und nur, wenn der Plattform-Client dort
+existiert. Es gelten die Regeln von 2.9: Version zuerst, Plan vorher, Probelauf
+ruft nichts, nichts wird gelöscht. Abschalten und Entfernen der Instanz setzen
+beide Clients auf „deaktiviert“. `oaap tenant check` fragt jetzt beim Anbieter
+nach, ob der Client eines Mandanten da und aktiv ist.

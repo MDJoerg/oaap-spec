@@ -1,7 +1,9 @@
 # oaap.ai.mcp-gateway — Tool Servers Behind One Keyed Endpoint per View
 
 - **ID:** `oaap.ai.mcp-gateway`
-- **Version:** 0.5 (RFC-0073 stage 2: **procedure I**, §3.7 — a signed-in
+- **Version:** 0.6 (RFC-0073 stage 3: **settings from the platform**, §3.8 — the
+  sign-in settings fall back to what the platform hands over when a connector made
+  the gateway's clients). 0.5 (RFC-0073 stage 2: **procedure I**, §3.7 — a signed-in
   person reaches an OAAP app as themselves, carried by the platform).
   0.4 (RFC-0073 stage 1: sources of the platform, §3.6 —
   OAAP apps declaring an MCP door are found and registered, nothing in a
@@ -344,6 +346,24 @@ made by hand cannot have it.
 - **Agents** reach the same app with procedure T: the operator registers
   the instance a second time by hand, access `bearer`, with an agent
   principal's key limited to it (RFC-0073 §6).
+
+### 3.8 Settings from the platform (0.6, RFC-0073 stage 3)
+
+Each of the five settings of sign-in and procedure I falls back to the
+platform's variable of `oaap.apps.runtime` 2.32.2 when it is empty:
+
+| Setting | Falls back to |
+|---|---|
+| `MCPGW_ISSUER` | `OAAP_MCP_IDP_ISSUER` |
+| `MCPGW_AUDIENCE` | `OAAP_MCP_IDP_AUDIENCE` |
+| `MCPGW_SIGNIN_CLIENT` | `OAAP_MCP_IDP_SIGNIN` |
+| `MCPGW_CLIENT_SECRET` | `OAAP_MCP_IDP_SECRET` |
+| `MCPGW_PLATFORM_AUDIENCE` | `OAAP_MCP_IDP_PLATFORM_AUDIENCE` |
+
+- A value set by hand wins, setting by setting; a gateway configured by
+  hand before 0.6 behaves as before.
+- The operator page says for each of the five where it came from („von
+  der Plattform“, „von Hand“, „leer“). The secret is never shown.
 
 ## 4. The catalog: default deny, pinned
 
@@ -957,3 +977,11 @@ die Person ab (Route, Bindung, Token), geht ihr Satz an den Client, gemessen
 als `refused`, **ohne** den Sicherungsautomaten zu zählen. Neue Einstellungen:
 `MCPGW_CLIENT_SECRET`, `MCPGW_PLATFORM_AUDIENCE`. Agenten bleiben bei Verfahren
 T mit eigenem Schlüssel.
+
+## Deutsche Zusammenfassung (0.6, RFC-0073 Stufe 3 — Einstellungen von der Plattform)
+
+Die fünf Einstellungen für Anmeldung und Verfahren I (`MCPGW_ISSUER`,
+`MCPGW_AUDIENCE`, `MCPGW_SIGNIN_CLIENT`, `MCPGW_CLIENT_SECRET`,
+`MCPGW_PLATFORM_AUDIENCE`) nehmen, wenn sie leer sind, den Wert der Plattform
+(`OAAP_MCP_IDP_*`). Ein von Hand gesetzter Wert gewinnt, einzeln je Einstellung.
+Die Betreiberseite sagt für jede, woher sie kommt; das Geheimnis zeigt sie nie.

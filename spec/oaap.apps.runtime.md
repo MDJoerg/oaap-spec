@@ -1,7 +1,9 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.54 (**the MCP door for a person**, RFC-0073 stage 2:
+- **Version:** 0.2.55 (**sign-in settings of a gateway**, RFC-0073 stage 3: five
+  platform-owned variables written when a connector made the gateway's clients,
+  record `mcp_idp`; 2.32.2; 0.2.54: **the MCP door for a person**, RFC-0073 stage 2:
   `/platform/mcp/to/<source>` on a consuming gateway's own site, procedure I;
   2.32.1; 0.2.53: **MCP sources**, RFC-0073 stage 1: manifest 0.11
   `mcp: {path}` and `mcp_sources: {read: true}`, the list on a gateway's
@@ -2178,6 +2180,31 @@ handle /platform/mcp/to/<source> {
 - **One hop, inside the platform.** The gateway calls its own site; no
   instance opens a connection to another instance's port (RFC-0068).
 
+#### 2.32.2 Sign-in settings of a gateway (0.2.55, RFC-0073 stage 3)
+
+When a connector has made a gateway's clients (`oaap.core.tenant` 2.9.1),
+the instance gets five more platform-owned variables (2.8):
+
+| Variable | Value |
+|---|---|
+| `OAAP_MCP_IDP_ISSUER` | the issuer of the tenant's space, as the tenant's provider record names it |
+| `OAAP_MCP_IDP_AUDIENCE` | the id of the gateway's confidential client |
+| `OAAP_MCP_IDP_SECRET` | its secret |
+| `OAAP_MCP_IDP_SIGNIN` | the id of the public client persons sign in with |
+| `OAAP_MCP_IDP_PLATFORM_AUDIENCE` | the id of the tenant's own client, the target of the exchange |
+
+- Written only by that request (`oaap idp mcp`, or the portal's button),
+  never at install; only for an instance with `mcp_sources`, never for a
+  rehearsal. Writing them recreates the container like a config save.
+- A redeploy keeps them. They are dropped when the manifest no longer
+  declares `mcp_sources`, when the sign-in is switched off, and at
+  removal — also from a kept `instance.env`.
+- The registry record carries `mcp_idp`: connector, space, issuer, the two
+  clients, the tenant's client, when and by whom, and `off` once switched
+  off. Never the secret. A redeploy keeps it; the portal reads it.
+- An app reads them as **defaults**: a value of its own configuration
+  that an operator set wins.
+
 ## 3. Configuration
 
 - Level-1 port range (default 8100–8199, expert-configurable;
@@ -3498,3 +3525,14 @@ Sichtbarkeitsgruppen gelten für die Person bei jedem Aufruf. Schlüssel und
 Act-Token kommen nie bei der App an. Ändert die Quelle Rollen oder
 Sichtbarkeit, wird die Seite des Gateways neu geschrieben. Die Liste nennt die
 Tür im Feld `door`.
+
+## Deutsche Zusammenfassung (2.32.2, v0.2.55 — Anmeldedaten eines Gateways, RFC-0073 Stufe 3)
+
+Hat ein Konnektor die Clients eines Gateways angelegt, bekommt die Instanz fünf
+weitere Plattform-Variablen: Issuer, Gateway-Client, dessen Geheimnis,
+Anmelde-Client und Plattform-Client des Mandanten (`OAAP_MCP_IDP_*`). Nur auf
+Anforderung (`oaap idp mcp` oder Knopf), nie bei der Installation, nie für eine
+Generalprobe. Eine Neuinstallation behält sie; ohne `mcp_sources`, beim
+Abschalten und beim Entfernen verschwinden sie. Im Register steht `mcp_idp` (ohne
+Geheimnis), das Portal liest es. Eine App nimmt die Werte als Vorgabe; was ein
+Betreiber selbst gesetzt hat, gewinnt.
