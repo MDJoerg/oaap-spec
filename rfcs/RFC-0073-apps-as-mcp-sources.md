@@ -592,9 +592,17 @@ before going public; T5 measure.
    between nodes. On `oaap-test` this was done once by hand, after the
    platform's own connector had found both bound subjects in the realm
    at the new address: two bindings, one `tenant.idp-repointed` line.
-   **T6 (proposed):** `oaap idp provision` re-points when the issuer
-   changed but connector and space are the same, and only the bindings
-   whose subject the connector finds in that realm.
+   **T6 (built, reference 0.1.241, `oaap.core.tenant` 1.6, Jorg's word
+   2026-11-08):** `oaap idp provision` re-points when the issuer changed
+   and it is the same space: same connector, same name, and the
+   provider's own id of the space equal to the one recorded at
+   provisioning (the id, not the name, is the proof -- a space made
+   again gets a new id). A record from before 0.1.241 has no id; then
+   only subjects the connector finds in the space by id are re-pointed,
+   and a narrow credential (403) re-points nobody. The narrow
+   credential on oaapx01 cannot read people by design, which is why
+   the id carries the proof and the per-person lookup is only the
+   fallback. `test/test_idp_rebind.py` (17 checks, mutation caught).
 4. **The connector's address has no command.** The issuer is derived
    from it; it was changed by hand in the connector file (backup kept).
 5. **DuckDNS's IPv6 record points at the router**, not at `oaap-demo`

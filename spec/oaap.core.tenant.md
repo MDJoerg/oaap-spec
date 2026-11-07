@@ -1,7 +1,7 @@
 # oaap.core.tenant — Account and Tenant, the Boundary of Belonging
 
 - **ID:** `oaap.core.tenant`
-- **Version:** 1.5 (the **clients of an MCP gateway**: a connector makes them on an
+- **Version:** 1.6 (the bindings follow an issuer change **of the same space**: same connector, same name, same id at the provider, 2.11, conformance test 25, RFC-0073 T6; 1.5: the **clients of an MCP gateway**: a connector makes them on an
   operator's request and only ever disables them, 2.9.1, RFC-0073 stage 3; `tenant check`
   asks the provider whether a tenant's client is there, 2.1, conformance test 28;
   1.4: a provisioned space gets the node's mailbox and German as its
@@ -938,13 +938,21 @@ therefore re-point the bindings of an adopted tenant when the carried
 provider is replaced, keeping each subject untouched, and MUST record
 that it did.
 
-> This is permitted in exactly one situation: the tenant carries a
+> This is permitted in exactly two situations. (1) The tenant carries a
 > provider from an adoption, and a new one replaces it. Then the
-> platform knows both halves of the key from its own record. Every
-> other issuer change still voids the bindings — nobody promised that
-> a different authority's subjects name the same people, and
-> re-pointing them would bind a club's members to whoever holds those
-> subjects elsewhere.
+> platform knows both halves of the key from its own record. (2) Since
+> 1.6 (RFC-0073 T6): the issuer changed and it is **the same space** —
+> the same connector provisioned it under the same name, and the
+> provider's own id of the space is the one recorded when it was
+> provisioned. The id survives a new address and does not survive
+> deleting and making the space again, which is why it, and not the
+> name, is the proof. A provider recorded without that id MAY be
+> proven person by person instead: only a subject the connector finds
+> in that space by its id is re-pointed, and a credential that may not
+> look re-points nobody. Every other issuer change still voids the
+> bindings — nobody promised that a different authority's subjects
+> name the same people, and re-pointing them would bind a club's
+> members to whoever holds those subjects elsewhere.
 
 **Exporting the space is a separate act, and the file is a secret.**
 Where an implementation offers it (§2.9's connector, the `export`
@@ -1330,7 +1338,12 @@ On a node with one tenant: none that anyone can observe, exactly as in
     that tenant is re-pointed, each subject unchanged, and that
     tenant's log says so. Now change a tenant's issuer that did NOT
     come from a move: the bindings are void, and nothing is
-    re-pointed.
+    re-pointed. (1.6) Give the SAME space a new address and provision
+    it again through the same connector: every binding of that tenant
+    follows, and no other tenant's. Delete the space and make it again
+    under the same name: nothing follows. A record without the space's
+    id: only subjects found in the space follow; with a credential
+    that may not look, none.
 
 26. **An export carries the people or it is not kept** (1.0). Export
     a space with members: the file is `0600`, outside the platform's
@@ -1530,6 +1543,24 @@ Entfernen sich die Identität als Merkposten notiert — und dieser
 Merkposten macht zurückgelassene Kundendaten zum ersten Mal überhaupt
 sichtbar, statt sie nach einer einmaligen Meldung verschwinden zu
 lassen.
+
+## Deutsche Zusammenfassung (1.6 — derselbe Realm an neuer Adresse)
+
+Bisher galt: Ändert sich der Aussteller (issuer) eines Mandanten, sind
+alle Bindungen der Personen ungültig. Die einzige Ausnahme war der
+Umzug. Am 07.11. kam auf oaap-test der zweite Fall vor, den OAAP
+sicher erkennen kann: Der Realm bekam nur eine neue Adresse (https),
+blieb aber derselbe. Ohne Umhängen wären alle als Fremde ohne Rechte
+zurückgekommen.
+
+**Neu:** `oaap idp provision` hängt die Bindungen selbst um, wenn
+derselbe Konnektor denselben Realm anlegt und dessen **eigene Id beim
+Anbieter** unverändert ist. Die Id ist der Beweis, nicht der Name: Ein
+gelöschter und neu angelegter Realm bekommt eine neue Id, und seine
+Personen sind andere. Für Mandanten, die vor 0.1.241 angelegt wurden
+(ohne gespeicherte Id), wird je Person beim Anbieter nachgesehen. Nur
+gefundene werden umgehängt; eine enge Vollmacht hängt niemanden um.
+Bindungen anderer Mandanten werden nie angefasst.
 
 ## Deutsche Zusammenfassung (1.7, v0.4.2 — vier Einträge für die Instanz-Diagnose)
 
