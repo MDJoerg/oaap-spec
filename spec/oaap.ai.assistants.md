@@ -1,7 +1,8 @@
 # oaap.ai.assistants — Assistants: a View, a Prompt and a Model Name, Without Rights
 
 - **ID:** `oaap.ai.assistants`
-- **Version:** 0.2 (RFC-0074 stage 3: visibility and confirmation enforced by the
+- **Version:** 0.3 (field `views`: the chat shows the views of MCP Apps,
+  RFC-0075 D2). 0.2 (RFC-0074 stage 3: visibility and confirmation enforced by the
   chat app `apps/chat` 0.2.0, §2; the confirmation reaches the gateway as
   `X-OAAP-Confirmed`, §5). 0.1 (RFC-0074 stage 1: the format, the rule "no rights", the
   exchange file; how a chat acts as the person is procedure A,
@@ -53,6 +54,7 @@ As JSON the same object; YAML is shown for reading.
 | `gateway` | optional, an instance name; without it the chat uses its tenant's only gateway and refuses when there are several |
 | `visibility` | `{scope: private}`, `{scope: tenant}`, or `{scope: context, context: {<type>: <id>}}` with exactly one context (`<type>` `^[a-z][a-z0-9_]{0,31}$`, `<id>` 1–64 characters) |
 | `commands` | `true` or `false` |
+| `views` | `true` or `false` (0.3): the chat shows views of MCP Apps for this assistant's tools (RFC-0075 D2); default `false` |
 
 - **No rights (D1).** A field that looks like a right — `key`, `api_key`,
   `token`, `secret`, `password`, `roles`, `role`, `on_behalf_of`,

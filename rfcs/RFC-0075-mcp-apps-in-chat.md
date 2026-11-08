@@ -1,6 +1,7 @@
 # RFC-0075: MCP Apps in the Chat — Views From Tool Servers, Sandboxed, Approved Like Tools
 
-- **Status:** **Accepted (2026-11-08)** — Jörg: "akzeptiert" (D1–D8 as recommended); nothing built
+- **Status:** **Accepted (2026-11-08)** — Jörg: "akzeptiert" (D1–D8 as recommended); **stages 1
+  and 2 built and measured on `oaap-test` (2026-11-08, §5)**; stage 3 open
 - **Date:** 2026-11-08
 - **Authors:** Jörg (direction: "we should look at MCP Apps, which is becoming
   the standard"; Markdown and Mermaid as standard in the chat), Claude (facts
@@ -135,6 +136,64 @@ an outside domain is shown with a sentence instead.
    round with confirmation, `open-link`, size.
 3. Closed tenant measurement; `ui/message`; then the later methods.
 
+## 5. Stages 1 and 2 as built (2026-11-08)
+
+- **Gateway 0.8.0** (`oaap.ai.mcp-gateway` §4.3): `_meta.ui` in the pinned tool
+  text; catalog reading reads every named view and pins its **content**
+  (SHA-256); approving a tool approves its one view; a different content at
+  `resources/read` is refused (`ui_changed`), and after the next catalog read
+  view and tool are suspended until the tool is confirmed.
+- **Platform 0.1.245** (manifest 0.13 `ui_sandbox`, `oaap.apps.runtime`
+  2.32.4): a second origin `<instance>--ui.<rest>` per automatic address,
+  serving only the declared path, without login, cookies, identity headers or
+  `Set-Cookie`, framable only by the instance's own names;
+  `OAAP_UI_SANDBOX_ORIGINS` (always https — see the finding below). The suffix
+  `--ui` is reserved for instance names.
+- **Chat 0.4.0**: assistant field `views` (D2); the extension is announced to
+  the gateway; tools whose visibility lacks `model` are not offered to the
+  model; the sandbox proxy (2026-01-26, double iframe: proxy on the second
+  origin, the view in an inner iframe without `allow-same-origin`, a strict
+  CSP in front of the document, no outside domains in this stage); the host
+  answers `ui/initialize` (protocol 2026-01-26), sends `tool-input` and
+  `tool-result`, handles `tools/call` (only tools with `app` in visibility;
+  writing ones only after the chat's own confirmation, D4), `resources/read`,
+  `ui/open-link` (http(s) only), `ui/message` (into the input field, D5),
+  `size-changed`. The page renders incrementally, so a view is not reloaded.
+- **Vorgänge 0.5.0/0.5.1**: `get_case` names `ui://vorgaenge/case`, a card
+  with history and a comment field (`textContent` only, nothing from outside).
+
+**Measured:** locally in a real browser (`e2e_ansicht.py`, Edge driven over
+the DevTools protocol: two origins, the real card) and on `oaap-test`
+(`messung_ansicht.py`, `ergebnis-ansicht-2026-11-08.txt`, 12/12): carl turns
+views on for the tenant assistant; anna asks for V-2026-0001 with the real
+model; `get_case` runs, the chat's view door returns the HTML the gateway
+approved with anna's result; the second origin answers only `/ui-sandbox`,
+without login or `Set-Cookie`, `frame-ancestors` only the chat, forged
+headers and cookies reach nothing, `/`, `/api/state`, `/api/conv` are 404;
+Edge signs in through Keycloak as anna and the card is drawn in the sandbox
+proxy on `chat--ui.vuebung.<node>` (through the edge, TLS). Regression: chat
+with Vorgänge 13/13. Tests: gateway 272, chat 99, vorgaenge, platform
+`test_ui_sandbox.py` 20 — each with deliberate faults turned red.
+
+**Findings while building:**
+
+1. The stable version **requires** the sandbox proxy for web hosts — D6 was
+   adjusted before building.
+2. **Behind an edge the origins differ:** `OAAP_INSTANCE_NAMES` names the
+   scheme the node serves (`http` behind an edge); the browser sees `https`.
+   With the first build, `frame-ancestors` and the sandbox's parent check
+   could never match on `oaap-test`. Fixed: browser-facing origins are https
+   (both forms in `frame-ancestors` behind an edge).
+3. A server with the `resources` capability must answer
+   `resources/templates/list`; Vorgänge did not, and the gateway could not
+   read its catalog at all.
+4. The model dropped the `V-` of a case number because the tool description's
+   example lacked it; the first live run drew the app's „not found" inside the
+   card. Description corrected, and Vorgänge accepts the number without `V-`.
+5. Headless browsers end a screenshot before a cross-origin message chain is
+   done — the measurement drives Edge over the DevTools protocol and waits for
+   the view's own size report.
+
 ## Deutsche Zusammenfassung
 
 **MCP Apps** ist die Erweiterung des MCP-Standards, mit der ein Werkzeug eine
@@ -157,3 +216,14 @@ Vorschlag für OAAP, ohne das Erreichte aufzuweichen:
 - **Entscheidungen D1–D8**, alle mit Empfehlung „ja“; gebaut wird erst nach
   deinem Wort und nachdem ich die als Zusammenfassung markierten Stellen der
   Spezifikation im Original gelesen habe.
+
+**Stufen 1 und 2 gebaut und gemessen (08.11., §5):** Gateway 0.8.0 hält die
+Ansicht eines Werkzeugs per Inhalt fest; Plattform 0.1.245 gibt Chat-Instanzen
+eine zweite, cookielose Adresse `<instanz>--ui…` (Manifest 0.13); Chat 0.4.0
+zeigt Ansichten im Sandbox-Proxy, Aufrufe aus der Ansicht nur über die Türen
+des Chats, schreibend nur nach Zustimmung; Vorgänge zeigt einen Vorgang als
+Karte. Am Knoten 12/12, im echten Browser mit Anmeldung über Keycloak.
+Befunde: Sandbox-Proxy ist Pflicht; hinter einem Edge sieht der Browser https,
+die Plattform nannte http (behoben); `resources/templates/list` fehlte in
+Vorgänge; das Modell ließ das `V-` der Nummer weg (Beschreibung korrigiert,
+Nummer ohne `V-` angenommen).
