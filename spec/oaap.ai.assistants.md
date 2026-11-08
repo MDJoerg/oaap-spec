@@ -10,7 +10,8 @@
 - **RFC:** [RFC-0074](../rfcs/RFC-0074-assistants.md) (Accepted 2026-11-08, D1–D7)
 - **Maturity:** stages 1–3 built and measured on `oaap-test` (2026-11-08): test
   page (24/24), chat app 0.1.0 with a real local model (23/23), chat app 0.2.0
-  with assistants, visibility and confirmation at the gateway (26/26)
+  with assistants, visibility and confirmation at the gateway (26/26), tenant
+  assistant and `/commands` end to end (18/18)
 
 ## 1. Purpose
 

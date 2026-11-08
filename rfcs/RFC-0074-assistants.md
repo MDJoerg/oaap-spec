@@ -402,11 +402,15 @@ nothing:
 "import all or nothing", only after a test with one allowed and one
 forbidden assistant was added), `test_gateway.py` 245.
 
-**Not measured on the node:** an assistant for the whole tenant created by
-a `tenant_admin`, and `/commands` end to end. Both need a test person with a
-platform role (`tenant_admin`, and `admin` for the gateway's page to put the
-prompt into the view); the permission check of this session refused to grant
-those roles. Both are covered by unit tests.
+**Follow-up measurement** (`messung_stufe3b.py`, `ergebnis-stufe3b-2026-11-08.txt`,
+18/18), after Jörg allowed giving the test person carl `admin` and
+`tenant_admin` on `oaap-test`:
+
+| | Result |
+|---|---|
+| carl opens the gateway's operator page as a browser and reads the catalog of source `vuebung-kp` — with his platform assertion, **no Keycloak token**: 4 tools, 1 prompt; the prompt goes into view `kp-i` | pass |
+| carl as `tenant_admin` creates an assistant for the whole tenant; anna (no `tenant_admin`) cannot, nor change his; anna, bert and carl see it | pass |
+| anna: the command list names `/wochenbericht` (argument `projekt` required); without the argument 400; `/wochenbericht pA` — the prompt's text comes from the app through the gateway as anna, the model reads pA's entries as anna and summarises them; the gateway records kind `prompt`, procedure A, the chat | pass |
 
 **Finding while building:** the gateway could read the catalog of a platform
 source (procedure I) only with a token of a sign-in service — on the
@@ -506,3 +510,10 @@ Runde abgelehnt. Nicht am Knoten gemessen: Mandanten-Assistent und
 `/Befehle` — dafür bräuchte eine Testperson tenant_admin bzw. admin, und die
 Rechteprüfung dieser Sitzung hat das Vergeben abgelehnt. Befund: Ohne Keycloak
 konnte das Gateway den Katalog einer eigenen App nie lesen; behoben.
+
+**Nachmessung (18/18):** Nachdem carl auf Jörgs Wort admin und tenant_admin
+bekam: carl liest auf der Betreiberseite des Gateways den Katalog der eigenen
+App ohne Keycloak-Token (der Befund aus Stufe 3 ist damit am Knoten belegt),
+legt als tenant_admin einen Mandanten-Assistenten an, anna nicht; anna
+benutzt `/wochenbericht pA` — der Text kommt von der App, das Modell liest die
+Einträge als anna, das Gateway zählt den Prompt.
