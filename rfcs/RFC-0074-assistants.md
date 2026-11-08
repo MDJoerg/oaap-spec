@@ -215,10 +215,14 @@ Findings:
 6. **The llama models are excluded.** Creating a ticket because someone said
    thank you is the one failure an assistant must not have.
 
-**Not measured:** the same calls through the AI gateway. The code passes the
-body through unchanged (`ai-gateway/app.py`, only `model` is replaced); a
-measurement needs a gateway key on `aigw-test`, which the session could not
-issue itself (2026-11-08).
+**Through the AI gateway (measured 2026-11-08, `aigw-test` 0.5.0 on
+`oaap-test`, key with ceiling `green`, alias `lokal` → `qwen2.5:0.5b`):** without
+a key `/v1/models` answers 403; with it, one alias, green. All eight cases ran
+through the gateway: `tools` reach the model, `tool_calls` come back
+structured, and the second turn with a `role: tool` message passes (D1
+correct). The model itself is far too small (2 of 8); `oaap-test` has 7 GB of
+memory and cannot hold an 8B model, so the same-model comparison stays open and
+is not needed for the claim: the gateway passes tool calls through.
 
 ## 7. Stages
 
@@ -294,5 +298,5 @@ passt nicht in die fünf Minuten. Wissensfragen beantworten die kleinen Modelle
 oft falsch und selbstsicher; der Wert kommt aus den Werkzeugen. Die
 llama-Modelle fallen raus (eins legt auf „Danke“ einen Vorgang an). Neu offen:
 Der Schalter fürs Denken ist je Modell verschieden, und ein Modellname im
-KI-Gateway kann ihn heute nicht mitgeben. Der Weg durchs KI-Gateway ist nur
-gelesen, nicht gemessen (Schlüssel fehlt).
+KI-Gateway kann ihn heute nicht mitgeben. Durchs KI-Gateway auf oaap-test
+gemessen: Werkzeugaufrufe gehen hin und zurück unverändert durch.
