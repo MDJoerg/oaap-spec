@@ -30,8 +30,22 @@ confirmation of writing tools, closed egress.
 ## 1. Facts (read 2026-11-08)
 
 Source: the extension specification 2026-01-26 and the draft, in
-`modelcontextprotocol/ext-apps`; partly read verbatim, partly from a summary
-— points marked (S) are to be checked against the text before building.
+`modelcontextprotocol/ext-apps`. **Checked verbatim against the raw file on
+2026-11-08** (D8): the points first marked (S) hold as written, with exact
+shapes — client capability `capabilities.extensions["io.modelcontextprotocol/ui"]
+= {"mimeTypes": ["text/html;profile=mcp-app"]}` (REQUIRED); host → view
+`ui/notifications/tool-input` `{arguments}`, `tool-input-partial`, `tool-result`
+(a `CallToolResult`), `tool-cancelled` `{reason}`, `host-context-changed`
+(`Partial<HostContext>`), request `ui/resource-teardown` `{reason}`; view → host
+`ui/message` `{role: "user", content: {type: "text", text}}`, `ui/open-link`
+`{url}`, `ui/request-display-mode` `{mode}`, `ui/update-model-context`,
+notification `ui/notifications/size-changed` `{width, height}`; the handshake
+uses protocol version `2026-01-26`. **Correction:** the stable version
+REQUIRES the sandbox proxy for a web host (double iframe, proxy on another
+origin; `ui/notifications/sandbox-proxy-ready` `{}` and
+`ui/notifications/sandbox-resource-ready` `{html, sandbox?, csp?, permissions?}`);
+only the draft makes it non-normative. OAAP builds the proxy (D6 below holds:
+the proxy runs on the second origin).
 
 | Claim | Where |
 |---|---|
@@ -106,7 +120,7 @@ an outside domain is shown with a sentence instead.
 | **D3** | Approving a tool approves the one `ui://` resource it names, pinned by fingerprint; the gateway refuses reading any other `ui://` URI | yes |
 | **D4** | Writing calls from a view need the chat's own confirmation card, every time, like the model's (D6 of RFC-0074) | yes |
 | **D5** | `ui/message` fills the input field, never sends | yes |
-| **D6** | Views on a second origin of the chat instance (alias), single iframe per the draft, CSP from `_meta.ui.csp`; closed tenants: no outside domains | yes |
+| **D6** | Views on a second origin of the chat instance (alias) — the sandbox proxy of the 2026-01-26 version there, the view in its inner iframe; CSP from `_meta.ui.csp`; closed tenants: no outside domains | yes |
 | **D7** | First stage: render + `tool-input`/`tool-result` + `tools/call` + `resources/read` + `size-changed` + `open-link`; later: `update-model-context`, `sampling`, `download-file`, display modes | yes |
 | **D8** | Build against the 2026-01-26 version and the draft's single-iframe allowance; re-read the text before building (several points above are from a summary) | yes |
 

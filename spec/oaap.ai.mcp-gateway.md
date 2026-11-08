@@ -1,7 +1,8 @@
 # oaap.ai.mcp-gateway — Tool Servers Behind One Keyed Endpoint per View
 
 - **ID:** `oaap.ai.mcp-gateway`
-- **Version:** 0.7.3 (views, effect class and light of a key or profile can be
+- **Version:** 0.8.0 (RFC-0075 stage 1: views of MCP Apps are read, pinned by
+  content and approved with their tool, §4.3). 0.7.3 (views, effect class and light of a key or profile can be
   changed without revoking it; a `403` names its reason; sources can be read in
   on demand, §2.3, §3.6). 0.7.2 (RFC-0074 stage 3: the usage row records `confirmed`,
   §9; the operator's page reads a platform source's catalog with the
@@ -484,6 +485,32 @@ moment. Then:
 **Clients only ever see the approved snapshot**, never the server's
 current text. A changed description reaches no model before the
 operator confirmed it (RFC-0065 §4.2, "rug pull").
+
+### 4.3 Views of tools (0.8.0, MCP Apps, RFC-0075)
+
+A tool may name an interactive view (`_meta.ui.resourceUri`, a `ui://` URI;
+extension `io.modelcontextprotocol/ui`). The gateway:
+
+- keeps `_meta.ui.resourceUri` and `_meta.ui.visibility` in the tool's pinned
+  text (the flat legacy `_meta["ui/resourceUri"]` is read and translated);
+  other `_meta` fields of the server are not part of the text;
+- when reading the catalog, reads every view a tool names with
+  `resources/read` and stores it as a resource of the catalog with the
+  **SHA-256 of its content**, its MIME type (it must be
+  `text/html;profile=mcp-app`) and `_meta.ui` (`csp`, `permissions`,
+  `domain`, `prefersBorder`) — a server may leave views out of
+  `resources/list`;
+- approves the view **together with its tool**: approving the tool adds
+  exactly that one resource to the view; a tool whose view could not be read
+  is not approved;
+- at `resources/read` of a view, compares the content with the pinned hash;
+  a different content is answered with an error (`-32002`, usage reason
+  `ui_changed`) and none of it reaches the client;
+- treats a tool as **suspended** while its view in the same view is not
+  active; confirming the tool confirms its current view;
+- passes `_meta.ui` on in `tools/list` (beside `oaap/effect`) and on the
+  view's resource entry. `visibility: ["app"]` is passed on; hiding such a
+  tool from the model is the host's duty (the gateway cannot tell who calls).
 
 ## 5. Views
 
@@ -1102,3 +1129,12 @@ Sicht nicht im Profil, Zugang der Sicht fehlt, oder Ampel der Sicht über der de
 Profils — dieselben Sätze stehen auf der Betreiberseite neben jedem Profil.
 Vorher hieß jeder Fall „kein Zugangsprofil“. Dazu ein Knopf „Quellen jetzt
 einlesen“ statt bis zu 15 Minuten Warten.
+
+## Deutsche Zusammenfassung (0.8.0, RFC-0075 Stufe 1 — Ansichten)
+
+Ein Tool kann eine Ansicht `ui://…` mitbringen (MCP Apps). Das Gateway liest sie
+beim Katalog-Lesen und hält ihren Inhalt per SHA-256 fest. Wer das Tool
+freigibt, gibt genau diese eine Ansicht mit frei; ohne lesbare Ansicht keine
+Freigabe. Liefert der Server später etwas anderes, geht davon nichts an den
+Client, und nach dem nächsten Katalog-Lesen sind Ansicht und Tool gesperrt, bis
+jemand das Tool bestätigt. Im festgehaltenen Text des Tools steht nur `_meta.ui`.
