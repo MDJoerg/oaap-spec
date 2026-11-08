@@ -1,7 +1,8 @@
 # RFC-0074: Assistants — A View, a Prompt and a Model Meaning, Running With the Rights of the Person Who Speaks
 
 - **Status:** **Accepted (2026-11-08)** — Jörg: "D1-D7 wie empfohlen"; **stage 1
-  built and measured on `oaap-test` (2026-11-08, 24/24, §9)**; stages 2–3 open
+  built and measured on `oaap-test` (2026-11-08, 24/24, §9)**; **stage 2 built
+  and measured (2026-11-08, 23/23, §10)**; stage 3 open
 - **Date:** 2026-11-08
 - **Authors:** Jörg (direction: I-41 of 2026-11-05 — "a chat is an app",
   "an assistant carries no rights", the name "Assistent"), Claude (facts read
@@ -299,6 +300,70 @@ client header is removed), `test_gateway.py` 239.
 confirmation of writing tools (stage 2–3). The assistant's `gateway` field is
 an addition to §2 (optional; required when a tenant has several gateways).
 
+## 10. Stage 2 as built (2026-11-08)
+
+The chat app `oaap-apps/apps/chat` 0.1.0 (standard library only): one
+assistant from `CHAT_ASSISTANT`, the tools of one view, a model through a
+destination `ki` on an AI gateway (the key stays on the platform), history as
+one JSON file per conversation under `/data/people/<person id>/`, readable
+only by that person. `mcp-gateway` 0.7.1 adds to every tool in `tools/list`
+`"_meta": {"oaap/effect": "<class>"}` — the class the operator set in the
+view (spec 0.7.1, §5.2).
+
+**Settled while building:**
+
+- **Order inside a round:** pending tool calls first, then the model turn.
+  Tool calls need the person's assertion, which is freshest at the start of a
+  request; the model turn needs none and may take long. A slow model never
+  ages the assertion a tool is called with. The browser asks for the next
+  round while the model wants tools (D7).
+- **D6 moved into stage 2.** §6 finding 2 made confirmation a necessity, and
+  view `kp-i` has a writing tool. Every tool whose class is not `read` is shown
+  with its arguments and runs only after *Ausführen*; *Ablehnen* tells the
+  model "Abgelehnt …" and changes nothing. Only the gateway makes a tool
+  `read`; without its `_meta`, a tool counts as `write`, and the maker's
+  `readOnlyHint` never counts. Recording the confirmation at the gateway
+  (§5.6) stays in stage 3.
+- At most six model turns per message; a tool the view does not have, or
+  arguments that are not JSON, become an error result without a call.
+
+**Measured on `oaap-test`** (`assistent-probe/messung_stufe2.py`, result
+`ergebnis-stufe2-2026-11-08.txt`), over the public names as a browser, with a
+real local model: AI gateway `aigw-test`, name `standard` →
+`qwen3:4b-instruct` on the node's Ollama (4 vCPU, 7 GB, no GPU), key
+`chat-vuebung` green, personal data allowed.
+
+| | Result |
+|---|---|
+| anna signs in at the chat through Keycloak; assistant, view, model, MCP client, destination present | pass |
+| "Welche Projekte habe ich?" → `list_projects` as anna without asking, answer names her project „Amsel“ (pA), not pB | pass |
+| pB entries, fresh conversation → `list_entries pB` → the app: „Kein solches Projekt.“ | pass |
+| write in pA → confirmation card `add_entry {project: pA, text: …}`, class `write`; refused: nothing written; second try confirmed: the entry is in pA **exactly once** | pass |
+| "Lege einen Eintrag an." (no project, no text) → the model asks back: „Für welches Projekt …?“ | pass |
+| bert in the same chat with the same assistant sees pB („Bussard“), not pA, and not anna's conversations (404) | pass |
+| MCP gateway: procedure A, issuer `platform`, chat `vuebung-chat`, assistant `projekte`, cost centre `CHAT-1` | pass |
+| AI gateway: every model turn at key `chat-vuebung`, model `qwen3:4b-instruct` | pass |
+| history and log of the chat: no assertion, no key; a round without a session: none | pass |
+
+23/23. Rounds 0.1–38 s, model turns 2.3–38 s, all far below five minutes.
+Unit tests `test_chat.py` 37 (six deliberate faults each turned them red),
+`test_gateway.py` 241.
+
+**Findings:**
+
+1. **The model answers from what it saw earlier.** Asked about pB right after
+   listing anna's projects, `qwen3:4b-instruct` said "Projekt pB existiert
+   nicht." without calling a tool — true for anna, nothing invented, but the
+   app's check did not run. In a fresh conversation it called the tool. The
+   rights still hold (the model only knows what anna's calls returned); what
+   the history does is make answers *stale*, not wider.
+2. **With a small instruct model, the asking back worked** (C1 of §6 failed
+   for `qwen3:4b-instruct` with a different prompt). The system prompt says
+   "frag nach, statt zu raten"; one run is no proof — the confirmation card
+   remains the guarantee.
+3. **The answer uses the app's titles** ("Projekt Amsel"), not ids; a check
+   on ids alone would have failed a correct answer.
+
 ## Deutsche Zusammenfassung
 
 **Worum es geht:** Schritt 3 der KI-Chat-Reihenfolge (I-41). Bevor die Chat-App
@@ -365,3 +430,16 @@ anna sieht durch die Testseite nur pA und schreibt dort, bert nur pB,
 gefälschte Kopfzeilen von außen und die Tür ohne echte Zusicherung werden
 abgelehnt, das Gateway zählt Verfahren A mit Chat und Assistent. Verfahren I
 mit Claude Code bleibt 15/15.
+
+**Stufe 2 gebaut und gemessen (08.11., §10):** Chat-App `apps/chat` 0.1.0 —
+ein Assistent, die Werkzeuge einer Sicht, ein Modell über die Destination `ki`
+(Schlüssel bleibt auf der Plattform), Verlauf als Datei je Person. In einer
+Runde laufen erst die offenen Werkzeugaufrufe (frische Zusicherung), dann der
+Modellzug. D6 ist vorgezogen: Was nicht `read` ist, läuft erst nach
+„Ausführen“; ob ein Werkzeug liest, sagt nur das Gateway (0.7.1, `_meta`
+`oaap/effect`). Gemessen 23/23 mit echtem lokalem Modell
+(`qwen3:4b-instruct` auf oaap-test, Modellzüge 2–38 s): anna sieht pA, bert
+pB, abgelehnt wird nichts geschrieben, zugestimmt genau einmal, fehlende
+Angaben erfragt das Modell. Befund: Im selben Gespräch antwortet das Modell
+aus früheren Ergebnissen, ohne erneut zu fragen — nicht weiter, aber womöglich
+veraltet.

@@ -1,7 +1,8 @@
 # oaap.ai.mcp-gateway — Tool Servers Behind One Keyed Endpoint per View
 
 - **ID:** `oaap.ai.mcp-gateway`
-- **Version:** 0.7 (RFC-0074 stage 1: **procedure A**, §3.9 — a chat of the
+- **Version:** 0.7.1 (RFC-0074 stage 2: `tools/list` names each tool's
+  effect class in `_meta`, §5.2). 0.7 (RFC-0074 stage 1: **procedure A**, §3.9 — a chat of the
   platform carries the person here; a view's third way in, `platform`, and
   profiles naming `@<chat>`). 0.6 (RFC-0073 stage 3: **settings from the platform**, §3.8 — the
   sign-in settings fall back to what the platform hands over when a connector made
@@ -510,6 +511,14 @@ always `read`: reading them changes nothing.
 An entry is listed and callable for a key only if its class is not
 higher than **both** the view's highest class and the key's highest
 class (`read` < `write` < `execute`).
+
+**The class reaches the client (0.7.1).** To a client on protocol
+`2025-06-18` or newer, `tools/list` adds to every tool
+`"_meta": {"oaap/effect": "<class>"}` — the class the operator set in this
+view, not the server's annotation, which is passed on unchanged beside
+it. A chat asks the person before every tool whose class is not `read`
+(RFC-0074 D6) and treats a tool without this field as `write`. Older
+protocol versions have no `_meta` on a tool; they get none.
 
 ### 5.3 Fixed arguments and bounds
 
@@ -1039,3 +1048,12 @@ Plattform reicht das Gateway die Zusicherung als `X-OAAP-Act-Assertion`
 weiter — kein Token-Tausch. Verfahren X geht so nicht und wird mit Satz
 abgelehnt. Gemessen wird Verfahren `A` mit Kennung der Person, Issuer
 `platform`, Chat und Assistent (nur zur Auskunft).
+
+## Deutsche Zusammenfassung (0.7.1, RFC-0074 Stufe 2)
+
+`tools/list` nennt jetzt je Werkzeug die Wirkungsklasse, die der Mandant in
+der Sicht gesetzt hat: `_meta: {"oaap/effect": "read" | "write" |
+"execute"}` (ab Protokoll 2025-06-18). Die Angaben des Herstellers
+(`readOnlyHint` usw.) bleiben daneben unverändert. Der Chat fragt vor jedem
+Werkzeug, das nicht `read` ist, und behandelt eines ohne diese Angabe wie
+`write`.
