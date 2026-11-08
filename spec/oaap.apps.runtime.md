@@ -1,7 +1,11 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.55 (**sign-in settings of a gateway**, RFC-0073 stage 3: five
+- **Version:** 0.2.56 (**a chat acts at its tenant's gateways as the person**,
+  RFC-0074 stage 1: manifest 0.12 `mcp_client: {use: true}`, the list
+  `/platform/mcp/gateways` and a via door per gateway on the chat's own site,
+  procedure A; the door of 2.32.1 also strips the act assertion; 2.32.3;
+  0.2.55: **sign-in settings of a gateway**, RFC-0073 stage 3: five
   platform-owned variables written when a connector made the gateway's clients,
   record `mcp_idp`; 2.32.2; 0.2.54: **the MCP door for a person**, RFC-0073 stage 2:
   `/platform/mcp/to/<source>` on a consuming gateway's own site, procedure I;
@@ -2153,9 +2157,14 @@ handle /platform/mcp/to/<source> {
     }
     request_header -Authorization
     request_header -X-OAAP-Act-Token
+    request_header -X-OAAP-Act-Assertion
     reverse_proxy <the container behind that route>
 }
 ```
+
+(Since 0.2.56 the gateway may present, instead of the act token, the act
+assertion it received at a chat's via door — `oaap.core.identity` 2.12; the
+door strips it like the token.)
 
 - **Two credentials, both required:** the gateway's sources key as
   `Authorization: Bearer`, and in `X-OAAP-Act-Token` the person's provider
@@ -2204,6 +2213,72 @@ the instance gets five more platform-owned variables (2.8):
   off. Never the secret. A redeploy keeps it; the portal reads it.
 - An app reads them as **defaults**: a value of its own configuration
   that an operator set wins.
+
+#### 2.32.3 A chat at its tenant's gateways: procedure A (0.2.56, manifest 0.12, RFC-0074 stage 1)
+
+An app that acts at its tenant's MCP gateways **as the person speaking to
+it** declares:
+
+```yaml
+mcp_client:
+  use: true
+```
+
+- **What the instance gets.** Two platform-owned variables (2.8):
+  `OAAP_MCP_CLIENT_KEY`, an API key of `instance:<name>` limited to the
+  pseudo-instance `oaap.mcp.client:<name>`, and `OAAP_MCP_CLIENT_URL`,
+  `http://<gateway>:<the instance's own port>/platform/mcp/gateways`. Minted
+  once, never for a rehearsal; renewed, reissued at rename and retired at
+  removal like the other platform keys (2.25); a redeploy without the field
+  stops handing the key to the app. The registry record carries
+  `mcp_client: true`.
+- **The list.** Only the site of an instance with `mcp_client` carries
+  `/platform/mcp/gateways`, before `/platform/*` and every app route; the
+  gateway asks identity for that key and no role. The answer is written into
+  the site: `{"v": 1, "gateways": [...]}`, `Cache-Control: no-store`. Its
+  entries are the instances of **the same tenant on this node** that declare
+  `mcp_sources` (that is what makes an app a gateway of its tenant), not a
+  rehearsal, not the chat itself, sorted by name: `name`, `app`, `version`,
+  `channel`, `via` — the door on the chat's own site.
+- **The via door**, one per gateway in the list:
+
+```text
+handle /platform/mcp/via/<gateway>/* {
+    uri replace /platform/mcp/via/<gateway>/ /mcp/ 1
+    forward_auth identity:8000 {
+        uri /verify?roles=<roles of the gateway's route covering /mcp>&groups=<its visibility groups>
+                   &tenant=<tenant>&instance=<gateway>&via=oaap.mcp.client:<chat>
+        copy_headers <the six identity headers>
+    }
+    request_header -Authorization
+    request_header -X-OAAP-Act-Assertion
+    request_header X-OAAP-MCP-Client <chat>
+    reverse_proxy <the container behind that route>
+}
+```
+
+- **Two credentials, both required:** the chat's client key as
+  `Authorization: Bearer`, and in `X-OAAP-Act-Assertion` the assertion the
+  platform gave the chat for the person on this request. What identity
+  checks is `oaap.core.identity` 2.13; the answer is the person's six headers
+  with the assertion addressed to the gateway.
+- **The gateway sees neither credential**, only the person's headers and the
+  name of the chat, which the door **sets itself** and never takes from the
+  request. On the gateway's own public `/mcp` route the platform strips
+  client-sent identity headers as always, so the three headers that make a
+  request procedure A (`X-OAAP-MCP-Client`, `X-OAAP-User-Id`,
+  `X-OAAP-User-Assertion`) can only arrive together through a via door.
+- **The path** `/platform/mcp/via/<gateway>/<view>` becomes `/mcp/<view>` at
+  the gateway. The gateway is part of the path because a tenant may have
+  several (RFC-0074 §3.2 sketched `/platform/mcp/via/<view>/`).
+- **Stale never.** The site marker carries a digest of the list and of what
+  each door asks (block format 7), so a gateway that comes, goes or changes
+  its route rewrites the chat's site. An instance in maintenance or a
+  rehearsal serves neither list nor doors. `request_header
+  -X-OAAP-Act-Assertion` is not an identity strip; the check for stale
+  identity lists ignores it.
+- **One hop, inside the platform.** The chat calls its own site; no instance
+  opens a connection to another instance's port (RFC-0068).
 
 ## 3. Configuration
 
@@ -3536,3 +3611,18 @@ Generalprobe. Eine Neuinstallation behält sie; ohne `mcp_sources`, beim
 Abschalten und beim Entfernen verschwinden sie. Im Register steht `mcp_idp` (ohne
 Geheimnis), das Portal liest es. Eine App nimmt die Werte als Vorgabe; was ein
 Betreiber selbst gesetzt hat, gewinnt.
+
+## Deutsche Zusammenfassung (2.32.3, v0.2.56 — ein Chat an den Gateways seines Mandanten, Manifest 0.12, RFC-0074 Stufe 1)
+
+Eine App, die als die Person handelt, die mit ihr spricht, erklärt
+`mcp_client: {use: true}` (Manifest 0.12). Sie bekommt `OAAP_MCP_CLIENT_KEY`
+(beschränkt auf `oaap.mcp.client:<name>`) und `OAAP_MCP_CLIENT_URL`. Auf ihrer
+**eigenen** Seite stehen dann die Liste `/platform/mcp/gateways` (die Gateways
+ihres Mandanten auf diesem Knoten) und je Gateway eine Tür
+`/platform/mcp/via/<gateway>/<sicht>`. An der Tür legt die App ihren Schlüssel
+und die Zusicherung der Person vor (unverändert kopiert); Identity prüft beides
+und gibt dem Gateway die Kopfzeilen der Person mit einer neuen Zusicherung an
+das Gateway. Den Namen des Chats setzt die Tür selbst. Die Tür von 2.32.1
+nimmt jetzt auch die Act-Zusicherung weg. Blockformat 7: kommt oder geht ein
+Gateway, wird die Seite des Chats neu geschrieben. Keine Generalprobe, nichts
+im Wartungsmodus.

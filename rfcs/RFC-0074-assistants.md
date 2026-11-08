@@ -1,6 +1,7 @@
 # RFC-0074: Assistants — A View, a Prompt and a Model Meaning, Running With the Rights of the Person Who Speaks
 
-- **Status:** **Accepted (2026-11-08)** — Jörg: "D1-D7 wie empfohlen"; nothing built
+- **Status:** **Accepted (2026-11-08)** — Jörg: "D1-D7 wie empfohlen"; **stage 1
+  built and measured on `oaap-test` (2026-11-08, 24/24, §9)**; stages 2–3 open
 - **Date:** 2026-11-08
 - **Authors:** Jörg (direction: I-41 of 2026-11-05 — "a chat is an app",
   "an assistant carries no rights", the name "Assistent"), Claude (facts read
@@ -246,6 +247,58 @@ is not needed for the claim: the gateway passes tool calls through.
 
 **Decided (Jörg, 2026-11-08):** D1–D7 as recommended.
 
+## 9. Stage 1 as built (2026-11-08)
+
+Built in reference 0.1.243, `mcp-gateway` 0.7.0 and the test page
+`oaap-lab/assistent-probe` 0.1.0; specs `oaap.ai.assistants` 0.1,
+`oaap.core.identity` 0.6.4 (2.12, 2.13), `oaap.apps.runtime` 0.2.56 (2.32.3,
+manifest 0.12), `oaap.ai.mcp-gateway` 0.7 (§3.9).
+
+**Settled while building** (left open by §3.2):
+
+- **The door names the gateway:** `/platform/mcp/via/<gateway>/<view>` on the
+  chat's own site, rewritten to `/mcp/<view>`. A tenant may have several
+  gateways; the sketch `/platform/mcp/via/<view>/` could not say which.
+- **The chat learns its gateways** from a list on its own site,
+  `/platform/mcp/gateways`, written by the generator like the sources list
+  of RFC-0073 — gateways are the instances of the tenant declaring
+  `mcp_sources`.
+- **The gateway learns the chat** from `X-OAAP-MCP-Client`, set by the door
+  and never taken from the request. Procedure A at the gateway needs this
+  header, the person's id and the assertion together; on the gateway's public
+  `/mcp` the platform strips the identity headers, so the three can only
+  arrive together through a via door.
+- **Who pays at the gateway:** an access profile naming `@<chat>` or `@*`.
+  A `*` profile (made for sign-ins) does not admit persons from a chat.
+  A view needs the way `platform`; ways are now a list of `key`, `signin`,
+  `platform`.
+- **Procedure I's second credential** is `X-OAAP-Act-Assertion` (aud = the
+  gateway); act token and act assertion together are refused.
+
+**Measured on `oaap-test`** (`assistent-probe/messung_stufe1.py`, result in
+`ergebnis-2026-11-08.txt`), over the public https names as a browser:
+
+| | Result |
+|---|---|
+| anna signs in at the test page through the tenant's Keycloak; the page has her assertion, is an MCP client, the assistant is valid, the list names `vuebung-mcpgw` | pass |
+| rounds through the via door, each its own request: `initialize`, `tools/list` (three tools of view `kp-i`), `list_projects` → only pA, `list_entries pB` → „Kein solches Projekt.“, `add_entry pA` written and read back | pass, 0.24–0.67 s per round (no model) |
+| bert through the same page and view sees only pB; with anna's session id the gateway does not know the session | pass |
+| gateway usage: procedure `A`, anna's id, issuer `platform`, chat `vuebung-aprobe`, assistant `reklamationen`, the profile's cost centre | pass |
+| identity audit: `mcp.via` (gateway, chat, anna, `(A)`) and `mcp.act` to the source with `(A)`; no assertion in the log | pass |
+| forged headers (chat, id, assertion) from outside at the gateway's `/mcp`: `401` | pass |
+| via door with the page's key but no assertion, with a forged one, or an assertion without key: `401` | pass |
+| the page's key at a **source's** door (procedure I): `403` | pass |
+| without a session at the page: no round (redirect to sign-in) | pass |
+
+24/24. Regression: RFC-0073's TLS measurement (procedure I with Claude Code's
+sign-in at the same view `kp-i`) 15/15 after the change; unit tests
+`test_mcp_via.py` 70 checks (with two counter-tests, red when a check or the
+client header is removed), `test_gateway.py` 239.
+
+**Not in stage 1:** a model, the chat app, visibility by context, `/commands`,
+confirmation of writing tools (stage 2–3). The assistant's `gateway` field is
+an addition to §2 (optional; required when a tenant has several gateways).
+
 ## Deutsche Zusammenfassung
 
 **Worum es geht:** Schritt 3 der KI-Chat-Reihenfolge (I-41). Bevor die Chat-App
@@ -300,3 +353,15 @@ llama-Modelle fallen raus (eins legt auf „Danke“ einen Vorgang an). Neu offe
 Der Schalter fürs Denken ist je Modell verschieden, und ein Modellname im
 KI-Gateway kann ihn heute nicht mitgeben. Durchs KI-Gateway auf oaap-test
 gemessen: Werkzeugaufrufe gehen hin und zurück unverändert durch.
+
+**Stufe 1 gebaut und gemessen (08.11., §9):** Referenz 0.1.243, MCP-Gateway
+0.7.0, Testseite `assistent-probe` auf oaap-test. Die Tür heißt
+`/platform/mcp/via/<gateway>/<sicht>` (mit Gateway im Pfad, weil ein Mandant
+mehrere haben kann); die Seite des Chats nennt ihre Gateways unter
+`/platform/mcp/gateways`. Im Gateway braucht die Sicht den Zugang `platform`,
+und es zahlt ein Zugangsprofil mit `@<chat>` oder `@*` — ein `*`-Profil gilt
+für Chats nicht. Gemessen 24/24 über die öffentlichen Namen wie ein Browser:
+anna sieht durch die Testseite nur pA und schreibt dort, bert nur pB,
+gefälschte Kopfzeilen von außen und die Tür ohne echte Zusicherung werden
+abgelehnt, das Gateway zählt Verfahren A mit Chat und Assistent. Verfahren I
+mit Claude Code bleibt 15/15.

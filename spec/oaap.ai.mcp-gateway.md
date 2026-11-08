@@ -1,7 +1,9 @@
 # oaap.ai.mcp-gateway — Tool Servers Behind One Keyed Endpoint per View
 
 - **ID:** `oaap.ai.mcp-gateway`
-- **Version:** 0.6 (RFC-0073 stage 3: **settings from the platform**, §3.8 — the
+- **Version:** 0.7 (RFC-0074 stage 1: **procedure A**, §3.9 — a chat of the
+  platform carries the person here; a view's third way in, `platform`, and
+  profiles naming `@<chat>`). 0.6 (RFC-0073 stage 3: **settings from the platform**, §3.8 — the
   sign-in settings fall back to what the platform hands over when a connector made
   the gateway's clients). 0.5 (RFC-0073 stage 2: **procedure I**, §3.7 — a signed-in
   person reaches an OAAP app as themselves, carried by the platform).
@@ -64,7 +66,9 @@ authorizes every request itself.
 Every request to `/mcp/<view>` carries `Authorization: Bearer <value>`.
 A value starting with `mcp-oaap-` is a **key** (§2.1); a value of three
 dot-separated parts is a **sign-in token** (§2.2). A view states which
-ways it accepts (§5): `key`, `signin` or both.
+ways it accepts (§5): `key`, `signin` or both — and since 0.7 `platform`,
+a person carried by a chat of the platform (§3.9), which comes without
+`Authorization`.
 
 - **One answer for every failure.** No credential, an unknown or revoked
   key, a token that fails any check of §2.2, and — for a key — a view
@@ -365,6 +369,42 @@ platform's variable of `oaap.apps.runtime` 2.32.2 when it is empty:
 - The operator page says for each of the five where it came from („von
   der Plattform“, „von Hand“, „leer“). The secret is never shown.
 
+### 3.9 Procedure A: a person carried by a chat of the platform (0.7, RFC-0074 stage 1)
+
+A chat app of the tenant reaches the gateway through a **via door** on its own
+site (`oaap.apps.runtime` 2.32.3). The platform has checked the chat's key and
+the person's assertion (`oaap.core.identity` 2.13) and sends the request to
+`/mcp/<view>` with the person's six headers — the assertion addressed to
+**this gateway** — and `X-OAAP-MCP-Client: <chat>`, set by the door.
+
+- **Recognised** when all three are present: `X-OAAP-MCP-Client`,
+  `X-OAAP-User-Id`, `X-OAAP-User-Assertion`. The platform strips client-sent
+  identity headers on `/mcp`, so the three arrive together only through a via
+  door. The gateway does not check the assertion (it has no key); it passes it
+  on, and the platform checks it again at the source's door.
+- **The way in** `platform` must be among the view's ways; otherwise `403`.
+- **The payer** is an access profile (§2.3) whose groups name `@<chat>` (the
+  chat's instance name) or `@*` (every chat of the tenant): first a profile
+  naming the chat, else one with `@*`. A profile with `*` does **not** apply —
+  it was made for sign-ins at the identity provider, not for every chat.
+  No profile: `403`. Group entries are `/path`, `*`, `@<instance>` or `@*`.
+- **The person** is the user id with issuer `platform`; the downstream session
+  belongs to that person and the profile (§3.5), and every request with a new
+  assertion updates the one the session uses — the browser drives the loop,
+  every round brings a fresh one (RFC-0074 D7).
+- **To a source of the platform** (access `platform`, §3.7): the gateway calls
+  the door with its sources key and the assertion as `X-OAAP-Act-Assertion`,
+  instead of exchanging a token. No call to the identity provider.
+- **To a server with procedure X** (§3.5) there is no provider token: the call
+  is refused (`-32003`, a sentence naming procedure A), measured as
+  `refused`, not counted for the circuit breaker.
+- **`X-OAAP-Assistant`**, when the chat sends it and it matches
+  `[a-z0-9][a-z0-9-]{0,47}`, is recorded; no decision depends on it.
+- **Measured as** procedure `A` with `user_sub` = the person's id,
+  `user_iss` = `platform`, `client` = the chat, `assistant`.
+- A key at a view that accepts only `platform` is `401`, as any key at a view
+  without `key`.
+
 ## 4. The catalog: default deny, pinned
 
 ### 4.1 Reading
@@ -425,8 +465,9 @@ operator confirmed it (RFC-0065 §4.2, "rug pull").
 ## 5. Views
 
 A view has a name (`[a-z0-9-]`, the path segment), the **ways in** it
-accepts (`key`, `signin` or both, §2; default `key`, and a view carried
-over from 0.2 keeps `key`), a **highest effect class** (default `read`),
+accepts (a comma list of `key`, `signin`, `platform` in this order, §2,
+§3.9; default `key`, and a view carried over from 0.2 keeps `key`), a
+**highest effect class** (default `read`),
 a setting for **server-to-client requests** (§6.1) and a list of
 **entries**. An entry is one catalog entry of
 **any** server, under a **name of the view**. Entries of several
@@ -985,3 +1026,16 @@ Die fünf Einstellungen für Anmeldung und Verfahren I (`MCPGW_ISSUER`,
 `MCPGW_PLATFORM_AUDIENCE`) nehmen, wenn sie leer sind, den Wert der Plattform
 (`OAAP_MCP_IDP_*`). Ein von Hand gesetzter Wert gewinnt, einzeln je Einstellung.
 Die Betreiberseite sagt für jede, woher sie kommt; das Geheimnis zeigt sie nie.
+
+## Deutsche Zusammenfassung (0.7, RFC-0074 Stufe 1 — Verfahren A)
+
+Ein Chat der Plattform trägt den Menschen her: Die via-Tür auf der Seite des
+Chats setzt die sechs Kopfzeilen der Person (Zusicherung an dieses Gateway)
+und `X-OAAP-MCP-Client`. Sind diese drei da, ist es Verfahren A. Die Sicht
+braucht dafür den Zugang `platform` (Zugänge jetzt als Liste aus `key`,
+`signin`, `platform`). Wer zahlt, sagt ein Zugangsprofil mit `@<chat>` oder
+`@*`; ein `*`-Profil gilt hier ausdrücklich nicht. Gegenüber einer Quelle der
+Plattform reicht das Gateway die Zusicherung als `X-OAAP-Act-Assertion`
+weiter — kein Token-Tausch. Verfahren X geht so nicht und wird mit Satz
+abgelehnt. Gemessen wird Verfahren `A` mit Kennung der Person, Issuer
+`platform`, Chat und Assistent (nur zur Auskunft).

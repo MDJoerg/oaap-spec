@@ -241,6 +241,13 @@ case("zweite Tuer / fremder Schluessel in mcp wird abgelehnt",
 case("mcp_sources.read 'yes' wird abgelehnt", app("0.11", mcp_sources={"read": "yes"}), False)
 case("openapi ist reserviert und wird abgelehnt", app("0.11", openapi={"path": "/openapi.json"}), False)
 
+print("\n=== 0.12: mcp_client (oaap.apps.runtime 2.32.3, RFC-0074) ===")
+case("0.12 mit mcp_client.use", app("0.12", mcp_client={"use": True}), True)
+case("mcp_client braucht Manifest 0.12", app("0.11", mcp_client={"use": True}), False)
+case("mcp_client.use 'yes' wird abgelehnt", app("0.12", mcp_client={"use": "yes"}), False)
+case("ein unbekannter Schluessel in mcp_client wird abgelehnt",
+     app("0.12", mcp_client={"use": True, "act": True}), False)
+
 files = sys.argv[1:]
 if files:
     print("\n=== echte Manifeste ===")

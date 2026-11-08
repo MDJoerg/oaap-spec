@@ -1,7 +1,10 @@
 # oaap.core.identity — Identity & Roles
 
 - **ID:** `oaap.core.identity`
-- **Version:** 0.6.3 (**a person through an MCP gateway's door**,
+- **Version:** 0.6.4 (**a chat acts as the person**, procedure A,
+  RFC-0074 stage 1: `/verify?via=`, 2.13, and procedure I takes the
+  platform's own assertion addressed to the gateway, 2.12; 0.6.3: **a person
+  through an MCP gateway's door**,
   procedure I, RFC-0073 stage 2: `/verify?act=`, 2.12; 0.6.2: **a signed assertion of the person for the
   way out**: a sixth header `X-OAAP-User-Assertion`, 2.11; RFC-0066
   stage 1;
@@ -639,6 +642,15 @@ a check of its own, every call, in this order:
    own client of the realm, 2.8) — a token addressed to the gateway is
    refused; `exp`/`nbf`/`iat` with 30 s leeway; `sub` present. Missing or
    failing: `401` with the reason as a sentence, never the token.
+   **Or, since 0.6.4, the act assertion** in `X-OAAP-Act-Assertion`: the
+   platform's own assertion (2.11) with `aud` = **this gateway** — what the
+   gateway received at a chat's via door (2.13). Checked with the node's key
+   like any assertion, `ten` = the door's tenant; the person is the record
+   with that id, a person (`kind: human`), active, of that tenant, otherwise
+   `403`. An assertion addressed to anything else — the chat, the source —
+   is `401`. Both headers together are refused (`401`): one credential per
+   call. With an act assertion step 4 does not apply (the platform named
+   the person itself); the audit line carries `(A)` instead of `(I)`.
 4. **The person** is the record bound to `{provider, sub}` in that tenant
    (2.8), and nothing the gateway says. **No binding: `403`** with
    „Diese Person hat sich an diesem Ort noch nie angemeldet — einmal im
@@ -656,6 +668,45 @@ source, actor the gateway principal, the person in the detail; refusals
 
 There is **no fallback**: a failed act is a refusal, never a call as the
 gateway (RFC-0065 D8).
+
+### 2.13 A chat acts as the person: procedure A (0.6.4, RFC-0074 stage 1)
+
+A verify call with `via=oaap.mcp.client:<chat>` comes only from a via door
+`oaap.apps.runtime` 2.32.3 writes on the chat's own site (the parameter is
+part of the generated `forward_auth` URI, never of a client request). The
+chat copies the assertion it received for the person on this very request
+(2.11, `aud` = the chat) into `X-OAAP-Act-Assertion`. Checked every call, in
+this order:
+
+1. **The chat's key.** `Authorization: Bearer` must be an API key limited to
+   **exactly** `oaap.mcp.client:<chat>` whose principal is the machine
+   `instance:<chat>`. An unlimited key — also one of that principal — a key
+   of another chat, and any other scope are refused. Missing: `401`; wrong
+   scope: `403`.
+2. **The same tenant.** The chat principal's tenant equals the tenant the
+   door names; otherwise `403`.
+3. **No provider token.** An `X-OAAP-Act-Token` at this door is refused
+   (`401`): procedure A takes the platform's assertion, nothing else.
+4. **The act assertion**: signature with the node's assertion key, `v`, not
+   expired, `aud` exactly **the chat**, `ten` the door's tenant. Missing or
+   failing: `401` with the reason as a sentence, never the assertion. An
+   assertion addressed to the gateway or to any other instance is refused —
+   a credential addressed to one party is never used at another.
+5. **The person** is the record with the assertion's `sub`: a person
+   (`kind: human`), active, of that tenant; otherwise `403`. A machine
+   principal has no assertion (2.11) and therefore cannot use this door.
+6. **Maintenance** of the gateway, and **its route**: the roles of the route
+   that covers `/mcp` (without `public`), its visibility groups and the
+   tenant boundary, against the person, as the ordinary verify.
+
+On success: `204` with the person's six headers, **the assertion new and
+addressed to the gateway**, built by the same function as for a session.
+**Every call is a line `mcp.via`** in the tenant's audit log — subject the
+gateway, actor the chat principal, the person and `(A)` in the detail;
+refusals with result `denied`. Never an assertion, never a key.
+
+There is **no fallback** (RFC-0074 §5.2): a missing, expired or foreign
+assertion is a refusal, never a call as the chat.
 
 ## 3. Configuration
 
@@ -1086,3 +1137,22 @@ ohne Bindung eine Ablehnung mit Satz, es wird niemand angelegt;
 Erfolg: die sechs Kopfzeilen der Person. Jeder Akt steht als `mcp.act` im
 Mandantenprotokoll, auch die Ablehnungen, nie ein Token. Kein Rückfall auf
 das Gateway.
+
+## Deutsche Zusammenfassung (0.6.4, RFC-0074 Stufe 1 — ein Chat handelt als die Person)
+
+`/verify` kennt einen dritten Weg: `via=oaap.mcp.client:<chat>`, nur aus der
+generierten Tür auf der **eigenen** Seite eines Chats. Geprüft wird jedes Mal:
+(1) der Schlüssel ist genau auf diese Tür beschränkt und gehört
+`instance:<chat>`; (2) Chat und Gateway im selben Mandanten; (3) kein
+Act-Token eines Anbieters; (4) die **Act-Zusicherung** — die Zusicherung, die
+die Plattform dem Chat für diese Person gab, unverändert kopiert: Signatur,
+nicht abgelaufen, adressiert an **den Chat**, richtiger Mandant; (5) die
+Person ist ein aktiver Mensch dieses Mandanten; (6) Wartung und Route des
+Gateways. Erfolg: die sechs Kopfzeilen der Person mit einer **neuen**
+Zusicherung, adressiert an das Gateway. Jeder Aufruf steht als `mcp.via` im
+Mandantenprotokoll. Kein Rückfall auf den Chat.
+
+Verfahren I (2.12) nimmt seit 0.6.4 neben dem Act-Token auch die eigene
+Zusicherung an, adressiert an **das Gateway** (`X-OAAP-Act-Assertion`) — das,
+was das Gateway an der via-Tür bekam. Beides zugleich wird abgelehnt.
+Gemessen auf oaap-test am 08.11.2026: 24/24 (`oaap-lab/assistent-probe`).
