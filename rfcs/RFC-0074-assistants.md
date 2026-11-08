@@ -1,6 +1,6 @@
 # RFC-0074: Assistants — A View, a Prompt and a Model Meaning, Running With the Rights of the Person Who Speaks
 
-- **Status:** **Proposed (2026-11-08)** — draft, nothing built
+- **Status:** **Accepted (2026-11-08)** — Jörg: "D1-D7 wie empfohlen"; nothing built
 - **Date:** 2026-11-08
 - **Authors:** Jörg (direction: I-41 of 2026-11-05 — "a chat is an app",
   "an assistant carries no rights", the name "Assistent"), Claude (facts read
@@ -239,6 +239,8 @@ issue itself (2026-11-08).
 | **D5** | The chat acts as the person by **procedure A** (copied platform assertion at a door on its own site); Keycloak option K later and optional | yes |
 | **D6** | Writing tools only after confirmation in the chat, per call | yes |
 | **D7** | The browser drives the tool loop; the assertion stays at five minutes (§6: holds with thinking off on a CPU node) | yes |
+
+**Decided (Jörg, 2026-11-08):** D1–D7 as recommended.
 
 ## Deutsche Zusammenfassung
 
