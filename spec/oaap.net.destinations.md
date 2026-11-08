@@ -1,7 +1,8 @@
 # oaap.net.destinations — Reaching Outward Without Holding the Key
 
 - **ID:** `oaap.net.destinations`
-- **Version:** 0.9
+- **Version:** 0.10 (destinations are added, given a secret and removed in the
+  portal as well, by `server_admin` -- §2.7). 0.9
 - **Maturity:** draft (0.1 was RFC-0033 stage 1: destinations with
   `direct` targets, bindings as grants, the HTTP proxy and the TCP
   handover, no bindings in a rehearsal. 0.2 adds stage 2's `via`
@@ -254,7 +255,13 @@ authentication.
 ### 2.7 Who maintains what (0.1)
 
 - **Destinations and their secrets are maintained by `server_admin`**
-  (on the reference: the CLI as root). RFC-0033 §1.1 gives this to the
+  (on the reference: the CLI as root, and since 0.10 the portal page
+  *Destinationen*, `oaap.core.portal` 2.17: add with `none`, `basic`,
+  `bearer` or `header`, set a secret, remove an unbound one; queued, judged
+  again by the host from the actor's own record, the same functions and
+  checks as the CLI; the secret travels only in the request file and into the
+  secret store; principal propagation stays on the CLI). A `tenant_admin`
+  reads their own tenant's list on that page, without forms. RFC-0033 §1.1 gives this to the
   tenant's `tenant_admin` as well. That part waits until the check in
   2.1 happens at connection time rather than at creation (§4). Before
   then, a target a tenant can write is a way into the node's own
@@ -796,3 +803,15 @@ Ausnahme von 2.7 -- mit Prüfungen bei jedem Speichern, Testen und Eintragen: nu
 Port 465 oder 587, der Name zeigt nur auf öffentliche Adressen, Speichern
 meldet sich erst an. Was bleibt, fängt das Zertifikat ab: Keycloak prüft den
 Namen (gemessen). Entfernen fällt auf das Knotenpostfach zurück.
+
+## Deutsche Zusammenfassung (0.10 — Destinationen im Portal)
+
+Der Server-Admin legt Destinationen jetzt auch im Portal an (Seite
+„Destinationen“), setzt ihr Geheimnis und entfernt eine ungebundene — über den
+Spool, vom Host erneut geprüft, mit denselben Funktionen und Prüfungen wie
+`oaap destination`. Das Geheimnis steht nur in der Auftragsdatei und dann im
+Geheimnisspeicher, nie auf einer Seite, im Ergebnis oder im Protokoll. Ein
+Mandanten-Admin sieht die Liste seines Mandanten (was es gibt, woran es hängt),
+ohne Formulare. Personen durchreichen bleibt an der Kommandozeile. Dass ein
+Mandanten-Admin selbst Ziele schreibt, wartet weiter auf die Prüfung beim
+Verbinden.
