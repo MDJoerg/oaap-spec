@@ -1,7 +1,8 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.56 (**a chat acts at its tenant's gateways as the person**,
+- **Version:** 0.2.57 (**a second origin for the views of MCP Apps**,
+  manifest 0.13 `ui_sandbox`, 2.32.4, RFC-0075). 0.2.56 (**a chat acts at its tenant's gateways as the person**,
   RFC-0074 stage 1: manifest 0.12 `mcp_client: {use: true}`, the list
   `/platform/mcp/gateways` and a via door per gateway on the chat's own site,
   procedure A; the door of 2.32.1 also strips the act assertion; 2.32.3;
@@ -2280,6 +2281,36 @@ handle /platform/mcp/via/<gateway>/* {
 - **One hop, inside the platform.** The chat calls its own site; no instance
   opens a connection to another instance's port (RFC-0068).
 
+#### 2.32.4 A second origin for the views of MCP Apps (0.2.57, manifest 0.13, RFC-0075 D6)
+
+```yaml
+ui_sandbox:
+  path: /ui-sandbox
+```
+
+A host that shows the views of MCP Apps (extension `io.modelcontextprotocol/ui`)
+must render them through a sandbox proxy on **another origin** than its own.
+An app declaring `ui_sandbox` gets one:
+
+- **The name.** For every automatic address `<instance>.<rest>` (spec 2.4) the
+  gateway also serves `<instance>--ui.<rest>`. The suffix `--ui` is reserved:
+  no instance may be installed under or renamed to a name ending in it. A
+  name another instance already holds as an automatic address is left out
+  (fail closed). A rehearsal gets none. Own names and aliases get no
+  sandbox twin.
+- **What it serves.** Exactly the declared path (and below it); everything
+  else answers `404`. No login: there is no `forward_auth`, and nothing that
+  could carry a session reaches the app or the browser — client-sent identity
+  headers, `Cookie` and `Authorization` are removed before the app,
+  `Set-Cookie` after it. The response carries
+  `Content-Security-Policy: frame-ancestors <the instance's own origins>`
+  (the names of `OAAP_INSTANCE_NAMES`).
+- **What the app learns.** `OAAP_UI_SANDBOX_ORIGINS`: the sandbox origin(s),
+  comma-separated, scheme as served, maintained with `OAAP_INSTANCE_NAMES`
+  (2.8.1); absent when the app declares no sandbox.
+- **What it does not do.** The platform does not render, read or check the
+  views; enforcing their CSP is the sandbox page's duty (RFC-0075 §2.2).
+
 ## 3. Configuration
 
 - Level-1 port range (default 8100–8199, expert-configurable;
@@ -3626,3 +3657,13 @@ das Gateway. Den Namen des Chats setzt die Tür selbst. Die Tür von 2.32.1
 nimmt jetzt auch die Act-Zusicherung weg. Blockformat 7: kommt oder geht ein
 Gateway, wird die Seite des Chats neu geschrieben. Keine Generalprobe, nichts
 im Wartungsmodus.
+
+## Deutsche Zusammenfassung (0.2.57 — zweite Herkunft für Ansichten, Manifest 0.13)
+
+Eine App mit `ui_sandbox: {path}` bekommt zu jeder automatischen Adresse eine
+zweite: `<instanz>--ui.<rest>`. Dort reicht die Plattform nur den genannten Pfad
+durch, ohne Anmeldung, ohne Cookie, ohne Identitäts-Kopfzeilen und ohne
+`Set-Cookie`; einbetten dürfen die Seite nur die eigenen Adressen der Instanz.
+Die App erfährt die Adresse als `OAAP_UI_SANDBOX_ORIGINS`. Die Endung `--ui` ist
+für Instanznamen reserviert. Gedacht für den Sandbox-Proxy des Chats (MCP Apps,
+RFC-0075).

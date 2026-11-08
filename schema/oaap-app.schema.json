@@ -321,6 +321,36 @@
           ]
         }
       }
+    },
+    {
+      "$comment": "Same rule for the 0.13 field: 'ui_sandbox' only in a manifest declaring at least 0.13 (RFC-0075).",
+      "if": {
+        "properties": {
+          "oaap_manifest": {
+            "enum": [
+              "0.1",
+              "0.2",
+              "0.3",
+              "0.4",
+              "0.5",
+              "0.6",
+              "0.7",
+              "0.8",
+              "0.9",
+              "0.10",
+              "0.11",
+              "0.12"
+            ]
+          }
+        }
+      },
+      "then": {
+        "not": {
+          "required": [
+            "ui_sandbox"
+          ]
+        }
+      }
     }
   ],
   "properties": {
@@ -337,9 +367,10 @@
         "0.9",
         "0.10",
         "0.11",
-        "0.12"
+        "0.12",
+        "0.13"
       ],
-      "$comment": "MAJOR.MINOR. A new MINOR only adds; a new MAJOR is the only thing a node may refuse (RFC-0012 §8.2). Deliberately not the semver 0.x reading, where the minor would carry breaking changes. 0.2 adds app.class. 0.3 adds data_model/contributes/consumes (oaap.data.model 0.1 §2.2, RFC-0031 §5) and the data_models artefact shape (§2.8). 0.4 adds the 'launchpad' section (RFC-0036). 0.5 adds the 'destinations' section (oaap.net.destinations 0.1, RFC-0033 stage 1). 0.6 adds the 'authorization' section (oaap.core.authorization 0.1, RFC-0045 stages 1-2). 0.7 adds services.<name>.shm (oaap.apps.runtime 2.20). 0.8 adds services.<name>.tun (oaap.apps.runtime 2.23, RFC-0060). 0.9 adds the 'cases' section (cases.submit: an app's backend opens a case in its tenant, oaap.apps.runtime 2.24, RFC-0061 §3.2). 0.10 adds the 'care' section (care.rebuild: self | release -- the author's promise that a rebuild on a fresh base changes nothing but the base, oaap.apps.runtime 2.31, RFC-0071 §15). 0.11 adds 'mcp' (one MCP door, a local path under one of the app's routes) and 'mcp_sources' (a gateway app reads the MCP sources of its tenant), oaap.apps.runtime 2.32, RFC-0073; 'openapi' stays reserved and is refused (I-39). 0.12 adds 'mcp_client' (use: true -- a chat app acts at its tenant's MCP gateways as the person speaking to it, procedure A), oaap.apps.runtime 2.32.3, RFC-0074."
+      "$comment": "MAJOR.MINOR. A new MINOR only adds; a new MAJOR is the only thing a node may refuse (RFC-0012 §8.2). Deliberately not the semver 0.x reading, where the minor would carry breaking changes. 0.2 adds app.class. 0.3 adds data_model/contributes/consumes (oaap.data.model 0.1 §2.2, RFC-0031 §5) and the data_models artefact shape (§2.8). 0.4 adds the 'launchpad' section (RFC-0036). 0.5 adds the 'destinations' section (oaap.net.destinations 0.1, RFC-0033 stage 1). 0.6 adds the 'authorization' section (oaap.core.authorization 0.1, RFC-0045 stages 1-2). 0.7 adds services.<name>.shm (oaap.apps.runtime 2.20). 0.8 adds services.<name>.tun (oaap.apps.runtime 2.23, RFC-0060). 0.9 adds the 'cases' section (cases.submit: an app's backend opens a case in its tenant, oaap.apps.runtime 2.24, RFC-0061 §3.2). 0.10 adds the 'care' section (care.rebuild: self | release -- the author's promise that a rebuild on a fresh base changes nothing but the base, oaap.apps.runtime 2.31, RFC-0071 §15). 0.11 adds 'mcp' (one MCP door, a local path under one of the app's routes) and 'mcp_sources' (a gateway app reads the MCP sources of its tenant), oaap.apps.runtime 2.32, RFC-0073; 'openapi' stays reserved and is refused (I-39). 0.12 adds 'mcp_client' (use: true -- a chat app acts at its tenant's MCP gateways as the person speaking to it, procedure A), oaap.apps.runtime 2.32.3, RFC-0074. 0.13 adds 'ui_sandbox' (path: a page the app serves for the views of MCP Apps; the platform gives it a second, cookie-less origin <instance>--ui.<tenant>.<node>), oaap.apps.runtime 2.32.4, RFC-0075."
     },
     "must_understand": {
       "type": "array",
@@ -1146,6 +1177,20 @@
     "openapi": {
       "not": {},
       "description": "Reserved (RFC-0073 D1): REST/OData as MCP tools needs its own RFC (capability idea I-39). Refused."
+    },
+    "ui_sandbox": {
+      "type": "object",
+      "description": "Manifest 0.13, oaap.apps.runtime 2.32.4 (RFC-0075 D6): the local path of a sandbox page for the views of MCP Apps. The platform serves exactly this path, and nothing else, under a second origin of the instance, without login, cookies or identity headers; only the instance's own names may frame it.",
+      "additionalProperties": false,
+      "required": [
+        "path"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^/[A-Za-z0-9._~/-]{1,200}$"
+        }
+      }
     }
   },
   "$defs": {
