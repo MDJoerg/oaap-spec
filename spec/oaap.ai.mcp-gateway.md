@@ -1,7 +1,9 @@
 # oaap.ai.mcp-gateway — Tool Servers Behind One Keyed Endpoint per View
 
 - **ID:** `oaap.ai.mcp-gateway`
-- **Version:** 0.7.2 (RFC-0074 stage 3: the usage row records `confirmed`,
+- **Version:** 0.7.3 (views, effect class and light of a key or profile can be
+  changed without revoking it; a `403` names its reason; sources can be read in
+  on demand, §2.3, §3.6). 0.7.2 (RFC-0074 stage 3: the usage row records `confirmed`,
   §9; the operator's page reads a platform source's catalog with the
   operator's own assertion, §3.7). 0.7.1 (RFC-0074 stage 2: `tools/list` names each tool's
   effect class in `_meta`, §5.2). 0.7 (RFC-0074 stage 1: **procedure A**, §3.9 — a chat of the
@@ -175,6 +177,17 @@ identity provider (the token's `groups` claim, full paths such as
   shared by all persons of the profile.
 - Profiles are revocable and audited like keys; changing a profile's
   groups is audited with old and new value.
+- **Changing limits (0.7.3).** The views, the highest effect class and the
+  light of a key or profile can be changed on the operator's page and on the
+  command line (`key set`), with the same rules as when issuing; a key keeps
+  its value. Audited with old and new value; effective at the next call.
+- **The reason of a `403` (0.7.3).** When a profile names the person's
+  group but does not open the view, the refusal says why: the view is not in
+  the profile, the view lacks the way (`platform`, `signin`), or the view's
+  light is above the profile's. The operator's page shows the same sentences
+  next to each key and profile. Before 0.7.3 every case read "no access
+  profile allows this view", which sent operators to create a profile that
+  already existed.
 - **The person** is identified by the token's `sub` together with the
   issuer (RFC-0065 D16) — never by name or e-mail. That pair is what
   the usage row records (§9).
@@ -1079,3 +1092,13 @@ Betreiberseite liest das Gateway den Katalog einer Quelle der Plattform jetzt
 mit der Zusicherung der angemeldeten Betreiberin. Vorher ging das nur mit
 einem Token des Anmeldediensts — ein Mandant ohne Keycloak konnte die
 Werkzeuge seiner eigenen Apps nie in eine Sicht nehmen.
+
+## Deutsche Zusammenfassung (0.7.3)
+
+Sichten, Wirkungsklasse und Ampel eines Schlüssels oder Zugangsprofils lassen
+sich jetzt ändern, ohne ihn zu widerrufen (Betreiberseite „Ändern“, Kommandozeile
+`key set`); ein Schlüssel behält seinen Wert. Eine 403 nennt den echten Grund:
+Sicht nicht im Profil, Zugang der Sicht fehlt, oder Ampel der Sicht über der des
+Profils — dieselben Sätze stehen auf der Betreiberseite neben jedem Profil.
+Vorher hieß jeder Fall „kein Zugangsprofil“. Dazu ein Knopf „Quellen jetzt
+einlesen“ statt bis zu 15 Minuten Warten.
