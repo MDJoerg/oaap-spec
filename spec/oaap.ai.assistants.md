@@ -1,13 +1,16 @@
 # oaap.ai.assistants — Assistants: a View, a Prompt and a Model Name, Without Rights
 
 - **ID:** `oaap.ai.assistants`
-- **Version:** 0.1 (RFC-0074 stage 1: the format, the rule "no rights", the
+- **Version:** 0.2 (RFC-0074 stage 3: visibility and confirmation enforced by the
+  chat app `apps/chat` 0.2.0, §2; the confirmation reaches the gateway as
+  `X-OAAP-Confirmed`, §5). 0.1 (RFC-0074 stage 1: the format, the rule "no rights", the
   exchange file; how a chat acts as the person is procedure A,
   `oaap.core.identity` 2.13 and `oaap.ai.mcp-gateway` §3.9)
 - **Status:** draft
 - **RFC:** [RFC-0074](../rfcs/RFC-0074-assistants.md) (Accepted 2026-11-08, D1–D7)
-- **Maturity:** stage 1 built and measured on `oaap-test` (2026-11-08) with a test
-  page (`oaap-lab/assistent-probe`); no chat app yet
+- **Maturity:** stages 1–3 built and measured on `oaap-test` (2026-11-08): test
+  page (24/24), chat app 0.1.0 with a real local model (23/23), chat app 0.2.0
+  with assistants, visibility and confirmation at the gateway (26/26)
 
 ## 1. Purpose
 
@@ -58,11 +61,21 @@ As JSON the same object; YAML is shown for reading.
 - **Visibility (D4)** is read by the chat app against
   `oaap.core.authorization`: *private* — only the owner; *context* —
   everyone with an assignment in that context, created by a key user of it;
-  *tenant* — everyone of the tenant, created by a `tenant_admin`. Stage 1
-  defines the field; enforcing it is stage 3.
+  *tenant* — everyone of the tenant, created by a `tenant_admin`. A chat app
+  declares the authorization object (the reference chat: `assistant` with
+  activities `use` and `manage` and the context field `team`, so a context
+  is `{team: <id>}`) and checks visibility **at every round**, not only when
+  a conversation starts: a revoked assignment stops the next round. When the
+  person's assignments cannot be read, no context assistant is visible
+  (fail closed). Visibility orders; it does not protect data — what an
+  assistant can do stays bounded by view and the speaker's rights (D1).
 - **Writing tools (D6)** run only after the person confirmed the call in the
-  chat, every time. The gateway's effect class (`oaap.ai.mcp-gateway` §4)
-  says which tools write. Stage 3.
+  chat, every time, with tool and arguments shown. Only the gateway's effect
+  class (`oaap.ai.mcp-gateway` §5.2, `_meta` `oaap/effect`) makes a tool
+  `read`; a tool without it counts as writing.
+- **Commands.** With `commands: true` the chat offers the view's MCP prompts
+  as `/name …`; the prompt's text becomes the person's message. Prompts are
+  read through the same door and the same person as tools.
 
 ## 3. The exchange file
 
@@ -99,6 +112,9 @@ never keeps one beyond the request that brought it.
 3. A chat app keeps no assertion of a person beyond the request that brought
    it, and has no fallback to its own principal: without an assertion, no
    tool call.
+4. A confirmed call carries `X-OAAP-Confirmed: yes` to the gateway, which
+   records it (RFC-0074 §5.6). It is the chat's statement, recorded for
+   review — never a permission.
 
 ## 6. Conformance tests
 
@@ -136,3 +152,14 @@ Chat hält sie in seinen Daten und tauscht sie als Datei
 Der Browser treibt die Schleife: jede Runde eine Anfrage, also eine frische
 Zusicherung. Sichtbarkeit durchsetzen und Bestätigung schreibender Tools
 kommen in Stufe 3.
+
+## Deutsche Zusammenfassung (0.2, RFC-0074 Stufe 3)
+
+Der Chat setzt die Sichtbarkeit jetzt durch: privat nur die Eigentümerin, Team
+alle mit `assistant.use` in diesem Team (pflegen mit `assistant.manage`),
+Mandant alle (pflegen nur `tenant_admin`). Geprüft wird bei jeder Runde; ein
+entzogenes Recht hält die nächste Runde an, und sind die Berechtigungen nicht
+lesbar, sieht niemand einen Team-Assistenten. Schreibende Werkzeuge laufen nur
+nach Zustimmung; der Chat meldet sie dem Gateway mit `X-OAAP-Confirmed: yes`,
+das Gateway schreibt es in die Messzeile. Mit `commands: true` werden die
+Prompts der Sicht zu `/Befehlen`.

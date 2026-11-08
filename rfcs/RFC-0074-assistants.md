@@ -2,7 +2,8 @@
 
 - **Status:** **Accepted (2026-11-08)** — Jörg: "D1-D7 wie empfohlen"; **stage 1
   built and measured on `oaap-test` (2026-11-08, 24/24, §9)**; **stage 2 built
-  and measured (2026-11-08, 23/23, §10)**; stage 3 open
+  and measured (2026-11-08, 23/23, §10)**; **stage 3 built and measured
+  (2026-11-08, 26/26, §11)**
 - **Date:** 2026-11-08
 - **Authors:** Jörg (direction: I-41 of 2026-11-05 — "a chat is an app",
   "an assistant carries no rights", the name "Assistent"), Claude (facts read
@@ -364,6 +365,56 @@ Unit tests `test_chat.py` 37 (six deliberate faults each turned them red),
 3. **The answer uses the app's titles** ("Projekt Amsel"), not ids; a check
    on ids alone would have failed a correct answer.
 
+## 11. Stage 3 as built (2026-11-08)
+
+Chat 0.2.0, `mcp-gateway` 0.7.2, `kontext-probe` 0.1.5 (one prompt);
+specs `oaap.ai.assistants` 0.2, `oaap.ai.mcp-gateway` 0.7.2.
+
+- **Assistants in the chat's data** (`/data/assistants.json`, the exchange
+  format; D2), created, edited, deleted, exported and imported in the chat.
+  Import is all or nothing. One assistant may come from configuration
+  (`CHAT_ASSISTANT`); nobody changes that one in the chat.
+- **Visibility (D4)** through the chat's authorization object `assistant`
+  (`use`, `manage`, context field `team`) and `may()`; private = owner,
+  tenant = everyone, created by `tenant_admin`. Checked at **every round**.
+  Unreadable assignments: no team assistant (fail closed).
+- **`/commands`:** the view's MCP prompts; `/name value` or
+  `/name arg=value`; the prompt's text becomes the message.
+- **§5.6:** a confirmed call carries `X-OAAP-Confirmed: yes`; the gateway's
+  usage row has `confirmed`.
+
+**Measured on `oaap-test`** (`assistent-probe/messung_stufe3.py`, result
+`ergebnis-stufe3-2026-11-08.txt`), as a browser through Keycloak; anna holds
+"assistant use+manage" in team service, bert "use" in team service, carl
+nothing:
+
+| | Result |
+|---|---|
+| anna creates a private assistant; only she sees it; bert can neither read it nor start a conversation with it (404) | pass |
+| anna creates a team assistant for service: anna and bert see it, carl does not; anna not for team lager, bert not in service, anna not for the tenant (no `tenant_admin`), bert cannot change hers | pass |
+| bert talks to the team assistant — as **bert** (pB, „Bussard“); the gateway records the assistant, procedure A, the chat | pass |
+| anna writes after confirming: the gateway's usage row has `confirmed=yes`, read calls none — the header passes the platform's via door | pass |
+| bert's assignment revoked: within 30 s the assistant is gone from his list, and his next round is refused (403); re-assigned afterwards | pass |
+| export holds what anna manages (private and team, not the configured one); bert cannot import her file | pass |
+
+26/26. Regression: stage 2 measurement 23/23 against chat 0.2.0. Unit tests:
+`test_chat.py` 68 (twelve deliberate faults each turned them red — one,
+"import all or nothing", only after a test with one allowed and one
+forbidden assistant was added), `test_gateway.py` 245.
+
+**Not measured on the node:** an assistant for the whole tenant created by
+a `tenant_admin`, and `/commands` end to end. Both need a test person with a
+platform role (`tenant_admin`, and `admin` for the gateway's page to put the
+prompt into the view); the permission check of this session refused to grant
+those roles. Both are covered by unit tests.
+
+**Finding while building:** the gateway could read the catalog of a platform
+source (procedure I) only with a token of a sign-in service — on the
+operator's page not at all. A tenant without Keycloak, the case procedure A
+is for, could never put its own apps' tools into a view. Fixed in 0.7.2:
+the operator's page uses the operator's assertion, as procedure A does
+(spec §3.7).
+
 ## Deutsche Zusammenfassung
 
 **Worum es geht:** Schritt 3 der KI-Chat-Reihenfolge (I-41). Bevor die Chat-App
@@ -443,3 +494,15 @@ pB, abgelehnt wird nichts geschrieben, zugestimmt genau einmal, fehlende
 Angaben erfragt das Modell. Befund: Im selben Gespräch antwortet das Modell
 aus früheren Ergebnissen, ohne erneut zu fragen — nicht weiter, aber womöglich
 veraltet.
+
+**Stufe 3 gebaut und gemessen (08.11., §11):** Chat 0.2.0 mit Assistenten in
+den Daten des Chats (anlegen, ändern, löschen, Export/Import), Sichtbarkeit
+privat / Team / Mandant über das Rechtemodell, geprüft bei jeder Runde,
+`/Befehle` aus den Prompts der Sicht, Zustimmung ans Gateway gemeldet (Spalte
+`confirmed`, Gateway 0.7.2). Gemessen 26/26 mit anna (pflegt Team service),
+bert (benutzt) und carl (nichts): privat nur anna, Team anna und bert, carl
+nicht; bert spricht als bert; entzogenes Recht: binnen 30 s weg, nächste
+Runde abgelehnt. Nicht am Knoten gemessen: Mandanten-Assistent und
+`/Befehle` — dafür bräuchte eine Testperson tenant_admin bzw. admin, und die
+Rechteprüfung dieser Sitzung hat das Vergeben abgelehnt. Befund: Ohne Keycloak
+konnte das Gateway den Katalog einer eigenen App nie lesen; behoben.

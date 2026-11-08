@@ -1,7 +1,9 @@
 # oaap.ai.mcp-gateway — Tool Servers Behind One Keyed Endpoint per View
 
 - **ID:** `oaap.ai.mcp-gateway`
-- **Version:** 0.7.1 (RFC-0074 stage 2: `tools/list` names each tool's
+- **Version:** 0.7.2 (RFC-0074 stage 3: the usage row records `confirmed`,
+  §9; the operator's page reads a platform source's catalog with the
+  operator's own assertion, §3.7). 0.7.1 (RFC-0074 stage 2: `tools/list` names each tool's
   effect class in `_meta`, §5.2). 0.7 (RFC-0074 stage 1: **procedure A**, §3.9 — a chat of the
   platform carries the person here; a view's third way in, `platform`, and
   profiles naming `@<chat>`). 0.6 (RFC-0073 stage 3: **settings from the platform**, §3.8 — the
@@ -324,6 +326,13 @@ node** that declare an MCP door.
 A server with access **`platform`** is a source of the platform reached at
 its door (`oaap.apps.runtime` 2.32.1). It exists only for sources; a server
 made by hand cannot have it.
+
+**Reading its catalog (0.7.2).** Listing a source needs a person. On the
+operator's page, the gateway uses the assertion the platform gives the
+signed-in operator for this page (aud = this gateway) as act credential, as
+in procedure A — so a tenant without a sign-in service can put its own apps'
+tools into a view. The command line still takes a provider token
+(`--token-stdin`). Without either, the catalog stays as last read.
 
 - **Configuration.** `MCPGW_CLIENT_SECRET` — the secret of the gateway's own
   confidential client (`MCPGW_AUDIENCE`) — and `MCPGW_PLATFORM_AUDIENCE`, the
@@ -716,7 +725,10 @@ view,
 view**, server, **name at the server**, access procedure (`T` or `X`), outcome,
 duration, **bytes up** (the client's request body) and **bytes down**
 (what the client received), and the **context snapshot** of the key
-(`oaap.ai.gateway` §5).
+(`oaap.ai.gateway` §5). For procedure A also the chat, the assistant and
+(0.7.2) **`confirmed`**: `yes` when the chat sent `X-OAAP-Confirmed: yes`
+— the person confirmed this call in the chat (RFC-0074 §5.6). It is the
+chat's statement, recorded for review, never a permission.
 
 - A read through a **template** records the template, never the URI the
   client filled in: values stand in it.
@@ -1057,3 +1069,13 @@ der Sicht gesetzt hat: `_meta: {"oaap/effect": "read" | "write" |
 (`readOnlyHint` usw.) bleiben daneben unverändert. Der Chat fragt vor jedem
 Werkzeug, das nicht `read` ist, und behandelt eines ohne diese Angabe wie
 `write`.
+
+## Deutsche Zusammenfassung (0.7.2, RFC-0074 Stufe 3)
+
+Die Messzeile hat eine Spalte `confirmed`: `yes`, wenn der Chat meldet, die
+Person habe diesen Aufruf bestätigt (`X-OAAP-Confirmed: yes`, nur bei
+Verfahren A) — eine Angabe des Chats, keine Erlaubnis. Und: Auf der
+Betreiberseite liest das Gateway den Katalog einer Quelle der Plattform jetzt
+mit der Zusicherung der angemeldeten Betreiberin. Vorher ging das nur mit
+einem Token des Anmeldediensts — ein Mandant ohne Keycloak konnte die
+Werkzeuge seiner eigenen Apps nie in eine Sicht nehmen.
