@@ -1,8 +1,10 @@
 # oaap.net.destinations — Reaching Outward Without Holding the Key
 
 - **ID:** `oaap.net.destinations`
-- **Version:** 0.10 (destinations are added, given a secret and removed in the
-  portal as well, by `server_admin` -- §2.7). 0.9
+- **Version:** 0.11 (a `server_admin` may hand the authoring of destinations to
+  the `tenant_admin` of ONE tenant: https targets on public addresses only, and only
+  what they made -- §2.7.1, `oaap.core.tenant` 1.7). 0.10 (destinations are added,
+  given a secret and removed in the portal as well, by `server_admin` -- §2.7). 0.9
 - **Maturity:** draft (0.1 was RFC-0033 stage 1: destinations with
   `direct` targets, bindings as grants, the HTTP proxy and the TCP
   handover, no bindings in a rehearsal. 0.2 adds stage 2's `via`
@@ -290,6 +292,51 @@ authentication.
     changes) and stand **once** in the tenant's log, with the person's
     name and role.
 
+#### 2.7.1 A tenant that writes its own targets (0.11)
+
+A `server_admin` MAY hand the authoring of destinations to the `tenant_admin`
+of one tenant -- a right on the tenant record (`oaap.core.tenant` 1.7,
+`tenant_admin_may: ["destinations"]`), switched per tenant, off by default,
+never for the node's own tenant. Both answers have a price, and that is why it
+is a switch and not a rule: closed, every new target waits for the operator;
+open, the tenant chooses places the gateway connects to from inside the node.
+With the right, that `tenant_admin`:
+
+- **adds** a destination of kind `http` with a **`direct` `https://`** target
+  only -- no `http://`, no `tcp`, no `via`, no `through`, not the name `mail`
+  (that is the mailbox, 2.11), authentication `none`, `basic`, `bearer` or
+  `header` (principal propagation stays on the CLI);
+- whose host **resolves to public addresses only** at save: global, outside
+  every range the container runtime manages. A name that does not resolve is
+  refused. The platform check of 2.1 applies as well;
+- **sets the secret of, and removes, only the destinations they added.** The
+  object records `author: tenant_admin`; one the operator made says "made by the
+  operator" on the page and stays the `server_admin`'s;
+- binds as before (2.7, unchanged).
+
+**What stays after the check at save** is a name that later turns inward (DNS
+rebinding). The gateway reaches an `https` target with TLS and checks the
+server's certificate against the target's name (the reference: Caddy's default
+for an `https` upstream; a destination MUST NOT switch that off). A service on
+the node's own networks has no certificate for a public name, so such a call is
+a failed handshake, not a conversation -- the argument of the tenant's mailbox
+(2.11), where it was measured. This is the "filtered outbound path" §4 asked
+for, in the form a TLS-only target makes possible. **Measured on `oaap-test`
+2026-11-09 (reference 0.1.247)**, with targets the operator wrote past the check
+-- the picture of a name bent inward later: a name on the node's own Caddy
+(`10.10.10.96:443`) was reset in the handshake (502), one on the plain-http portal
+timed out, and a public server presenting a certificate for other names was
+refused by the gateway itself (`x509: certificate is valid for cloudflare-dns.com,
+… not 1.1.1.1.nip.io`, 502); the public control (`https://example.com/`) answered
+200.
+
+**Switching it off** takes the right, not what was made with it: the tenant's
+destinations stay and work; from then on only the `server_admin` changes them.
+Both the switch and every act under it stand in the tenant's log (`tenant.allow`,
+`tenant.disallow`, `destination.*` with the person). The host judges every
+request again from the actor's own record (2.7): the portal's buttons are not
+the boundary.
+
 ### 2.8 Through a tunnel app (0.4, RFC-0060 D4/D5)
 
 A system behind a **foreign VPN server** — a door that is not ours, with
@@ -542,7 +589,10 @@ internal and not an operator setting.
   `server_admin` as the only author this is the operator deceiving
   themselves. Before a tenant may author targets, the check MUST move to
   the moment of connection, or the gateway's outbound path MUST be
-  filtered.
+  filtered. **0.11** lets a tenant author targets only under 2.7.1: `https`
+  with the certificate checked against the name, public addresses at save.
+  Plain `http` and `tcp` targets stay the operator's for exactly this
+  reason.
 
 ## 5. Conformance tests (described)
 
@@ -600,6 +650,18 @@ internal and not an operator setting.
     call gets 403 with a sentence. A `tcp` destination can be neither bound nor allowed, and
     its credential is not in the container. Close a tenant with a binding that is not allowed:
     refused, named, nothing changed.
+
+21. (0.11) Without the right, a `tenant_admin`'s add is refused and logged
+    `denied`; the switch itself is refused for a `tenant_admin` and for the
+    node's own tenant. With it (set by `server_admin`, portal or `oaap tenant
+    allow <label> destinations`): an `https` target on a public address is
+    added with `author: tenant_admin`; `http://`, `tcp`, `via:`, a name that
+    resolves to a private or container-runtime address, one that does not
+    resolve, the name `mail` and principal propagation are refused with a
+    sentence. The `tenant_admin` sets the secret of and removes their own
+    destination, not the operator's; another tenant stays closed; a plain
+    user stays out. Switched off: the destination stays, the `tenant_admin`
+    can no longer change it.
 
 ## 6. Dependencies
 
@@ -803,6 +865,26 @@ Ausnahme von 2.7 -- mit Prüfungen bei jedem Speichern, Testen und Eintragen: nu
 Port 465 oder 587, der Name zeigt nur auf öffentliche Adressen, Speichern
 meldet sich erst an. Was bleibt, fängt das Zertifikat ab: Keycloak prüft den
 Namen (gemessen). Entfernen fällt auf das Knotenpostfach zurück.
+
+## Deutsche Zusammenfassung (0.11 — ein Mandant legt eigene Ziele an)
+
+Der Server-Admin kann **je Mandant** einschalten, dass dessen Mandanten-Admin
+Destinationen selbst anlegt (Jörgs Entscheidung vom 09.11.: eine Einstellung am
+Mandanten, weil beide Richtungen Vor- und Nachteile haben). Aus ist die
+Vorgabe, und für den eigenen Mandanten des Knotens gibt es den Schalter nicht.
+
+Mit der Erlaubnis legt der Mandanten-Admin nur **`https`-Ziele** an, deren
+Name beim Speichern **nur auf öffentliche Adressen** zeigt -- kein `http`,
+kein `tcp`, kein Tunnel, keine internen Adressen, nicht der Name `mail`.
+Ändern und entfernen darf er nur, was er selbst angelegt hat (`author:
+tenant_admin`); was der Betreiber angelegt hat, bleibt dessen Sache.
+
+Was nach der Prüfung beim Speichern bleibt, ist ein Name, der später nach
+innen zeigt. Dann scheitert die Verbindung an der Zertifikatsprüfung des
+Gateways: Ein Dienst im Knoten hat kein Zertifikat für einen öffentlichen
+Namen. Das ist dasselbe Argument wie beim Postfach je Mandant. Nimmt der
+Server-Admin die Erlaubnis zurück, bleiben die Destinationen und
+funktionieren; ändern kann sie dann nur noch er.
 
 ## Deutsche Zusammenfassung (0.10 — Destinationen im Portal)
 

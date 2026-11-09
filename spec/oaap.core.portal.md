@@ -1,7 +1,9 @@
 # oaap.core.portal — Web Portal
 
 - **ID:** `oaap.core.portal`
-- **Version:** 0.3.36 (page *Destinationen*, 2.17). 0.3.35
+- **Version:** 0.3.37 (the page *Destinationen* carries the `server_admin`'s switch
+  that hands authoring to one tenant's `tenant_admin`, and that tenant_admin's form -- 2.17).
+  0.3.36 (page *Destinationen*, 2.17). 0.3.35
 - **Maturity:** draft (0.3.35 adds the card **MCP** to the instance page: source and readers, a gateway's sources and its sign-in, and the `server_admin`'s button that has a connector make the gateway's clients -- §2.16, RFC-0073 stage 3; 0.3.34 lets the start form of a build **choose apps** from the store's catalogue, one tick box per app, for a parameter of kind `apps` -- §2.11, RFC-0055 §15; 0.3.33 moves administration out of the header into a **side bar in groups** and gives long pages without tabs **jump marks** -- §2.7, design guidelines 0.2 §5 and 6.2.3; 0.3.32 adds the page **Nachrichten** -- "Postausgang": which mailbox a tenant's realm sends with, the tenant's own mailbox for its `tenant_admin`, the node's for `server_admin` -- §2.15, RFC-0072 stage 2, `oaap.net.destinations` 0.9; 0.3.31 lets the start form of a build install an app that administers its tenant's grants by one tick, which is the operator's confirmation -- §2.11, RFC-0055 §14 item 4; 0.3.30 lets a `server_admin` confirm an app that administers its tenant's grants in the store -- §2.6, `oaap.core.authorization` 0.5.2 §2.10; the card "Abbild" says whether a rebuild can be expected to help -- §2.14; 0.3.29 adds **care at a glance** to the store and the instance list -- an update in the catalogue and open advisories of the image reading, as a filter, a hint line and a badge, plus filters on the instance list -- §2.14; 0.3.28 adds the card **Neustart-Schutz** to the instance page — §2.13, RFC-0069 stage 5, `oaap.core.updates` 0.7 §2.7.2; 0.3.27 adds the node page **Datenträger** — §2.12, specified in `oaap.data.disks` 0.2 §2.6, RFC-0063 stage 2; 0.3.26 adds **profile upload, download and delete** and tick boxes for `bool` parameters on the build pages — §2.11, RFC-0055 §14; 0.3.25 adds **invitations and requests** — the prospect's public form and the operator's list, §2.10, RFC-0055 stage 4; 0.3.24 adds the **tenant build pages** — a wizard over the operator API, §2.9, RFC-0055 stage 3; 0.3.23 shows the **Cohorts menu entry to every
   administrator**, not only where a cohort exists, and puts a **step-by-step
   guide and a downloadable example template** on the create page — §2.8;
@@ -947,6 +949,17 @@ record and refuses everybody but `server_admin`, writing the refusal to the
 tenant's log. No secret is ever shown. The instance page's destination card
 names this page as where new destinations come from.
 
+**0.3.37 (`oaap.net.destinations` 2.7.1, `oaap.core.tenant` 1.7).** On the page of
+another tenant, a `server_admin` sees a card *Einstellung des Mandanten*: whether
+its `tenant_admin` may add destinations, with one button that switches it (op
+`allow`, the host refuses it to anybody but `server_admin`) and the price in
+plain words. A `tenant_admin` whose tenant has the right gets the form to add
+one -- kind fixed to `http`, target `https://` only -- and the buttons for the
+secret and for removing **only on the rows they added**; a row the operator
+made says so. Without the right the page stays as in 0.3.36. The route lets a
+`tenant_admin` through only with the right and never for `allow`; the host
+judges both again.
+
 ## 3. Configuration
 
 None beyond the platform version passed at start. Appearance
@@ -1799,6 +1812,15 @@ Seitenleiste. Wer was sieht, ändert sich nicht. Lange Seiten ohne Reiter
 Kartenüberschriften; Seiten mit Reitern behalten ihre Reiter. Alles ohne
 JavaScript bedienbar; nur das Mitleuchten der aktuellen Marke braucht ein
 kleines Skript. Einzelheiten: Design-Leitlinien 0.2, §5 und 6.2.3.
+
+## Deutsche Zusammenfassung (0.3.37 — Destinationen: der Schalter am Mandanten)
+
+Auf der Seite *Destinationen* eines Mandanten sieht der Server-Admin die Karte
+„Einstellung des Mandanten“: ob dessen Mandanten-Admin Destinationen selbst
+anlegen darf, mit einem Knopf zum Umschalten und dem Preis in klaren Worten.
+Hat der Mandant die Erlaubnis, bekommt sein Mandanten-Admin das Formular zum
+Anlegen (nur `https`) und die Knöpfe zum Ändern und Entfernen, aber nur an
+seinen eigenen Zeilen. Der Knoten prüft beides noch einmal.
 
 ## Deutsche Zusammenfassung (0.3.35 — MCP auf der Instanzseite, RFC-0073 Stufe 3)
 

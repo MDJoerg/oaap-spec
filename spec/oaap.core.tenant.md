@@ -1,7 +1,7 @@
 # oaap.core.tenant — Account and Tenant, the Boundary of Belonging
 
 - **ID:** `oaap.core.tenant`
-- **Version:** 1.6 (the bindings follow an issuer change **of the same space**: same connector, same name, same id at the provider, 2.11, conformance test 25, RFC-0073 T6; 1.5: the **clients of an MCP gateway**: a connector makes them on an
+- **Version:** 1.7 (the tenant record carries `tenant_admin_may`: rights a `server_admin` hands to this tenant's `tenant_admin`, first `destinations` -- 1.1 table, `oaap tenant allow|disallow`, `oaap.net.destinations` 2.7.1). 1.6 (the bindings follow an issuer change **of the same space**: same connector, same name, same id at the provider, 2.11, conformance test 25, RFC-0073 T6; 1.5: the **clients of an MCP gateway**: a connector makes them on an
   operator's request and only ever disables them, 2.9.1, RFC-0073 stage 3; `tenant check`
   asks the provider whether a tenant's client is there, 2.1, conformance test 28;
   1.4: a provisioned space gets the node's mailbox and German as its
@@ -121,6 +121,7 @@ account   (reference only — see 1.3)
 | `former_labels` | previous labels kept as aliases, each with an expiry — see 1.6              |
 | `theme`         | the tenant's face (0.6): `title`, `color_primary`, `color_accent`, `logo`, `logo_type` — see 2.7. Absent means the platform's own look |
 | `idp`           | who lets people in (0.7): `kind`, `issuer`, `client_id`, `version`, `label` — see 2.8. Absent means local accounts only. **Never the client secret**. Made by a connector (0.8): `connector`, `space`, and `version_how` — whether that version was read from the server or stated by a human |
+| `tenant_admin_may` | (1.7) rights a `server_admin` handed to this tenant's `tenant_admin`, beyond the role: a list of known names, today only `destinations` (`oaap.net.destinations` 2.7.1). Absent or empty means the role alone. Only a `server_admin` writes it (`oaap tenant allow|disallow <label> <right>`, or the portal); never for the node's own tenant; each change stands in the tenant's log as `tenant.allow` / `tenant.disallow`. An unknown name is refused, not stored. Travels with the tenant archive like every other field |
 | `idp_policy`    | what a first login through that provider becomes (0.7): `first_login`, `default_role`, `group_map`, `self_registration`, `reason`. Absent means `eingang`. Extended in 0.9 by `second_factor` (`off`/`required`) and by `realm` — what the provider's space last ANSWERED about those two switches, with the time it was read (§2.10) |
 
 
@@ -1543,6 +1544,18 @@ Entfernen sich die Identität als Merkposten notiert — und dieser
 Merkposten macht zurückgelassene Kundendaten zum ersten Mal überhaupt
 sichtbar, statt sie nach einer einmaligen Meldung verschwinden zu
 lassen.
+
+## Deutsche Zusammenfassung (1.7 — was der Betreiber dem Mandanten-Admin zusätzlich gibt)
+
+Der Mandanten-Datensatz bekommt das Feld `tenant_admin_may`: eine Liste von
+Rechten, die der Server-Admin dem Mandanten-Admin **dieses einen Mandanten**
+über seine Rolle hinaus gibt. Das erste und bisher einzige ist
+`destinations` (siehe `oaap.net.destinations` 2.7.1). Schreiben darf es nur
+der Server-Admin -- `oaap tenant allow <kürzel> destinations` bzw. `disallow`,
+oder der Schalter im Portal --, nie für den eigenen Mandanten des Knotens.
+Jede Änderung steht im Protokoll des Mandanten; `oaap tenant show` nennt das
+Feld; ein unbekannter Name wird abgewiesen. Das Feld wandert mit dem
+Mandantenarchiv.
 
 ## Deutsche Zusammenfassung (1.6 — derselbe Realm an neuer Adresse)
 
