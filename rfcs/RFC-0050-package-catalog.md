@@ -2,7 +2,8 @@
 
 - **Status:** **Accepted (2026-10-04)** — Jörg accepted it with his answers
   of 2026-10-01 (§6). **Stages 1 and 2 are built** (reference 0.1.192, app
-  `package-catalog` 0.1.0); stage 3 (recipient nodes) is not. One change to §4,
+  `package-catalog` 0.1.0); stage 3 (recipient nodes) is not — replaced by
+  RFC-0077 (marketplace + mirror mode). One change to §4,
   made while building and recorded in §7.
 - **Date:** 2026-10-01
 - **Authors:** Jörg (the need and the three decisions), Claude (facts read in
@@ -102,6 +103,11 @@ An OAAP app (working name `package-catalog`) in an operator tenant:
   is therefore as sensitive as a store source of class `verified`.
 
 ## 5. Stage 3 — supplying recipient nodes from the reference node
+
+> **Replaced by RFC-0077 (2026-11-10, Draft).** Recipients, a token per
+> recipient and "supply to A, B" move into a separate marketplace app; the
+> catalog stays local and gains a mirror mode that pulls the marketplace's
+> feed. The text below is kept as the reasoning it came from.
 
 Jörg's wish: development, test and pre-production run on the reference node;
 a tested package should go from there to one or more registered **recipients**
