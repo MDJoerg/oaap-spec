@@ -5,7 +5,10 @@
   2026-11-11, each as recommended (§14). **Stage 1 built and measured on
   `oaap-test` (2026-11-11, §15.6):** marketplace 0.1.0, package catalog 0.2.0
   (mirror mode), spec `oaap.dist.marketplace` 0.1; M1–M12 green, O2 answered.
-  Not yet: the real run (§15.5, oaapx01 → oaapx02) and stages 2–4.
+  **Stage 2 built (2026-11-11, §15.7):** marketplace 0.2.0, spec 0.2, live on
+  `oaap-test` and in production on `oaapx01` (tenant `oaap-web`,
+  `https://market.oaap-web.oaap.joomp.de/`); done when Jörg's browser test
+  passes. Not yet: the real run (§15.5, oaapx01 → oaapx02) and stages 3–4.
 - **Date:** 2026-11-10
 - **Authors:** Jörg (the idea: a marketplace / download centre next to the
   package catalog; OAAP apps only one kind of asset; cards, details, images,
@@ -587,6 +590,46 @@ the call to its own port), bearer = `m77-node-b`'s key:
 `marktprobe`, the two machine users and their keys (expire 2026-11-18), the
 catalog store source.
 
+### 15.7 Stage 2 as built (2026-11-11, marketplace 0.2.0)
+
+New modules `views.py` (store front, detail, admin), `render.py` (a copy of
+`help`'s Markdown renderer with its own `slug()`), `images.py` (magic bytes);
+`db.py` schema version 2 (asset fields, `image`, `access_request`, an FTS5
+table `asset_fts` with `unicode61 remove_diacritics 2`, fallback to a
+substring search). The JSON list `/api/v1/assets` uses the same search as
+the page. Tests: `test_storefront.py` 35/35, stage 1's `test_marketplace.py`
+46/46 unchanged, the catalog's `test_upstream.py` 19/19.
+
+Where the build sharpened the text:
+
+- Facet counts take the other chosen facets into account (the usual
+  "drill-down" counts) -- and are made after `can_see`, so the anonymous
+  count for `tag=verein` was 1 with a second, hidden asset carrying the tag.
+- An image is served with `Content-Security-Policy: default-src 'none';
+  sandbox` in addition to `nosniff`, and its file is deleted once nothing
+  refers to it.
+- A rejected request needs an answer; the person sees it on the detail page.
+  Asking again after a rejection opens a new request.
+- Badges: *frei* (free channel), *berechtigt* (entitlement), *Betreiber*,
+  *freischalten* (locked), and the channel name when the only current
+  release is outside the first channel (e.g. *beta*).
+
+**Measured on `oaap-test`:** upgrade 0.1.0 → 0.2.0 kept every stage-1
+release, channel and entitlement (migration to schema 2); metadata and a PNG
+icon by the publisher's machine key, SVG refused (`400`), public detail page
+with Markdown and the `<script>` escaped, icon served `image/png` + `nosniff`,
+search "messung" and facet `tag=probe` find the asset, a machine user's
+access request appears in `/admin`, the rejection's answer appears on its
+detail page; the catalog's mirror still polls against 0.2.0.
+
+**Rolled out on `oaapx01`:** tenant `oaap-web` (Jörg 2026-11-11, first
+administrator `oaap-web-admin`, credentials in `test/.env`), instance
+`market` 0.2.0 (`MARKET_NAME` "OAAP Marketplace"); three own packages
+checked in through the API with that administrator's session into `stable`,
+made free, with descriptions from their READMEs: `help` 0.3.0,
+`package-catalog` 0.2.0, `marketplace` 0.2.0. Anonymous download verified
+(size and SHA-256 equal). The tenant also holds the central `help` (§ RFC-0078).
+
 ---
 
 ## Deutsche Zusammenfassung (für Jörg)
@@ -654,3 +697,11 @@ Version aus der Freigabe, die Instanz bleibt) und `hold`. M1–M12 sind grün.
 Ein 200-MB-Paket ging in 3 s durch den Proxy (O2 beantwortet). Nächster
 Schritt ist der echte Lauf: Marketplace auf oaapx01, Katalog auf oaapx02,
 hbvp auf dem neuen Weg. Das nur auf dein Wort.
+
+**Stufe 2 gebaut (11.11., §15.7):** das Schaufenster. Suche mit Facetten
+(gezählt wird nur, was man sieht), Karten mit Icon, Detailseite mit Bildern,
+Markdown, Fakten und Versionsverlauf, Freischalt-Anfragen mit Antwort,
+Bearbeiten in der Verwaltung. Auf oaap-test gemessen und produktiv auf
+oaapx01 im neuen Mandanten `oaap-web`: https://market.oaap-web.oaap.joomp.de/
+mit drei eigenen Apps als frei ladbare Beispiele. Fertig ist die Stufe, wenn
+dein Browsertest besteht.

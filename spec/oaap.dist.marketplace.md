@@ -1,10 +1,11 @@
 # oaap.dist.marketplace — Digital Assets with Channels, Visibility and Entitlements
 
 - **ID:** `oaap.dist.marketplace`
-- **Version:** 0.1 (stage 1 of RFC-0077: model, the access rule, publishing
-  API, feed; the package catalog's mirror mode)
+- **Version:** 0.2 (stage 2 of RFC-0077: the store front -- search and
+  facets after the access rule, images, Markdown, access requests, §9);
+  0.1: model, the access rule, publishing API, feed, the catalog's mirror mode
 - **Maturity:** draft
-- **Reference:** `oaap-apps/apps/marketplace` 0.1.0,
+- **Reference:** `oaap-apps/apps/marketplace` 0.2.0,
   `oaap-apps/apps/package-catalog` 0.2.0
 - **RFC:** RFC-0077 (Accepted 2026-11-11)
 
@@ -115,6 +116,31 @@ user with an API key):
   instances that run it are not touched. With `hold` it is only marked.
 - Without a bound destination the catalog behaves exactly as before.
 
+## 6a. The store front (0.2)
+
+- **Search** covers id, title, summary, description and tags (full text,
+  diacritics folded, prefix per word; a substring search where the database
+  has no full-text index). **Facets:** type, category, tag, channel. A
+  facet's counts take every OTHER chosen facet into account, and every count
+  is made **after** the access rule (§3) -- a hidden asset changes no number.
+- **Asset fields:** tags and categories (lowercase slugs), links (http(s)
+  only), licence, publisher, an icon and up to 8 screenshots.
+- **Description and release notes are Markdown.** Everything is escaped
+  first; then a few forms get their tags. Raw HTML appears as text; a link
+  that is not http(s), a fragment or a relative link becomes text.
+- **Images:** PNG, JPEG, WebP only, recognised by their first bytes, at most
+  5 MB; never SVG. An image is served with its fixed type, `nosniff`,
+  `Content-Security-Policy: default-src 'none'; sandbox`, and only to a
+  principal who may see an asset that carries it (`404` otherwise). A file
+  no release and no image refers to any more is deleted.
+- **Access requests:** a signed-in principal may ask for an asset it sees
+  but cannot obtain, naming a channel and a note. One open request per
+  principal and asset; asking again amends it. An operator grants (this
+  creates the entitlement, noting the request) or rejects -- a rejection
+  MUST carry an answer, which the principal sees on the detail page.
+- Writing metadata and images: the asset's publishers and operators;
+  visibility and free channels: operators only.
+
 ## 7. Security
 
 - Nothing uploaded is executed or unpacked to disk.
@@ -132,6 +158,15 @@ unrelease with the instance untouched, a large package through the
 destination proxy, `hold`, hidden assets.
 
 ## Deutsche Zusammenfassung
+
+**0.2 (Schaufenster):** Suche über Name, Beschreibung und Schlagworte, auch
+ohne Umlaute; Facetten zählen erst nach der Sichtbarkeitsregel. Beschreibung
+und Notizen sind Markdown, aber nie aktives HTML. Bilder nur PNG/JPEG/WebP
+nach Inhalt, kein SVG, und nur so sichtbar wie ihr Asset. Wer etwas sieht,
+aber nicht bekommt, kann eine Freischaltung anfragen. Der Betreiber schaltet
+frei, das erzeugt die Berechtigung, oder lehnt mit einer Antwort ab.
+
+**0.1:**
 
 Ein **Marketplace** verteilt digitale Assets. OAAP-Pakete sind ein Typ
 davon. Releases sind unveränderlich und liegen unter ihrem SHA-256.
