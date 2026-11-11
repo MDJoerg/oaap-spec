@@ -1,7 +1,7 @@
 # oaap.core.portal — Web Portal
 
 - **ID:** `oaap.core.portal`
-- **Version:** 0.3.38 (the build pages show a profile's **version**, its **history** with a download per kept file, and the version and digest a build ran -- 2.11, RFC-0079; the button "Erzeugen" also produces a `vapid` key -- `oaap.apps.runtime` 2.8). 0.3.37 (the page *Destinationen* carries the `server_admin`'s switch
+- **Version:** 0.3.39 (the store asks before an update **widens a production instance**, one tick under the reported lines -- 2.6, I-43; the card "Abbild" names the open packages for a `server_admin` and answers "will a rebuild help" in plain words -- 2.14, RFC-0071 §16). 0.3.38 (the build pages show a profile's **version**, its **history** with a download per kept file, and the version and digest a build ran -- 2.11, RFC-0079; the button "Erzeugen" also produces a `vapid` key -- `oaap.apps.runtime` 2.8). 0.3.37 (the page *Destinationen* carries the `server_admin`'s switch
   that hands authoring to one tenant's `tenant_admin`, and that tenant_admin's form -- 2.17).
   0.3.36 (page *Destinationen*, 2.17). 0.3.35
 - **Maturity:** draft (0.3.35 adds the card **MCP** to the instance page: source and readers, a gateway's sources and its sign-in, and the `server_admin`'s button that has a connector make the gateway's clients -- §2.16, RFC-0073 stage 3; 0.3.34 lets the start form of a build **choose apps** from the store's catalogue, one tick box per app, for a parameter of kind `apps` -- §2.11, RFC-0055 §15; 0.3.33 moves administration out of the header into a **side bar in groups** and gives long pages without tabs **jump marks** -- §2.7, design guidelines 0.2 §5 and 6.2.3; 0.3.32 adds the page **Nachrichten** -- "Postausgang": which mailbox a tenant's realm sends with, the tenant's own mailbox for its `tenant_admin`, the node's for `server_admin` -- §2.15, RFC-0072 stage 2, `oaap.net.destinations` 0.9; 0.3.31 lets the start form of a build install an app that administers its tenant's grants by one tick, which is the operator's confirmation -- §2.11, RFC-0055 §14 item 4; 0.3.30 lets a `server_admin` confirm an app that administers its tenant's grants in the store -- §2.6, `oaap.core.authorization` 0.5.2 §2.10; the card "Abbild" says whether a rebuild can be expected to help -- §2.14; 0.3.29 adds **care at a glance** to the store and the instance list -- an update in the catalogue and open advisories of the image reading, as a filter, a hint line and a badge, plus filters on the instance list -- §2.14; 0.3.28 adds the card **Neustart-Schutz** to the instance page — §2.13, RFC-0069 stage 5, `oaap.core.updates` 0.7 §2.7.2; 0.3.27 adds the node page **Datenträger** — §2.12, specified in `oaap.data.disks` 0.2 §2.6, RFC-0063 stage 2; 0.3.26 adds **profile upload, download and delete** and tick boxes for `bool` parameters on the build pages — §2.11, RFC-0055 §14; 0.3.25 adds **invitations and requests** — the prospect's public form and the operator's list, §2.10, RFC-0055 stage 4; 0.3.24 adds the **tenant build pages** — a wizard over the operator API, §2.9, RFC-0055 stage 3; 0.3.23 shows the **Cohorts menu entry to every
@@ -533,6 +533,15 @@ app; a `tenant_admin` gets the sentence that the node's operator confirms this.
 The portal sends the confirmation only for a `server_admin`, and the host counts
 it only for one by their own record.
 
+**An update that widens a production instance** (`oaap.apps.runtime` 2.14,
+I-43, 0.3.39). The host refuses it until confirmed and answers with the
+widenings and their fingerprint. The store turns that into a question on the
+object page: the instance, every widening as a line, a required tick box
+whose value is the fingerprint, and the other way (update a test instance,
+look, promote). Whoever may update the instance may confirm — as with
+promotion. The host counts the tick only if the fingerprint matches what the
+package it installs widens.
+
 **Sources (list report).** `server_admin` only -- see above. They add,
 rename, enable,
 disables, removes a source and sets its trust class. Two rules:
@@ -878,6 +887,13 @@ answer both with ONE rule, so they never disagree.
   instance list; any store read refreshes it) and the care file. Writes
   nothing; healing stays where it is -- the store update (RFC-0050) and
   the rebuild on the instance page (RFC-0071).
+- **Which packages, and "Nein."** (0.3.39, RFC-0071 §16). For a `server_admin` the
+  card lists the open packages: package, DSA, date, the version in the image and the
+  version the distribution fixed it in (a `tenant_admin` sees count and date only).
+  When the build upgrades OS packages (`oaap.apps.runtime` 2.31.1) the answer is
+  "likely" with that reason; when it does not and the base equals upstream, the
+  answer begins with "Nein." and says why and what heals (a republished base image,
+  or an app version that upgrades).
 
 ### 2.15 Nachrichten (0.3.32, RFC-0072 stage 2)
 
@@ -1831,3 +1847,13 @@ Clients, wann und von wem angelegt — oder „nicht eingerichtet“ bzw. „abg
 Nur ein `server_admin` sieht den Knopf „Anmeldung einrichten“ bzw. „abschalten“, und
 nur, wenn der Realm des Mandanten über einen Konnektor dieses Knotens entstand. Der
 Host prüft dieselben Dinge wie `oaap idp mcp`.
+
+## Deutsche Zusammenfassung (0.3.39 — Haken bei Rahmenerweiterung, Pakete auf der Karte „Abbild“)
+
+- **Store (§2.6, I-43):** Erweitert ein Update eine Produktiv-Instanz, baut der Knoten
+  nichts und die Store-Seite fragt: Instanz, jede Erweiterung als Zeile, ein Pflicht-Haken.
+  Der Haken gilt nur für genau diese Liste (Fingerabdruck); wer die Instanz aktualisieren
+  darf, darf bestätigen — wie bei der Übernahme.
+- **Karte „Abbild“ (§2.14, RFC-0071 §16):** Der Server-Admin sieht die betroffenen Pakete
+  mit DSA, Datum und beiden Versionen. „Hilft ein Neubau?“ antwortet klar: ja, weil die App
+  beim Bau Korrekturen einspielt — oder „Nein.“ mit Grund und dem, was hilft.

@@ -1,7 +1,7 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.59 (**a second kind of generated value, `vapid`**, and a build step may generate into an empty key -- 2.8, RFC-0079). 0.2.58 (**the envelope rule on every way in**: directory and
+- **Version:** 0.2.60 (**a build that upgrades OS packages is built without the layer cache**, and "unchanged" compares the package lists -- 2.31.1, RFC-0071 §16; **a portal tick confirms a widening** by the fingerprint of exactly the reported lines -- 2.14, I-43). 0.2.59 (**a second kind of generated value, `vapid`**, and a build step may generate into an empty key -- 2.8, RFC-0079). 0.2.58 (**the envelope rule on every way in**: directory and
   Git installs too, the report reaches the portal, I-43, 2.14). 0.2.57 (**a second origin for the views of MCP Apps**,
   manifest 0.13 `ui_sandbox`, 2.32.4, RFC-0075). 0.2.56 (**a chat acts at its tenant's gateways as the person**,
   RFC-0074 stage 1: manifest 0.12 `mcp_client: {use: true}`, the list
@@ -1042,6 +1042,25 @@ a refusal MUST name a way the person can take from there -- update a test
 instance and promote it (2.14.1), or confirm at the machine. Until 0.2.57
 the reference compared only ZIP packages; a directory or Git install
 widened production silently (found with keycloak 0.1.7, 2026-11-09).
+
+**A confirmation names what it confirms (0.2.60, I-43).** A confirmation
+given in a browser MUST count only for the widenings the person was shown.
+The node answers a refused production update with the reported lines and a
+**fingerprint** over exactly those lines (16 hex digits of SHA-256 over the
+sorted lines); the portal shows the lines with a required tick box whose
+value is that fingerprint; the node accepts the confirmation only if the
+fingerprint equals the one it computes for the package it is about to
+install. A newer package that widens something else is asked about again.
+At the machine `--confirm` stays a plain yes: the person reads the NOTE
+lines on the same screen.
+
+**One review per install.** A path that has weighed the envelope with its
+own confirmation (the ZIP branch, promotion, sideloading, the deploy token —
+all of them install through the retained-artifact step) MUST NOT be
+reviewed a second time without that confirmation. Found 2026-11-11: since
+0.2.58 the directory rule ran again inside the artifact step and refused
+every confirmed widening of a production instance on these paths — a
+confirmed promotion included. Fixed in reference 0.1.252, measured.
 
 #### 2.14.1 Promotion to production (RFC-0020)
 
@@ -2125,6 +2144,23 @@ the promise. The card "Abbild" and `oaap node care images` say per
 instance what a rebuild would build from (package, commit, pull) and
 "self-heal: possible / not possible, because …" — one function behind
 both.
+
+#### 2.31.1 A build that upgrades OS packages (0.2.60, RFC-0071 §16)
+
+A Dockerfile whose final stage runs an OS package upgrade (`apt-get`/`apt`
+`upgrade`, `dist-upgrade`, `full-upgrade`, `apk upgrade`) MUST be built
+without the layer cache on every build path (install, store update,
+restore, rebuild) — otherwise the cached layer of an earlier build on the
+same base is reused and the upgrade never runs again. The base record says
+whether the build upgrades (`base.upgrades`). A rebuild of a built service
+on an unchanged base digest whose image has the same dpkg list as the
+running one MUST keep the running image and report "unchanged" — whatever
+the image id says (a no-cache build, and even a cached build of a freshly
+unpacked package, gets a new one). The answer to "will
+a rebuild help" (`oaap.core.portal` 2.14) uses `base.upgrades`: an upgrading
+build is expected to help even when the base equals upstream. Upgrading
+Debian's packages is a change of the base layer, compatible with
+`care.rebuild: self`.
 
 ### 2.32 MCP sources: a door in the manifest, a list on the gateway's own site (0.2.53, manifest 0.11, RFC-0073 stage 1)
 
@@ -3711,3 +3747,21 @@ Auftrag aus dem Portal, steht die Erweiterung in der Meldung, die das Portal
 zeigt. Eine Ablehnung sagt, was man dort tun kann: eine Test-Instanz
 aktualisieren und übernehmen (die Übernahme fragt), oder an der Maschine
 mit `--confirm` bestätigen.
+
+## Deutsche Zusammenfassung (0.2.60, RFC-0071 §16 und I-43)
+
+**Bauen mit Korrekturen.** Spielt ein Dockerfile beim Bau die Korrekturen der
+Distribution ein (`apt-get upgrade` u. ä.), baut der Knoten es auf jedem Weg ohne
+Zwischenspeicher — sonst nähme Docker die Zeile aus einem früheren Bau, und die
+Korrekturen kämen nie an. Bringt ein Neubau keine neuen Pakete, bleibt das laufende
+Abbild. Das verträgt sich mit `care.rebuild: self`: Debians Pakete sind die Basis.
+
+**Der Haken im Portal (I-43).** Erweitert ein Store-Update eine Produktiv-Instanz,
+fragt das Portal mit einem Haken unter der Liste der Erweiterungen. Der Haken trägt
+einen Fingerabdruck genau dieser Liste; bringt ein neueres Paket etwas anderes mit,
+fragt der Knoten noch einmal. An der Maschine bleibt es bei `--confirm`.
+
+**Nebenbei behoben (beim Messen gefunden).** Seit 0.2.58 prüfte der Verzeichnisweg
+den Rahmen innerhalb des ZIP-Schritts ein zweites Mal, ohne die schon gegebene
+Bestätigung — eine bestätigte Übernahme nach Produktiv mit Erweiterung scheiterte
+dadurch. Jetzt prüft jeder Weg genau einmal.

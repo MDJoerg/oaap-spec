@@ -3,7 +3,9 @@
 - **Status:** **Accepted** (2026-11-06, Jörg: D1–D9 as recommended — D6 "no, for
   now"). **Stages 1, 2 and 2b built** (reference 0.1.227, 0.1.228, 0.1.229; stage 2b: the recorded Git commit and manifest 0.10 `care.rebuild`, `oaap.apps.runtime` 0.2.52 §2.31, §15 below; stage 2: `oaap.apps.runtime` 0.2.51 §2.30, §14 below; stage 1: `oaap.apps.runtime` 0.2.50 §2.29,
   `oaap.core.updates` 0.9 §2.9, `oaap.fleet.status` 0.8), measured on oaap-test (§13).
-  Stages 3–5 not built.
+  Stages 3–5 not built. **§16 (2026-11-11, reference 0.1.252):** a build that upgrades
+  OS packages is recognised and built without the layer cache; the card names the
+  packages for a `server_admin` and says plainly whether a rebuild helps.
 - **Date:** 2026-11-05
 - **Authors:** Claude (measurement, proposal), Jörg (requirement: "eine Instanz wird als
   auffällig gemeldet und wir können versuchen, sie mit einer neuen gepatchten Version neu
@@ -426,7 +428,101 @@ schedule or on a push — nobody has to remember. The template is written
 once and copied into every app repository; together with `care.rebuild:
 self` it is what makes the promise checkable. Not built.
 
+## 16. The gap between Debian's fix and the base image (2026-11-11, reference 0.1.252)
+
+**What happened.** On oaapx01 every open advisory was one package: zlib,
+DSA-6613-1 of 2026-11-07, fixed in `1:1.3.dfsg+really1.3.1-1+deb13u1`. The
+images carry `…-1+b1`. A freshly pulled `python:3.13-slim` (measured on
+oaap-test the same day) still carries `…-1+b1`: Debian had the fix, the
+official image had not been republished. Jörg rebuilt package-catalog and
+marketplace; the card said "built on a fresh base; the instance answers" and
+the advisory stayed. His words: "Obwohl die Apps von uns sind, bekomme ich die
+Hinweise nicht weg. Auch nicht mit Neuaufbau. Das ist verwirrend." Decided
+2026-11-11 ("ja, so machen").
+
+**Two causes, both ours.**
+
+1. None of our python-slim apps upgraded packages while building, so a
+   rebuild on the unchanged base brought the same packages back (§2: the
+   base layer). The card said so only as "a rebuild heals only if the app
+   upgrades packages while building".
+2. Even an app that did — code-server has `apt-get upgrade` since 0.2 —
+   could not heal: the node ran `docker build` with the layer cache, and the
+   upgrade's RUN layer stood in the cache of the first build on that base.
+   Same base, same instruction: Docker never ran it again. code-server kept
+   its vim advisories for that reason, not because of its pinned base.
+
+**What changed.**
+
+1. **The node recognises an upgrading build.** `images.dockerfile_upgrades`:
+   a RUN instruction of the final stage that runs `apt-get`/`apt`
+   `upgrade`, `dist-upgrade`, `full-upgrade` or `apk upgrade` (continuation
+   lines joined, comments and earlier stages ignored). The base record keeps
+   it (`base.upgrades`, absent on records from before 0.1.252).
+2. **One build command.** `appctl.docker_build_cmd` is the only `docker
+   build` of an app image — install, store update, restore, rebuild. For an
+   upgrading Dockerfile it adds `--no-cache`, so the upgrade runs on every
+   build. The price is a build of tens of seconds instead of seconds.
+3. **"Unchanged" stays honest.** A no-cache build always has a new image id
+   — and, measured the same day, so did a *cached* build of a freshly
+   unpacked package (same base, same instructions, new id: the COPY layer of
+   the unpacked files differed). The bytes in service are the same by
+   definition, so: when the base digest did not move and the new image's
+   dpkg list equals the running image's, the rebuild keeps the running image
+   and says "unchanged" — nothing is recreated. This holds for every built
+   service, not only for upgrading ones.
+4. **"Will a rebuild help?" in plain words.** An upgrading app: "likely",
+   with its own sentence — a rebuild fetches Debian's fixes even while the
+   base image lags. A non-upgrading app on a base equal to upstream: "Nein."
+   — Debian has the fix, the base image has not been republished, this app
+   does not upgrade while building, so the rebuild brings the same packages
+   back; it heals when the base image is republished or with an app version
+   that upgrades. Records from before 0.1.252 keep the general sentence.
+5. **The packages on the card** — for a `server_admin` only, as the CLI
+   (`oaap node care images`) always had them: package, DSA, date, the
+   version in the image and the version Debian fixed it in. A `tenant_admin`
+   still sees count and date (§3: names are the operator's view).
+6. **Our apps** (oaap-apps, the same day): every app on `python:3.13-slim`
+   runs `apt-get update && apt-get -y upgrade` right after `FROM`, as a patch
+   release (18 apps). The four that fetched PyYAML `==6.*` pin `6.0.3` and
+   now declare `care.rebuild: self` (marketplace, package-catalog,
+   store-editor, studio).
+
+**Is `apt-get upgrade` compatible with `care.rebuild: self`?** Yes. The promise
+says a rebuild changes nothing but the base (§15); Debian's packages *are*
+the base layer (§2) — the upgrade only brings the base to where Debian
+already is, a day or a week before the image maintainers do. What it must
+not fetch is anything of the app's own layer, and it does not.
+
+**Measured on oaap-test (2026-11-11, reference 0.1.252).** Two ZIP probes of
+package-catalog: 0.2.1 with the upgrade line — `base.upgrades: true`, zlib
+`…+deb13u1` in the image, reading `fresh`, open 0, self-heal possible; 0.2.0
+without — `upgrades: false`, zlib `…+b1`, open 1 with "zlib (DSA-6613-1
+2026-11-07, image 1:1.3.dfsg+really1.3.1-1, fixed in …+deb13u1)" and "will a
+rebuild help: only-upgrade -- no -- Debian has the fix …". A rebuild of
+either on the unchanged base: "nothing to rebuild on", container and image
+untouched. The card on the portal (server_admin): package, DSA, date, both
+versions, "Hilft ein Neubau? Nein. …". (The version "in the image" is the
+source version Debian's list compares, without the binNMU suffix `+b1`.)
+
+**Not changed.** Foreign apps (bdt, aipc, …) heal only when their author adds
+the line; the card says so in their case. Self-heal by the node (stage 3)
+is still not built.
+
 ## Deutsche Zusammenfassung
+
+**Stand 11.11. (§16):** Alle offenen Meldungen auf oaapx01 waren zlib (DSA-6613-1
+vom 07.11.). Debian hatte die Korrektur, das offizielle `python:3.13-slim` noch
+nicht — „Neu bauen“ holte dieselbe alte Basis. Zwei Ursachen: Unsere Apps
+spielten beim Bau keine Korrekturen ein, und selbst eine App, die es tat
+(code-server), bekam sie nicht, weil Docker die Zeile aus dem Zwischenspeicher
+nahm. Jetzt erkennt der Knoten ein Dockerfile mit `apt-get upgrade` und baut es
+ohne Zwischenspeicher (alle Bauwege, eine Funktion); bringt der Neubau nichts
+Neues, bleibt das laufende Abbild. Die Karte sagt klar „Ja, ein Neubau heilt“
+oder „Nein, weil …“ und zeigt dem Server-Admin Paket, DSA, Datum und beide
+Versionen. Alle 18 unserer python-slim-Apps spielen die Korrekturen jetzt beim
+Bau ein; vier tragen zusätzlich `care.rebuild: self` (PyYAML fest auf 6.0.3).
+
 
 **Stand 06.11. (Stufe 2b):** Jede Installation aus Git hält ab 0.1.229 den
 Commit fest; der Neubau baut genau diesen Commit auf frischer Basis neu —
