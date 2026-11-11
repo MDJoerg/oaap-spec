@@ -1,7 +1,7 @@
 # oaap.core.portal — Web Portal
 
 - **ID:** `oaap.core.portal`
-- **Version:** 0.3.40 (the store list **remembers its filter** for the way back, the card "Nach Produktiv übernehmen" also for a Git test instance with its commit -- 2.6). 0.3.39 (the store asks before an update **widens a production instance**, one tick under the reported lines -- 2.6, I-43; the card "Abbild" names the open packages for a `server_admin` and answers "will a rebuild help" in plain words -- 2.14, RFC-0071 §16). 0.3.38 (the build pages show a profile's **version**, its **history** with a download per kept file, and the version and digest a build ran -- 2.11, RFC-0079; the button "Erzeugen" also produces a `vapid` key -- `oaap.apps.runtime` 2.8). 0.3.37 (the page *Destinationen* carries the `server_admin`'s switch
+- **Version:** 0.3.40 (**bulk runs** in the store: "Alle aktualisieren", "Alle getesteten übernehmen", "Alle neu bauen" -- plan first, a protocol, stop at the first failure -- 2.6.1; the store list **remembers its filter** for the way back, the card "Nach Produktiv übernehmen" also for a Git test instance with its commit -- 2.6). 0.3.39 (the store asks before an update **widens a production instance**, one tick under the reported lines -- 2.6, I-43; the card "Abbild" names the open packages for a `server_admin` and answers "will a rebuild help" in plain words -- 2.14, RFC-0071 §16). 0.3.38 (the build pages show a profile's **version**, its **history** with a download per kept file, and the version and digest a build ran -- 2.11, RFC-0079; the button "Erzeugen" also produces a `vapid` key -- `oaap.apps.runtime` 2.8). 0.3.37 (the page *Destinationen* carries the `server_admin`'s switch
   that hands authoring to one tenant's `tenant_admin`, and that tenant_admin's form -- 2.17).
   0.3.36 (page *Destinationen*, 2.17). 0.3.35
 - **Maturity:** draft (0.3.35 adds the card **MCP** to the instance page: source and readers, a gateway's sources and its sign-in, and the `server_admin`'s button that has a connector make the gateway's clients -- §2.16, RFC-0073 stage 3; 0.3.34 lets the start form of a build **choose apps** from the store's catalogue, one tick box per app, for a parameter of kind `apps` -- §2.11, RFC-0055 §15; 0.3.33 moves administration out of the header into a **side bar in groups** and gives long pages without tabs **jump marks** -- §2.7, design guidelines 0.2 §5 and 6.2.3; 0.3.32 adds the page **Nachrichten** -- "Postausgang": which mailbox a tenant's realm sends with, the tenant's own mailbox for its `tenant_admin`, the node's for `server_admin` -- §2.15, RFC-0072 stage 2, `oaap.net.destinations` 0.9; 0.3.31 lets the start form of a build install an app that administers its tenant's grants by one tick, which is the operator's confirmation -- §2.11, RFC-0055 §14 item 4; 0.3.30 lets a `server_admin` confirm an app that administers its tenant's grants in the store -- §2.6, `oaap.core.authorization` 0.5.2 §2.10; the card "Abbild" says whether a rebuild can be expected to help -- §2.14; 0.3.29 adds **care at a glance** to the store and the instance list -- an update in the catalogue and open advisories of the image reading, as a filter, a hint line and a badge, plus filters on the instance list -- §2.14; 0.3.28 adds the card **Neustart-Schutz** to the instance page — §2.13, RFC-0069 stage 5, `oaap.core.updates` 0.7 §2.7.2; 0.3.27 adds the node page **Datenträger** — §2.12, specified in `oaap.data.disks` 0.2 §2.6, RFC-0063 stage 2; 0.3.26 adds **profile upload, download and delete** and tick boxes for `bool` parameters on the build pages — §2.11, RFC-0055 §14; 0.3.25 adds **invitations and requests** — the prospect's public form and the operator's list, §2.10, RFC-0055 stage 4; 0.3.24 adds the **tenant build pages** — a wizard over the operator API, §2.9, RFC-0055 stage 3; 0.3.23 shows the **Cohorts menu entry to every
@@ -541,6 +541,32 @@ whose value is the fingerprint, and the other way (update a test instance,
 look, promote). Whoever may update the instance may confirm — as with
 promotion. The host counts the tick only if the fingerprint matches what the
 package it installs widens.
+
+#### 2.6.1 Bulk runs (0.3.40)
+
+Three links on the store page, for whoever may use the store: **Alle
+aktualisieren** (every visible instance the store has a newer version for),
+**Alle getesteten übernehmen** (every production instance whose test
+instance runs a higher version and can be promoted, 2.14.1 of
+`oaap.apps.runtime`), **Alle neu bauen** (every instance whose card "Abbild"
+says a rebuild helps). Each opens a **plan made by the node** — the steps,
+test instances first, and in words what is left out and why. Nothing runs
+until the person presses the start button. A production instance with a
+test instance is never part of the update run: it follows by the promotion
+run, a separate button, so a person looks at the test instance in between
+(RFC-0050).
+
+The run is a detached process on the node. Every step is an ordinary request
+through the same worker in the starting person's name — the same rules as a
+click (tenant boundary, test first, the tenant's log). The run stops at the
+first step that is refused or fails and says which and why; a widening of a
+production instance or an app that administers rights is never confirmed by
+a run — it stops and points to the store, one by one. One run at a time per
+node; a run can be told to stop after the current step. The protocol page
+refreshes itself while the run goes; the list "Läufe" keeps the last thirty.
+A `tenant_admin` plans only their tenant and sees only their own runs. The
+same at the machine: `oaap app bulk plan|start <update|promote|rebuild>`,
+`oaap app bulk stop <id>`, `oaap app bulk list`.
 
 **The way back keeps the filter** (0.3.40). The store list remembers its
 filter in a cookie of the browser (path `/store`, a week); every way back
@@ -1862,3 +1888,15 @@ Host prüft dieselben Dinge wie `oaap idp mcp`.
 - **Karte „Abbild“ (§2.14, RFC-0071 §16):** Der Server-Admin sieht die betroffenen Pakete
   mit DSA, Datum und beiden Versionen. „Hilft ein Neubau?“ antwortet klar: ja, weil die App
   beim Bau Korrekturen einspielt — oder „Nein.“ mit Grund und dem, was hilft.
+
+## Deutsche Zusammenfassung (0.3.40 — Läufe, Übernahme aus Git, Filter)
+
+- **Läufe (§2.6.1):** Im Store „Alle aktualisieren“, „Alle getesteten übernehmen“, „Alle neu
+  bauen“. Erst zeigt der Knoten den Plan (Test-Instanzen zuerst, was fehlt und warum), dann
+  startet ein eigener Knopf. Jeder Schritt ist ein normaler Auftrag im Namen der Person; der
+  Lauf hält beim ersten Fehler an und bestätigt nie eine Rahmenerweiterung oder eine
+  Rechte-App. Produktiv-Instanzen mit Test-Instanz folgen erst über „Alle getesteten
+  übernehmen“ — dazwischen schaut ein Mensch. Protokollseite und Liste „Läufe“.
+- **Übernahme aus Git:** Die Karte „Nach Produktiv übernehmen“ gibt es auch für eine
+  Test-Instanz aus Git mit festgehaltenem Commit.
+- **Filter:** „Zurück zum Store“ stellt den letzten Filter wieder her.
