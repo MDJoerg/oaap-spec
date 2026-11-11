@@ -1451,6 +1451,13 @@ The source is added with `oaap store add-catalog <instance>` (trust class
 install). Only the operator adds it; a request can pick among configured
 sources and never add one — the rule of this section is unchanged.
 
+**A catalog that mirrors a marketplace (RFC-0077, `oaap.dist.marketplace`
+0.1).** The package catalog MAY follow a marketplace feed through a bound
+destination (`upstream`, bearer = a machine key). This changes nothing on the
+host: what arrives is checked and taken in by the catalog app with its own
+rules and then appears in `store.json` like an uploaded package, and the host
+applies every rule above to it. The node never talks to the marketplace.
+
 **Creating instances from the portal — only on a `dev` node.** The rule
 above ("a request can never supply a source") is what makes a
 compromised portal survivable, and it is kept for every ordinary node.

@@ -2,8 +2,10 @@
 
 - **Status:** **Accepted (2026-11-11)** — D1–D5 decided by Jörg on 2026-11-10
   ("ich bin einverstanden" to the proposal in the conversation), D6–D12 on
-  2026-11-11, each as recommended (§14). Stage 1 is being built; §15 is the
-  implementation plan.
+  2026-11-11, each as recommended (§14). **Stage 1 built and measured on
+  `oaap-test` (2026-11-11, §15.6):** marketplace 0.1.0, package catalog 0.2.0
+  (mirror mode), spec `oaap.dist.marketplace` 0.1; M1–M12 green, O2 answered.
+  Not yet: the real run (§15.5, oaapx01 → oaapx02) and stages 2–4.
 - **Date:** 2026-11-10
 - **Authors:** Jörg (the idea: a marketplace / download centre next to the
   package catalog; OAAP apps only one kind of asset; cards, details, images,
@@ -524,6 +526,67 @@ the development side, checked in by `publish.py`, mirrored into oaapx02's
 catalog, updated by a tenant admin of a club. Manual uploads on oaapx02 then
 stop for that app.
 
+### 15.6 Stage 1 as built (2026-11-11)
+
+`oaap-apps/apps/marketplace` 0.1.0 (`app.py`, `db.py`, `access.py` -- the one
+rule --, `blobs.py`, `zipinfo.py`/`multipart.py` copied from the catalog,
+`tools/publish.py`, `test_marketplace.py` 46/46) and
+`oaap-apps/apps/package-catalog` 0.2.0 (`upstream.py`, `test_upstream.py`
+19/19 against the real marketplace in-process, old tests green). Where the
+build sharpened the text:
+
+- **Principals are user names** (`X-OAAP-User`) and groups (`X-OAAP-Groups`)
+  in stage 1, not user ids: an operator types a name into the admin page. A
+  machine user's name does not change; RFC-0040's id becomes the key when a
+  partner UI (stage 4) picks principals from a list.
+- **A yanked release is never placed again** (`409` with a sentence), also
+  not by checking the same file in again.
+- **The mirror checks id and version against the manifest inside the ZIP
+  before `add()`**, not after: otherwise a package that is something else
+  than the feed claims would land in the catalog under its own name. A
+  `package.url` that is not `files/<sha256>` is refused (it would lead past
+  the destination).
+- `/admin` answers `404` to a non-operator, like a hidden asset.
+- Search in stage 1 is a substring over id, title and summary; FTS5 comes
+  with the store front (stage 2).
+
+**Measured on `oaap-test` (2026-11-11)** with machine users `m77-ci`
+(publisher right `probe-*`) and `m77-node-b` (keys limited to the instance,
+7 days), marketplace `market-test` in the default tenant, catalog
+`katalog-probe` in tenant `zzz-probe`, destination `market-upstream` →
+`http://10.10.10.96:8134` (the node's own LAN address and the instance's
+port: the node cannot reach its own public name, and the gateway accepted
+the call to its own port), bearer = `m77-node-b`'s key:
+
+- **M1** `publish.py` → `201`, SHA-256 equal, placed in `beta`. **M2** again
+  `200`/not created; other bytes `409`. **M3** `../x`, no manifest, `1.0`
+  each refused with a sentence, nothing stored. **M4** `other-app` → `403`.
+- **M5** feed empty, public detail page "freischalten", file `404` both ways.
+  **M6** entitlement for `stable` with the release in `beta` only → feed
+  empty; placed in `stable` → feed lists `0.1.0`.
+- **M7** "Jetzt abrufen" in the catalog: fetched through the destination,
+  `0.1.0` released (`auto`); `oaap store add-catalog`; installed from the
+  portal's store as `server_admin` → instance `marktprobe` 0.1.0 runs.
+- **M8** `0.1.1` into `stable` → mirrored and released → portal update →
+  the instance runs `0.1.1`.
+- **M9** yank `0.1.1` ("Messung M9") → feed lists it under `withdrawn`;
+  the catalog unreleased it (`withdraw` by `upstream`, reason in the audit
+  log, version kept), `store.json` offers `0.1.0`, the instance stays on
+  `0.1.1`.
+- **M10 / O2** a 209,716,015-byte package: check-in from a laptop in 14 s,
+  mirrored through the destination proxy in 3 s, SHA-256 equal, no file left
+  in the catalog's `tmp`, catalog at 23 MiB memory (streamed). *Not*
+  measured live: a download broken off half way (covered by the unit test's
+  clean-up path only).
+- **M11** `CATALOG_UPSTREAM_RELEASE=hold` → `0.1.2` arrived unreleased;
+  released by hand → `store.json` lists `0.1.2`.
+- **M12** visibility `principals` → public list count `0`, detail `404`, the
+  entitled machine keeps its feed; back to `anyone` → count `1`.
+
+**Left on `oaap-test` for stage 2:** `market-test`, `katalog-probe`,
+`marktprobe`, the two machine users and their keys (expire 2026-11-18), the
+catalog store source.
+
 ---
 
 ## Deutsche Zusammenfassung (für Jörg)
@@ -581,3 +644,13 @@ zum Veröffentlichen zunächst in der App, D9 SQLite im Speicher der Instanz,
 D10 Plattform-API-Schlüssel von Maschinenbenutzern, D11 ein neues Asset
 startet „sichtbar, gesperrt“, D12 Kanäle sind globale Namen. **Damit
 Accepted; Stufe 1 wird gebaut.**
+
+**Stufe 1 gebaut und gemessen (11.11., §15.6):** Marketplace 0.1.0 und
+Paketkatalog 0.2.0 mit Spiegelmodus, Spec `oaap.dist.marketplace` 0.1.
+Auf oaap-test lief der ganze Weg einmal echt durch: Einchecken mit
+`publish.py`, die Berechtigung, der Katalog holt über die Destination, die
+App aus dem Store installiert, Update, Rückruf (der Katalog nimmt die
+Version aus der Freigabe, die Instanz bleibt) und `hold`. M1–M12 sind grün.
+Ein 200-MB-Paket ging in 3 s durch den Proxy (O2 beantwortet). Nächster
+Schritt ist der echte Lauf: Marketplace auf oaapx01, Katalog auf oaapx02,
+hbvp auf dem neuen Weg. Das nur auf dein Wort.
