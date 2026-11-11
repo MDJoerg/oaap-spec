@@ -1,9 +1,9 @@
 # RFC-0077: Marketplace — Digital Assets with Channels, Visibility and Entitlements, and a Catalog that Mirrors It
 
-- **Status:** **Draft (2026-11-10)** — D1–D5 decided by Jörg on 2026-11-10
-  ("ich bin einverstanden" to the proposal in the conversation); D6–D12
-  proposed (§14). **Nothing built.** This RFC is written to be built from:
-  §15 is the implementation plan.
+- **Status:** **Accepted (2026-11-11)** — D1–D5 decided by Jörg on 2026-11-10
+  ("ich bin einverstanden" to the proposal in the conversation), D6–D12 on
+  2026-11-11, each as recommended (§14). Stage 1 is being built; §15 is the
+  implementation plan.
 - **Date:** 2026-11-10
 - **Authors:** Jörg (the idea: a marketplace / download centre next to the
   package catalog; OAAP apps only one kind of asset; cards, details, images,
@@ -397,7 +397,7 @@ Decided by Jörg on 2026-11-10:
   entitlement can later carry an origin such as an order).
 - **D5 — Name: Marketplace**, app id `marketplace`.
 
-Proposed (as recommended unless Jörg says otherwise):
+Decided by Jörg on 2026-11-11, each as recommended:
 
 - **D6 — The productive marketplace runs on oaapx01** (public name, TLS,
   off-site backup), in Jörg's own tenant; oaap-test stays the measuring
@@ -574,7 +574,10 @@ oaapx02. (2) Schaufenster mit Cards, Details und Freischalt-Anfragen.
 
 **Entschieden (10.11.):** D1 eigene App, D2 Katalog dazwischen, D3
 automatische Freigabe als Standard, D4 kein Geld, D5 Name Marketplace.
-**Deine Entscheidung offen:** D6 Marketplace produktiv auf oaapx01? D7
-Zurückgezogenes lokal aus der Freigabe nehmen? D8–D10 technische
-Empfehlungen (Rechte zunächst in der App, SQLite, Plattform-API-Schlüssel).
-D11 neues Asset startet „sichtbar, gesperrt“? D12 Kanäle global.
+**Entschieden (11.11., alle wie empfohlen):** D6 produktiv auf oaapx01 (in
+deinem Mandanten, oaap-test bleibt Messfeld), D7 Zurückgezogenes wird lokal
+aus der Freigabe genommen (nie gelöscht, Instanzen unberührt), D8 Rechte
+zum Veröffentlichen zunächst in der App, D9 SQLite im Speicher der Instanz,
+D10 Plattform-API-Schlüssel von Maschinenbenutzern, D11 ein neues Asset
+startet „sichtbar, gesperrt“, D12 Kanäle sind globale Namen. **Damit
+Accepted; Stufe 1 wird gebaut.**
