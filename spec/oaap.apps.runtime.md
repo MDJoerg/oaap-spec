@@ -1,7 +1,7 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.60 (**a build that upgrades OS packages is built without the layer cache**, and "unchanged" compares the package lists -- 2.31.1, RFC-0071 §16; **a portal tick confirms a widening** by the fingerprint of exactly the reported lines -- 2.14, I-43). 0.2.59 (**a second kind of generated value, `vapid`**, and a build step may generate into an empty key -- 2.8, RFC-0079). 0.2.58 (**the envelope rule on every way in**: directory and
+- **Version:** 0.2.61 (**promotion from a Git test instance** by its recorded commit -- 2.14.1). 0.2.60 (**a build that upgrades OS packages is built without the layer cache**, and "unchanged" compares the package lists -- 2.31.1, RFC-0071 §16; **a portal tick confirms a widening** by the fingerprint of exactly the reported lines -- 2.14, I-43). 0.2.59 (**a second kind of generated value, `vapid`**, and a build step may generate into an empty key -- 2.8, RFC-0079). 0.2.58 (**the envelope rule on every way in**: directory and
   Git installs too, the report reaches the portal, I-43, 2.14). 0.2.57 (**a second origin for the views of MCP Apps**,
   manifest 0.13 `ui_sandbox`, 2.32.4, RFC-0075). 0.2.56 (**a chat acts at its tenant's gateways as the person**,
   RFC-0074 stage 1: manifest 0.12 `mcp_client: {use: true}`, the list
@@ -1063,6 +1063,16 @@ every confirmed widening of a production instance on these paths — a
 confirmed promotion included. Fixed in reference 0.1.252, measured.
 
 #### 2.14.1 Promotion to production (RFC-0020)
+
+**From Git, too (0.2.61).** A test instance installed from a Git URL with a
+recorded commit (2.31) MAY be promoted like a retained artifact: the node
+checks out exactly that commit (never the branch's newer state) and installs
+it into production, recording the commit, the source and `promoted_from`.
+Without a recorded commit the promotion is refused with the way to get one
+(one store update of the test instance). Found 2026-11-11: the store refused
+the production update of an app with a test instance ("update the test
+instance and promote it") while a Git test instance offered no promotion —
+a dead end for every app from the store's Git sources.
 
 A retained artifact MAY be **promoted** from a test instance to a
 production instance of the same app: the package that was tested is
@@ -3765,3 +3775,8 @@ fragt der Knoten noch einmal. An der Maschine bleibt es bei `--confirm`.
 den Rahmen innerhalb des ZIP-Schritts ein zweites Mal, ohne die schon gegebene
 Bestätigung — eine bestätigte Übernahme nach Produktiv mit Erweiterung scheiterte
 dadurch. Jetzt prüft jeder Weg genau einmal.
+
+**Übernahme aus Git (2.14.1).** Eine Test-Instanz aus Git mit festgehaltenem Commit
+lässt sich jetzt nach Produktiv übernehmen: Der Knoten holt genau diesen Commit und
+installiert ihn produktiv. Bisher ging das nur für hochgeladene Pakete — eine
+Store-App mit Test-Instanz ließ sich dadurch gar nicht aktualisieren (vorgaenge).
