@@ -1,8 +1,9 @@
 # RFC-0078: Help — Static Platform and App Knowledge for Any AI, through MCP, an API and a Page
 
 - **Status:** **Draft (2026-11-10)** — D1, D3 (direction) and D4 (constraint)
-  stated by Jörg on 2026-11-10; everything else proposed (§13). **Nothing
-  built.** §14 is the implementation plan.
+  stated by Jörg on 2026-11-10; everything else proposed (§13). **Stage 0
+  built (2026-11-11, reference 0.1.248, §5.1);** the app `help` (stages
+  1–3) is not. §14 is the implementation plan.
 - **Date:** 2026-11-10
 - **Authors:** Jörg (the idea: an app `help` that knows the documentation,
   synchronises it instead of being redeployed, runs once centrally for
@@ -216,6 +217,44 @@ know: examples, warnings, the "why".
   `oaap-docs/cli/generated/` — by hand at first (one command), later in CI.
 - The hand-written reference links to the generated pages and is no longer a
   list of options.
+
+### 5.1 Stage 0 as built (2026-11-11, reference 0.1.248)
+
+Where the build sharpened the text above:
+
+- **One file per appctl command**, not per group: `oaap tenant` →
+  `tenant.md` (`id: cli/tenant`), `oaap app install` → `app-install.md`
+  (`id: cli/app/install`), plus `README.md` (`id: cli/generated`) as the
+  index; 78 files for 76 commands, the wrapper's own commands and the index.
+  Most commands vary by a positional `action`, not by nested subcommands, so
+  an action is a row in the page's *Actions* table, not a file.
+- **The sudo line is read, not described.** `main()` was split into
+  `build_parser()` and `is_read_only(args)`; `oaap help` probes every action
+  of every command through that same function (with the other arguments left
+  out), so "needs `sudo`" cannot drift from what the node refuses.
+- **Audience:** only `server_admin` has a shell on a node; `support` is its
+  read-only counterpart. Hence commands that always need root →
+  `[server_admin]`, commands with a read-only action → `[server_admin,
+  support]`. `tenant_admin` gets no CLI page (no shell).
+- **Internal commands** (help text starting with `internal:`, called by
+  update, install, the portal or a timer) get a page tagged `internal` and a
+  separate table in the index, so an AI can recognise them, but they are left
+  out of `oaap help`. Three lacked the marker and got it; 17 commands had no
+  help text at all and got one.
+- **What argparse cannot know** stays in `appctl.py` as two lists —
+  `WRAPPER_GROUPS` (what `bin/oaap` passes on under its own name) and
+  `WRAPPER_OWN` (what `bin/oaap` does itself: status, version, setup-token,
+  update, uninstall) — and `test/test_cli_reference.py` holds both against
+  the wrapper's `case`.
+- **Regeneration is safe:** files carrying the generated marker that were not
+  written this time are removed; files without it are never touched. Output
+  is byte-identical across Python 3.13 (node) and 3.15 (workstation).
+- `oaap help` without `--markdown` prints the overview, runs without root.
+- In `oaap-docs`: `tools/check-docs.py` (errors: schema, unknown roles,
+  versions, `checked_against` without `checked_on`, duplicate ids; hints:
+  prose stamp without field, absolute links to own repositories — 8 files
+  today), the 13 prose stamps carried into front matter (the prose stays: it
+  carries limits no field holds), writing rules in `oaap-docs/AGENTS.md`.
 
 ## 6. Visibility on a node (D5)
 
@@ -471,6 +510,15 @@ nichts. Innerhalb der Doku werden Links relativ.
 Plattform steht bei 0.1.247. Deshalb Stufe 0: die CLI-Referenz aus den
 Befehlsdefinitionen erzeugen (`oaap help --markdown`), Kopfzeilen und ein
 Prüfskript in `oaap-docs`. Das hilft sofort, auch ohne App.
+
+**Stufe 0 gebaut (11.11., Referenz 0.1.248, §5.1):** `oaap help` zeigt die
+Übersicht, `oaap help --markdown <dir>` schreibt je Befehl eine Seite mit Kopf
+(78 Dateien in `oaap-docs/cli/generated/`). Ob ein Befehl `sudo` braucht, liest
+der Generator aus derselben Funktion, mit der der Knoten abweist. Er kann es
+also nicht falsch abschreiben. Zielgruppe: nur-sudo → `server_admin`, mit
+lesender Aktion → zusätzlich `support`. 17 Befehle hatten keinen Hilfetext und
+haben jetzt einen. In `oaap-docs` gibt es ein Prüfskript, die Schreibregel, und
+die 13 „Geprüft gegen“-Sätze stehen jetzt auch als Kopf.
 
 **Stufen:** 0 Doku-Vorbereitung · 1 App `help` zentral auf oaap-test, Claude
 Code angebunden (Messung: deine Backup-Frage) · 2 Zielgruppen- und
