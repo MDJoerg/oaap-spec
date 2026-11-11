@@ -1,7 +1,7 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.58 (**the envelope rule on every way in**: directory and
+- **Version:** 0.2.59 (**a second kind of generated value, `vapid`**, and a build step may generate into an empty key -- 2.8, RFC-0079). 0.2.58 (**the envelope rule on every way in**: directory and
   Git installs too, the report reaches the portal, I-43, 2.14). 0.2.57 (**a second origin for the views of MCP Apps**,
   manifest 0.13 `ui_sandbox`, 2.32.4, RFC-0075). 0.2.56 (**a chat acts at its tenant's gateways as the person**,
   RFC-0074 stage 1: manifest 0.12 `mcp_client: {use: true}`, the list
@@ -1616,6 +1616,17 @@ files the operator must edit", rule 4), so the runtime must offer it:
   An app that declares it keeps working on an older node — "strict
   schema, tolerant runtime" (2.2): the older node ignores the key and
   shows an ordinary field.
+- **`generate: vapid`** (0.2.59, RFC-0079) is the second kind: the
+  32-byte big-endian private scalar of a NIST P-256 key (`1 ≤ k < n`,
+  drawn again otherwise) as base64url without padding — the Web Push
+  (VAPID) private key. The app derives the public key itself. The same
+  three rules apply. Any other value of `generate` is recorded as "no".
+- **A tenant build may generate** (RFC-0079, RFC-0055 §17): a step
+  `app.config` with `generate: true` produces a value of the kind the
+  manifest declares, **only into an empty key**. A value that is there —
+  generated earlier or typed by hand — is never replaced, because
+  replacing a push key voids every subscription of the instance. Note,
+  audit trail and deploy log name the key and the kind, never the value.
 - **Auditable without leaking.** Every change is recorded with
   instance, key name, actor and time — values never appear in any log.
 

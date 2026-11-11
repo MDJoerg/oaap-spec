@@ -574,6 +574,26 @@ configuration (operating mode `club`, a contact address, an operator name).
   push, I-42 (2)/(3)). Whether the node or the app makes it is open and is
   settled with the app's author first.
 
+## 17. Versions and generated values (2026-11-11, RFC-0079, reference 0.1.251)
+
+Specified in RFC-0079; in short, for the profile language:
+
+- An optional top-level **`version`** (`x.y.z[-pre]`). The format string
+  stays `oaap.tenant-profile/1`; an older node ignores the field.
+- The node keeps every file it took under its digest
+  (`profiles/.history/<id>/`). An upload under a held id is judged by
+  version: higher replaces, the same bytes change nothing, the same
+  version with other bytes, a lower version and an unversioned file over
+  a versioned one are refused. Delete removes the history too, never while
+  a build of the profile is open.
+- A build records `version` beside `digest`, and **continue loads the
+  profile by digest from the history** -- the refusal "the profile file
+  changed" remains only for a build whose file was never kept.
+- `app.config` takes exactly one of `value` and **`generate: true`**
+  (literal true; the kind comes from the app's manifest only,
+  `oaap.apps.runtime` 2.8). It produces a value only into an empty key and
+  never replaces one.
+
 ## Zusammenfassung für Jörg (Deutsch)
 
 **Was das ist:** Ein **Profil** ist eine kleine Datei auf dem Knoten. Sie sagt,

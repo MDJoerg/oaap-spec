@@ -1,6 +1,6 @@
 # RFC-0079: Profile Versions and Generated Values
 
-- **Status:** Draft (2026-11-11) — decisions D1–D9 open (§6)
+- **Status:** **Accepted (2026-11-11)** — D1–D9 as recommended (Jörg: "wie empfohlen"). Built in reference 0.1.251 (§7); `hbvp` still has to declare `generate: vapid` (D9, the app's author)
 - **Date:** 2026-11-11
 - **Authors:** Jörg (the observation: an uploaded profile shows no version;
   the wish to settle the push key for the fan app together with it), Claude
