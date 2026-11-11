@@ -4,8 +4,10 @@
   stated by Jörg on 2026-11-10, D2 and D5–D11 on 2026-11-11 as recommended
   (§13). **Stage 0
   built (2026-11-11, reference 0.1.248, §5.1); stage 1 built (2026-11-11,
-  app `help` 0.1.0, §14.4), central instance on `oaap-test`;** stages 2–3
-  are not. §14 is the implementation plan.
+  app `help` 0.1.0, §14.4), central instance on `oaap-test`; stage 2 in
+  large part (2026-11-11, `help` 0.2.0, §14.5): O3 decided, audience filter,
+  `seed`, store entry -- `catalog` and the editable source list are not;**
+  stage 3 is not. §14 is the implementation plan.
 - **Date:** 2026-11-10
 - **Authors:** Jörg (the idea: an app `help` that knows the documentation,
   synchronises it instead of being redeployed, runs once centrally for
@@ -506,6 +508,48 @@ M3–M7 also measured in `test_help.py` (83 checks, no node). **Open:** M1 and
 M2 (Claude Code connected, Jörg's questions), M3 on the node after the push of
 `oaap-docs`.
 
+### 14.5 Stage 2 as built (2026-11-11, `help` 0.2.0)
+
+- **O3 decided by Jörg (11.11.): two paths, one package.** `/` (page, API,
+  `/mcp`) is a signed-in route -- `[admin, keyuser, user, support]`; a
+  manifest route may only name app roles, and `server_admin`/`tenant_admin`
+  pass through `admin` while `X-OAAP-Roles` still carries all their roles.
+  There the audience filter always applies. `/public/` serves the same doors
+  public and unfiltered (D8), and only when `HELP_PUBLIC=on`; otherwise it
+  answers 404 as if it did not exist; `/public/admin` never exists.
+  `HELP_AUDIENCE_FILTER` is gone: the path decides, not a switch.
+- **`visible(doc, roles)`** takes the roles explicitly; `UNFILTERED` is the
+  only way to see everything, and the library functions have no default, so
+  a forgotten argument is an error, not "everything".
+- **O1 measured:** an instance's environment carries `OAAP_APP_SECRET`,
+  `OAAP_CARE_URL`, its destinations and `OAAP_INSTANCE_NAMES` -- no platform
+  version. The version filter stays on request (`version` argument).
+- **`seed`:** `seed/oaap-docs.tar.gz` in the package (98 documents, 95 KB),
+  written by `make_seed.py` from an `oaap-docs` checkout, byte-identical for
+  identical content. It answers until the first fetch succeeds and on a node
+  without destination; the status says which one answers (`answering`).
+- **Store entry** `help` 0.2.0 (`oaap-store.json`, README), so a customer
+  node installs it from the store.
+- **Not built:** source `catalog` -- the package catalog has no read door
+  for other apps (only its admin page; the node reads its storage directly),
+  so it needs one first; the editable source list on the admin page.
+
+**Measured on `oaap-test`** (help 0.2.0, `HELP_PUBLIC=on`): `/public/`
+status, search, MCP `tools/list` from outside without login; `/`, `/mcp`,
+`/api/v1/…`, `/admin` → 303 to the sign-in; `/public/admin` 404; public
+page links stay under `/public/` and show no admin link. In the container
+with real headers: `user` and `admin` 0 hits for "promote" (operator
+documents), `server_admin` 14 incl. `cli/app/promote`, `support` 11 without
+it (root-only commands are `server_admin`, §5.1). **M10:** a second instance
+without destination answered at once with 98 documents from the seed and
+named the missing destination (removed afterwards). **M9** with a bait per
+door in `test_help.py` (104 checks).
+
+**Consequence for authors (D5):** a document meant for users needs
+`audience: [user, …]` or `public` in its front matter; without one, a `user`
+on a customer node does not see it. Today almost no document in `oaap-docs`
+names users.
+
 Stage 2 adds **M9** (a `user` never receives an operator document through
 search, read, topics, resources, page or API — one bait per door) and **M10**
 (a node without destination answers from the seed).
@@ -577,6 +621,17 @@ dem Knoten nach dem Push von `oaap-docs`. Neu offen **O3**: Auf Kundenknoten
 braucht der Zielgruppenfilter eine angemeldete Route. Das Manifest kann eine
 Route aber nicht je Instanz zwischen öffentlich und Rollen umschalten. Das
 klärt Stufe 2.
+
+**Stufe 2 großteils gebaut (11.11., `help` 0.2.0, §14.5):** O3 wie von dir
+entschieden: zwei Pfade, ein Paket. Angemeldet unter `/` gilt immer der
+Zielgruppenfilter. Unter `/public/` antwortet dasselbe ohne Anmeldung, aber
+nur mit `HELP_PUBLIC=on`. Die Doku liegt als `seed` im Paket, eine Instanz
+ohne Destination antwortet damit sofort (auf oaap-test gemessen). `help`
+steht im Store. O1 gemessen: Eine Instanz kennt die Plattformversion nicht.
+Noch nicht: Quelle `catalog` (der Paketkatalog braucht erst eine Lesetür)
+und die Quellenliste auf der Verwaltungsseite. Folge für die Doku: Ein Text
+für Anwender braucht `audience: [user]` im Kopf, sonst sieht ihn ein
+Anwender nicht.
 
 **Stufen:** 0 Doku-Vorbereitung · 1 App `help` zentral auf oaap-test, Claude
 Code angebunden (Messung: deine Backup-Frage) · 2 Zielgruppen- und
