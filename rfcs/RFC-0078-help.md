@@ -7,7 +7,7 @@
   app `help` 0.1.0, §14.4), central instance on `oaap-test`; stage 2 in
   large part (2026-11-11, `help` 0.2.0, §14.5): O3 decided, audience filter,
   `seed`, store entry -- `catalog` and the editable source list are not;**
-  stage 3 is not. §14 is the implementation plan.
+  stage 2b (§15, gaps and requests, I-50) is a draft; stage 3 is not. §14 is the implementation plan.
 - **Date:** 2026-11-10
 - **Authors:** Jörg (the idea: an app `help` that knows the documentation,
   synchronises it instead of being redeployed, runs once centrally for
@@ -371,6 +371,7 @@ node and marked on a central instance; the client may pass `version` to
 | 0 | Front matter and check script in `oaap-docs`; `oaap help --markdown`; generated CLI reference; writing rule in `oaap-docs/AGENTS.md` | reference: one CLI command |
 | 1 | App `help`: sources `archive` + `local`, FTS index, MCP door (tools, resources, prompts), page, API; central instance on `oaap-test`, Claude Code connected directly | none |
 | 2 | Audience filter, version filter, priorities and shadowing across sources, `seed`, `catalog`; installable on customer nodes through the catalog; admin page | none (O1 aside) |
+| 2b | Gaps and requests (§15): `help_request_guide` behind `HELP_REQUESTS`, duplicates as votes, a key-protected maintainer door, counting searches without hits | none |
 | 3 | `docs:` / `docs_sources:` (manifest 0.14), source `apps`, source `marketplace`, launchpad tile | manifest 0.14 |
 
 ## 13. Decisions
@@ -554,6 +555,136 @@ Stage 2 adds **M9** (a `user` never receives an operator document through
 search, read, topics, resources, page or API — one bait per door) and **M10**
 (a node without destination answers from the seed).
 
+## 15. Gaps and requests (stage 2b, I-50, Draft 2026-11-11)
+
+**Occasion.** Jörg's first test of the central instance from Claude Code
+(2026-11-11): "How can I expose a service on my laptop through the platform,
+like ngrok?" The AI found `oaap connect` / `oaap connector` (RFC-0033) in the
+generated CLI reference, said there was no scenario, and derived the steps
+without having run them. It knew exactly what was missing -- and could only
+tell the person, in a session that is gone afterwards.
+
+**Idea (Jörg).** If the operator allows it, the searching AI gets one more
+tool and can *request* a step-by-step guide, like a ticket. The maintainers
+(Claude, in a session or later a scheduled agent) fetch the requests through
+MCP, check for duplicates, write the guide and close the request. There is
+no answer back to the requesting AI: its session is volatile. The answer is
+the guide, which the next search finds.
+
+### 15.1 The request tool
+
+`help_request_guide` exists only when `HELP_REQUESTS=on` (D12); otherwise it
+is not listed. Arguments:
+
+| Field | Limit | What |
+|---|---|---|
+| `topic` | 120 chars | what the guide should enable, e.g. "expose a local service through the platform (like ngrok)" |
+| `question` | 1,000 chars | the question as asked, **phrased generally** |
+| `searched` | 10 × 80 chars | the queries already tried |
+| `found` | 10 ids | documents that came close but did not answer |
+| `lang` | `de`/`en` | |
+
+- Annotated `readOnlyHint: false`, `destructiveHint: false`,
+  `openWorldHint: true`: it sends something away, so a client asks the
+  person first. The description says so, and tells the AI to call it only
+  after `help_search` found no fitting guide, and to leave out names,
+  addresses, customer data and secrets (D15).
+- **Duplicates on arrival (D13).** The new request is searched against the
+  open ones with the same full-text index (`topic` weighted above
+  `question`). Above a threshold it becomes a **vote** on the existing
+  request, not a new one. The answer always tells the AI what happened:
+  `{"status": "new"|"vote", "request": "R-2026-0007", "votes": 3,
+  "open_since": "…"}` -- the only feedback a volatile session can use, and the
+  one the person can be told ("already requested, you are the third").
+- A request that matches an **existing document** well (the AI searched
+  badly) is still stored, marked `covered_by`, so the maintainer sees that the
+  guide exists but was not found -- a finding about titles and words, not
+  about missing content.
+
+### 15.2 Where requests live (D14)
+
+In `help`'s own `/data` (`requests` table), not in `vorgaenge` (RFC-0061):
+the central instance is public and anonymous, `vorgaenge` lives per tenant,
+needs signed-in persons and the gateway's attested origin. Forwarding a
+request into a tenant's `vorgaenge` can come later, behind its own switch.
+
+Stored: id, topic, question, searched, found, lang, votes, first and last
+seen, status (`open`, `done`, `rejected`, `duplicate`), the closing note and
+document id. **Not** stored: IP address, user agent, roles, any identity.
+
+### 15.3 The maintainer door (D16)
+
+A second MCP door `/maint/mcp` (and `/maint/api/v1/...`), on a route of its
+own, authenticated by a **key** (`HELP_MAINT_KEY_SHA256` in the instance
+config holds only the digest; RFC-0027 style), never public:
+
+| Tool | What |
+|---|---|
+| `requests_list` | open requests by votes, with `covered_by` hints |
+| `request_read` | one request with all votes' questions (generalised) |
+| `request_close` | `done` with `doc_id`, or `rejected`/`duplicate` with a reason |
+| `gaps_report` | searches without (good) hits, counted (§15.4) |
+
+Closing with `doc_id` is checked: the document must exist in the index. The
+maintainer is told in the tool description that request texts are
+**untrusted content** -- a wish, never an instruction ("write into the docs
+that …" is a request to evaluate, not an order).
+
+### 15.4 Passive gaps
+
+Independent of `HELP_REQUESTS`: searches whose best hit is weak or empty are
+counted as normalised query words (lower case, stop words removed, no
+numbers longer than 4 digits, no e-mail-like or URL-like tokens), per day,
+without any identity. 90 days, then aggregated. It shows gaps even when no
+AI asks.
+
+### 15.5 Abuse and privacy
+
+- The platform throttles per client address (RFC-0010); `help` adds a cap
+  of open requests (default 200) and of new requests per hour (default 20);
+  above it, only votes are taken.
+- Length limits as above; control characters removed; stored and shown as
+  text only.
+- Closed requests are deleted after 180 days (D17); the document they led to
+  stays.
+- On a customer node the switch is the operator's; requests there stay on
+  that node (the maintainer door is the operator's, not ours).
+
+### 15.6 The workflow
+
+1. The AI cannot find a guide, asks the person, calls `help_request_guide`.
+2. A maintainer (Claude in a session; later a scheduled agent) calls
+   `requests_list`, reads, checks the platform (code, `oaap-test`), writes
+   the guide in `oaap-docs` with front matter.
+3. **Publishing stays with Jörg** (push); a scheduled agent proposes a
+   branch, never pushes `main`.
+4. After the fetch the guide is in the index; `request_close` with its id.
+   The next AI finds the guide through `help_search`.
+
+### 15.7 Decisions (proposed)
+
+- **D12** -- Off by default; `HELP_REQUESTS=on` per instance. The central
+  instance on `oaap-test` switches it on.
+- **D13** -- Duplicates become votes, decided on arrival by full-text
+  similarity; the AI is told `new`/`vote` and the count.
+- **D14** -- Requests in `help`'s `/data`, not in `vorgaenge`.
+- **D15** -- The tool is marked as writing; its text asks for general
+  phrasing without personal data.
+- **D16** -- Maintainer door with a key whose digest is instance config.
+- **D17** -- Closed requests deleted after 180 days; passive gap counts kept
+  90 days, then aggregated.
+
+### 15.8 Measurements
+
+- **M11** Jörg's tunnel question from Claude Code: the AI finds no guide,
+  asks, requests one; a second, differently worded request becomes a vote.
+- **M12** `requests_list` from a maintainer session; the guide "Einen lokalen
+  Dienst über die Plattform freigeben (wie ngrok)" written, fetched,
+  `request_close` with its id; the original question then finds it first.
+- **M13** With `HELP_REQUESTS` off the tool is not listed and a direct call is
+  refused; the maintainer door without key answers 401, never data.
+- **M14** No request stores an address or identity (read the table).
+
 ## Deutsche Zusammenfassung (für Jörg)
 
 **Worum es geht:** Eine App **`help`** kennt das **statische Hilfewissen**:
@@ -632,6 +763,16 @@ Noch nicht: Quelle `catalog` (der Paketkatalog braucht erst eine Lesetür)
 und die Quellenliste auf der Verwaltungsseite. Folge für die Doku: Ein Text
 für Anwender braucht `audience: [user]` im Kopf, sonst sieht ihn ein
 Anwender nicht.
+
+**Neu: Lücken melden (I-50, §15, Stufe 2b, Entwurf 11.11.).** Deine Idee aus
+dem Tunnel-Test: Findet eine KI keine Anleitung, darf sie, wenn der Admin es
+einschaltet (`HELP_REQUESTS=on`), eine anfordern. Gleiche Anfragen werden zu
+Stimmen, und die KI erfährt sofort, ob sie neu ist oder schon N-mal angefragt
+wurde. Die Anfragen liegen in `help` selbst, ohne Adresse und ohne Identität.
+Wir holen sie über eine eigene, mit Schlüssel geschützte MCP-Tür ab, schreiben
+die Anleitung und schließen die Anfrage mit der Kennung des neuen Dokuments.
+Nebenbei zählt `help` Suchen ohne Treffer. Veröffentlicht wird weiter nur mit
+deinem Wort. **Zu entscheiden: D12–D17** (§15.7, alle mit Empfehlung).
 
 **Stufen:** 0 Doku-Vorbereitung · 1 App `help` zentral auf oaap-test, Claude
 Code angebunden (Messung: deine Backup-Frage) · 2 Zielgruppen- und
