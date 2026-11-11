@@ -7,7 +7,8 @@
   app `help` 0.1.0, §14.4), central instance on `oaap-test`; stage 2 in
   large part (2026-11-11, `help` 0.2.0, §14.5): O3 decided, audience filter,
   `seed`, store entry -- `catalog` and the editable source list are not;**
-  stage 2b (§15, gaps and requests, I-50) is a draft; stage 3 is not. §14 is the implementation plan.
+  stage 2b (§15, gaps and requests, I-50) built 2026-11-11 (`help` 0.3.0,
+  §15.9); stage 3 is not. §14 is the implementation plan.
 - **Date:** 2026-11-10
 - **Authors:** Jörg (the idea: an app `help` that knows the documentation,
   synchronises it instead of being redeployed, runs once centrally for
@@ -661,7 +662,7 @@ AI asks.
 4. After the fetch the guide is in the index; `request_close` with its id.
    The next AI finds the guide through `help_search`.
 
-### 15.7 Decisions (proposed)
+### 15.7 Decisions (stated by Jörg on 2026-11-11, each as recommended)
 
 - **D12** -- Off by default; `HELP_REQUESTS=on` per instance. The central
   instance on `oaap-test` switches it on.
@@ -684,6 +685,38 @@ AI asks.
 - **M13** With `HELP_REQUESTS` off the tool is not listed and a direct call is
   refused; the maintainer door without key answers 401, never data.
 - **M14** No request stores an address or identity (read the table).
+
+### 15.9 Stage 2b as built (2026-11-11, `help` 0.3.0)
+
+`guide_requests.py` (requests, votes, gaps, deadlines; `requests.db` beside
+the index, never rebuilt), `maint_door.py` (key check in constant time,
+four tools), `Index.strict()` (a section carrying every content word -- the
+one meaning of "a good hit" for `covered_by` and for gaps). Where the build
+sharpened the text:
+
+- **Duplicates** by weighted word overlap of stems (topic counts twice),
+  threshold 0.5, not by the FTS index: open requests are few, and the score
+  must be explainable. Jörg's two tunnel phrasings score 0.78, the Keycloak
+  question 0.0. Votes only land on **open** requests; after `done` the same
+  question opens a new one.
+- `duplicate` moves the votes to the target; `rejected` needs a note; `done`
+  needs a `doc_id` in the index (fetch first).
+- Routes: `/maint` is `public` in the manifest (the app checks the key);
+  `/public/maint` does not exist.
+- Limits configurable beyond the defaults (`HELP_REQUESTS_MAX_OPEN`,
+  `HELP_REQUESTS_PER_HOUR`, not declared -- defaults suffice).
+- Gaps: stems of the query, without tokens containing `@` or `://` and
+  without numbers longer than four digits.
+
+**Measured:** `test_requests.py` 38/38 (M11/M12 in small with Jörg's tunnel
+question, M13, M14, limits, deadlines, Dockerfile copies every module);
+`test_help.py` 104/104. On `oaap-test` (key `OAAP_TEST_HELP_MAINT_KEY` in
+`test/.env`, only its digest on the node): tool listed on `/public/mcp`;
+maintainer door 401 without and with a wrong key; a probe request `new`, a
+reworded one `vote 2`, listed and closed as `rejected` through the door;
+`requests.db` holds no address and has no identity column. **Open:** M11 and
+M12 for real -- Jörg asks again from Claude Code, a maintainer session writes
+the tunnel guide.
 
 ## Deutsche Zusammenfassung (für Jörg)
 
@@ -772,7 +805,9 @@ wurde. Die Anfragen liegen in `help` selbst, ohne Adresse und ohne Identität.
 Wir holen sie über eine eigene, mit Schlüssel geschützte MCP-Tür ab, schreiben
 die Anleitung und schließen die Anfrage mit der Kennung des neuen Dokuments.
 Nebenbei zählt `help` Suchen ohne Treffer. Veröffentlicht wird weiter nur mit
-deinem Wort. **Zu entscheiden: D12–D17** (§15.7, alle mit Empfehlung).
+deinem Wort. **D12–D17 von dir am 11.11. wie empfohlen entschieden** (§15.7). **Gebaut (`help` 0.3.0, §15.9)**
+und auf oaap-test eingeschaltet. Deine beiden Tunnel-Formulierungen erkennt
+`help` als dieselbe Anfrage. Die Bearbeitungstür öffnet nur mit Schlüssel.
 
 **Stufen:** 0 Doku-Vorbereitung · 1 App `help` zentral auf oaap-test, Claude
 Code angebunden (Messung: deine Backup-Frage) · 2 Zielgruppen- und
