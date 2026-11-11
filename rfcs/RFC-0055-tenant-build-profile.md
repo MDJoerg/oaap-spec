@@ -2,7 +2,7 @@
 
 - **Status:** **Accepted (2026-10-03)** — Jörg decided the four open questions
   of idea I-33 one by one (§9). **Stages 1–4 built (2026-10-03, §10–§13); profile upload and
-  app choice §14; choosing apps at the start §15 (2026-11-07).**
+  app choice §14; choosing apps at the start §15 (2026-11-07); configuration values in a build §16 (2026-11-11).**
 - **Date:** 2026-10-03
 - **Authors:** Jörg (the wish: build tenants from portal or app), Claude
   (survey of today's steps, write-up)
@@ -97,6 +97,7 @@ the node and says whether the step's result is already there), and a
 | `tenant.face` | `tenant face` | stored values equal the wish | none: it goes with the tenant |
 | `app.install` | `app install <source> --tenant <label> --channel … --name …` | an instance of that name exists in the tenant with the package's version | `app remove` (without `--purge`) |
 | `authz.setup` | `oaap authz setup --app <app>` (`oaap.core.authorization` 0.4 §2.11): role, collection, mapping and realm group per template; params `app`, optional `only`, `skip`, `groups` (key → path), `names` (key → name) | the plan for that app has nothing left to do | none (nothing deletes) |
+| `app.config` (§16) | `app config set <instance> <key> <value>` (the same function) | the instance's value of that key equals the wish | none: it goes with the instance |
 | `manual` | none — a human does it | `done_when` (a read; see below) | none |
 | `backup.check` | none | the tenant is in the node archive | none |
 
@@ -552,6 +553,27 @@ not outside them; the form helpers). Five deliberate faults against it were all
 caught. `test_tenant_build_page.py` renders the start form with the boxes and
 checks what a POST queues.
 
+## 16. Configuration values in a build (2026-11-11, I-42, reference 0.1.250)
+
+Found building `svl` on `oaapx02` (2026-11-09): a build installed an app with
+its manifest's defaults only, and somebody then had to open the instance's
+configuration (operating mode `club`, a contact address, an operator name).
+
+- New step type **`app.config`**: `name` (the instance, as in its
+  `app.install`), `key`, `value` -- one key per step, `value` fixed or a
+  parameter. It runs the function `oaap app config set` runs, so the value
+  lands exactly as it would at the machine (the container is recreated, as
+  there). Check: the instance's value equals the wish; a key the app does
+  not declare is a **conflict**, not a guess; no instance yet is a failure
+  that points at the `app.install`.
+- **The value never appears** in a step's note, the tenant's audit trail
+  or the deploy log -- it may be a secret. The note names the key.
+- `"{p}"` alone with no value drops `value`, and the step then has nothing
+  to do (an optional field left empty).
+- Not part of this: a value the node **generates** (a VAPID key pair for
+  push, I-42 (2)/(3)). Whether the node or the app makes it is open and is
+  settled with the app's author first.
+
 ## Zusammenfassung für Jörg (Deutsch)
 
 **Was das ist:** Ein **Profil** ist eine kleine Datei auf dem Knoten. Sie sagt,
@@ -662,3 +684,10 @@ jede gewählte App in einer Katalogquelle steht; sonst entsteht gar nichts.
 Fortsetzen und Rückbau arbeiten je Instanz. Rechte-Apps bleiben ein eigener
 Schritt mit eigenem Haken. Ein Interessent wählt nur aus `choices`, nie aus dem
 ganzen Katalog. Neue Beispielvorlage: `kunde-standard`.
+
+**Nachtrag 11.11. (§16, I-42):** Ein Profil kann jetzt auch Konfigurationswerte
+setzen: der Schritt `app.config` (Instanz, Schlüssel, Wert, fest oder als
+Parameter), nach dem `app.install`. Er nimmt denselben Weg wie
+`oaap app config set`. Der Wert steht nie in einem Hinweis oder Protokoll.
+Erzeugte Werte (VAPID) sind noch nicht dabei: Ob der Knoten oder die App sie
+erzeugt, klären wir zuerst mit dem App-Autor.

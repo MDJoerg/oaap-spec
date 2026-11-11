@@ -1,7 +1,8 @@
 # oaap.core.identity — Identity & Roles
 
 - **ID:** `oaap.core.identity`
-- **Version:** 0.6.4 (**a chat acts as the person**, procedure A,
+- **Version:** 0.6.5 (**a bearer that is not ours** goes to the app when a
+  session comes with it, 2.3, I-44; 0.6.4: **a chat acts as the person**, procedure A,
   RFC-0074 stage 1: `/verify?via=`, 2.13, and procedure I takes the
   platform's own assertion addressed to the gateway, 2.12; 0.6.3: **a person
   through an MCP gateway's door**,
@@ -287,6 +288,19 @@ session may go* — see the tenant restriction in 2.3.
   groups takes effect on their next request — waiting for re-login is
   not acceptable. (Sessions may cache the username, never the roles or
   groups.)
+- **A bearer that is not ours (0.6.5, I-44).** An `Authorization: Bearer`
+  whose token does not begin with `oaapk_` belongs to the app (a Keycloak
+  console, a single-page app with its own OIDC tokens), not to the
+  platform. If a session cookie comes with it, verify MUST resolve the
+  **session** and ignore the token; the token travels on to the app as
+  before, and roles, groups and the tenant boundary apply unchanged.
+  Without a session the answer stays the machine's: 401 with
+  `WWW-Authenticate`, never a redirect. A token that begins with
+  `oaapk_` is always resolved as a key, valid or not, and a session beside
+  it changes nothing -- a broken key MUST NOT be rescued by a cookie that
+  happens to come along. Before 0.6.5 every bearer was read as a key, and
+  an app with tokens of its own failed behind any signed-in route
+  (found with Keycloak 0.1.6, 2026-11-09).
 
 ### 2.4 User management
 
@@ -1156,3 +1170,15 @@ Verfahren I (2.12) nimmt seit 0.6.4 neben dem Act-Token auch die eigene
 Zusicherung an, adressiert an **das Gateway** (`X-OAAP-Act-Assertion`) — das,
 was das Gateway an der via-Tür bekam. Beides zugleich wird abgelehnt.
 Gemessen auf oaap-test am 08.11.2026: 24/24 (`oaap-lab/assistent-probe`).
+
+## Deutsche Zusammenfassung (0.6.5, I-44 — ein fremdes Token neben der Sitzung)
+
+Bis 0.6.4 las die Anmeldeprüfung **jedes** `Authorization: Bearer …` als
+OAAP-Schlüssel. Eine App, die im Browser eigene Tokens schickt (die
+Keycloak-Konsole, eine Web-App mit eigenem OIDC), bekam deshalb hinter einer
+angemeldeten Route „malformed key“, obwohl die Person angemeldet war. Jetzt
+gilt: Beginnt das Token **nicht** mit `oaapk_` und kommt eine Sitzung mit,
+entscheidet die Sitzung, und das Token geht unverändert an die App. Rollen,
+Gruppen und Mandantengrenze gelten wie immer. Ohne Sitzung bleibt es bei 401
+(eine Maschine bekommt nie ein Anmeldeformular). Ein Token mit `oaapk_` ist
+immer ein Schlüssel, auch ein kaputter. Eine Sitzung rettet ihn nicht.

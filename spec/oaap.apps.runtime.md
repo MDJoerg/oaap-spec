@@ -1,7 +1,8 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.57 (**a second origin for the views of MCP Apps**,
+- **Version:** 0.2.58 (**the envelope rule on every way in**: directory and
+  Git installs too, the report reaches the portal, I-43, 2.14). 0.2.57 (**a second origin for the views of MCP Apps**,
   manifest 0.13 `ui_sandbox`, 2.32.4, RFC-0075). 0.2.56 (**a chat acts at its tenant's gateways as the person**,
   RFC-0074 stage 1: manifest 0.12 `mcp_client: {use: true}`, the list
   `/platform/mcp/gateways` and a via door per gateway on the chat's own site,
@@ -1029,6 +1030,18 @@ an explicit confirmation before proceeding, and MUST record the origin.
 Until 0.2.29 the reference ran that review only for test instances, so
 a widening reached production from the command line unannounced while
 promotion, the other way in, had shown it all along.
+
+**Every way in, one rule (0.2.58, I-43).** The same review applies to an
+install from a **directory** or a **Git URL** (the store's Git sources
+among them), not only to a ZIP: against a production instance a widening
+MUST be reported and MUST take an explicit confirmation; against a test
+instance it MUST be reported. Where the install was started from the
+portal, the report MUST reach what the portal shows for that request (a
+widening on a test instance that only a console saw is not reported), and
+a refusal MUST name a way the person can take from there -- update a test
+instance and promote it (2.14.1), or confirm at the machine. Until 0.2.57
+the reference compared only ZIP packages; a directory or Git install
+widened production silently (found with keycloak 0.1.7, 2026-11-09).
 
 #### 2.14.1 Promotion to production (RFC-0020)
 
@@ -3667,3 +3680,16 @@ durch, ohne Anmeldung, ohne Cookie, ohne Identitäts-Kopfzeilen und ohne
 Die App erfährt die Adresse als `OAAP_UI_SANDBOX_ORIGINS`. Die Endung `--ui` ist
 für Instanznamen reserviert. Gedacht für den Sandbox-Proxy des Chats (MCP Apps,
 RFC-0075).
+
+## Deutsche Zusammenfassung (0.2.58, I-43 — die Rahmenregel auf jedem Weg)
+
+Bisher verglich der Knoten nur ein **ZIP-Paket** mit dem, was eine Instanz
+schon darf. Eine Installation aus einem **Verzeichnis** oder von einer
+**Git-Adresse** (auch über eine Git-Quelle im Store) erweiterte eine
+Produktiv-Instanz ohne ein Wort, zum Beispiel um eine öffentliche Route.
+Jetzt gilt überall dieselbe Regel: Bei Produktion wird die Erweiterung
+angezeigt und muss bestätigt werden, bei Test wird sie angezeigt. Kommt der
+Auftrag aus dem Portal, steht die Erweiterung in der Meldung, die das Portal
+zeigt. Eine Ablehnung sagt, was man dort tun kann: eine Test-Instanz
+aktualisieren und übernehmen (die Übernahme fragt), oder an der Maschine
+mit `--confirm` bestätigen.
