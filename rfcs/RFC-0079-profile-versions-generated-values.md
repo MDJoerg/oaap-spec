@@ -176,6 +176,37 @@ Measured on `oaap-test`:
 | D8 | new manifest kind `vapid`, also behind the portal button | yes |
 | D9 | `hbvp` declares `generate: vapid` itself (app author) | yes — Jörg passes it to the hbvp session |
 
+## 7. Built and measured (2026-11-11, reference 0.1.251)
+
+- **Code:** `services/gen_values.py` (one generator for the portal button
+  and the build step: `token`, `vapid`), `tenant_build.py` (version field
+  and ordering, `upload_decision`, history under
+  `profiles/.history/<id>/<digest>.json` with a `.meta.json`, `app.config`
+  with exactly one of `value` / `generate: true`), `appctl.py` (upload by
+  the rules, the replaced file kept first -- also one written on the
+  machine; delete takes the history; a build keeps its file at start and
+  continues by digest; the drivers generate only into an empty key), the
+  portal (version column, page "Verlauf" with a download per file, version
+  and digest on the build page and in the list, button "Push-Schlüssel
+  (VAPID) erzeugen").
+- **Tests:** `test_profile_versions.py` 33/33; `test_tenant_build`,
+  `test_tenant_build_doors` (the digest refusal now only without the kept
+  file), `test_tenant_build_config`, `test_config_generate` green.
+- **Live on `oaap-test`:** host side with a probe app (`vapid-probe`, three
+  instances, a node-written profile): V4 continue on 1.0.0 after 1.1.0
+  replaced the file, G1 valid P-256 scalar (public point checked on the
+  curve), no value in state, audit, views or logs, G2, G3 (typed by hand
+  stays), G4 (conflict sentence, nothing set), G6 -- all PASS. Portal side
+  16/16: V1-V3, list and history page, download of the old file, build page
+  with version and digest, V5 (delete takes the history; refused while a
+  build is open), G5 (the button shows a valid key).
+- **Found while building:** `generate: "vapid"` (text) slipped through the
+  general text check of a step; it is now refused -- the kind belongs to
+  the manifest.
+- **Profile `handballverein` 1.1.0** (`oaap-docs`): mode, operator name,
+  contact in both portals; push behind the tick `push` (default off until
+  `hbvp` declares `generate: vapid`).
+
 ## Zusammenfassung für Jörg (Deutsch)
 
 **Versionen:** Ein Profil bekommt eine Versionsnummer (`1.1.0`). Der Knoten
