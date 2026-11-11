@@ -1,14 +1,17 @@
 # RFC-0078: Help — Static Platform and App Knowledge for Any AI, through MCP, an API and a Page
 
-- **Status:** **Draft (2026-11-10)** — D1, D3 (direction) and D4 (constraint)
-  stated by Jörg on 2026-11-10, D2 and D5–D11 on 2026-11-11 as recommended
-  (§13). **Stage 0
-  built (2026-11-11, reference 0.1.248, §5.1); stage 1 built (2026-11-11,
-  app `help` 0.1.0, §14.4), central instance on `oaap-test`; stage 2 in
-  large part (2026-11-11, `help` 0.2.0, §14.5): O3 decided, audience filter,
-  `seed`, store entry -- `catalog` and the editable source list are not;**
-  stage 2b (§15, gaps and requests, I-50) built 2026-11-11 (`help` 0.3.0,
-  §15.9); stage 3 is not. §14 is the implementation plan.
+- **Status:** **Accepted (2026-11-11)** — every decision is taken: D1, D3
+  (direction) and D4 (constraint) stated by Jörg on 2026-11-10, D2 and
+  D5–D11 on 2026-11-11 as recommended (§13), O3 decided by Jörg ("two paths,
+  one package", §14.5), D12–D17 on 2026-11-11 as recommended (§15.7); O1 and
+  O2 measured. **Built and pushed:** stage 0 (reference 0.1.248/0.1.249,
+  §5.1), stage 1 (`help` 0.1.0, §14.4), stage 2 in large part (`help` 0.2.0,
+  §14.5), stage 2b (`help` 0.3.0, §15.9). Fleet on 0.1.249 (all five nodes,
+  2026-11-11). Central **test** instance on `oaap-test`, installed from Git;
+  M1–M12 measured, M11/M12 for real (§15.10). **Not built:** the `catalog`
+  source and the editable source list (stage 2), stage 3; the production
+  central instance (D8 "where" -- Jörg introduces it as the entrance gate).
+  §14 is the implementation plan.
 - **Date:** 2026-11-10
 - **Authors:** Jörg (the idea: an app `help` that knows the documentation,
   synchronises it instead of being redeployed, runs once centrally for
@@ -408,13 +411,16 @@ Stated by Jörg on 2026-11-11, each as recommended:
 - **D11 — Language as written.** German platform texts, English app READMEs;
   the client's AI answers in the person's language. No translation in `help`.
 
-Open points:
+Open points, since settled:
 
-- **O1 — Platform version for instances.** Does an instance receive
-  `OAAP_VERSION`? If not: a platform variable (small change to
-  `oaap.apps.runtime`), or the version filter only on request.
-- **O2 — FTS5 in the base image.** To be measured (`sqlite3` of the Python
-  image must have FTS5 compiled in); fallback: a plain token index in SQLite.
+- **O1 — Platform version for instances.** Measured (§14.5): an instance
+  receives no platform version. The version filter works on request
+  (`version` argument); a platform variable stays a possible small change
+  to `oaap.apps.runtime`, not needed now.
+- **O2 — FTS5 in the base image.** Measured (M8): `python:3.13-slim` has
+  FTS5 compiled in.
+- **O3 — Public route or roles per instance.** Decided by Jörg: two paths,
+  one package (§14.5).
 
 ## 14. Implementation plan
 
@@ -556,7 +562,7 @@ Stage 2 adds **M9** (a `user` never receives an operator document through
 search, read, topics, resources, page or API — one bait per door) and **M10**
 (a node without destination answers from the seed).
 
-## 15. Gaps and requests (stage 2b, I-50, Draft 2026-11-11)
+## 15. Gaps and requests (stage 2b, I-50)
 
 **Occasion.** Jörg's first test of the central instance from Claude Code
 (2026-11-11): "How can I expose a service on my laptop through the platform,
@@ -714,9 +720,34 @@ question, M13, M14, limits, deadlines, Dockerfile copies every module);
 `test/.env`, only its digest on the node): tool listed on `/public/mcp`;
 maintainer door 401 without and with a wrong key; a probe request `new`, a
 reworded one `vote 2`, listed and closed as `rejected` through the door;
-`requests.db` holds no address and has no identity column. **Open:** M11 and
-M12 for real -- Jörg asks again from Claude Code, a maintainer session writes
-the tunnel guide.
+`requests.db` holds no address and has no identity column. M11 and M12 for
+real: §15.10.
+
+### 15.10 The loop, once for real (2026-11-11)
+
+- **M11.** Jörg asked the tunnel question again from Claude Code against
+  `/public/mcp`. The AI found nothing sufficient and filed `R-2026-0002`
+  through `help_request_guide`: topic, question, its four search queries and
+  the two documents it found and judged insufficient (`cli/connect`,
+  `cli/connector`). Fetched through the maintainer door.
+- **What the request taught.** It asked whether a laptop needs its own node.
+  It does not: the ngrok case is the laptop client of `oaap.net.connector`
+  §2.8.5 -- the AI had only seen the node commands. A request records what
+  the AI *knew*, not what the platform has; the maintainer reads the code.
+- **The guide** `oaap-docs/szenarien/lokalen-dienst-freigeben.md` (way A:
+  laptop client, way B: inner node), measured end to end on `oaap-test`
+  with the real client from a Windows laptop before it was written down.
+  Two findings went into the text: behind an edge the client prints
+  `http://` while visitors use `https://`; a client killed hard leaves its
+  name live until the TTL (as specified, §2.8.6).
+- **M12.** After the push `help` fetched 99 documents; `R-2026-0002` was
+  closed `done` with `doc_id` `szenarien/lokalen-dienst-freigeben`; the
+  public search returns the guide first for Jörg's original question, and
+  for three of the four queries the AI had tried.
+- The test instance on `oaap-test` was then reinstalled from Git (same
+  version, so `remove` + `install`): configuration came back unchanged, the
+  destination binding did **not** survive `remove` and was bound again, and
+  `requests.db` kept the closed request.
 
 ## Deutsche Zusammenfassung (für Jörg)
 
@@ -797,7 +828,7 @@ und die Quellenliste auf der Verwaltungsseite. Folge für die Doku: Ein Text
 für Anwender braucht `audience: [user]` im Kopf, sonst sieht ihn ein
 Anwender nicht.
 
-**Neu: Lücken melden (I-50, §15, Stufe 2b, Entwurf 11.11.).** Deine Idee aus
+**Lücken melden (I-50, §15, Stufe 2b).** Deine Idee aus
 dem Tunnel-Test: Findet eine KI keine Anleitung, darf sie, wenn der Admin es
 einschaltet (`HELP_REQUESTS=on`), eine anfordern. Gleiche Anfragen werden zu
 Stimmen, und die KI erfährt sofort, ob sie neu ist oder schon N-mal angefragt
@@ -818,5 +849,17 @@ installierbar · 3 `docs:` im Manifest, Marketplace, Kachel im Portal.
 Plattformrollen), D6 (Volltextsuche statt Vektoren), D7 (Versionsbereiche
 in den Dokumenten), D8 (zentrale Instanz öffentlich und ungefiltert; wo
 später?), D9 (Name `help` oder `hilfe`), D10 (README als Rückfall für Apps
-ohne `docs:`), D11 (Sprache wie geschrieben). Technisch offen: O1 (kennt
-eine Instanz die Plattformversion?), O2 (FTS5 im Abbild).
+ohne `docs:`), D11 (Sprache wie geschrieben). O1 und O2 sind
+gemessen (keine Plattformversion in der Instanz; FTS5 ist im Abbild), O3
+hast du entschieden.
+
+**Stand 11.11. abends: Accepted.** Alle Entscheidungen sind getroffen, die
+Stufen 0, 1, 2 (großteils) und 2b sind gebaut, gepusht und auf der Flotte
+(0.1.249). Der Kreislauf ist einmal echt gelaufen (§15.10): Deine KI fand zur
+Tunnel-Frage nichts und forderte eine Anleitung an (R-2026-0002). Die
+Anleitung wurde geschrieben und vorher gemessen. Die Anfrage ist mit der
+Kennung des Dokuments geschlossen, und die öffentliche Suche findet die
+Anleitung jetzt zuerst. Die Instanz auf oaap-test ist eine Testinstanz,
+aus Git installiert. **Offen:** die Quelle `catalog` und die bearbeitbare
+Quellenliste (Stufe 2), Stufe 3 (`docs:` im Manifest, Marketplace, Kachel)
+und die echte zentrale Instanz, die du als Eingangstor einführst.
