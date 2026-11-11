@@ -1,9 +1,11 @@
 # RFC-0078: Help — Static Platform and App Knowledge for Any AI, through MCP, an API and a Page
 
 - **Status:** **Draft (2026-11-10)** — D1, D3 (direction) and D4 (constraint)
-  stated by Jörg on 2026-11-10; everything else proposed (§13). **Stage 0
-  built (2026-11-11, reference 0.1.248, §5.1);** the app `help` (stages
-  1–3) is not. §14 is the implementation plan.
+  stated by Jörg on 2026-11-10, D2 and D5–D11 on 2026-11-11 as recommended
+  (§13). **Stage 0
+  built (2026-11-11, reference 0.1.248, §5.1); stage 1 built (2026-11-11,
+  app `help` 0.1.0, §14.4), central instance on `oaap-test`;** stages 2–3
+  are not. §14 is the implementation plan.
 - **Date:** 2026-11-10
 - **Authors:** Jörg (the idea: an app `help` that knows the documentation,
   synchronises it instead of being redeployed, runs once centrally for
@@ -381,7 +383,7 @@ Stated by Jörg on 2026-11-10:
 - **D4 — The canonical repository will move.** `help` is built
   host-neutral (§7); the move itself is prepared separately with Claude.
 
-Proposed (as recommended unless Jörg says otherwise):
+Stated by Jörg on 2026-11-11, each as recommended:
 
 - **D2 — No language model in `help`.** Search, read, prompts; the client's
   AI reasons. An own model (for the page) can come later through the AI
@@ -458,6 +460,52 @@ CREATE TABLE fetch (source TEXT PRIMARY KEY, at TEXT, ok INTEGER, error TEXT,
 - **M7** Markdown with `<script>` and raw HTML is shown escaped.
 - **M8** O2 measured: FTS5 present in the image.
 
+### 14.4 Stage 1 as built (2026-11-11, `help` 0.1.0)
+
+Files as in §14.1, plus `library.py` (the shared core: `search`, `read`,
+`topics`, `resources` -- every door calls these, and `index.visible` sits in
+them, not in the doors) and `render.py` (escape first, then a few tags).
+Where the build sharpened the text:
+
+- **One archive source, not two.** `oaap-docs` (priority 50) carries the
+  generated CLI reference too: its pages have explicit ids (`cli/...`), so a
+  second source over the same archive would only duplicate the fetch.
+  `local` has priority 90. The source list is configuration
+  (`HELP_ARCHIVE_PATH`, `HELP_WEB_TEMPLATE`, `HELP_FETCH_HOURS`), not
+  `/data/sources.yaml` -- the standard library has no YAML reader, and the
+  editable list belongs to stage 2's admin page.
+- **The archive root is the first folder, whatever its name** (§3 named
+  `root:`): GitHub and Forgejo name it differently, and a move must not need a
+  new setting.
+- **No redirects.** A destination must point at the archive itself; a 30x is
+  refused with its target named. On GitHub that is `codeload.github.com`
+  (`github.com/.../archive/...` redirects there).
+- `AGENTS.md` and `CLAUDE.md` are not indexed (instructions for agents, not
+  help).
+- **Search:** filler words of a question are dropped (German and English), all
+  remaining words first (AND), then sections with some (OR) appended; each
+  word as a prefix and through a crude stem (`Backups` finds `Backup`);
+  `unicode61 remove_diacritics 2` (`Prufen` finds `Prüfen`). Without FTS5 a
+  LIKE search answers (tested, not needed: FTS5 is in `python:3.13-slim`).
+- The route `/` is `public` (D8, central instance); `/admin` is `admin`. A
+  customer node with the audience filter needs a signed-in route -- open for
+  stage 2 (**O3**: the manifest cannot switch a route between `public` and
+  roles per instance; two package variants, or a platform feature).
+- `visible()` with `HELP_AUDIENCE_FILTER=on` is already behind every door and
+  tested (bait per door for `user`), off by default.
+
+**Measured on `oaap-test`** (instance `help`, destination `docs-origin` →
+`https://codeload.github.com/MDJoerg/oaap-docs`, public at
+`https://help.oaap-test.oaap-demo.duckdns.org/`): fetch through the
+destination ok (19 files -- the generated reference is committed but not yet
+pushed); search, read, topics, status, MCP `initialize` over the public HTTPS
+address; `/admin` without login → 303 to the sign-in; **M4** on the node: an
+archive path that answers 404 leaves the 19 documents answering and names
+the error, also across a container recreation; **M8**: FTS5 present.
+M3–M7 also measured in `test_help.py` (83 checks, no node). **Open:** M1 and
+M2 (Claude Code connected, Jörg's questions), M3 on the node after the push of
+`oaap-docs`.
+
 Stage 2 adds **M9** (a `user` never receives an operator document through
 search, read, topics, resources, page or API — one bait per door) and **M10**
 (a node without destination answers from the seed).
@@ -520,12 +568,22 @@ lesender Aktion → zusätzlich `support`. 17 Befehle hatten keinen Hilfetext un
 haben jetzt einen. In `oaap-docs` gibt es ein Prüfskript, die Schreibregel, und
 die 13 „Geprüft gegen“-Sätze stehen jetzt auch als Kopf.
 
+**Stufe 1 gebaut (11.11., App `help` 0.1.0, §14.4):** zentrale Instanz auf
+oaap-test, öffentlich unter `https://help.oaap-test.oaap-demo.duckdns.org/`
+(Seite, API, MCP unter `/mcp`). Holt die Doku über die Destination
+`docs-origin` (GitHub codeload). Ein kaputtes Archiv lässt den alten Stand
+antworten, auf dem Knoten gemessen. Offen: M1/M2 mit Claude Code (du), M3 auf
+dem Knoten nach dem Push von `oaap-docs`. Neu offen **O3**: Auf Kundenknoten
+braucht der Zielgruppenfilter eine angemeldete Route. Das Manifest kann eine
+Route aber nicht je Instanz zwischen öffentlich und Rollen umschalten. Das
+klärt Stufe 2.
+
 **Stufen:** 0 Doku-Vorbereitung · 1 App `help` zentral auf oaap-test, Claude
 Code angebunden (Messung: deine Backup-Frage) · 2 Zielgruppen- und
 Versionsfilter, Prioritäten, Doku aus dem Paketkatalog, auf Kundenknoten
 installierbar · 3 `docs:` im Manifest, Marketplace, Kachel im Portal.
 
-**Offen für dich:** D2 (keine eigene KI in `help`), D5 (Zielgruppe =
+**Entschieden 11.11. (alle wie empfohlen):** D2 (keine eigene KI in `help`), D5 (Zielgruppe =
 Plattformrollen), D6 (Volltextsuche statt Vektoren), D7 (Versionsbereiche
 in den Dokumenten), D8 (zentrale Instanz öffentlich und ungefiltert; wo
 später?), D9 (Name `help` oder `hilfe`), D10 (README als Rückfall für Apps
