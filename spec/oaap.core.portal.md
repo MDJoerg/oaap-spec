@@ -1,7 +1,7 @@
 # oaap.core.portal — Web Portal
 
 - **ID:** `oaap.core.portal`
-- **Version:** 0.3.40 (**bulk runs** in the store: "Alle aktualisieren", "Alle getesteten übernehmen", "Alle neu bauen" -- plan first, a protocol, stop at the first failure -- 2.6.1; the store list **remembers its filter** for the way back, the card "Nach Produktiv übernehmen" also for a Git test instance with its commit -- 2.6). 0.3.39 (the store asks before an update **widens a production instance**, one tick under the reported lines -- 2.6, I-43; the card "Abbild" names the open packages for a `server_admin` and answers "will a rebuild help" in plain words -- 2.14, RFC-0071 §16). 0.3.38 (the build pages show a profile's **version**, its **history** with a download per kept file, and the version and digest a build ran -- 2.11, RFC-0079; the button "Erzeugen" also produces a `vapid` key -- `oaap.apps.runtime` 2.8). 0.3.37 (the page *Destinationen* carries the `server_admin`'s switch
+- **Version:** 0.3.41 (the page *Nachrichten* gets the sections **Verteiler** and **Benachrichtigungen** -- recipient lists with To/Cc/Bcc and a probe, the routing table, the delivery log -- 2.15, RFC-0080, `oaap.core.notifications` 0.1). 0.3.40 (**bulk runs** in the store: "Alle aktualisieren", "Alle getesteten übernehmen", "Alle neu bauen" -- plan first, a protocol, stop at the first failure -- 2.6.1; the store list **remembers its filter** for the way back, the card "Nach Produktiv übernehmen" also for a Git test instance with its commit -- 2.6). 0.3.39 (the store asks before an update **widens a production instance**, one tick under the reported lines -- 2.6, I-43; the card "Abbild" names the open packages for a `server_admin` and answers "will a rebuild help" in plain words -- 2.14, RFC-0071 §16). 0.3.38 (the build pages show a profile's **version**, its **history** with a download per kept file, and the version and digest a build ran -- 2.11, RFC-0079; the button "Erzeugen" also produces a `vapid` key -- `oaap.apps.runtime` 2.8). 0.3.37 (the page *Destinationen* carries the `server_admin`'s switch
   that hands authoring to one tenant's `tenant_admin`, and that tenant_admin's form -- 2.17).
   0.3.36 (page *Destinationen*, 2.17). 0.3.35
 - **Maturity:** draft (0.3.35 adds the card **MCP** to the instance page: source and readers, a gateway's sources and its sign-in, and the `server_admin`'s button that has a connector make the gateway's clients -- §2.16, RFC-0073 stage 3; 0.3.34 lets the start form of a build **choose apps** from the store's catalogue, one tick box per app, for a parameter of kind `apps` -- §2.11, RFC-0055 §15; 0.3.33 moves administration out of the header into a **side bar in groups** and gives long pages without tabs **jump marks** -- §2.7, design guidelines 0.2 §5 and 6.2.3; 0.3.32 adds the page **Nachrichten** -- "Postausgang": which mailbox a tenant's realm sends with, the tenant's own mailbox for its `tenant_admin`, the node's for `server_admin` -- §2.15, RFC-0072 stage 2, `oaap.net.destinations` 0.9; 0.3.31 lets the start form of a build install an app that administers its tenant's grants by one tick, which is the operator's confirmation -- §2.11, RFC-0055 §14 item 4; 0.3.30 lets a `server_admin` confirm an app that administers its tenant's grants in the store -- §2.6, `oaap.core.authorization` 0.5.2 §2.10; the card "Abbild" says whether a rebuild can be expected to help -- §2.14; 0.3.29 adds **care at a glance** to the store and the instance list -- an update in the catalogue and open advisories of the image reading, as a filter, a hint line and a badge, plus filters on the instance list -- §2.14; 0.3.28 adds the card **Neustart-Schutz** to the instance page — §2.13, RFC-0069 stage 5, `oaap.core.updates` 0.7 §2.7.2; 0.3.27 adds the node page **Datenträger** — §2.12, specified in `oaap.data.disks` 0.2 §2.6, RFC-0063 stage 2; 0.3.26 adds **profile upload, download and delete** and tick boxes for `bool` parameters on the build pages — §2.11, RFC-0055 §14; 0.3.25 adds **invitations and requests** — the prospect's public form and the operator's list, §2.10, RFC-0055 stage 4; 0.3.24 adds the **tenant build pages** — a wizard over the operator API, §2.9, RFC-0055 stage 3; 0.3.23 shows the **Cohorts menu entry to every
@@ -931,9 +931,9 @@ answer both with ONE rule, so they never disagree.
 A menu entry **Nachrichten** for `server_admin` and `tenant_admin`. One page per
 tenant: a `tenant_admin` sees their own, a label naming another tenant is
 answered `404`; a `server_admin` without a label is at the node and may name any
-tenant (`?tenant=<label>`). Today it has one section; incoming mail and
-messengers come as further sections, each specified first, and nothing is shown
-for them before.
+tenant (`?tenant=<label>`). Sections: Postausgang, Verteiler, Benachrichtigungen
+(0.3.41); incoming mail and messengers come as further sections, each specified
+first, and nothing is shown for them before.
 
 **Postausgang.**
 - *Which mailbox the tenant's realm sends with:* its own (address, sender, login,
@@ -959,6 +959,33 @@ for them before.
   The request file is written `0600`; the worker moves the password into the
   secret store and the request goes with its claim. No sentence and no log line
   carries the password.
+
+**Verteiler** (0.3.41, RFC-0080, `oaap.core.notifications` 2.1).
+- The scope's lists, the mandatory one first and marked, each with its entries
+  ("An vorstand@…; Cc Mandanten-Admins; Bcc …"), its subject prefix, a button
+  **Probe senden** (op `test`: one mail to exactly this list, marked as a probe)
+  and, except for the mandatory list, **Entfernen** with a required tick.
+- A form: name (an existing name replaces that list), To, Cc, Bcc (addresses
+  separated by comma or line break; the word *Mandanten-Admins* -- at the node
+  *Server-Admins* -- stands for the role), subject prefix. One request, action
+  `notify`, op `list-set`.
+- At the node: the tenants' lists as **names and entry counts only**, with a
+  link to the tenant's page.
+
+**Benachrichtigungen** (0.3.41, `oaap.core.notifications` 2.3, 2.4).
+- A table: one row per category, one column per list (a tick each), a subject
+  field. Below, folded open when one is set, a row per type with its category
+  and the catalogue's subject as placeholder. At the node, tenant-scoped types
+  say "von den Mandanten -- nur mit eigenem Haken". The types not built yet are
+  named in one line.
+- **Zuordnung speichern** sends only the rows that changed (op `route-set`); the
+  host checks every row again.
+- **Zuletzt verschickt:** the last 30 lines of the delivery log -- time, type
+  (with begins/reminder/resolved), lists, the counts To / Cc / Bcc, result and
+  the server's answer. No address.
+- The host decides as for the mailbox: role and tenant from the actor's record,
+  only a `server_admin` names a tenant, the node's lists are the
+  `server_admin`'s.
 
 ### 2.16 MCP on the instance page (0.3.35, RFC-0073 stage 3)
 
