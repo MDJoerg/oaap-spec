@@ -1,12 +1,15 @@
 # oaap.dist.marketplace — Digital Assets with Channels, Visibility and Entitlements
 
 - **ID:** `oaap.dist.marketplace`
-- **Version:** 0.2 (stage 2 of RFC-0077: the store front -- search and
-  facets after the access rule, images, Markdown, access requests, §9);
-  0.1: model, the access rule, publishing API, feed, the catalog's mirror mode
+- **Version:** 0.3 (RFC-0077 §15.8/§15.9: landscapes and categories, the
+  asset type `oaap-profile`, texts per language, the secret gate, review with
+  four eyes, share link, partner light, the catalog's follow list, §6b);
+  0.2: the store front -- search and facets after the access rule, images,
+  Markdown, access requests; 0.1: model, the access rule, publishing API, feed,
+  the catalog's mirror mode
 - **Maturity:** draft
-- **Reference:** `oaap-apps/apps/marketplace` 0.2.0,
-  `oaap-apps/apps/package-catalog` 0.2.0
+- **Reference:** `oaap-apps/apps/marketplace` 0.3.0,
+  `oaap-apps/apps/package-catalog` 0.3.0
 - **RFC:** RFC-0077 (Accepted 2026-11-11)
 
 ## 1. Purpose
@@ -141,6 +144,46 @@ user with an API key):
 - Writing metadata and images: the asset's publishers and operators;
   visibility and free channels: operators only.
 
+## 6b. Setup templates, languages, the gate, review, sharing (0.3)
+
+- **Landscapes and categories.** A landscape (`oaap` fixed, others configured)
+  groups categories; a category of the landscape `default` is cross-cutting.
+  An asset is in any number of each. Both are facets, and so is the derived
+  **content** (OAAP app, setup template, and for `file` the kind of its file).
+  Assigning an unknown landscape or category is refused (`400`).
+- **`oaap-profile`** (setup template): one JSON file `oaap.tenant-profile/1`,
+  at most 256 KB; asset id and release version come from the profile's `id` and
+  `version` (required here). The node checks the profile again on upload.
+- **Texts per language:** `{lang: {title, summary, description}}`, release
+  notes as `notes_i18n`. English is the base. A reader gets the asked language,
+  else `en`, else the first one present, with a hint when it fell back.
+- **The gate:** every check-in and every listing change is scanned BEFORE it is
+  stored -- secret file names in packages (RFC-0084 categories `env`, `vcs`,
+  `keys`, `cloud`), secret patterns in every text, and in profiles a parameter
+  of kind `secret` or a literal value for a secret-looking key. A finding is
+  `422` naming place and rule and MUST NOT contain the value; the event log
+  records place and rule only. Image metadata (EXIF, XMP, IPTC, PNG text, WebP
+  EXIF/XMP) is removed before storing; the SHA-256 is that of the cleaned image.
+- **Review** (`MARKET_REVIEW=on`): a new release counts -- channel, feed,
+  download, public page -- only once approved. Reviewers are principals the
+  operator names; a reviewer MUST NOT decide a case it authored. Verdicts
+  `approve`, `reject`, `escalate`; an escalated case, or one open longer than
+  `MARKET_REVIEW_ESCALATE_HOURS`, is decided by an operator (recorded as such,
+  also for the operator's own case). A listing change by a non-operator is
+  visible at once and opens a case afterwards. API: `GET /api/v1/reviews`,
+  `GET /api/v1/reviews/{id}` (with the case's files and images),
+  `POST /api/v1/reviews/{id}`. The marketplace calls no model itself.
+- **Sharing:** the canonical link `<origin>/assets/<id>` (origin from
+  `MARKET_PUBLIC_URL` or the request) and a QR code of it. The feed carries
+  `origin`. The **package catalog** (0.3) takes a pasted link, compares its
+  host with the `origin` the bound marketplace states through the destination,
+  never requests the pasted address, and puts the id on its follow list;
+  `CATALOG_UPSTREAM_SCOPE=followed` mirrors only that list.
+- **Partner light:** a principal who may publish into an asset may answer its
+  access requests (an answer may carry a link, shown to the requester only)
+  and grant or revoke entitlements for it, in the channels it may publish
+  into. Visibility stays the operator's.
+
 ## 7. Security
 
 - Nothing uploaded is executed or unpacked to disk.
@@ -151,13 +194,25 @@ user with an API key):
 
 ## 8. Conformance tests (described)
 
-M1–M12 of RFC-0077 §15.4, measured on `oaap-test` on 2026-11-11 (RFC-0077
+N1–N10 of RFC-0077 §15.8.11, measured on `oaap-test` on 2026-11-12
+(RFC-0077 §15.9). M1–M12 of RFC-0077 §15.4, measured on `oaap-test` on 2026-11-11 (RFC-0077
 §15.6): check-in, idempotence and `409`, refusals, publisher rights, the three
 states, entitlement × channel, mirror → store → install, update, yank →
 unrelease with the instance untouched, a large package through the
 destination proxy, `hold`, hidden assets.
 
 ## Deutsche Zusammenfassung
+
+**0.3 (MVP Aufbau-Vorlagen):** Landschaften (`oaap` fest) und Kategorien
+(auch übergreifend über `default`) sind Facetten, dazu der Inhaltstyp. Neuer
+Typ `oaap-profile` für Aufbau-Vorlagen. Texte gibt es je Sprache, Englisch ist
+die Basis. Eine Sperre prüft vor jedem Speichern auf Geheimnisse und antwortet
+mit Ort und Regel, nie mit dem Wert; Bild-Metadaten werden entfernt. Mit
+Review zählt ein Release erst nach der Freigabe durch einen zweiten
+Prinzipal; Eskalationen entscheidet der Betreiber. Teilen über einen Link und
+einen QR-Code. Der Paketkatalog nimmt den Link und folgt genau dieser App,
+ohne den Link selbst aufzurufen. Anbieter beantworten Anfragen und vergeben
+Berechtigungen für ihre eigenen Assets.
 
 **0.2 (Schaufenster):** Suche über Name, Beschreibung und Schlagworte, auch
 ohne Umlaute; Facetten zählen erst nach der Sichtbarkeitsregel. Beschreibung
