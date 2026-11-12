@@ -50,7 +50,7 @@ the instance, the reason, a link to the portal page).
 | Type | Category | Scope | Matter | Fires when |
 |---|---|---|---|---|
 | `backup.failed` | critical | both | yes | the last node backup ended with an error |
-| `backup.missing` | critical | node | yes | a backup schedule exists and is off, or no successful backup for 26 h |
+| `backup.missing` | critical | node | yes | a backup schedule exists and is off, or no successful backup for 26 h — never on a node declared `none` (`oaap.data.backup` 2.6) |
 | `disk.full` | health | node | yes | the data disk ≥ warn threshold (default 90 %), closes below warn − 2 |
 | `advisory.host` | security | node | yes | host packages have open security fixes |
 | `advisory.image` | security | tenant | yes | images of the tenant's instances have open security fixes — **one matter per tenant**, the text names the instances |

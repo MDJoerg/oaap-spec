@@ -1,8 +1,8 @@
 # oaap.data.backup — Platform Backup & Restore
 
 - **ID:** `oaap.data.backup`
-- **Version:** 0.4.2
-- **Maturity:** draft (0.4.2: nothing writes into `apps/` while the copy runs -- 2.2; 0.4.1: the node archive does not stop an excluded
+- **Version:** 0.5
+- **Maturity:** draft (0.5: the node's **backup class** and leaving **test instances** out -- 2.6, RFC-0081 stage 1; 0.4.2: nothing writes into `apps/` while the copy runs -- 2.2; 0.4.1: the node archive does not stop an excluded
   tenant's containers -- their data is not copied, so they need not stand
   still; found 2026-10-23 when the operator's own desktop was restarted
   at 02:30 every night with a script running in it; 0.4 implements RFC-0029 D5 and D5b: an archive of
@@ -327,6 +327,33 @@ go.
   what chooses the target. A node without a timer MUST be told so
   plainly — "never set up" is a different answer from "switched off",
   and both differ from "it failed".
+
+### 2.6 Backup class and test instances (0.5, RFC-0081 stage 1)
+
+- **The node declares its class:** `offsite` (local archives and a copy that
+  leaves the machine), `local` (archives on this machine only) or `none` (no
+  backup). Undeclared is allowed and is the state before 0.5. The class is a
+  **declaration** the platform reads; it sets up no pull and no vault (2.4:
+  where archives go is decided at the machine).
+- `none` MUST carry a reason (the rule of 2.1.2); every change is filed in
+  the node's tenant log (`backup.class`). The record is written only on a
+  change (`apps/backup-class.json`, 0644 -- nothing secret, the portal reads
+  it).
+- **What reads it:** a node declared `none` raises no `backup.missing`
+  (`oaap.core.notifications` 2.2); the health page shows the class and, for
+  `local`, says that a copy on the same machine protects against mistakes,
+  not against the disk dying; the archive's manifest records it.
+- **Test instances** (channel `test`, rehearsals) MAY be left out by a switch
+  of the node, under the three conditions of 2.1.2: the manifest lists them
+  (`test_instances_left_out`); the restore names them before anything starts
+  and leaves them dormant; the instance page says "nicht im Backup
+  (Test-Instanz)". Each is left out by its own directory, never by a pattern.
+  Their containers are not stopped; the completeness check is narrowed by
+  exactly them. Measured on oaap-test 2026-11-12: 11 of 37 instances left
+  out, app downtime 47 s instead of 98 s, archive 3.9 GB instead of 5.3 GB.
+- CLI: `oaap backup class [offsite|local|none] [--reason ...]`,
+  `oaap backup test-instances on|off`; `oaap backup status` shows both.
+- A tenant's own class (`node`/`own`/`none`) is RFC-0081 stage 2.
 
 ### 2.5 Relocation procedure
 

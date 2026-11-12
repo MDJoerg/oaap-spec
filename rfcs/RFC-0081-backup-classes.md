@@ -1,6 +1,6 @@
 # RFC-0081: Backup Classes — How Much Backup a Node, a Tenant and a Test Instance Get
 
-- **Status:** Draft (2026-11-12)
+- **Status:** **Accepted (2026-11-12)** — Jörg: "wie empfohlen" (D1–D6). **Stage 1 built (reference 0.1.258, §6)**; `oaap.data.backup` 0.5
 - **Date:** 2026-11-12
 - **Authors:** Jörg (the need: "oaap-test is a test node and needs no real
   backup, at most a local one — maybe tenants should be able to configure
@@ -153,6 +153,24 @@ are not stopped.
    its containers stop, the node archive omits it, the lock makes a parallel
    start wait, a failure mails that tenant's list only.
 3. **Vault door** — RFC-0053 stage 3 takes the `own` archive off the machine.
+
+## 6. Stage 1 built (2026-11-12, reference 0.1.258)
+
+`oaap backup class` / `oaap backup test-instances`, `apps/backup-class.json`,
+the archive leaves test instances out by their directories and does not stop
+their containers, manifest `test_instances_left_out` and `backup_class`, the
+restore leaves them dormant, `backup.missing` silent for `none`, health page
+and instance page. Deviation from 2.5: the node's class lives in its own
+record (`apps/backup-class.json`), not in the schedule view — that view has
+exactly one writer and mirrors systemd.
+
+**Measured on oaap-test** (declared `local`, test instances left out): 11 of
+37 instances left out; their containers ran through the copy; 0 archive
+entries under their directories, the production instances present; the
+completeness check passed; **app downtime 47 s instead of 98 s, run 240 s
+instead of 377 s, archive 3.9 GB instead of 5.3 GB**. One wording fixed
+during the measurement: the note had called the test containers "containers
+of excluded tenants".
 
 ## 5. Out of scope
 
