@@ -1,7 +1,8 @@
 # RFC-0086: Time Series — Values Over Time as a Platform Capability, Plain PostgreSQL by Default
 
-- **Status:** **Draft (2026-11-12)** — decisions D1–D8 (§9) open; nothing
-  built
+- **Status:** **Accepted (2026-11-12)** — D2–D8 as recommended; D1 amended
+  by Jörg: text values (status) get a history too, with a bounded length
+  (§2.1, §4.4); nothing built
 - **Date:** 2026-11-12
 - **Authors:** Jörg (the need: "we probably have to talk about time series
   as a data type and capability of the platform"; "solved as always: a
@@ -14,9 +15,9 @@
   RFC-0081 (backup classes), RFC-0030 (rehearsal copy)
 - **Not part of this RFC:** dashboards and charts (the fleet app draws its
   own, RFC-0085 stage 4–5); an external query protocol (Prometheus, Influx
-  line protocol, Grafana data source); text or state values over time
-  (those are the twin's `states`, RFC-0032 §1.4); the node's own local
-  history (RFC-0051 stays as it is).
+  line protocol, Grafana data source); free text, messages and log lines
+  (those are events); the node's own local history (RFC-0051 stays as it
+  is).
 
 ## Summary
 
@@ -27,9 +28,10 @@ year, the temperature of a machine, the number of open cases per day. Each
 node keeps four hours to a month of its own metrics in files (RFC-0051),
 and that is all.
 
-This RFC adds **`oaap.data.timeseries`**: numeric values over time,
-attached to a twin object, kept in tiers that shrink with age, queried by
-range and step. The default runs **in the node's existing PostgreSQL with
+This RFC adds **`oaap.data.timeseries`**: values over time, attached to a
+twin object — **numbers**, kept in tiers that shrink with age, and short
+**texts** such as a status (at most 64 characters), kept as their changes —
+queried by range and step. The default runs **in the node's existing PostgreSQL with
 nothing added** — no extension, no new service, PostgreSQL licence only.
 Other stores (VictoriaMetrics, InfluxDB 3 Core, the Apache-licensed part of
 TimescaleDB) can be put behind the same interface later; one test suite,
@@ -61,7 +63,8 @@ run against every driver, is what keeps the interface honest.
 | Term | Meaning |
 |---|---|
 | **series** | one measured quantity of one twin object: `(object, measure, labels)` — e.g. node *oaapx01*, `cpu`, `{}`; or machine *M4*, `temperature`, `{"sensor":"spindle"}` |
-| **point** | `(t, x)` — a time in UTC and a number (double) |
+| **kind** | `number` or `text`, fixed when the series is created (§2.1) |
+| **point** | `(t, x)` — a time in UTC and a value of the series' kind |
 | **policy** | which tiers a series keeps, and how long (§4) |
 | **bucket** | one interval of a tier, holding mean, min, max and count |
 
@@ -72,11 +75,29 @@ run against every driver, is what keeps the interface honest.
 - **`measure`** is a key (`[a-z][a-z0-9_.]{0,62}`); **`labels`** a small
   map of at most 8 string pairs; **`unit`** a free string set at creation
   (UCUM spelling recommended: `%`, `Cel`, `By`, `1/min`).
-- **Only numbers.** A value that is a word ("running", "stopped") is a
-  state, and states belong in the twin (fact 2).
 - The twin keeps the **latest** value as an ordinary attribute when a
   writer wants that (RFC-0085's `latest` group); the series keeps the
   history. Neither replaces the other.
+
+### 2.1 Two kinds: numbers and short texts (D1, amended by Jörg)
+
+- **`number`** — a double. Tiers with mean, min, max, count (§4.1–§4.3).
+- **`text`** — a status-like word or short phrase: `healthy`,
+  `degraded`, `in Wartung`, `running`. **At most 64 characters** (Unicode
+  code points), no control characters, no line breaks; a longer value is
+  refused with a reason, never cut. Text series are kept as **changes**
+  (§4.4).
+- **Not a log.** A text series answers "which state was it in, and when
+  did it change". Messages, free text and log lines are events
+  (RFC-0080, RFC-0032) — the length bound is what keeps the two apart.
+- **Difference to the twin's `states`** (fact 2): `states` holds a
+  snapshot of a whole group at each twin write, as a projection the relay
+  makes. A text series is the deliberate history of **one** value,
+  written by whoever measures it — the fleet service writes a node's
+  liveness (`up`/`silent`/`unknown`) as one, every minute, without writing
+  the twin every minute.
+- An optional **expected interval** per series (e.g. 60 s) makes gaps
+  visible for text as for numbers (§4.4).
 
 ## 3. The interface
 
@@ -86,11 +107,11 @@ granted, write) that tenant's series and nothing else.
 
 | Call | Does |
 |---|---|
-| `PUT /series` | create or find a series: object, measure, labels, unit, policy; answers its id |
+| `PUT /series` | create or find a series: object, measure, labels, kind, unit, policy, optional expected interval; answers its id |
 | `POST /series/{id}/points` | append points (a batch, at most 10 000) |
 | `POST /points` | append points for several series in one call (the fleet service's form) |
 | `GET /series?object=…` | the series of an object |
-| `GET /series/{id}/range?from&to&step` | buckets of mean/min/max/count; `step` picks the tier (§4.3) |
+| `GET /series/{id}/range?from&to&step` | numbers: buckets of mean/min/max/count, `step` picks the tier (§4.3); texts: the state intervals, or per bucket the value at its end, the number of changes and the longest-held value (§4.4) |
 | `GET /series/{id}/latest` | the last point |
 | `DELETE /series/{id}` | removes the series and all its points; confirmed, audited |
 
@@ -136,15 +157,44 @@ retention, it falls back to the next coarser tier and says so in the
 answer (`"tier": "1h"`). A chart never gets more than about 2 000 buckets;
 a request that would yield more is answered with a coarser tier.
 
+### 4.4 Text series: changes, not samples
+
+A status written every minute is the same word 1 440 times a day. A text
+series therefore keeps **one row per state interval**: `(from, value,
+last_seen)`.
+
+- A point with the **same** value as the open interval moves its
+  `last_seen` forward; nothing else is written.
+- A point with a **different** value closes the open interval and opens a
+  new one.
+- **Gaps:** if the series has an expected interval and a point arrives
+  more than **three intervals** after `last_seen`, the old interval ends at
+  `last_seen`, the time between is a gap (*unknown*), and a new interval
+  opens — even with the same value. Without an expected interval a state
+  holds until the next change.
+- **Reading** returns the intervals clipped to `[from, to]`; with a
+  `step`, one bucket per step with the value at its end, the number of
+  changes inside it, and the value held longest in it.
+- **Retention:** the intervals are kept as long as the **longest tier** of
+  the series' policy (`standard`: 10 years). They are few: a node that
+  changes state five times a day has about 18 000 rows in ten years.
+- **Duplicates and late points:** a point at a time already covered by an
+  interval with the same value is a duplicate and counted; a late point
+  with a different value inside the raw retention splits the interval it
+  falls into; older ones are refused and counted (as for numbers, §3).
+
 ## 5. The default driver: plain PostgreSQL
 
 - **One schema per tenant**, `ts_<tenant-id>`, with its own role — beside
   the twin's schema, not inside it, so that its size, its backup and its
   copy for a rehearsal can be treated apart (§6).
-- **Tables:** `series` (id, object id, measure, labels, unit, policy,
-  created); `points` (series id, t, x), **partitioned by day**; one table
-  per rolled-up tier (series id, t, mean, min, max, count), **partitioned
-  by month**. Primary keys `(series_id, t)` make writing idempotent
+- **Tables:** `series` (id, object id, measure, labels, kind, unit,
+  policy, expected interval, created); `points` (series id, t, x double),
+  **partitioned by day**; one table per rolled-up tier (series id, t,
+  mean, min, max, count), **partitioned by month**; `text_states` (series
+  id, from, value `varchar(64)`, last seen), **partitioned by year** — the
+  length bound is also a column type, so the database refuses what the API
+  might let through. Primary keys `(series_id, t)` make writing idempotent
   (`ON CONFLICT DO NOTHING`).
 - **Retention is dropping partitions**, never `DELETE` — cheap, and it
   leaves no bloat behind.
@@ -168,8 +218,9 @@ a request that would yield more is answered with a coarser tier.
   default is `postgres`. Changing the driver of a node with data is an
   export into the new driver, measured, never in place.
 - **One conformance suite** — idempotency, late points, gaps, tier choice,
-  min/max surviving roll-up, limits, tenant boundary, export/import round
-  trip — runs against every driver. A driver that fails it is not offered.
+  min/max surviving roll-up, text intervals (same value extends, change
+  opens, gap after three intervals, 65 characters refused), limits, tenant
+  boundary, export/import round trip — runs against every driver. A driver that fails it is not offered.
 - **Named candidates, none built:** VictoriaMetrics (Apache-2.0),
   InfluxDB 3 Core (MIT/Apache-2.0), TimescaleDB **Apache-2.0 edition**
   (without the features under the Timescale License). Each would be its own
@@ -184,7 +235,9 @@ a request that would yield more is answered with a coarser tier.
 ## 7. Writers
 
 1. **The fleet service** (RFC-0085): every `metrics` message of a node
-   becomes a point of that node's series in `oaap-ops` — and in each
+   becomes a point of that node's series in `oaap-ops`, and its liveness
+   (`up`/`silent`/`unknown`) and each instance's state from `status` become
+   text series — and in each
    provider tenant whose profile includes `metrics` (RFC-0085 §7). A copy
    per receiver is accepted: it keeps every tenant's data in its own
    schema, revocable by dropping it.
@@ -208,8 +261,11 @@ a request that would yield more is answered with a coarser tier.
 
 ## 9. Decisions asked of Jörg
 
-1. **A capability of its own, `oaap.data.timeseries`, numbers only** (§2)?
-   Recommended: yes.
+1. **A capability of its own, `oaap.data.timeseries`** (§2)? Proposed:
+   numbers only. **Decided (Jörg): numbers and short texts** — "we also
+   need a history for texts like status; we can limit the permitted
+   length" → kind `text`, at most 64 characters, kept as changes (§2.1,
+   §4.4).
 2. **Every series belongs to a twin object** (§2)? Recommended: yes.
    Alternative: free-standing series — simpler for a quick app, but outside
    the tenant's twin and without a title or owner.
@@ -233,7 +289,8 @@ a request that would yield more is answered with a coarser tier.
    PostgreSQL driver, the API in the twin service, the job, the CLI.
    **Measured on oaap-test** with a simulated clock (a year of points for
    fifty series in minutes, as RFC-0051 did): roll-up keeps min/max, a gap
-   stays a gap, partitions are dropped on time, a duplicate is counted, a
+   stays a gap, a text series written every minute for a year holds one
+   row per change, partitions are dropped on time, a duplicate is counted, a
    late point recomputes its bucket, the conformance suite green, the size
    per million points written down.
 2. **The fleet writes.** RFC-0085's fleet service writes into `oaap-ops`
@@ -249,7 +306,17 @@ a request that would yield more is answered with a coarser tier.
 
 External query protocols and a Grafana data source; alerting on series
 values (thresholds — a later step of RFC-0080 or of the fleet service);
-forecasting; text values over time; changing RFC-0051's local store.
+forecasting; free text and log lines; changing RFC-0051's local store.
+
+## Decision record (2026-11-12)
+
+Jörg, in chat: D2–D8 "OK" — as recommended. **D1 amended:** "we also need
+a history for texts like status; we can limit the permitted length."
+Taken into the RFC as the kind `text` (§2.1): at most 64 characters, no
+line breaks, kept as state intervals with gaps after three expected
+intervals (§4.4), stored in `text_states` with the bound as column type
+(§5), part of the conformance suite (§6). The limit of 64 is Claude's
+proposal within Jörg's decision; changing it is a spec change.
 
 ## Deutsche Zusammenfassung
 
@@ -260,13 +327,20 @@ Knotens jede Minute über ein Jahr. Bisher hält jeder Knoten nur seine
 eigenen Messwerte für vier Stunden bis einen Monat in Dateien (RFC-0051).
 
 **Der Vorschlag:** eine eigene Capability **`oaap.data.timeseries`** für
-Zahlenwerte über die Zeit.
+Werte über die Zeit — **Zahlen** und **kurze Texte** (Status).
 - **Jede Zeitreihe hängt an einem Zwillingsobjekt** (z. B. Knoten oaapx01,
   Messgröße `cpu`). Ohne Objekt keine Reihe. Damit bleibt die
   Mandantengrenze, wo sie ist, und die Grafik aus RFC-0085 findet die
   Reihen eines Knotens am Knoten.
-- **Nur Zahlen.** Zustände wie „läuft“ oder „steht“ gehören weiter in den
-  Zwilling.
+- **Zahlen und kurze Texte (Jörgs Ergänzung zu D1).** Texte wie
+  `healthy`, `in Wartung`, höchstens **64 Zeichen**, ohne Zeilenumbruch —
+  längere werden abgelehnt, nie abgeschnitten. Gespeichert werden nur
+  **Wechsel**: Ein gleicher Wert verlängert „zuletzt gesehen“, ein neuer
+  Wert beginnt einen neuen Abschnitt. Mit erwartetem Takt wird eine Lücke
+  sichtbar („unbekannt“), wenn dreimal so lange nichts kam. Abfrage liefert
+  Zustandsabschnitte bzw. je Zeitabschnitt den Wert am Ende, die Zahl der
+  Wechsel und den am längsten gehaltenen Wert. Freitext und
+  Protokollzeilen bleiben Ereignisse — die Längengrenze trennt beides.
 - **Stufen, die mit dem Alter gröber werden**, immer mit Mittel, Minimum,
   Maximum und Anzahl, damit eine kurze Spitze im Jahresdiagramm nicht
   verschwindet. Drei feste Profile: `standard` (Minutenwerte 7 Tage,
@@ -294,7 +368,8 @@ Apache-Ausgabe.
 **Sicherung:** Zeitreihen sind Teil der Mandantensicherung wie der
 Zwilling; eine Generalprobe kopiert sie nur auf Wunsch.
 
-**Acht Entscheidungen (§9)**, alle mit Empfehlung. **Stufen:** (1) Spec,
+**Acht Entscheidungen (§9), am 12.11. von Jörg angenommen:** D2–D8 wie
+empfohlen, D1 erweitert um Text-Zeitreihen mit begrenzter Länge. **Stufen:** (1) Spec,
 PostgreSQL-Treiber, Schnittstelle, auf oaap-test mit simulierter Uhr
 gemessen (ein Jahr in Minuten); (2) die Flotte schreibt (RFC-0085 Stufe 5);
 (3) Diagramme im Flottenmanagement; (4) ein „Rekorder“ für Mandanten-Topics,
