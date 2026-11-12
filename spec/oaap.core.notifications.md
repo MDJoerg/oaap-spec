@@ -49,8 +49,8 @@ the instance, the reason, a link to the portal page).
 
 | Type | Category | Scope | Matter | Fires when |
 |---|---|---|---|---|
-| `backup.failed` | critical | both | yes | the last node backup ended with an error |
-| `backup.missing` | critical | node | yes | a backup schedule exists and is off, or no successful backup for 26 h — never on a node declared `none` (`oaap.data.backup` 2.6) |
+| `backup.failed` | critical | both | yes | the last node backup ended with an error — for a tenant only if its data is in the node archive; a tenant with its own archive hears its own run (`oaap.data.backup` 2.7) |
+| `backup.missing` | critical | both | yes | a backup schedule exists and is off, or no successful backup for 26 h — never on a node declared `none` (`oaap.data.backup` 2.6) |
 | `disk.full` | health | node | yes | the data disk ≥ warn threshold (default 90 %), closes below warn − 2 |
 | `advisory.host` | security | node | yes | host packages have open security fixes |
 | `advisory.image` | security | tenant | yes | images of the tenant's instances have open security fixes — **one matter per tenant**, the text names the instances |
@@ -126,7 +126,9 @@ says so on its own page.
   at most 25.
 - **Nobody reachable** in a tenant's lists: the notification goes to the
   node's mandatory list, with a sentence saying so — except for a `both`
-  type, which the node hears under its own routing anyway.
+  type, which the node hears under its own routing anyway; a tenant's own
+  archive (`oaap.data.backup` 2.7) is not heard by the node and does fall
+  back.
 - **A permanent refusal is final:** a 5xx answer of the mail server (all
   recipients refused, or the message) is logged `failed` at once; recipients
   refused singly are named in the log and the mail goes to the others.

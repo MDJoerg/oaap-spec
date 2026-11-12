@@ -1,8 +1,8 @@
 # oaap.data.backup — Platform Backup & Restore
 
 - **ID:** `oaap.data.backup`
-- **Version:** 0.5
-- **Maturity:** draft (0.5: the node's **backup class** and leaving **test instances** out -- 2.6, RFC-0081 stage 1; 0.4.2: nothing writes into `apps/` while the copy runs -- 2.2; 0.4.1: the node archive does not stop an excluded
+- **Version:** 0.6
+- **Maturity:** draft (0.6: a **tenant's backup class** -- node / own / none, its own archive on its own timer, one backup at a time -- 2.7, RFC-0081 stage 2; 0.5: the node's **backup class** and leaving **test instances** out -- 2.6, RFC-0081 stage 1; 0.4.2: nothing writes into `apps/` while the copy runs -- 2.2; 0.4.1: the node archive does not stop an excluded
   tenant's containers -- their data is not copied, so they need not stand
   still; found 2026-10-23 when the operator's own desktop was restarted
   at 02:30 every night with a script running in it; 0.4 implements RFC-0029 D5 and D5b: an archive of
@@ -353,7 +353,45 @@ go.
   out, app downtime 47 s instead of 98 s, archive 3.9 GB instead of 5.3 GB.
 - CLI: `oaap backup class [offsite|local|none] [--reason ...]`,
   `oaap backup test-instances on|off`; `oaap backup status` shows both.
-- A tenant's own class (`node`/`own`/`none`) is RFC-0081 stage 2.
+- A tenant's own class (`node`/`own`/`none`) is 2.7.
+
+### 2.7 A tenant's backup class (0.6, RFC-0081 stage 2)
+
+- Every tenant has a class: **`node`** (default -- its data is in the node
+  archive), **`own`** (its own archive, 2.1.1, on its own timer) or
+  **`none`** (= the exclusion of 2.1.2, with its reason). The node's own
+  tenant is always `node`.
+- **`own`** leaves the tenant out of the node archive -- not copied twice, its
+  containers not stopped twice -- and the node manifest records it among the
+  omitted tenants with `"class": "own"`; a restore names it like an excluded
+  tenant. Its archive is written **beside the node's** archives, under
+  `tenants/<tenant-id>/` (an id, so a rename orphans nothing), the newest
+  `keep` stay. Only that tenant's containers stop.
+- **The timer** is a systemd template (`oaap-tenant-backup@.service/.timer`)
+  with one drop-in per tenant carrying its hour; systemd is the truth as in
+  2.4. The run is `oaap backup tenant-run <tenant-id>`.
+- **One backup at a time:** the node archive and every tenant archive take one
+  lock. A run that finds it taken waits up to an hour, then records `failed`
+  with that reason. (Measured on oaap-test 2026-11-12: a tenant run started
+  8 s after a node run waited for it and finished 18 s after it.)
+- **Each tenant run is recorded** (`apps/backup-tenants/<tenant-id>.json`:
+  state, times, archive, size, the reason of a failure, the last success) --
+  every outcome, including a failure before the archive (a target that cannot
+  be made).
+- **Who sets what:** the class, its reason and the ceiling for `keep` are the
+  `server_admin`'s; for an `own` tenant its `tenant_admin` sets the **hour**
+  and **keep** up to that ceiling (default 3) -- the run stops only their
+  apps. Every change is filed in that tenant's log (`backup.tenant`). The
+  host judges a portal request again from the actor's own record.
+- **Notifications** (`oaap.core.notifications`): an `own` tenant gets
+  `backup.failed` / `backup.missing` for **its** archive; the node archive's
+  failure reaches only the tenants whose data it carries (`node`). When such a
+  tenant's lists reach nobody, its own-archive notification goes to the node's
+  owners -- the node does not hear it otherwise. The mail links to the
+  tenant's page *Sicherung*.
+- CLI: `oaap backup tenant <label> [--class node|own|none] [--at HH:MM]
+  [--keep N] [--keep-max N] [--reason ...]`; without options it shows the
+  class and the last run. `oaap backup status` lists own tenants.
 
 ### 2.5 Relocation procedure
 

@@ -1,6 +1,6 @@
 # RFC-0081: Backup Classes — How Much Backup a Node, a Tenant and a Test Instance Get
 
-- **Status:** **Accepted (2026-11-12)** — Jörg: "wie empfohlen" (D1–D6). **Stage 1 built (reference 0.1.258, §6)**; `oaap.data.backup` 0.5
+- **Status:** **Accepted (2026-11-12)** — Jörg: "wie empfohlen" (D1–D6). **Stages 1 and 2 built (reference 0.1.258 / 0.1.259, §6, §7)**; `oaap.data.backup` 0.6
 - **Date:** 2026-11-12
 - **Authors:** Jörg (the need: "oaap-test is a test node and needs no real
   backup, at most a local one — maybe tenants should be able to configure
@@ -171,6 +171,34 @@ completeness check passed; **app downtime 47 s instead of 98 s, run 240 s
 instead of 377 s, archive 3.9 GB instead of 5.3 GB**. One wording fixed
 during the measurement: the note had called the test containers "containers
 of excluded tenants".
+
+## 7. Stage 2 built (2026-11-12, reference 0.1.259)
+
+A tenant's class `node`/`own`/`none` (`none` = the exclusion), its own archive
+on a systemd template timer per tenant id, beside the node's archives under
+`tenants/<id>/`, pruned to `keep`; one lock for all backups (wait up to an
+hour); a run record per tenant; notifications per tenant (`backup.missing`
+became scope `both`); the node archive's failure no longer reaches `own`/`none`
+tenants; a tenant's own-archive notification falls back to the node's owners
+when the tenant reaches nobody; the portal page *Sicherung* (`/tenant/backup`).
+
+**Measured on oaap-test** with the probe tenant `zzz-probe`:
+- set to `own` with an hour two minutes ahead → its timer started the run by
+  itself: 200 MB, **only its one app stopped, 11 s** of 14 s;
+- a node backup and, 8 s later, the tenant run → the tenant run waited
+  ("Another backup is running … waiting") and finished 18 s after the node
+  run; the node archive left `zzz-probe` out with `class: own`, its container
+  kept running;
+- its target replaced by a file → run recorded `failed` with the real reason
+  (`FileExistsError …`), the last success kept; `zzz-probe` reaches nobody →
+  the mail went to the node's owners and **arrived** (IMAP), naming the tenant
+  and the reason;
+- the next good run → "Behoben" arrived. Found and fixed during the
+  measurement: the mail linked to the tenant's health page; it now links to
+  `/tenant/backup?tenant=<label>`. Also hardened during the build: a failure
+  before the archive (target not makeable) was not recorded at first.
+
+`zzz-probe` stays `own` at 02:00 as a living example on oaap-test.
 
 ## 5. Out of scope
 
