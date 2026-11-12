@@ -1,8 +1,8 @@
 # oaap.core.host — Platform Installer & Node Baseline
 
 - **ID:** `oaap.core.host`
-- **Version:** 0.3.8
-- **Maturity:** draft (0.3.8: reboot plan and protection verbs under
+- **Version:** 0.3.9
+- **Maturity:** draft (0.3.9: **what the node calls itself** -- alias, place, tags, 2.6, `oaap node alias|place|tags`, RFC-0082 stage 1; 0.3.8: reboot plan and protection verbs under
   `oaap node care`, 2.3, RFC-0069; 0.3.7: `oaap status` states the node's care
   state and `oaap node care` sets it, 2.3, per `oaap.core.updates` 2.6;
   0.2.1 adds the `oaap user` rescue commands, 2.3;
@@ -340,6 +340,44 @@ another machine; a scan from the node itself passes either way.
 
 **Restore** (`oaap.data.backup` 2.3): profiles describe the machine,
 not the service, and are therefore **not** restored from a backup.
+
+### 2.6 What the node calls itself (0.3.9, RFC-0082)
+
+A node declares three things about itself, for the fleet -- not a name
+anybody outside needs to know:
+
+- **Alias** -- `[a-z0-9][a-z0-9-]{0,38}[a-z0-9]`, e.g. `oaapx01`: the node's
+  identifier in mail subjects, archive names, the fleet document and
+  (RFC-0082 stage 2) the topic tree. **Unset, it is the OS hostname**,
+  first label, lowercased, any other character a hyphen.
+- **Place** -- 0 to 6 levels, each `[a-z0-9][a-z0-9-]{0,30}`, written
+  `de/datacenter1/group3`: the prefix under which the node will appear in a
+  topic tree. Empty by default.
+- **Tags** -- up to 10 flat labels of the same rule (`kunde-cls`, `test`):
+  groups across the hierarchy.
+
+Rules:
+
+- Kept in `apps/node-identity.json` (0644 -- the portal reads it, nothing
+  secret), written only on a change; every change is a line in the node's
+  log (`node.identity`). A stored value that breaks a rule is **ignored, not
+  trusted** (as profiles are, 2.5) -- a hand-edited or restored file must not
+  put a slash into a topic.
+- **Nothing changes until an alias is set:** mail subjects keep the external
+  host name, archives the raw hostname. Readers that match on the old name
+  (a receiver's `backup-receive.sh --source`) must be told the new one; the
+  command says so.
+- The file also carries `default`, the normalized hostname, kept current by
+  the minute job -- the portal's container cannot see the host's name.
+- Set by **`server_admin`** only: `sudo oaap node alias|place|tags <value>`
+  (`-` resets), or the form under *Gesundheit -> Knoten* (a spool request
+  `node-identity`, judged again from the actor's record). `oaap node show`
+  and `oaap node alias` print all three.
+- **Uniqueness** cannot be known on one node; it is checked where nodes meet
+  (FleetView, a broker -- RFC-0082 stage 3).
+- The alias **travels with the node archive** (it lives in `apps/`); the
+  restore prints "this node calls itself ... -- if this is a COPY, give it
+  its own" (`oaap.data.backup` 2.3).
 
 ## 3. Configuration
 

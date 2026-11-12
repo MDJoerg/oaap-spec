@@ -1,6 +1,6 @@
 # RFC-0082: Node Alias and Place — How a Node Names Itself Inside the Fleet
 
-- **Status:** Draft (2026-11-12)
+- **Status:** Accepted (2026-11-12, D1–D7 as recommended); **stage 1 built (reference 0.1.260, §6)** -- `oaap.core.host` 0.3.9 2.6, `oaap.fleet.status` 0.9, `oaap.core.notifications` 0.3, `oaap.data.backup` 0.7, `oaap.core.portal` 0.3.45
 - **Date:** 2026-11-12
 - **Authors:** Jörg (the need: "every OAAP node gets a configurable alias, like
   oaapx01 — not a name known outside, but how we keep it internally; an
@@ -124,6 +124,40 @@ broker refuses a node key for an alias another key already holds.
 3. **Fleet** — FleetView groups by place and tags; two nodes with one alias
    are flagged.
 
+## 6. Stage 1 built (2026-11-12, reference 0.1.260)
+
+`apps/node-identity.json` with alias, place, tags and the hostname default
+(kept current by the minute job for the portal); `oaap node alias|place|tags`
+and `oaap node show`; the health page's row *Name im Verbund* and the
+`server_admin`'s form (spool `node-identity`); `{knoten}` = the alias once set,
+`{ort}`, the body with both names; the fleet document 0.9; archive names and
+manifest; the restore's sentence; `backup-pull.sh --local` names its directory
+by the alias.
+
+One deviation from §2.2, deliberate: an **unset** alias does not rename
+anything. The default (the normalized hostname) is the alias the fleet
+document reports, but mail subjects keep the external name and archives the
+raw hostname until someone sets one -- otherwise every node would change its
+subjects with this update, and a receiver matching `--source <hostname>` would
+start refusing a node whose hostname is not already normalized.
+
+**Measured on oaap-test:**
+- before: probe mail `[oaap-test.oaap-demo.duckdns.org] Probe des Verteilers
+  Serverbesitzer`, `Server: oaap-test.oaap-demo.duckdns.org`;
+- `sudo oaap node alias oaap-test`, `place de/home/lab`, `tags test lab` ->
+  probe `[oaap-test] Probe des Verteilers Serverbesitzer`, `Server: oaap-test
+  (oaap-test.oaap-demo.duckdns.org)`, `Ort: de/home/lab` -- both **arrived**
+  (IMAP);
+- `/fleet/status` (a key issued for the probe, revoked after):
+  `schema oaap.fleet.status/0.9`, `node oaap-test.oaap-demo.duckdns.org`,
+  `alias oaap-test`, `place de/home/lab`, `tags [lab, test]`;
+- alias `lab-probe` for one run -> `oaap-backup-lab-probe-20261112-091936.tar.gz`,
+  manifest `alias lab-probe, alias_set true, place de/home/lab`, the
+  declaration inside the archive; then back to `oaap-test`;
+- the minute job wrote `default: oaap-test` by itself after the update.
+
+oaap-test stays `oaap-test`, `de/home/lab`, tags `lab`, `test`.
+
 ## 5. Out of scope
 
 Central assignment of aliases; renaming the OS host; the message formats of
@@ -147,4 +181,4 @@ Mails zeigen dann `[oaapx01] …` und im Text beide Namen; der Flottenstatus
 trägt Alias, Ort und Tags; FleetView gruppiert und warnt bei doppeltem Alias.
 Der Alias reist mit dem Archiv mit (Umzug behält die Identität). Stufen:
 1 Erklärung + Mails + Flottenstatus + Archive, 2 Topic-Baum, 3 FleetView.
-Entscheidungen D1–D7 in §3, je mit Empfehlung.
+Entscheidungen D1–D7 in §3 — angenommen wie empfohlen (12.11.). **Stufe 1 gebaut (0.1.260, §6):** Alias/Ort/Tags setzen (`oaap node alias|place|tags`, Gesundheitsseite), Betreff `[alias]`, Flottenstatus 0.9, Archivnamen, Hinweis beim Restore. Ohne gesetzten Alias ändert sich nichts — auch nicht der Betreff.

@@ -1,7 +1,7 @@
 # oaap.fleet.status — Read-Only Fleet Status Document
 
 - **ID:** `oaap.fleet.status`
-- **Version:** 0.8 (the images in the `host` block — counts per state
+- **Version:** 0.9 (what the node calls itself -- `alias`, `place`, `tags` beside `node`, `oaap.core.host` 2.6, RFC-0082, 2026-11-12; 0.8: the images in the `host` block — counts per state
   word and the oldest date, never an instance, a base or a package — and
   the attention kind `images_open`, `oaap.core.updates` 2.9, RFC-0071,
   2026-11-06; 0.7: the advisories in the `host` block — count, oldest
@@ -263,6 +263,21 @@ Rules:
    missing), `gateway_mptcp` (detail: the listeners that negotiate it).
    A 0.4 consumer ignores the block and the kinds, as rule 4 requires.
 
+### What the node calls itself (0.9, RFC-0082)
+
+```json
+  "node": "oaap.joomp.de",
+  "alias": "oaapx01",
+  "place": "de/strato",
+  "tags": ["kunde-cls"],
+```
+
+`node` stays what it was -- the name the node is reached by. `alias` is the
+node's identifier (`oaap.core.host` 2.6; unset = its normalized hostname),
+`place` its path (may be empty), `tags` a list (may be empty). A consumer
+groups by `place` and `tags` and flags two nodes reporting one `alias`; a 0.8
+consumer ignores the three fields (rule 4).
+
 ## 4. Consumers
 
 The first consumer is the fleet overview app (RFC-0021 §3): node list
@@ -281,6 +296,12 @@ are stage 2 (RFC-0021 outlook) and live on the management node, never
 on the watched node.
 
 ## Zusammenfassung auf Deutsch
+
+**0.9:** Das Dokument trägt neben `node` (dem Namen, unter dem der Knoten
+erreicht wird) jetzt `alias`, `place` und `tags` -- wie sich der Knoten
+intern nennt (`oaap.core.host` 2.6, RFC-0082). FleetView kann danach
+gruppieren und doppelte Aliasse melden.
+
 
 Jeder Knoten beantwortet `GET /fleet/status` mit einem versionierten
 JSON-Dokument: Plattformversion, Profile, Kerndienst-Ampeln,

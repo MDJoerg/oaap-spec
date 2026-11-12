@@ -1,7 +1,7 @@
 # oaap.core.notifications — Recipient Lists and Notifications
 
 - **ID:** `oaap.core.notifications`
-- **Version:** 0.2
+- **Version:** 0.3 (0.3: `{knoten}` is the node's alias once one is set, `{ort}` its place, the body names both names -- RFC-0082 stage 1)
 - **Maturity:** draft. 0.1 was RFC-0080 stage 1: lists, the catalogue,
   routing, the outbox, sending by mail, the delivery log, the portal
   sections and `oaap notify`. 0.2 is stage 2: `instance.down` and
@@ -103,7 +103,14 @@ says so on its own page.
   for that type — never through its category, never through the
   mandatory list.
 - A subject template may contain `{knoten}`, `{mandant}`, `{instanz}`,
-  `{typ}`, `{kurz}`; any other placeholder or a lone brace is refused.
+  `{typ}`, `{kurz}`, `{ort}`; any other placeholder or a lone brace is refused.
+- `{knoten}` is the node's **alias once one is set** (`oaap.core.host` 2.6),
+  before that the external host name, else the hostname -- setting an alias
+  changes every subject of the node, nothing changes before. `{ort}` is the
+  node's place (may be empty). The body then says `Server: oaapx01
+  (oaap.joomp.de)` and, with a place, `Ort: de/strato`. (Measured on
+  oaap-test 2026-11-12: a probe before and after -- `[oaap-test.oaap-demo.duckdns.org]`
+  became `[oaap-test]`, both arrived.)
   The first named list's `subject_prefix` goes in front.
 
 ### 2.4 Sending
@@ -216,6 +223,10 @@ Lagen werden bei Beginn und Behebung gemeldet, Kritisches zusätzlich
 täglich. Grenzen gegen Missbrauch (20/h je Mandant), eine Stunde
 Wiederholung, nie eine Mail über eine gescheiterte Mail. Das Protokoll
 nennt keine Adressen.
+
+**0.3 (RFC-0082):** Ist ein Alias gesetzt, steht er im Betreff
+(`[oaapx01] …`); der Text nennt beide Namen und den Ort. Neuer Platzhalter
+`{ort}`. Ohne Alias bleibt alles wie bisher.
 
 **0.2 (Stufe 2):** „Instanz ausgefallen“ — eine Produktiv-Instanz, die fünf
 Minuten nicht gesund ist, öffnet eine Lage je Instanz; ist die

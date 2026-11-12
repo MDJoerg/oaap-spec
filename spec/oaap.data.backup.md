@@ -1,8 +1,8 @@
 # oaap.data.backup — Platform Backup & Restore
 
 - **ID:** `oaap.data.backup`
-- **Version:** 0.6
-- **Maturity:** draft (0.6: a **tenant's backup class** -- node / own / none, its own archive on its own timer, one backup at a time -- 2.7, RFC-0081 stage 2; 0.5: the node's **backup class** and leaving **test instances** out -- 2.6, RFC-0081 stage 1; 0.4.2: nothing writes into `apps/` while the copy runs -- 2.2; 0.4.1: the node archive does not stop an excluded
+- **Version:** 0.7
+- **Maturity:** draft (0.7: archives are named by the node's **alias** once set, the manifest carries `alias`/`place`, a restore names the alias it brought -- 2.2/2.3, RFC-0082 stage 1; 0.6: a **tenant's backup class** -- node / own / none, its own archive on its own timer, one backup at a time -- 2.7, RFC-0081 stage 2; 0.5: the node's **backup class** and leaving **test instances** out -- 2.6, RFC-0081 stage 1; 0.4.2: nothing writes into `apps/` while the copy runs -- 2.2; 0.4.1: the node archive does not stop an excluded
   tenant's containers -- their data is not copied, so they need not stand
   still; found 2026-10-23 when the operator's own desktop was restarted
   at 02:30 every night with a script running in it; 0.4 implements RFC-0029 D5 and D5b: an archive of
@@ -258,6 +258,19 @@ state comes from the backup instead of an empty initialization:
    configuration, start.
 4. **No setup wizard, no setup token** — the admin users come from the
    backup. The installer prints the login URL instead.
+5. **The node's alias came back** with `apps/` (0.7, RFC-0082 D5) -- right
+   for a relocation, wrong for a copy next to the original. When the archive
+   carried a set alias, the restore says so: "this node calls itself
+   'oaapx01' ... if this is a COPY, give it its own: `sudo oaap node alias
+   <new>`". It never decides it.
+6. **Archive names** (0.7): `oaap-backup-<alias>-<stamp>.tar.gz` and
+   `oaap-tenant-<label>-<alias>-<stamp>.tar.gz` once an alias is set
+   (`oaap.core.host` 2.6), before that the raw hostname as always; the
+   manifest carries `alias`, `alias_set`, `place` beside `hostname`. A pull
+   with `--local` and no `--node` names its directory by the alias.
+   (Measured on oaap-test 2026-11-12: alias `lab-probe` set -> the next
+   archive was `oaap-backup-lab-probe-20261112-091936.tar.gz`, its manifest
+   `alias: lab-probe`, its `apps/node-identity.json` the declaration.)
 5. **Tenants the archive left out are named before anything starts**
    (0.4, 2.1.2 condition 2), and their instances are left **dormant**
    with the reason the archive recorded.
