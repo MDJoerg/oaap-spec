@@ -105,16 +105,21 @@ This RFC makes the middle one shape:
     provider never held a node key; several providers in parallel; the
     owner sees who did what.
 
-**Open facts, measured in stage 1 before anything depends on them:**
+**Open facts, measured in stage 1 before anything depends on them** (all
+three measured on 2026-11-12, §14):
 
 - **F1.** A message that arrives over a bridge **the local broker opened**:
   does mosquitto-go-auth check it with `aclcheck`, and under which user? If
   yes, the hub's rule "only the node writes its branch" refuses every
   bridged value, and §5.4 needs its alternative.
+  **Measured: not checked at all** — §5.4 is rewritten accordingly.
 - **F2.** The entry's queue for a bridge that is away: what Mosquitto keeps
   by default, what it drops first, and how it can be counted.
+  **Measured: 1000 messages, the newest are dropped, the queue survives a
+  broker restart, `$SYS/broker/publish/messages/dropped` counts the loss.**
 - **F3.** The size of a real `/fleet/status` document on oaapx01 (the
   largest node) as one MQTT message.
+  **Measured in parts: about 11 kB (2 kB compressed) — no limit near.**
 
 ## 2. The picture
 
@@ -173,6 +178,7 @@ by a node key:
 | `oaap-node/<hub>/bridge/<entry>` | the hub's broker (Mosquitto bridge notification) | `1` connected, `0` not; retained |
 | `oaap-node/<b>/broker` | the broker node's minutely job | clients connected, messages queued and dropped, uptime |
 | `oaap-fleet/control/<entry>/…` | the hub | commands to the entry (§4.5) — the only tree the bridge carries outward |
+| `oaap-via/<entry>/<n>/…` | the hub's bridge only (§5.4) | on the hub: everything node `<n>` sent through `<entry>`, same classes as under `oaap-node/<n>/` |
 
 The "infrastructure picture from the prefixes" (Jörg) reads this tree:
 node names, which broker a node reports to, which entry is bridged to which
@@ -275,7 +281,7 @@ FleetView's environment variables are retired with stage 4 (§10).
 | Where | Holds | Bound | Counted |
 |---|---|---|---|
 | node outbox (RFC-0051) | everything not acknowledged by the entry or hub | 7 days, size | yes, today |
-| entry, bridge session | everything for the hub while the bridge is away | **24 hours** (to configure, F2) | yes, `oaap-node/<entry>/broker` |
+| entry, bridge session | everything for the hub while the bridge is away | **24 hours**, set as a message count (`max_queued_messages`, §14 F2) | yes, `$SYS/broker/publish/messages/dropped` into `oaap-node/<entry>/broker` |
 | hub, fleet service session | everything for the receiver while it is down | persistent session, QoS 1 | yes |
 
 A loss is always counted where it happens and shown in the hub's portal;
@@ -292,10 +298,23 @@ nothing is dropped without a number.
 ### 5.3 The bridge
 
 Opened **by the hub**, outbound — the home network publishes no port for
-the fleet. Mosquitto bridge settings in short: `topic oaap-node/# in 1`,
-`topic oaap-fleet/control/<entry>/# out 1`, a persistent session (clean
-start off), the operator key of §4.3, TLS verifying the entry's
-certificate, and a notification topic `oaap-node/<hub>/bridge/<entry>`.
+the fleet. Mosquitto bridge settings in short (measured on 2026-11-12,
+§14):
+
+```text
+connection entry-<entry>
+address <entry>:8883                      # TLS, verifying the entry's certificate
+remote_username / remote_password         # the operator key of §4.3
+cleansession false                        # persistent session = the entry's queue
+topic # in 1 oaap-via/<entry>/ oaap-node/ # remote oaap-node/<n>/… → local oaap-via/<entry>/<n>/…
+topic # out 1 oaap-fleet/control/<entry>/ oaap-fleet/control/<entry>/
+notifications true
+notifications_local_only true             # the key may not write on the entry
+notification_topic oaap-node/<hub>/bridge/<entry>
+```
+
+The remapping (`oaap-via/<entry>/`) is what makes §5.4 possible: on the
+hub, the topic itself says through which entry a value came.
 
 *For Jörg:* a bridge is a broker that logs into another broker as a
 client and forwards selected topics. In SAP terms it resembles a qRFC
@@ -306,13 +325,32 @@ is delivered when the connection is back.
 
 The hub's rule (RFC-0054 §6): *writing under the root is refused to every
 key except the node's own.* A bridged value was written by the node — on
-the entry, where the entry's broker enforced the same rule. If F1 shows
-that the hub checks bridged messages too, the rule is extended, in the
-check, to: **the bridge of an entry may carry `oaap-node/<n>/…` for the
-nodes paired through that entry, and for nothing else.** The hub knows
-which nodes those are from the pairing (§4.2). If F1 shows that bridged
-messages are not checked, the hub still drops, in the fleet service, any
-bridged value for a node not paired through that entry, and counts it.
+the entry, where the entry's broker enforced the same rule (measured: a
+node key writing another node's branch is refused there).
+
+**F1 measured that the hub does not check bridged messages at all:**
+Mosquitto hands a publish that arrives over a bridge the hub opened to
+its subscribers without asking go-auth (§14). Without more, an entry
+could therefore place `oaap-node/oaap-demo/alive` on the hub, and no
+subscriber could tell it from the real one — MQTT does not say who
+published. The earlier fallback ("the fleet service drops bridged values
+of nodes not paired through that entry") cannot be built that way.
+
+The rule is therefore made from two parts that need no check on the
+bridged path:
+
+1. **The topic carries the origin.** The bridge remaps (§5.3): what an
+   entry carries arrives on the hub as `oaap-via/<entry>/<n>/…`, never as
+   `oaap-node/…`. A direct node writes `oaap-node/<n>/…` as before.
+2. **Nobody but a bridge can write `oaap-via/`.** The hub's check refuses
+   writes under `oaap-via/#` to every key (as for the metrics branch,
+   RFC-0054 §6) and `parse_grants` refuses such grants. A bridge is the
+   only writer there, because bridged messages pass without a check.
+
+The fleet service accepts `oaap-via/<entry>/<n>/…` only for nodes paired
+through `<entry>` and counts everything else as `bridge.foreign`. An entry
+can lie only about its own nodes — which it could anyway, since it holds
+their keys. Profiles (§7) expand a node to the path it actually uses.
 
 ### 5.5 History is the receiver's job
 
@@ -544,6 +582,82 @@ content of `security`, `hw` and `backup` (own RFCs); time series storage
 (RFC-0086); payload traces; more than one hub; checking data-processing
 agreements.
 
+## 14. Stage-1 measurements (2026-11-12, oaap-test)
+
+All on oaap-test (reference 0.1.264, broker image
+`iegomez/mosquitto-go-auth:3.0.0-mosquitto_2.0.18`); the second broker was
+a throwaway container of the same image on the compose network. Nothing on
+oaap-demo or oaapx01 was changed. Afterwards: broker template restored and
+compared byte for byte, all probe keys revoked, two retained probe messages
+cleared, and an empty `oaap-node/#` verified.
+
+**F1 — the hub does not check bridged messages.** Hub = the real broker,
+with a bridge to a throwaway "entry" added to its template for the test.
+A retained value and an `alive` published anonymously on the entry under
+`oaap-node/fakenode/…` reached a reader on the hub. With
+`auth_opt_log_level debug`, the hub's log shows `Received PUBLISH from
+f1-bridge-local` followed directly by the delivery: **no `aclcheck` for
+the bridge**, only the read check for the reader. The bridge's own local
+subscription was not checked either, and neither was its notification
+topic. Counter-check: the same topic published directly on the hub by an
+operator key with no node identity never reached the reader. A control
+command published on the hub under `oaap-fleet/control/f1entry/…`
+reached the entry over the same bridge.
+
+**F2 — the entry's queue.** Entry = the real broker, hub = a throwaway
+broker opening the bridge with an operator key (`read oaap-node/#`, `write
+oaap-fleet/control/<entry>/#`) and remapping to `oaap-via/<entry>/`. A node
+key published 1505 numbered QoS 1 messages: 5 with the bridge up, 600
+after the bridge was cut **by the network** (not by a stop), 900 more after
+a **restart of the entry broker** during the outage. Then the bridge was
+reconnected.
+
+| Setting | Arrived | Lost | Note |
+|---|---|---|---|
+| Mosquitto default | 1005 of 1505 | the newest 500 | 5 live + exactly 1000 queued; one log line "Outgoing messages are being dropped", no number |
+| `max_queued_messages 100000` | 1505 of 1505 | none | no duplicates, in order, across the broker restart |
+
+- The bound is **a message count per client, global for the broker**
+  (`max_queued_messages`, and `max_queued_bytes` for memory) — not a time.
+  "24 hours" (D6) is therefore set as a count: nodes behind the entry ×
+  messages per node and minute × 1440, with headroom. It applies to every
+  persistent session on that broker alike.
+- What is kept are the **oldest** messages; the newest are refused.
+- **The queue survives a restart of the entry broker** (`persistence
+  true`, written on a clean stop).
+- **Counting:** `$SYS/broker/publish/messages/dropped` counts exactly the
+  overflow (throwaway check: bound 10, 25 sent to an offline persistent
+  session → counter 15, 10 delivered on reconnect). The go-auth check
+  refuses `$` topics to every key today, so the broker watch (§6.2) needs a
+  platform principal allowed to read `$SYS/broker/#` (as `oaap.relay` is a
+  platform principal for publishing). Other counters present in 2.0.18:
+  `store/messages/count`, `store/messages/bytes`, `clients/connected`,
+  `load/publish/dropped/{1,5,15}min`.
+- The `seq` in `alive` (§3) gives a second, end-to-end count: the hub sees
+  the gap whoever dropped.
+- `persistent_client_expiration` is not set (read from the configuration,
+  not measured): the bridge session on the entry never expires.
+- **Remapping works**: everything arrived as `oaap-via/oaap-test/f2node/…`;
+  a node key publishing `oaap-node/oaap-demo/alive` was refused at the
+  entry and never reached the hub.
+- Detecting the cut: with `keepalive_interval 10` the entry dropped the
+  bridge client after ~25 s ("exceeded timeout"); messages sent in that
+  window were not lost.
+
+**F3 — size of the status document.** Measured on oaap-test (schema 0.9):
+7.9 kB with 37 instances, 1.2 kB without instances, 181 bytes per instance
+on average (214 at most), 1.5 kB gzip. oaapx01 was only read: 27 instances,
+41 public names. Estimate: 1.2 kB + 27 × 0.2 kB + 41 names × ~0.11 kB
+(the size of a name row is estimated, not measured) ≈ **11 kB, about 2 kB
+compressed**. Mosquitto sets no message size limit by default; hourly and
+on change, this is negligible. A real document from oaapx01 needs a fleet
+key there — a change on that node, not made.
+
+**What follows for the build:** §5.3 and §5.4 as rewritten; on the hub
+the check refuses writes under `oaap-via/#` (amendment A1 below); the
+entry's broker gets `max_queued_messages` sized for 24 hours; a platform
+principal for `$SYS`.
+
 ## Decision record (2026-11-12)
 
 Jörg, in chat: "wie empfohlen, rollout später". All eleven decisions of
@@ -571,6 +685,13 @@ Jörg, in chat: "wie empfohlen, rollout später". All eleven decisions of
 "Rollout später": stages are built and measured on oaap-test; changes on
 oaap-demo and oaapx01 (profiles, bridge, senders) and the fleet roll-out
 of reference 0.1.265 wait for Jörg's word.
+
+**Amendment A1 (proposed 2026-11-12 after F1, open for Jörg):** values
+from an entry arrive on the hub under `oaap-via/<entry>/<n>/…` (bridge
+remapping), and no key may write `oaap-via/#` — the origin is in the
+topic, because the hub's broker does not check bridged messages (§5.4,
+§14). The alternative would be to trust the entry for every node name,
+which lets one entry speak for nodes of another or for the hub.
 
 ## Deutsche Zusammenfassung
 
@@ -619,7 +740,8 @@ des Knotens; **kann personenbezogen sein**), reserviert `security`, `hw`,
 `backup`. Ein Profil ist schlicht eine Liste solcher Klassen.
 
 **Ausfallsicherheit:** drei Puffer hintereinander — Knoten (7 Tage),
-Eingang (24 Stunden), Empfangsdienst der Zentrale (dauerhafte Sitzung).
+Eingang (24 Stunden, eingestellt als Nachrichtenzahl), Empfangsdienst
+der Zentrale (dauerhafte Sitzung).
 Jeder Verlust wird dort gezählt, wo er passiert. Eine Brücke ist ein
 Broker, der sich bei einem anderen Broker als Client anmeldet und
 ausgewählte Topics weiterreicht — vergleichbar mit einer qRFC-Queue
@@ -631,10 +753,22 @@ Plattformdienst `fleet` auf einem neuen Knotenprofil `fleet-hub`. FleetView
 wird das Gesicht davon: liest nur den Zwilling, keine Schlüssel, keine
 Umgebungsvariablen.
 
-**Drei offene Fakten werden in Stufe 1 zuerst gemessen:** (F1) ob der
-Broker der Zentrale über die Brücke ankommende Werte mit seiner Rechteprüfung
-abweist, (F2) wie der Eingang die Warteschlange einer abwesenden Brücke hält
-und zählt, (F3) wie groß ein echtes Statusdokument ist.
+**Drei offene Fakten, am 12.11. auf oaap-test gemessen (§14):**
+
+- **F1:** Der Broker der Zentrale prüft Werte, die über die Brücke
+  ankommen, **überhaupt nicht**. Ohne Gegenmaßnahme könnte ein Eingang
+  also im Namen jedes Knotens sprechen, und kein Empfänger sähe den
+  Unterschied. Daraus folgt **Nachtrag A1 (zur Entscheidung):** Die Brücke
+  schreibt alles vom Eingang X auf der Zentrale unter
+  `oaap-via/X/<knoten>/…` um, und diesen Zweig darf kein Schlüssel
+  beschreiben. Die Herkunft steht dann im Topic.
+- **F2:** Der Eingang hält von Haus aus nur **1 000 Nachrichten**. Darüber
+  hinaus werden die neuesten verworfen, mit einer einzigen Protokollzeile.
+  Mit höherer Grenze kamen alle 1 505 an, auch über einen Neustart des
+  Eingangs hinweg. „24 Stunden“ wird darum als Anzahl eingestellt. Der
+  Zähler `$SYS/broker/publish/messages/dropped` zählt die Verluste genau.
+- **F3:** Ein Statusdokument von oaapx01 hat etwa 11 kB, gepackt etwa
+  2 kB. Das ist unkritisch.
 
 **Elf Entscheidungen (§11), am 12.11. von Jörg alle wie empfohlen angenommen** ("wie empfohlen, rollout später"); die wichtigsten: eine
 Zentrale statt direkter Dienstleister-Kopplung (D1), Status per Broker
