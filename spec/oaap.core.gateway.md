@@ -1,7 +1,7 @@
 # oaap.core.gateway — HTTP Gateway (outline)
 
 - **ID:** `oaap.core.gateway`
-- **Version:** 0.2.21
+- **Version:** 0.2.22 (0.2.22: **secret files refused** on every instance site -- see that section, RFC-0084)
 - **Maturity:** draft (outline — full specification to follow;
   an edge route covers **two** levels below its host (`*.*.host`), so a
   tenant's instances behind an edge are forwarded, 2026-11-07 after a
@@ -327,6 +327,32 @@ makes a WSGI auth service answer `400`, which forward-auth returns to
 the client — breaking every WebSocket handshake before the app is
 reached. This applies to every forward-auth call: platform apex, app
 routes and the throttle check alike.
+
+## Secret files are refused (0.2.22, RFC-0084)
+
+Every instance site -- through the one body all entry points share --
+refuses a request for a well-known secret path **before the app is
+reached**, whether the file exists or not: `.env*`, `.git/` `.svn/` `.hg/`,
+private keys and `*.pem`/`*.key`, `.aws/` `.npmrc` `.htpasswd` and other
+credential files, `vercel.json` `serverless.*` `docker-compose*.yml` and CI
+files, `wp-config.php*` and PHP backups, `*.sql` `*.sqlite` `*.db` `*.bak`
+dumps -- at the end of the path, under any prefix, case-insensitively.
+`/config.json` and `/.well-known/` are deliberately not on the list.
+
+- Implemented as `rewrite` of the matching path to a reserved path whose
+  one handler asks identity: Caddy runs `rewrite` before every `handle`, so
+  no app route, however sorted, sees the request.
+- Identity answers `404 Not found` (`no-store`) -- nothing tells a scanner
+  whether the file exists -- and counts per instance and hour in the brake's
+  format (distinct clients as keyed hashes, at most 50; minutes; never an
+  address).
+- The `server_admin` may allow one category for one instance, with a reason
+  in the tenant's log: `oaap guard allow <instance> <category> --reason`.
+- The node also asks every running instance directly once a day for such
+  files (`oaap guard scan`); a file that answers with its content is the
+  critical notification `exposure.found` (`oaap.core.notifications`).
+- Sites written before 0.2.22 are rewritten once by the update
+  (`migrate-guard`).
 
 ## A refusal must be readable across origins (RFC-0038 follow-up)
 
@@ -893,6 +919,15 @@ Plattform die Sites eines Mandanten neu, wenn dessen `vorgaenge` kommt,
 geht oder umzieht. Ein Update trägt die Blöcke außerdem in die Dateien
 nach, die schon auf dem Knoten liegen. Das ist zum dritten Mal dieselbe
 Lehre wie bei 0.1.117.
+
+## Deutsche Zusammenfassung (v0.2.22 — Geheimnisdateien, RFC-0084)
+
+Jede Instanz-Site weist Anfragen nach `.env`, `.git/`, Schlüsseln,
+Zugangsdateien, Deploy-Konfigurationen, PHP-Sicherungen und
+Datenbank-Abzügen ab, bevor die App sie sieht — mit 404, ob die Datei
+existiert oder nicht; gezählt wie die Bremse. Ausnahmen je Instanz und
+Kategorie nur durch den server_admin, mit Grund. Dazu prüft der Knoten
+täglich selbst, ob eine Instanz solche Dateien herausgibt.
 
 ## Deutsche Zusammenfassung (v0.2.18 — die Listener des Gateways sind reines TCP)
 

@@ -1,7 +1,7 @@
 # oaap.core.notifications — Recipient Lists and Notifications
 
 - **ID:** `oaap.core.notifications`
-- **Version:** 0.4 (0.4: the **weekly report** -- a daily ledger, one report per scope, delivery `now`/`report` per routing line -- 2.9, RFC-0083; 0.3: `{knoten}` is the node's alias once one is set, `{ort}` its place, the body names both names -- RFC-0082 stage 1)
+- **Version:** 0.5 (0.5: `exposure.found` -- an instance hands out a secret file, critical, tenant and node, RFC-0084; 0.4: the **weekly report** -- a daily ledger, one report per scope, delivery `now`/`report` per routing line -- 2.9, RFC-0083; 0.3: `{knoten}` is the node's alias once one is set, `{ort}` its place, the body names both names -- RFC-0082 stage 1)
 - **Maturity:** draft. 0.1 was RFC-0080 stage 1: lists, the catalogue,
   routing, the outbox, sending by mail, the delivery log, the portal
   sections and `oaap notify`. 0.2 is stage 2: `instance.down` and
@@ -51,6 +51,7 @@ the instance, the reason, a link to the portal page).
 |---|---|---|---|---|
 | `backup.failed` | critical | both | yes | the last node backup ended with an error — for a tenant only if its data is in the node archive; a tenant with its own archive hears its own run (`oaap.data.backup` 2.7) |
 | `backup.missing` | critical | both | yes | a backup schedule exists and is off, or no successful backup for 26 h — never on a node declared `none` (`oaap.data.backup` 2.6) |
+| `exposure.found` | critical | both | yes | an instance hands out a secret file when asked directly (`oaap.core.gateway` 0.2.22, RFC-0084) — one matter per instance, to its tenant and to the node; never only in the report |
 | `disk.full` | health | node | yes | the data disk ≥ warn threshold (default 90 %), closes below warn − 2 |
 | `advisory.host` | security | node | yes | host packages have open security fixes |
 | `advisory.image` | security | tenant | yes | images of the tenant's instances have open security fixes — **one matter per tenant**, the text names the instances |
