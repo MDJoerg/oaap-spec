@@ -654,7 +654,7 @@ on change, this is negligible. A real document from oaapx01 needs a fleet
 key there — a change on that node, not made.
 
 **What follows for the build:** §5.3 and §5.4 as rewritten; on the hub
-the check refuses writes under `oaap-via/#` (amendment A1 below); the
+the check refuses writes under `oaap-via/#` (amendment A1 below, accepted); the
 entry's broker gets `max_queued_messages` sized for 24 hours; a platform
 principal for `$SYS`.
 
@@ -686,7 +686,8 @@ Jörg, in chat: "wie empfohlen, rollout später". All eleven decisions of
 oaap-demo and oaapx01 (profiles, bridge, senders) and the fleet roll-out
 of reference 0.1.265 wait for Jörg's word.
 
-**Amendment A1 (proposed 2026-11-12 after F1, open for Jörg):** values
+**Amendment A1 (proposed 2026-11-12 after F1; accepted by Jörg the same
+day: "A1 bestätigt"):** values
 from an entry arrive on the hub under `oaap-via/<entry>/<n>/…` (bridge
 remapping), and no key may write `oaap-via/#` — the origin is in the
 topic, because the hub's broker does not check bridged messages (§5.4,
@@ -758,7 +759,7 @@ Umgebungsvariablen.
 - **F1:** Der Broker der Zentrale prüft Werte, die über die Brücke
   ankommen, **überhaupt nicht**. Ohne Gegenmaßnahme könnte ein Eingang
   also im Namen jedes Knotens sprechen, und kein Empfänger sähe den
-  Unterschied. Daraus folgt **Nachtrag A1 (zur Entscheidung):** Die Brücke
+  Unterschied. Daraus folgt **Nachtrag A1 (am 12.11. von Jörg bestätigt):** Die Brücke
   schreibt alles vom Eingang X auf der Zentrale unter
   `oaap-via/X/<knoten>/…` um, und diesen Zweig darf kein Schlüssel
   beschreiben. Die Herkunft steht dann im Topic.
