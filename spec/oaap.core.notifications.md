@@ -1,7 +1,7 @@
 # oaap.core.notifications — Recipient Lists and Notifications
 
 - **ID:** `oaap.core.notifications`
-- **Version:** 0.3 (0.3: `{knoten}` is the node's alias once one is set, `{ort}` its place, the body names both names -- RFC-0082 stage 1)
+- **Version:** 0.4 (0.4: the **weekly report** -- a daily ledger, one report per scope, delivery `now`/`report` per routing line -- 2.9, RFC-0083; 0.3: `{knoten}` is the node's alias once one is set, `{ort}` its place, the body names both names -- RFC-0082 stage 1)
 - **Maturity:** draft. 0.1 was RFC-0080 stage 1: lists, the catalogue,
   routing, the outbox, sending by mail, the delivery log, the portal
   sections and `oaap notify`. 0.2 is stage 2: `instance.down` and
@@ -205,6 +205,47 @@ says in red **above the tabs** when the mandatory list reaches nobody.
 (each tenant's mailbox and lists as names and counts). A form returns to
 its own tab; an unknown tab word shows the first.
 
+### 2.9 The weekly report (0.4, RFC-0083)
+
+- **Ledger.** The first minute job after local midnight appends one line per
+  scope (node, each tenant) for yesterday to `apps/report-ledger/<scope>.jsonl`
+  (0600, kept 3 years): the report events of the tenant log (reboots, backup
+  class, node identity, tenants, instance rebuild/sideload/purge, ...), every
+  line of the delivery log, for the node min/mean/max of the metrics (30 min
+  tier) and the backup run that finished that day; facts that exist only as
+  the current state -- bytes used/free and per tenant (`du`, bounded to
+  120 s), the care reading, the brake's counts per instance (with distinct
+  clients and the busiest minute) -- only for yesterday. The first run on a
+  node writes the six days before from what still exists; anything not
+  measured is recorded as such, never invented. A tenant's line holds its
+  own events, mails, own archive, storage and the brake of its instances.
+- **Report.** On the set weekday and hour (default Monday 07:00 local,
+  `apps/report.json`) the node writes last week's Markdown per scope to
+  `apps/reports/<scope>/<YYYY-Www>.md` (0644, a year): summary in sentences,
+  then events, every mail, backup, braked requests, measurements, and for the
+  node growth per week/month/year ("seit N Tagen gemessen" until measured).
+  It is queued as `report.weekly` (scope `both`, each scope its own) and
+  mailed as `multipart/alternative`: the Markdown as text plus the same
+  rendered to HTML (every text escaped first). Subject
+  `[{knoten}] Wochenbericht 2026-W46`.
+- **Tenants** get a report only when their `tenant_admin` routes
+  `report.weekly` to a list -- a tenant who never asked starts receiving no
+  mail. The node always gets one (no line = the mandatory list).
+- **Delivery.** A routing line carries `delivery`: `now` (default) or
+  `report` -- no mail, a log line `result: report`, so the type appears in
+  the report. `backup.failed`, `backup.missing`, `disk.full`,
+  `instance.down`, `report.weekly` and the category `critical` cannot be
+  `report` (refused when set, and ignored when a category line would carry
+  them). The RFC's third choice "both" is `now`: the report lists every mail.
+- **Command line:** `oaap report show [--week W] [--tenant L]`, `oaap report
+  run [--week-of DAY] [--send]`, `oaap report ledger [--day DAY]`, `oaap report
+  settings [--day mon..sun] [--at HH:MM] [--on|--off]`; `oaap notify route
+  <key> --delivery now|report`.
+- **Portal:** tab **Berichte** on `/nachrichten` (the scope's reports, the
+  chosen one rendered; at the node the day and hour, `server_admin`); a
+  column **nur im Bericht** in the routing table ("immer sofort" where it
+  cannot be).
+
 ## 3. Not in 0.2
 
 Telegram and other channels; `intrusion.suspected`; apps sending
@@ -223,6 +264,12 @@ Lagen werden bei Beginn und Behebung gemeldet, Kritisches zusätzlich
 täglich. Grenzen gegen Missbrauch (20/h je Mandant), eine Stunde
 Wiederholung, nie eine Mail über eine gescheiterte Mail. Das Protokoll
 nennt keine Adressen.
+
+**0.4 (RFC-0083) — Wochenbericht:** Täglich eine Zeile je Bereich in ein
+Tagebuch (3 Jahre); montags 07:00 (einstellbar) ein Bericht je Bereich als
+Markdown — Mail mit Text und HTML, Reiter „Berichte“. Mandanten nur, wenn sie
+„Wochenbericht“ einem Verteiler zuordnen. Je Zuordnung „nur im Bericht“
+(keine Mail); Kritisches, volle Platte, ausgefallene Instanz nie.
 
 **0.3 (RFC-0082):** Ist ein Alias gesetzt, steht er im Betreff
 (`[oaapx01] …`); der Text nennt beide Namen und den Ort. Neuer Platzhalter

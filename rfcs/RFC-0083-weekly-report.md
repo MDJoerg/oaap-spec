@@ -1,6 +1,6 @@
 # RFC-0083: The Weekly Report — What Happened, Summarized, Once a Week
 
-- **Status:** Draft (2026-11-12)
+- **Status:** Accepted (2026-11-12, D1–D8 as recommended); **stages 1–4 built (reference 0.1.262, §6)** -- `oaap.core.notifications` 0.4 2.9, `oaap.core.portal` 0.3.46
 - **Date:** 2026-11-12
 - **Authors:** Jörg (the need: "not send certain things at once but as a
   kind of weekly report — summary and details; e.g. that a kernel upgrade
@@ -205,6 +205,41 @@ path that looks like one.
    mail but appears in the report; `backup.failed` cannot be set to
    `report`; a tenant's report holds no other tenant's data.
 
+## 6. Built (2026-11-12, reference 0.1.262)
+
+All four stages, in the order of D8. Deviations, deliberate:
+
+- **Delivery has two values, `now` and `report`** (D3 named three). The
+  report lists every mail anyway, so "both" would be `now` under another
+  name.
+- **No new report-only types** (`reboot.done`, `backup.ok`, `brake.summary`
+  of 2.3): the ledger records those facts directly; a type that is never
+  mailed would only be a second path to the same line.
+- The tenant log, the delivery log and the 30 min metrics reach back far
+  enough that the **first ledger run writes seven days**; bytes, care and
+  the brake exist only as "now" and are recorded for yesterday only.
+
+**Measured on oaap-test:**
+- stage 1: 1 500 requests from one address against `wegweiser` -> 600 passed,
+  900 braked; the file holds `{"n": 900, "c": ["840afc0e"], "m": {"16": 900}}`
+  -- no address; the health page reads "900 · 1 Adresse · in 1 Minute";
+- found while staging: the portal image copies its modules one by one and
+  lacked `report.py` -> the portal restarted in a loop ("Worker failed to
+  boot"); fixed, and `test_portal_image_modules.py` now fails on any module
+  the portal imports but its image does not copy (checked: it fails without
+  the fix);
+- stage 2: the minute job wrote the ledger by itself, seven days per scope
+  (2026-11-05 .. 11), yesterday with bytes (108.6 GB used, 105.8 GB free);
+- stage 3: `oaap report run --week-of 2026-11-12 --send` -> "[oaap-test]
+  Wochenbericht 2026-W46" **arrived** (IMAP) as `text/plain` + `text/html`
+  (5 tables, 6 sections): 3 of 7 days recorded, the reboot plan, nine
+  instance events, six mails, min/mean/max (CPU max 100 %, latency max
+  48 s), growth "seit 1 Tagen gemessen"; found and fixed: numbers were
+  written with a decimal point;
+- stage 4: `oaap notify route backup.failed --delivery report` refused;
+  `operations` set to `report`, a `reboot.cancelled` queued -> no mail,
+  `result: report` in the log; set back to `now`.
+
 ## 5. Out of scope
 
 Intrusion detection; a fleet report across nodes; reports more often than
@@ -229,4 +264,4 @@ Bericht. Je Zuordnung im Verteiler wählt man **sofort / im Wochenbericht /
 beides**; Kritisches (Backup, Platte voll, Instanz aus) bleibt immer sofort.
 Nebenbei: die Bremse merkt sich künftig, wie viele Adressen es waren und in
 welcher Minute — „1 Adresse, 1 Minute“ heißt Scanner, nicht Überlast.
-Entscheidungen D1–D8 in §3.
+Entscheidungen D1–D8 in §3 — angenommen wie empfohlen (12.11.). **Gebaut, alle vier Stufen (0.1.262, §6):** Bremse mit Adressenzahl, Tagebuch, Bericht als Mail (Text + HTML) und Reiter „Berichte“, je Zuordnung „nur im Bericht“. Abweichung: nur zwei Zustellarten (sofort / nur im Bericht), weil der Bericht ohnehin jede Mail listet.
