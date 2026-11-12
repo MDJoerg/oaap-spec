@@ -680,9 +680,16 @@ pairs: retained values sent again at each resubscription and QoS 1
 redelivery — the reason the time-series writer must be idempotent
 (RFC-0086 §3).
 
-**Still to measure in stage 1:** oaap-demo rebooted with nothing lost —
-waits for Jörg's explicit word (the work environment refuses a reboot of
-that node without it).
+**oaap-demo rebooted (Jörg: "starte oaap-demo neu", 20:32:37 UTC, back
+20:33:43).** A persistent subscriber on the hub (`--restart always`,
+clean session off) recorded every node's `cpu`. Afterwards: 19 containers
+before and after with the same names, none unhealthy; the bridge
+reconnected by itself (the file in `broker-conf.d/` survives a reboot as
+it survives an update). **Every minute of every node arrived** — the four
+others and oaapx01 through the bridge, across the hub's absence. The one
+minute missing is oaap-demo's own 20:33: the node itself measured nothing
+while it booted (its local `raw.jsonl` goes from 20:32 to 20:34) — no
+loss in transport. **Stage 1 is measured completely.**
 
 **What follows for the build:** §5.3 and §5.4 as rewritten; on the hub
 the check refuses writes under `oaap-via/#` (amendment A1 below, accepted); the
