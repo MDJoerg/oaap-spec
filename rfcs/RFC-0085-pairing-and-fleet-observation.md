@@ -666,9 +666,23 @@ Measured on the hub with a read key: retained values under
 from inside the house the hub's public name does not reach 8883 (no
 hairpin NAT, no IPv6 route) — the internal senders connect with
 `--address 10.10.10.75` and verify the certificate for
-`oaap-demo.duckdns.org` (new in 0.1.268). Still to measure in stage 1:
-the bridge cut for an hour with the backlog caught up and counted;
-oaap-demo rebooted with nothing lost.
+`oaap-demo.duckdns.org` (new in 0.1.268).
+
+**The bridge cut for an hour (2026-11-12, 18:55–19:55 UTC).** The hub's
+bridge file was moved aside and the hub's broker restarted; a persistent
+subscriber on the hub (`oaap-via/oaapx01/#`, QoS 1) recorded every
+arrival with its time. After the bridge was back: **for each of the nine
+series of oaapx01, all 60 minutes of the cut arrived, no gap, and none of
+them before the reconnect** — they waited in the entry's queue. The
+entry's log shows the bridge client closing and reconnecting exactly one
+hour apart and **no drop**. The subscriber saw 38 repeated `(topic, t)`
+pairs: retained values sent again at each resubscription and QoS 1
+redelivery — the reason the time-series writer must be idempotent
+(RFC-0086 §3).
+
+**Still to measure in stage 1:** oaap-demo rebooted with nothing lost —
+waits for Jörg's explicit word (the work environment refuses a reboot of
+that node without it).
 
 **What follows for the build:** §5.3 and §5.4 as rewritten; on the hub
 the check refuses writes under `oaap-via/#` (amendment A1 below, accepted); the

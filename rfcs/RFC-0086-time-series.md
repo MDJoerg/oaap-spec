@@ -302,6 +302,36 @@ last_seen)`.
 5. *Later, if wanted:* a second driver, as the proof that the abstraction
    holds.
 
+### 10.1 Stage 1, first half — measured 2026-11-12 on oaap-test
+
+The driver (`platform/services/twin/timeseries.py`) and the conformance
+suite (`test/test_timeseries.py`) against a throwaway PostgreSQL 16 of
+the store's image: **all green**; three deliberate faults (mean of means,
+a duplicate overwriting, no text gap rule) each turned it red. The suite
+found one real fault first: a refused call left its transaction open
+and held its locks — every public call now rolls back on error.
+
+**A simulated year** (`test/measure_timeseries.py`): 50 number series and
+one status series, one point a minute, policy `standard`, job once per
+simulated day.
+
+| | |
+|---|---|
+| points written | 26.28 million in 25 minutes (≈ 19 000 per second); the job 107 s in total, ≈ 0.3 s per day |
+| size after 7 days | 57 MB for 504 000 points — **≈ 113 MB per million raw points**, indexes and tiers included |
+| size after a year | **186 MB**; raw stays at 576 000 rows (8 days: retention at day granularity), 5 min ≈ 0.6 million, 1 h 438 000 and growing to 400 days, 1 day 18 100 |
+| spike | a value of 1000 on one day is the maximum of that day's 1-day bucket |
+| status series | 4 changes a day for a year: **1 461 rows**, not 525 600 |
+| a year in weekly steps | answered from tier `1d`, 52 buckets |
+
+This is the fleet's size today (five nodes, about ten series each).
+Departures recorded in the spec: tables per policy (retention by
+partition needs it) and `text_states` not partitioned (an interval
+belongs to its `last_seen`).
+
+**Still to build in stage 1:** the HTTP interface in the twin's service,
+provisioning of `ts_<tenant-id>`, the minutely job, the CLI.
+
 ## 11. Out of scope
 
 External query protocols and a Grafana data source; alerting on series
