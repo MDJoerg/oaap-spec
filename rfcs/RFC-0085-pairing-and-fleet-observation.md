@@ -1,7 +1,7 @@
 # RFC-0085: Pairing and Fleet Observation — Every Node Reports to One Hub, Service Providers Receive Profiles
 
-- **Status:** **Draft (2026-11-12)** — direction agreed with Jörg in
-  conversation, decisions D1–D11 (§11) open; nothing built
+- **Status:** **Accepted (2026-11-12, D1–D11 as recommended)** — nothing
+  built; roll-out of anything on oaap-demo and oaapx01 waits for Jörg's word
 - **Date:** 2026-11-12
 - **Authors:** Jörg (the need: "monitor my nodes and get fleet management
   going; collect health data through a broker on oaapx01 and route it to
@@ -544,6 +544,34 @@ content of `security`, `hw` and `backup` (own RFCs); time series storage
 (RFC-0086); payload traces; more than one hub; checking data-processing
 agreements.
 
+## Decision record (2026-11-12)
+
+Jörg, in chat: "wie empfohlen, rollout später". All eleven decisions of
+§11 follow the recommendation:
+
+- **D1** one hub, nodes pair once, providers only through the hub;
+- **D2** root `oaap-node`, classes as the first level;
+- **D3** status as class `status`, the hub stops polling;
+- **D4** one-time code, 15 minutes, HMAC with a secret per entry; entries
+  paired with the same steps;
+- **D5** default classes `alive`, `metrics`, `status`, `events`;
+  `security`, `hw`, `backup` reserved;
+- **D6** bridge opened by the hub, the entry keeps 24 hours;
+- **D7** liveness by expectation, alert after 5 minutes, each entry
+  watches its hub;
+- **D8** profiles expanded into per-node grants; provider keys whose
+  grants the hub's platform may change (amendment to RFC-0054);
+- **D9** providers receive into a tenant on the hub or by read key, never
+  a role on a node;
+- **D10** platform service `fleet` on profile `fleet-hub`, the app is the
+  face;
+- **D11** oaap-demo gets `store` and becomes the hub, oaapx01 gets
+  `broker` and becomes the first entry.
+
+"Rollout später": stages are built and measured on oaap-test; changes on
+oaap-demo and oaapx01 (profiles, bridge, senders) and the fleet roll-out
+of reference 0.1.265 wait for Jörg's word.
+
 ## Deutsche Zusammenfassung
 
 **Worum es geht.** Die Bausteine für die Flottenüberwachung liegen fast
@@ -608,7 +636,7 @@ Broker der Zentrale über die Brücke ankommende Werte mit seiner Rechteprüfung
 abweist, (F2) wie der Eingang die Warteschlange einer abwesenden Brücke hält
 und zählt, (F3) wie groß ein echtes Statusdokument ist.
 
-**Elf Entscheidungen (§11)**, alle mit Empfehlung; die wichtigsten: eine
+**Elf Entscheidungen (§11), am 12.11. von Jörg alle wie empfohlen angenommen** ("wie empfohlen, rollout später"); die wichtigsten: eine
 Zentrale statt direkter Dienstleister-Kopplung (D1), Status per Broker
 statt Abfrage (D3), Koppeln per signiertem Einmal-Code (D4), Lebenszeichen
 als Erwartung (D7), Profilschlüssel mit änderbaren Rechten als Nachtrag zu
