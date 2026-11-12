@@ -1,8 +1,11 @@
 # oaap.events.broker — The MQTT Broker per Node
 
 - **ID:** `oaap.events.broker`
-- **Version:** 0.2.2
-- **Maturity:** draft (0.2.2: a second publisher with the relay principal — the node's own
+- **Version:** 0.3
+- **Maturity:** draft (0.3: the platform principal **`oaap.watch`** — reads only:
+  the broker's own counters under `$SYS/broker/`, the node branches, the
+  bridged branch and the fleet tree, §2.4, RFC-0085 stage 2 — measured
+  2026-11-12; 0.2.2: a second publisher with the relay principal — the node's own
   care event, `oaap.core.updates` 2.7.8, from the host, §2.3/§2.4 — measured 2026-11-05;
   0.2.1: the broker keeps its data and its place, §2.1 — measured 2026-10-22; 0.2 adds the platform principal `oaap.relay`,
   §2.4, with which `oaap.data.twin` 0.3's outbox relay publishes — the
@@ -174,6 +177,25 @@ that knows" posture `/verify` already uses for every HTTP route.
   own (`oaap-node-care`) so that it never displaces the relay's
   session. The secret stays where §3 says; the host reads it from the
   platform's own environment file and stores it nowhere else.
+
+**The fleet's watching principal (0.3, RFC-0085 stage 2):**
+
+- Username **`oaap.watch`**, password the node secret
+  **`BROKER_WATCH_KEY`** (generated like `BROKER_RELAY_KEY`, on every
+  node). The other half of the relay: it **reads only** — never
+  publishes — and only `$SYS/broker/#`, `<root>/#`, `oaap-via/#` and
+  `oaap-fleet/#`; not a tenant tree, not a bare `#`, not `$SYS/#`.
+- Why a principal and not a key: no RFC-0027 key may read `$SYS` — the
+  broker's auth plugin asks identity about `$SYS` too, and the key rules
+  refuse every `$` topic (measured 2026-11-12) — and an operator key
+  expires after at most a year, which would silence a platform watcher
+  without a word.
+- Who presents it: the minute job of every broker node (client id
+  `oaap-broker-watch`: the broker's counters, and on an entry whether its
+  hub's bridge is there), and on a hub the `fleet` service (client id
+  `oaap-fleet-hub`, persistent session). `$SYS` values are retained by
+  the broker: a subscription has all 53 of them within three seconds
+  (measured).
 
 Identity exposes two internal routes for this
 (`/mqtt-auth/getuser`, `/mqtt-auth/aclcheck`, matching the

@@ -1,7 +1,9 @@
 # RFC-0085: Pairing and Fleet Observation — Every Node Reports to One Hub, Service Providers Receive Profiles
 
-- **Status:** **Accepted (2026-11-12, D1–D11 as recommended)** — nothing
-  built; roll-out of anything on oaap-demo and oaapx01 waits for Jörg's word
+- **Status:** **Accepted (2026-11-12, D1–D11 as recommended)** — stage 1
+  measured and live (§14); **stage 2 built and measured on oaap-test,
+  reference 0.1.271 (§15), not rolled out**; roll-out of anything on
+  oaap-demo and oaapx01 waits for Jörg's word
 - **Date:** 2026-11-12
 - **Authors:** Jörg (the need: "monitor my nodes and get fleet management
   going; collect health data through a broker on oaapx01 and route it to
@@ -696,6 +698,86 @@ the check refuses writes under `oaap-via/#` (amendment A1 below, accepted); the
 entry's broker gets `max_queued_messages` sized for 24 hours; a platform
 principal for `$SYS`.
 
+## 15. Stage 2 — built and measured (2026-11-12, oaap-test, reference 0.1.271)
+
+**What was built.**
+
+- **The node** (metrics sender, RFC-0052): `alive` on every run — also
+  with nothing queued, so that a quiet node is still heard — with time,
+  a sequence number that grows with every *delivered* `alive`, version,
+  interval (60 s), lost samples and dropped events; `status` (the node's
+  `/fleet/status` document, fetched every 5 minutes with a fleet key the
+  node issues itself, `status-sender@<node>`, published when it changed
+  and at least hourly; the field `time` is left out of the comparison);
+  `events/<type>` — every RFC-0080 notification as queued, not retained;
+  `broker` — a broker node's own counters.
+- **Every broker node**: a broker watch in the minute job reads `$SYS`
+  and the hubs' bridge state as the new platform principal `oaap.watch`
+  (`oaap.events.broker` 0.3).
+- **The hub**: profile `fleet-hub` (needs `broker` and `store`), service
+  `fleet` (the twin's image, persistent session) writes what it sees to
+  `data/fleet/state.json`; `oaap fleet hub show`.
+- **The judging** (services/fleet_watch.py, pure) runs in the hub's
+  minute job; types in `oaap.core.notifications` 0.6. A closing mail names
+  how long it lasted.
+
+**Departures from §6–§8, each for a reason found while building:**
+
+1. **The judging and the mail are the host's minute job, not the `fleet`
+   container.** Only the host sends RFC-0080 mail (its outbox, lists,
+   limits, retry); the service only writes what it saw. Same split as
+   `instance.down` (runtime view → host). A stale or disconnected service
+   keeps open matters open.
+2. **`oaap.watch` instead of an operator key** for the service and the
+   broker watch: no key may read `$SYS` (measured: the auth plugin asks
+   about `$SYS` too, the key rules refuse `$`), and an operator key
+   expires after a year — a platform watcher must not fall silent then.
+3. **`node.back` / `bridge.back` are the closing mails** of `node.silent`
+   / `bridge.down` ("Behoben", with `Dauer:`), not types of their own.
+4. **Bridge notification topic for the outside watch:**
+   `oaap-fleet/bridge/<entry>/<hub>`, with `notifications_local_only
+   false`, so that the entry gets `1`/`0` (and the will `0`) too; the
+   bridge's key on the entry needs a write grant on
+   `oaap-fleet/bridge/<entry>/#`. The stage-1 topic
+   `oaap-node/<hub>/bridge/<entry>` is still read.
+5. **`broker.queue` is approximated** as stored minus retained messages
+   (`$SYS` has no per-session queue length).
+6. **A node behind a returning bridge gets two minutes** before it can
+   be silent (measured below: otherwise one open and one close mail per
+   node behind the bridge).
+7. **Only the hub's own bridges are judged**, and an entry counts only
+   `oaap-fleet/bridge/<itself>/<hub>` — a node that is hub and entry at
+   once (the test bench) otherwise judged the other side's bridge.
+
+**Measured on oaap-test** as hub *and* entry: two simulated nodes with
+real node keys sending `alive` every minute to oaap-test, a throwaway
+entry `sim-entry` with node `sim-c` behind it and oaap-test's bridge to
+it, and a throwaway hub `sim-hub` whose bridge goes into oaap-test with an
+operator key. Mails to a list `Flottentest` with the test mailbox only.
+
+| | |
+|---|---|
+| `oaap.watch` | reads `$SYS`: 53 counters within 3 s (retained); a probe key: refused |
+| the real sender of oaap-test → oaap-demo (0.1.268) | `alive` seq 2, `status` 8.5 kB, accepted |
+| the hub sees | three nodes, `sim-c` via the entry, `sim-b`'s event, its bridge `up` |
+| `sim-a` switched off | *SCHWEIGT* at 5:15 (its last `alive` was up to a minute before the cut), `node.silent` mailed at the next minute |
+| the bridge cut (entry stopped) | **one** `bridge.down` mail naming `sim-c`; `sim-c` *unbekannt, Eingang getrennt* — no mail of its own |
+| `sim-hub` stopped (the entry's view) | `hub.unreachable` mailed after 10:37 |
+| `sim-b`'s outbox reports 3 lost | one `node.loss` mail |
+| all back | *Behoben* mails with `Dauer: 8 Minuten` (node, bridge), `4 Minuten` (hub) |
+| **found** | at the bridge's return `sim-c`'s last `alive` was 13 minutes old: *silent* for one minute, an open and a close mail — fixed (departure 6); **repeated: a 6.5-minute cut, `sim-c` *unbekannt, gerade zurück*, then *da*; only `bridge.down` open/close** |
+
+Counter-checks: without the grace rule, and without the own-bridge filter,
+the test turns red at exactly the check for it. Tests:
+`test_fleet_watch.py` (38, the receiving part in the twin's image),
+`test_metrics_sender.py` (98, the new classes in their own section).
+
+**Not measured yet, needs the roll-out (Jörg's word):** a real node
+switched off; the real bridge oaap-demo ↔ oaapx01 cut (needs the new
+notification topic in the bridge file on oaap-demo and the write grant for
+key 835dfe66 on oaapx01); **oaap-demo stopped → mail from oaapx01** —
+the outside watch the RFC asks for.
+
 ## Decision record (2026-11-12)
 
 Jörg, in chat: "wie empfohlen, rollout später". All eleven decisions of
@@ -824,3 +906,19 @@ Brückenausfall und Neustart; (2) neue Klassen und Wache mit Alarmen;
 **Schon erledigt (12.11.):** Mandant `oaap-ops` auf oaap-demo angelegt
 (leer). Dabei gefunden: `oaap tenant create` übergeht `--dry-run`
 stillschweigend und legt wirklich an — Fehler im CLI, wird behoben.
+
+**Stufe 2 (12.11. spät, Referenz 0.1.271, auf oaap-test gemessen, nicht
+ausgerollt, §15).** Jeder Knoten schickt jetzt jede Minute ein
+Lebenszeichen, sein Statusdokument bei Änderung (spätestens stündlich)
+und seine Meldungen. Auf der Zentrale (neues Profil `fleet-hub`) liest
+der Dienst `fleet` alles mit; der Minutenjob entscheidet und mailt:
+Knoten schweigt (5 Minuten), Brücke getrennt (5 Minuten, eine Mail mit
+den Knoten dahinter statt einer je Knoten), Warteschlange halb voll,
+Messwerte verloren, und auf dem Eingang „Zentrale nicht erreichbar“ (10
+Minuten). Die „Behoben“-Mail nennt die Dauer. Gelesen wird mit einem
+neuen Plattform-Benutzer `oaap.watch`, der nur liest — ein
+Bedienschlüssel liefe nach einem Jahr ab, und `$SYS` darf kein Schlüssel
+lesen. Gemessen mit simulierten Knoten, Eingang und Zentrale: alles kam
+wie geplant; gefunden wurde ein Fehlalarm bei der Rückkehr einer Brücke
+(behoben, nachgemessen). Offen bis zum Rollout: ein echter Knoten aus,
+die echte Brücke getrennt, oaap-demo aus → Mail von oaapx01.

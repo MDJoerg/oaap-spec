@@ -1,7 +1,9 @@
 # oaap.core.notifications — Recipient Lists and Notifications
 
 - **ID:** `oaap.core.notifications`
-- **Version:** 0.5 (0.5: `exposure.found` -- an instance hands out a secret file, critical, tenant and node, RFC-0084; 0.4: the **weekly report** -- a daily ledger, one report per scope, delivery `now`/`report` per routing line -- 2.9, RFC-0083; 0.3: `{knoten}` is the node's alias once one is set, `{ort}` its place, the body names both names -- RFC-0082 stage 1)
+- **Version:** 0.6 (0.6: the **fleet** types `node.silent`, `bridge.down`,
+`broker.queue`, `node.loss`, `hub.unreachable`, and a closing mail names how
+long the matter lasted, RFC-0085 stage 2; 0.5: `exposure.found` -- an instance hands out a secret file, critical, tenant and node, RFC-0084; 0.4: the **weekly report** -- a daily ledger, one report per scope, delivery `now`/`report` per routing line -- 2.9, RFC-0083; 0.3: `{knoten}` is the node's alias once one is set, `{ort}` its place, the body names both names -- RFC-0082 stage 1)
 - **Maturity:** draft. 0.1 was RFC-0080 stage 1: lists, the catalogue,
   routing, the outbox, sending by mail, the delivery log, the portal
   sections and `oaap notify`. 0.2 is stage 2: `instance.down` and
@@ -61,6 +63,23 @@ the instance, the reason, a link to the portal page).
 | `confirm.pending` | operations | tenant | no | a delivery through the deploy hook waits for a person's confirmation |
 | `instance.down` | health | tenant | yes | a production instance unhealthy for 5 minutes — **one matter per instance** (2.2.1) |
 | `login.locked` | security | tenant | no | identity locked a login after failed attempts — one mail per tenant and minute, naming every lock (2.2.1) |
+| `node.silent` | health | node | yes | on a fleet hub: a node's last `alive` is older than 5 minutes, by the node's own time — one matter per node; a node behind an entry whose bridge is down is *unknown*, not silent; nothing new opens in the fleet service's first two minutes (RFC-0085 §6.1) |
+| `bridge.down` | health | node | yes | on a fleet hub: one of its own bridges has notified `0` for 5 minutes — one matter per entry, naming the nodes behind it (§6.2) |
+| `broker.queue` | health | node | yes | on a fleet hub: a broker reports more than half of its `max_queued_messages` waiting (an approximation: stored minus retained messages) (§6.2) |
+| `node.loss` | health | node | no | on a fleet hub: a node's own outbox reports more lost samples than a minute ago; the first sighting only sets the baseline (§6.2) |
+| `hub.unreachable` | critical | node | yes | on an entry: the hub's bridge into it has been away for 10 minutes — the outside watch of the hub (§6.3) |
+
+**Closing a matter** (0.6) mails *Behoben* with a line `Dauer:` — how long
+it lasted. For the fleet this closing mail is the "back" message of
+RFC-0085 (`node.back`, `bridge.back`); no separate type exists. The fleet's
+sources are trusted only while fresh: a fleet service whose state is older
+than three minutes, or not connected, keeps its open matters open, as
+`instance.down` does with a stale state view.
+
+**A node's notifications are also published** (0.6) where a metrics sender
+is configured: each one, as queued, under `<root>/<node>/events/<type>`,
+not retained, so that the hub sees the fleet's alerts in one place. The
+hub shows them; it does not mail them again.
 
 *Scope:* `node` — only the node hears it. `tenant` — the tenant it is
 about hears it, and the node only through an explicit line for that type.

@@ -1,8 +1,8 @@
 # oaap.core.host — Platform Installer & Node Baseline
 
 - **ID:** `oaap.core.host`
-- **Version:** 0.3.9
-- **Maturity:** draft (0.3.9: **what the node calls itself** -- alias, place, tags, 2.6, `oaap node alias|place|tags`, RFC-0082 stage 1; 0.3.8: reboot plan and protection verbs under
+- **Version:** 0.3.10
+- **Maturity:** draft (0.3.10: profile **`fleet-hub`**, 2.5, RFC-0085 stage 2; 0.3.9: **what the node calls itself** -- alias, place, tags, 2.6, `oaap node alias|place|tags`, RFC-0082 stage 1; 0.3.8: reboot plan and protection verbs under
   `oaap node care`, 2.3, RFC-0069; 0.3.7: `oaap status` states the node's care
   state and `oaap node care` sets it, 2.3, per `oaap.core.updates` 2.6;
   0.2.1 adds the `oaap user` rescue commands, 2.3;
@@ -337,6 +337,21 @@ that. A node SHOULD carry it when it has a public address and no host
 firewall in front. It is **not** a firewall: it does not govern 80, 443,
 the `exposed` ports or any other service. Verification MUST happen from
 another machine; a scan from the node itself passes either way.
+
+**Defined profile in 0.3.10: `fleet-hub`** (RFC-0085 §8) — this node's
+broker collects the fleet's reports, and the platform service `fleet`
+watches them: it reads every node's `alive`, `status`, `events` and
+`broker` (directly or through an entry's bridge) and the bridges' state
+as the platform principal `oaap.watch` (`oaap.events.broker` 0.3), and
+writes what it saw into the node's data directory. The judging and the
+mail are the node's minute job (`oaap.core.notifications` 0.6:
+`node.silent`, `bridge.down`, `broker.queue`, `node.loss`). It needs
+`broker` and `store`; `add-profile` refuses without them, and
+`remove-profile broker`/`store` refuses while `fleet-hub` is held. Every
+compose call for `fleet` MUST name the `broker` and `store` profiles and
+the broker's overlay with it: a service whose dependency sits in an
+inactive profile is "undefined" to compose (measured on oaap-test
+2026-11-12). `oaap fleet hub show` states what the service sees.
 
 **Restore** (`oaap.data.backup` 2.3): profiles describe the machine,
 not the service, and are therefore **not** restored from a backup.
