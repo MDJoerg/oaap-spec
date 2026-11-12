@@ -115,8 +115,8 @@ portal page that shows the matter.
 | `bulk.halted` | node or tenant of the run | operations | a bulk run stopped at a failed step | exists | 1 |
 | `rebuild.failed` | owning tenant (+ node) | operations | a rebuild of an instance failed | exists | 1 |
 | `confirm.pending` | owning tenant (+ node) | operations | a delivery waits for a widening to be confirmed | exists | 1 |
-| `instance.down` | owning tenant (+ node) | health | a production instance unhealthy > 5 min | to build | 2 |
-| `login.locked` | tenant of the realm (+ node) | security | identity blocked a name | to build | 2 |
+| `instance.down` | owning tenant (+ node) | health | a production instance unhealthy > 5 min | built (0.1.256) | 2 |
+| `login.locked` | tenant of the user (+ node) | security | identity blocked a name | built (0.1.256) | 2 |
 | `intrusion.suspected` | node | security | — nothing detects it yet | own RFC | — |
 
 "(+ node)" means: the node's routing also sees the type, so the operator can
@@ -224,8 +224,10 @@ the subject `[{mandant}] Backup fehlgeschlagen ({knoten})`.
    a `tenant_admin` refused at the node's lists; the hourly limit refusing
    the 21st sending; a wrong mailbox password → logged failed, no loop.
 2. **Stage 2** — `instance.down` (the minute job watches production
-   instances) and `login.locked` (identity tells the host), each measured by
-   causing it.
+   instances) and `login.locked` (the host reads identity's failure table;
+   identity stays its one writer — chosen over "identity tells the host",
+   which would have added a second writer path), each measured by causing
+   it. Built in 0.1.256, spec `oaap.core.notifications` 0.2.
 3. **Telegram** as a channel of the same lists — its own RFC.
 4. **Intrusion detection** — its own RFC; its type joins this catalogue
    when something can fire it.

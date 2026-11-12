@@ -1,12 +1,12 @@
 # oaap.core.notifications — Recipient Lists and Notifications
 
 - **ID:** `oaap.core.notifications`
-- **Version:** 0.1
-- **Maturity:** draft. 0.1 is RFC-0080 stage 1: lists, the catalogue of
-  stage-1 types, routing, the outbox, sending by mail, the delivery log,
-  the portal sections and `oaap notify`. Stage 2 adds `instance.down` and
-  `login.locked`; Telegram as a second channel and intrusion detection
-  come with their own RFCs.
+- **Version:** 0.2
+- **Maturity:** draft. 0.1 was RFC-0080 stage 1: lists, the catalogue,
+  routing, the outbox, sending by mail, the delivery log, the portal
+  sections and `oaap notify`. 0.2 is stage 2: `instance.down` and
+  `login.locked` (2.2.1), the portal page in tabs. Telegram as a second
+  channel and intrusion detection come with their own RFCs.
 - **Based on:** RFC-0080 (D1–D10, accepted 2026-11-11), RFC-0072 (the
   node's mailbox and a tenant's own, `oaap.net.destinations` 2.11),
   RFC-0069 (the minute job, the reboot plan's events), RFC-0070/0071
@@ -58,12 +58,39 @@ the instance, the reason, a link to the portal page).
 | `bulk.halted` | operations | tenant | no | a bulk run stopped at a failed step (not a manual stop) |
 | `rebuild.failed` | operations | tenant | no | a rebuild was filed `failed` |
 | `confirm.pending` | operations | tenant | no | a delivery through the deploy hook waits for a person's confirmation |
+| `instance.down` | health | tenant | yes | a production instance unhealthy for 5 minutes — **one matter per instance** (2.2.1) |
+| `login.locked` | security | tenant | no | identity locked a login after failed attempts — one mail per tenant and minute, naming every lock (2.2.1) |
 
 *Scope:* `node` — only the node hears it. `tenant` — the tenant it is
 about hears it, and the node only through an explicit line for that type.
 `both` — the node and every tenant each hear it under their own routing.
 A node with no backup schedule at all has no `backup.missing`; the portal
 says so on its own page.
+
+#### 2.2.1 The two stage-2 sources
+
+- **`instance.down`.** The minute job reads the container state it writes
+  anyway (`apps/instance-state.json`). An instance counts when it is a
+  production instance (not `test`, not a rehearsal), runs in mode
+  `running` and is not in maintenance; it is down when a service is not
+  `running`, is absent, or its health check says `unhealthy`. The clock
+  starts at the first minute seen down and restarts when the previous
+  observation is older than three minutes (the minute job paused, e.g.
+  for a backup). After five minutes the matter opens. **"Unknown" is not
+  "fixed":** when the container runtime could not be asked or the state
+  file is older than three minutes, the open matters stay open. An
+  instance removed while down closes its matter without a mail. The
+  tenant is the instance's; the mail links to `/instances/<name>`.
+- **`login.locked`.** Identity locks a login after 5 failed attempts within
+  5 minutes (`data/identity/login-throttle.json`, keys `client|name`,
+  `key|<id>`, `keyclient|client`). The host **reads** that file each minute
+  — identity stays its one writer — and reports a key that reached the
+  threshold, once per hour per key. A name of a known user goes to that
+  user's tenant; an unknown name and API-key attempts go to the node. The
+  text names the name and the client address. A name is stripped of
+  control characters and cut to 64 characters before it stands anywhere.
+  Logins at a tenant's own realm (an external IdP) are not seen here —
+  that IdP has its own lockout.
 
 ### 2.3 Routing
 
@@ -114,7 +141,8 @@ says so on its own page.
   is sent, nothing is written into `apps/`. Events queue meanwhile and go
   afterwards.
 - The mail links to the portal page of the matter: `/health` for the node,
-  the tenant's start page or `/store` for a tenant.
+  the tenant's start page or `/store` for a tenant, `/instances/<name>`
+  for an instance, `/users` for a lock.
 - **Delivery log:** one line per sending and scope — time, type, op,
   lists, counts of To/Cc/Bcc, result, the server's answer. No address,
   no body. The portal shows the last 30 of a scope.
@@ -149,7 +177,7 @@ does the same).
 | `apps/notifications.json` | 0644 | lists, routing, settings per scope — the portal reads it; written only on a change by a person |
 | `apps/notify-log.jsonl` | 0644 | the delivery log |
 | `apps/notify-view.json` | 0644 | how many addresses each list reaches now (the portal cannot read identity's store); written only when it changes |
-| `data/notify/state.json` | 0600 | open matters, hourly stamps, the last failure |
+| `data/notify/state.json` | 0600 | open matters, hourly stamps, the last failure, since when an instance is down, which locks were reported |
 | `data/notify/outbox/` | 0700 | one file per queued notification |
 
 What changes by itself every minute lives outside `apps/`: the backup tars
@@ -158,13 +186,21 @@ RFC-0080 §6). `data/notify` is not in the backup; after a restore the open
 matters are opened afresh.
 
 The portal shows next to every list how many addresses it reaches now, and
-says in red when the mandatory list reaches nobody.
+says in red **above the tabs** when the mandatory list reaches nobody.
 
-## 3. Not in 0.1
+### 2.8 The portal page
 
-Telegram and other channels; `instance.down`, `login.locked`,
-`intrusion.suspected`; apps sending notifications of their own; HTML,
-attachments; a person opting out.
+`/nachrichten` has tabs, as the instance page does (`?tab=`): **Postausgang**
+(the mailbox), **Verteiler**, **Benachrichtigungen** (routing),
+**Protokoll** (the last 30 sendings) and, at the node only, **Mandanten**
+(each tenant's mailbox and lists as names and counts). A form returns to
+its own tab; an unknown tab word shows the first.
+
+## 3. Not in 0.2
+
+Telegram and other channels; `intrusion.suspected`; apps sending
+notifications of their own; HTML, attachments; a person opting out;
+lockouts at a tenant's external IdP.
 
 ## Zusammenfassung (deutsch)
 
@@ -178,3 +214,11 @@ Lagen werden bei Beginn und Behebung gemeldet, Kritisches zusätzlich
 täglich. Grenzen gegen Missbrauch (20/h je Mandant), eine Stunde
 Wiederholung, nie eine Mail über eine gescheiterte Mail. Das Protokoll
 nennt keine Adressen.
+
+**0.2 (Stufe 2):** „Instanz ausgefallen“ — eine Produktiv-Instanz, die fünf
+Minuten nicht gesund ist, öffnet eine Lage je Instanz; ist die
+Container-Laufzeit nicht erreichbar, bleibt sie offen (unbekannt ist nicht
+behoben). „Anmeldung gesperrt“ — der Host liest die Fehlversuchsdatei von
+Identity (5 in 5 Minuten) und meldet je Name einmal pro Stunde, an den
+Mandanten des Benutzers, Unbekanntes an den Knoten. Die Portalseite hat
+jetzt Reiter.
