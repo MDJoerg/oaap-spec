@@ -1,8 +1,8 @@
 # oaap.data.backup — Platform Backup & Restore
 
 - **ID:** `oaap.data.backup`
-- **Version:** 0.4.1
-- **Maturity:** draft (0.4.1: the node archive does not stop an excluded
+- **Version:** 0.4.2
+- **Maturity:** draft (0.4.2: nothing writes into `apps/` while the copy runs -- 2.2; 0.4.1: the node archive does not stop an excluded
   tenant's containers -- their data is not copied, so they need not stand
   still; found 2026-10-23 when the operator's own desktop was restarted
   at 02:30 every night with a script running in it; 0.4 implements RFC-0029 D5 and D5b: an archive of
@@ -199,6 +199,17 @@ location. Requirements:
   and never set up — because they need four different answers, and the
   last two are the two where somebody has to act. An implementation
   that records only successes cannot tell them apart.
+- **Nothing writes into `apps/` while the copy runs** (0.4.2). tar
+  stops with an error when a directory changes during its read ("apps:
+  file changed as we read it"), and the minute jobs rewrite their portal
+  views in `apps/` every minute. Reproduced on oaap-test 2026-11-12 (one
+  tar of `apps/` in three failed beside `state-index`; the node's nights
+  of 07.–11.11. failed the same way, intermittently, because its `apps/`
+  held an 890 MB leftover that kept tar inside it for seconds). So while
+  the record says `running` (and is younger than six hours), the minute
+  jobs that write into `apps/` — the state views, host care, the
+  notifications (`oaap.core.notifications` 2.4) — write nothing and catch
+  up the minute after.
 
   A record MUST NOT be presented as a failure merely because it is
   older than the field that would prove it succeeded. (Found the day
