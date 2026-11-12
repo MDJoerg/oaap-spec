@@ -58,7 +58,22 @@ from the request.
 | `GET /twin/series?object=…` | the series of an object |
 | `GET /twin/series/{id}/range?from&to&step` | §4.3 / §4.4 |
 | `GET /twin/series/{id}/latest` | the last point |
-| `DELETE /twin/series/{id}` | removes the series and all its points; audited |
+| `DELETE /twin/series/{id}?confirm={id}` | removes the series and all its points; without `confirm` naming the same id, nothing (409); audited in the tenant's schema (who, which series, how many raw points) |
+
+**Rights come from the object.** A series has no rights of its own:
+creating it, writing points and deleting it need `contributes` (any role)
+on its object's type; reading needs any binding to that type. A remote
+reader (`oaap.data.twin` §2.14) reads and never writes. An id merged away
+resolves to its canonical object, so a series never forks along a merge.
+
+**Answers:** 400 a refused request (with the reason); 403 no right; 404
+no such object or series *in the caller's tenant*; 409 time series not
+enabled for the tenant, or a delete without confirmation; 429 the minute's
+allowance spent; 503 the store failed — never a bare 500. Times in the
+query string are seconds or ISO-8601 with zone.
+
+**`POST /twin/points`** checks every series first; one the caller may not
+write is answered with its reason and the others are written.
 
 **Writing answers counts**, never silence: `written`, `duplicate`,
 `refused` (with up to three reasons), `late`; text writes also
@@ -70,8 +85,10 @@ from the request.
   touch are recomputed by the next roll-up, tier by tier upward. Older
   points are refused with a reason.
 - A point more than **one hour in the future** is refused.
-- **Limits per tenant:** 10 000 series (driver), 20 000 points per minute
-  (service); refused with a reason.
+- **Limits per tenant:** 10 000 series (driver), 20 000 points per minute;
+  refused with a reason. The minute is counted in the tenant's schema, so
+  every worker of the service counts against the same number; an offer
+  that would pass the limit takes nothing from it.
 
 ## 4. Policies, tiers, reading
 
@@ -101,7 +118,11 @@ stays a gap.
 covers `from`; when `from` lies beyond that tier's retention it answers
 from the next coarser tier that covers it and says so in `note`. No answer
 has more than **2 000 buckets**; a wider request is answered coarser, with
-a note. Buckets are re-aggregated to `step` from the chosen tier. Answer:
+a note. Buckets are re-aggregated to `step` from the chosen tier. **The
+part of the range a tier does not hold yet** — from its roll-up mark on
+(§4.2: two intervals after a bucket closed) — is answered from the raw
+points, and a bucket that straddles the mark is merged by count; the
+answer is the same before and after the roll-up. Answer:
 `{series, kind, tier, step, note, buckets: [{t, mean, min, max, count}]}`.
 
 ### 4.4 Text series
@@ -127,7 +148,12 @@ Text intervals are kept as long as the policy's longest tier, counted from
 
 ## 5. The default driver: PostgreSQL
 
-- One schema per tenant, `ts_<tenant-id>`, own role, beside the twin's.
+- One schema per tenant, `ts_<tenant-id>`, own role, beside the twin's;
+  made by `oaap data timeseries enable <tenant>`, credential in the twin's
+  secrets file. The role owns its schema and **may not create schemas**
+  (the store is closed): the driver creates the schema only when it is
+  missing and never asks `CREATE SCHEMA IF NOT EXISTS`, which PostgreSQL
+  checks against the database privilege first.
 - `series`; `raw_<policy>` partitioned **by day**; `a5m_`, `a1h_`,
   `a1d_<policy>` partitioned **by month**; primary keys `(series_id, t)`,
   writes `ON CONFLICT DO NOTHING`.
@@ -140,9 +166,18 @@ Text intervals are kept as long as the policy's longest tier, counted from
   `DELETE` by `last_seen`. `value varchar(64)`.
 - `marks` (rolled up to here per policy and tier), `dirty` (buckets late
   points invalidated), `counters` (per day: `duplicate`, `refused`,
-  `late`, `partitions_dropped`, `text_states_expired`).
-- **Job** (the store node's minutely unit): create today's and the next
-  days' partitions, roll up, expire. It never fails the unit.
+  `late`, `rate_limited`, `partitions_dropped`, `text_states_expired`),
+  `quota` (points offered per minute, emptied after an hour by the job),
+  `audit` (deleted series).
+- **Job** (the store node's minutely unit, `oaap data timeseries job`):
+  for every `ts_*` schema, bring the tables up to this build, create
+  today's and the next days' partitions, roll up, expire. It never fails
+  the unit; what failed is one line per schema in the journal. Nothing
+  runs on a node where no tenant has time series.
+- **Backup:** the node archive carries every `ts_*` schema (`pg_dumpall`);
+  a tenant archive carries `tenant-timeseries-dump.sql` beside the twin's
+  dump, and a schema that exists and cannot be dumped refuses the archive.
+  `oaap data store drop` removes the schema, its role and its credential.
 - A refused or failed call rolls its transaction back (an open
   transaction would hold its locks).
 - PostgreSQL License only; no extension; the image of `oaap.data.store`.
@@ -162,17 +197,31 @@ transaction after a refusal; idempotency and counted duplicates; refusal
 of points too old, too far ahead, not numbers, not finite; ISO times with
 zone; gaps that stay gaps; minimum and maximum surviving raw → 5m → 1h →
 1d; the weighted mean; late points recomputing their bucket and the tiers
-above; tier choice by step and retention with notes; at most 2 000
+above; fresh points read through a tier before its roll-up, the same
+answer after it, and a step off the mark losing or doubling nothing; tier
+choice by step and retention with notes; at most 2 000
 buckets; partitions dropped on time and only for their own policy; text:
 one row per change, gap after three intervals, 64 accepted and 65 refused
 by the API and by the column, duplicates, late splits, per-step summary,
 expiry by `last_seen`; the tenant boundary; the export/import round trip
-and its idempotency. **A driver that fails it is not offered.**
+and its idempotency; the minute's allowance across two connections, with
+no transaction left open after a refusal; a deleted series in the audit.
+**A driver that fails it is not offered.**
+
+**The interface test** (reference: `test/test_timeseries_api.py`) runs
+the service against a real PostgreSQL **as the tenant's role, never as the
+superuser**: rights by binding, the tenant boundary, merged ids, counted
+duplicates, the mixed multi-series call, 429, 503, confirmed and audited
+deletion, and every connection closed.
 
 ## 7. Reference status (0.1)
 
-Built in the reference: the driver and the suite (green on PostgreSQL 16,
-with mutation counter-checks); a simulated year measured (RFC-0086 §10).
-**Not yet built:** the HTTP interface in the twin's service (§3), the
-provisioning of `ts_<tenant-id>` and its role, the minutely job and the
-CLI — RFC-0086 stage 1's remaining steps.
+Built in the reference (0.1.270): the driver, the suite, the interface in
+the twin's service (§3), `oaap data timeseries enable|show|job`, the job in
+the minutely unit, the tenant archive. Measured on oaap-test with a real
+app key through the gateway (RFC-0086 §10.1). **Not yet built:** the
+fleet service as a writer (RFC-0085 stage 5, RFC-0086 stage 2), charts
+(stage 3), the recorder (stage 4); a reader for `tenant-timeseries-dump.sql`
+— the tenant archive's twin dump has none either (`tenant adopt` moves a
+tenant onto an empty node, which a node archive serves); a switch for a
+tenant's limits.

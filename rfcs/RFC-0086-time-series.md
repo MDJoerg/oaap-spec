@@ -2,7 +2,8 @@
 
 - **Status:** **Accepted (2026-11-12)** — D2–D8 as recommended; D1 amended
   by Jörg: text values (status) get a history too, with a bounded length
-  (§2.1, §4.4); nothing built
+  (§2.1, §4.4). **Stage 1 built and measured (reference 0.1.270,
+  §10.1–10.2)**
 - **Date:** 2026-11-12
 - **Authors:** Jörg (the need: "we probably have to talk about time series
   as a data type and capability of the platform"; "solved as always: a
@@ -329,8 +330,57 @@ Departures recorded in the spec: tables per policy (retention by
 partition needs it) and `text_states` not partitioned (an interval
 belongs to its `last_seen`).
 
-**Still to build in stage 1:** the HTTP interface in the twin's service,
-provisioning of `ts_<tenant-id>`, the minutely job, the CLI.
+### 10.2 Stage 1, second half — built and measured 2026-11-12 on oaap-test
+
+Reference 0.1.270: the interface in the twin's service (§3), `oaap data
+timeseries enable|show|job`, the job as a step of the minutely unit, the
+tenant archive. Rights come from the object's type (`contributes` writes,
+any binding reads, a remote reader only reads), deletion needs
+`?confirm=<id>` and is audited, the minute's allowance is counted in the
+tenant's schema so both workers of the service share it.
+
+**Tests.** The suite (now also: fresh points before roll-up, the
+allowance across two connections, the audit) and a new interface test
+(`test/test_timeseries_api.py`: Flask against a real PostgreSQL 16, 49
+checks) — both green. Counter-checks: without the raw tail (below) four
+checks turn red; with `CREATE SCHEMA IF NOT EXISTS` put back, the
+interface test turns red with the error oaap-test showed.
+
+**The real path on oaap-test** — `enable` for tenant `default`, then the
+apps `projekt` (owns `Projekt`, only consumes `Firma`) and `raci`
+(contributes to `Firma`) with their own twin keys through the gateway:
+
+| | |
+|---|---|
+| create on an owned type / again / on a consumed type | 201 / 200, found / **403** with the binding named |
+| 30 points / the same 30 again | 30 written / **30 duplicates, 0 written** |
+| 5-minute range before any roll-up | 7 buckets, 30 points, min 0, max 13.5 |
+| the same range after the minutely job | **identical**, 5 buckets now from tier `5m`, 2 still from raw |
+| text: ok, ok, warning / 65 characters | 2 written, 1 extended, 2 states / 400 with the reason |
+| delete without / with `confirm` | 409 / 200, in `audit` with the app's name |
+| a contributor (not the owner) on `Firma` | 201 |
+| the store | still closed; the role is in the platform group, may not create schemas |
+| tenant archive (`zzz-probe`) | carries `tenant-timeseries-dump.sql`, all 40 tables |
+| `oaap data store drop ts_…` | schema, role **and** credential gone |
+| the unit | `Result=success` also while the job failed (before the fix below): one journal line per minute |
+
+**What only the real path showed** (both tests had run as the superuser,
+and the suite always ran the job before reading):
+
+1. `CREATE SCHEMA IF NOT EXISTS` is refused to the tenant's role even when
+   the schema exists — PostgreSQL checks the database privilege first.
+   The driver now looks the schema up and creates it only when missing.
+2. A 5-minute chart missed its last ten to fifteen minutes, and a new
+   series all of it: a tier holds a bucket only two intervals after it
+   closed. `range` now answers the part after a tier's mark from the raw
+   points and merges the bucket that straddles it — the answer is the
+   same before and after the roll-up.
+3. A store error came back as a bare 500; now 503 with a reason.
+4. `oaap data store drop` left the credential behind, so the job tried a
+   role that no longer existed every minute — for `twin_` schemas too.
+
+**Stage 1 is complete.** Next: stage 2, the fleet service writes
+(RFC-0085 stage 5).
 
 ## 11. Out of scope
 
@@ -405,3 +455,15 @@ gemessen (ein Jahr in Minuten); (2) die Flotte schreibt (RFC-0085 Stufe 5);
 (3) Diagramme im Flottenmanagement; (4) ein „Rekorder“ für Mandanten-Topics,
 erster Nutzer die simulierte Maschine aus RFC-0032; (5) später auf Wunsch
 ein zweiter Treiber als Beweis für die Abstraktion.
+
+**Stand 12.11. abends: Stufe 1 fertig (Referenz 0.1.270, §10.2).** Der
+Zwillingsdienst hat die Schnittstelle, `oaap data timeseries enable`
+richtet einen Mandanten ein, der Minutenjob verdichtet, die
+Mandantensicherung nimmt die Reihen mit. Auf oaap-test mit echten
+App-Schlüsseln über den Gateway gemessen: Rechte nach Bindung, Duplikate
+gezählt, Diagramm vor und nach dem Verdichten gleich, Löschen nur mit
+Bestätigung und protokolliert. Vier Fehler fand erst der echte Weg (die
+Tests liefen als Datenbank-Verwalter): das Anlegen der Tabellen mit der
+Mandantenrolle, die fehlenden letzten Minuten im 5-Minuten-Diagramm, ein
+nacktes 500, ein liegengebliebenes Kennwort nach `drop`. Alle behoben und
+durch Tests abgesichert.
