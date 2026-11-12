@@ -653,6 +653,23 @@ compressed**. Mosquitto sets no message size limit by default; hourly and
 on change, this is negligible. A real document from oaapx01 needs a fleet
 key there — a change on that node, not made.
 
+**The chain, built on Jörg's word (2026-11-12 evening, reference
+0.1.268).** oaap-demo carries `store`; oaapx01 carries `broker` (TLS 8883
+with the gateway's certificate for `oaap.joomp.de`) and
+`max_queued_messages 100000`; the bridge from oaap-demo to oaapx01 is up
+as configured in §5.3 (`data/broker-conf.d/`, new in 0.1.267 — the
+template belongs to `oaap update`). Senders with node keys: oaap-test,
+raspberrypi, oaap-bernd and oaap-demo to oaap-demo, oaapx01 to itself.
+Measured on the hub with a read key: retained values under
+`oaap-node/{oaap-test,raspberrypi,oaap-bernd,oaap-demo}/…` and
+`oaap-via/oaapx01/oaapx01/…`, bridge notification `1`. Found on the way:
+from inside the house the hub's public name does not reach 8883 (no
+hairpin NAT, no IPv6 route) — the internal senders connect with
+`--address 10.10.10.75` and verify the certificate for
+`oaap-demo.duckdns.org` (new in 0.1.268). Still to measure in stage 1:
+the bridge cut for an hour with the backlog caught up and counted;
+oaap-demo rebooted with nothing lost.
+
 **What follows for the build:** §5.3 and §5.4 as rewritten; on the hub
 the check refuses writes under `oaap-via/#` (amendment A1 below, accepted); the
 entry's broker gets `max_queued_messages` sized for 24 hours; a platform
