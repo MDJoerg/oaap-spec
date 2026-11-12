@@ -1,9 +1,9 @@
 # RFC-0085: Pairing and Fleet Observation — Every Node Reports to One Hub, Service Providers Receive Profiles
 
 - **Status:** **Accepted (2026-11-12, D1–D11 as recommended)** — stage 1
-  measured and live (§14); **stage 2 built and measured on oaap-test,
-  reference 0.1.271 (§15), not rolled out**; roll-out of anything on
-  oaap-demo and oaapx01 waits for Jörg's word
+  measured and live (§14); **stage 2 built, measured on oaap-test and
+  rolled out on Jörg's word (2026-11-12/13, reference 0.1.271, §15)** —
+  the hub cannot mail yet (no mailbox on oaap-demo)
 - **Date:** 2026-11-12
 - **Authors:** Jörg (the need: "monitor my nodes and get fleet management
   going; collect health data through a broker on oaapx01 and route it to
@@ -772,11 +772,49 @@ the test turns red at exactly the check for it. Tests:
 `test_fleet_watch.py` (38, the receiving part in the twin's image),
 `test_metrics_sender.py` (98, the new classes in their own section).
 
-**Not measured yet, needs the roll-out (Jörg's word):** a real node
-switched off; the real bridge oaap-demo ↔ oaapx01 cut (needs the new
-notification topic in the bridge file on oaap-demo and the write grant for
-key 835dfe66 on oaapx01); **oaap-demo stopped → mail from oaapx01** —
-the outside watch the RFC asks for.
+**Roll-out (Jörg's word, 2026-11-12, 23:30–00:05 local).**
+
+- Reference 0.1.271 pushed; all five nodes updated from git, none
+  unhealthy, identity knows `BROKER_WATCH_KEY` everywhere.
+- oaapx01: a new bridge key **547ad644** (grants `oaap-node/#` read,
+  `oaap-fleet/control/oaapx01/#` write, `oaap-fleet/bridge/oaapx01/#`
+  write — grants cannot be changed on a key); the secret piped straight
+  into the bridge file on oaap-demo, never shown; the old key 835dfe66
+  revoked after the bridge was up with the new one. The bridge file
+  (backup beside `broker-conf.d/`) now has `notifications_local_only false`
+  and `notification_topic oaap-fleet/bridge/oaapx01/oaap-demo`.
+- oaap-demo: profile `fleet-hub`. `oaap fleet hub show`: all five nodes
+  at 0.1.271, oaapx01 via the bridge, the bridge up, three brokers.
+  oaapx01's broker watch: hub `oaap-demo` up.
+- A list `Flotte` (Jörg's address) on oaap-demo and oaapx01, the five
+  fleet types routed to it; a probe from oaapx01 was accepted.
+
+**Measured on the real hub:** oaap-test's minute timer stopped for 7
+minutes — *SCHWEIGT* at 310 s, `node.silent/oaap-test` opened at the next
+minute (330 s), closed within two minutes of the timer running again.
+
+**Found on the way:**
+
+1. **oaap-demo has no mailbox** (`oaap mail set`): the hub judges, but its
+   mails fail ("failed" in the log). Which mailbox it sends from is
+   Jörg's decision.
+2. **Persistent sessions of revoked keys live for ever.** Two of the
+   stage-1 measurement subscribers (`cut-sub`, `reboot-sub`, clean session
+   off, keys revoked) still had their sessions and subscriptions on
+   oaap-demo: for every matching message the broker asked identity, which
+   answered "unknown key" — about 16 times a minute, and Mosquitto would
+   keep queueing for them. Discarded by taking over their client ids once
+   with a clean session: 32 errors in two minutes before, 0 after.
+   `persistent_client_expiration` is still not set (§14) — a bound that
+   outlives the entry's 24-hour queue (for example 7 days) would end such
+   sessions by itself; a decision for Jörg.
+3. Every node's `lost` stands at 36 000 – 50 000: the outbox's counter
+   from the months before a sender was configured. `node.loss` reports only
+   an increase, so it stays quiet.
+
+**Still open:** the real bridge cut (oaap-demo ↔ oaapx01) and **oaap-demo
+stopped → mail from oaapx01** — each needs Jörg's explicit word; the
+second also a mailbox only on the entry side, which exists.
 
 ## Decision record (2026-11-12)
 
@@ -922,3 +960,15 @@ lesen. Gemessen mit simulierten Knoten, Eingang und Zentrale: alles kam
 wie geplant; gefunden wurde ein Fehlalarm bei der Rückkehr einer Brücke
 (behoben, nachgemessen). Offen bis zum Rollout: ein echter Knoten aus,
 die echte Brücke getrennt, oaap-demo aus → Mail von oaapx01.
+
+**Rollout Stufe 2 (12./13.11., auf Jörgs Wort).** Alle fünf Knoten auf
+0.1.271. oaap-demo trägt `fleet-hub` und sieht alle fünf Knoten, oaapx01
+über die Brücke. Die Brücke nutzt einen neuen Schlüssel (547ad644), der
+alte ist widerrufen; oaapx01 sieht nun selbst, ob die Zentrale verbunden
+ist. Liste „Flotte“ mit Jörgs Adresse auf beiden Knoten. Gemessen am
+echten Knoten: oaap-test 7 Minuten stumm → nach 5½ Minuten „schweigt“,
+danach „behoben“. **Aber: oaap-demo hat kein Postfach** — die Zentrale
+urteilt richtig, kann aber nicht mailen. Nebenbei zwei verwaiste
+Sitzungen alter Messabonnenten entfernt (sie erzeugten 16 Fehler pro
+Minute). Offen: Postfach für oaap-demo, die echte Brücke trennen,
+oaap-demo stoppen → Mail von oaapx01.
