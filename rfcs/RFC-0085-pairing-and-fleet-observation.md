@@ -874,6 +874,30 @@ the broker logged *Expiring client stale* **3601 s after the
 disconnect**, `$SYS/broker/clients/disconnected` went from 1 to 0, and
 joining again as `stale` delivered nothing — session and queue gone.
 
+**Finding 6 — false `node.silent` after the hub returned** (read from
+the notify log after the measurement, not seen live): at 06:51, four
+minutes after oaap-demo was back, oaap-test, raspberrypi and oaap-bernd
+were *silent* for one to two minutes — an open and a close mail each. A
+node that cannot reach the hub waits longer and longer between tries
+(the metrics sender's backoff: 1, 2, 4, 8, at most 15 minutes); the hub's
+warm-up was two minutes. And a second fault on the way: a matter whose
+node became *unknown* (bridge cut, warm-up) was closed with *Behoben* —
+"unknown is never mailed as Behoben" held only for an untrusted source.
+Fixed in 0.1.273: after the fleet service started or reconnected
+(`connected_since` in `state.json`), a node whose last `alive` is from
+before gets 17 minutes (the sender's longest wait plus two) before it can
+be silent; a matter whose subject is unknown stays open. A node that
+really died while the hub was away is reported up to 17 minutes after the
+hub's return instead of two. Tests: 10 new checks, 5 red without the
+rules; the hub path of the minute job exercised with faked files; not yet
+measured live (needs a hub restart).
+
+**Fleet on 0.1.272 (Jörg: "commit, push und danach flottenupdate inkl.
+oaapx01"), 08:28–08:34 UTC:** all five nodes from git, none unhealthy,
+every broker with the 7-day expiry; the brokers of oaap-demo and oaapx01
+were recreated by the update, the bridge was back 16 s after oaapx01's —
+no mail.
+
 **Cleaned up on oaap-test:** the retained bridge value of the throwaway hub
 `sim-hub` had kept `hub.unreachable/sim-hub` open since 2026-11-12 22:33
 (one mail then); cleared with a one-day key, the matter closed.
@@ -1046,3 +1070,13 @@ und 8 Lebenszeichen von oaapx01 erreichten den Flottendienst nicht. Behoben
 in 0.1.272 (Broker wartet auf identity), dazu der Sitzungsablauf nach 7
 Tagen (am Wegwerf-Broker mit 1 Stunde gemessen: nach 3601 s verworfen).
 0.1.272 ist auf oaap-test erprobt, nicht gepusht.
+
+**Nachtrag 13.11. (0.1.273, lokal).** Im Protokoll nach dem Stopp gefunden:
+Vier Minuten nach der Rückkehr von oaap-demo meldete die Zentrale drei
+Knoten kurz als „schweigt“ (je Öffnen und „Behoben“). Die Sender warten
+nach Fehlschlägen immer länger, bis zu 15 Minuten; die Zentrale gab nur 2.
+Jetzt bekommen Knoten nach einer Rückkehr der Zentrale 17 Minuten zum
+Aufholen. Dazu ein zweiter Fehler: Eine offene Meldung wurde mit „Behoben“
+geschlossen, sobald der Knoten nur „unbekannt“ war (etwa hinter einer
+getrennten Brücke) — jetzt bleibt sie offen. Flotte vorher auf 0.1.272,
+alle fünf, ohne Mail.
