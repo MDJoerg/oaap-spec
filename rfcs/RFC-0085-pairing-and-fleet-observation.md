@@ -889,8 +889,18 @@ before gets 17 minutes (the sender's longest wait plus two) before it can
 be silent; a matter whose subject is unknown stays open. A node that
 really died while the hub was away is reported up to 17 minutes after the
 hub's return instead of two. Tests: 10 new checks, 5 red without the
-rules; the hub path of the minute job exercised with faked files; not yet
-measured live (needs a hub restart).
+rules; the hub path of the minute job exercised with faked files.
+
+**Measured live (Jörg: "ja, push, Flottenupdate inkl. oaapx01 - dann
+messen"), fleet on 0.1.273:** oaap-demo stopped again, 09:40:18–09:53:50
+UTC, the hub watched for 20 minutes after. The three direct nodes came back
+2:50, 3:52 and 4:55 after the fleet service started (raspberrypi, oaap-test,
+oaap-bernd) — the same delay as in the morning; until then *unbekannt
+(Dienst startet gerade)*, then *unbekannt (Zentrale gerade zurück, Sender
+holt auf)*, then *da*. **No `node.silent`, no matter opened, no mail from
+the hub.** oaapx01 mailed `hub.unreachable` at 09:51:19 (11 min after the
+stop) and closed it at 09:54:19. 19 containers before and after, none
+unhealthy; `connected_since` written 5 s after the service started.
 
 **Fleet on 0.1.272 (Jörg: "commit, push und danach flottenupdate inkl.
 oaapx01"), 08:28–08:34 UTC:** all five nodes from git, none unhealthy,
@@ -1080,3 +1090,9 @@ Aufholen. Dazu ein zweiter Fehler: Eine offene Meldung wurde mit „Behoben“
 geschlossen, sobald der Knoten nur „unbekannt“ war (etwa hinter einer
 getrennten Brücke) — jetzt bleibt sie offen. Flotte vorher auf 0.1.272,
 alle fünf, ohne Mail.
+
+**Nachgemessen (13.11., Flotte 0.1.273):** oaap-demo noch einmal 13 Minuten
+aus. Die drei direkten Knoten kamen wieder 3 bis 5 Minuten nach der
+Zentrale zurück und standen so lange auf „unbekannt, Sender holt auf“ —
+**kein Fehlalarm, keine Mail der Zentrale.** oaapx01 meldete „Zentrale
+nicht erreichbar“ und „Behoben“ wie geplant.
