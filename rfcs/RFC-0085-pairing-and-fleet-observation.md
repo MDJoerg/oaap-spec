@@ -2,8 +2,10 @@
 
 - **Status:** **Accepted (2026-11-12, D1–D11 as recommended)** — stage 1
   measured and live (§14); **stage 2 built, measured on oaap-test and
-  rolled out on Jörg's word (2026-11-12/13, reference 0.1.271, §15)** —
-  the hub cannot mail yet (no mailbox on oaap-demo)
+  rolled out on Jörg's word (2026-11-12/13, reference 0.1.271, §15)**;
+  the real bridge cut and oaap-demo stopped measured 2026-11-13, both
+  mailed; reference 0.1.272 (session expiry, broker start order) staged
+  on oaap-test, not pushed
 - **Date:** 2026-11-12
 - **Authors:** Jörg (the need: "monitor my nodes and get fleet management
   going; collect health data through a broker on oaapx01 and route it to
@@ -812,9 +814,69 @@ minute (330 s), closed within two minutes of the timer running again.
    from the months before a sender was configured. `node.loss` reports only
    an increase, so it stays quiet.
 
-**Still open:** the real bridge cut (oaap-demo ↔ oaapx01) and **oaap-demo
-stopped → mail from oaapx01** — each needs Jörg's explicit word; the
-second also a mailbox only on the entry side, which exists.
+**2026-11-13, on Jörg's word** ("Postfach ist eingerichtet", "Erlaubnis
+erteilt für oaap-demo stoppen", "mach weiter wie empfohlen"). oaap-demo
+now sends from its own mailbox; a probe to `Flotte` was accepted.
+
+*The real bridge cut*, by the network: a `DOCKER-USER` rule on oaap-demo
+dropping its traffic to oaapx01:8883, 06:16:58–06:23:58 UTC, removed by a
+trap.
+
+| | |
+|---|---|
+| the hub sees the bridge down | 06:17:42 (44 s, the keepalive) |
+| oaapx01 behind it | *unbekannt, Eingang oaapx01 getrennt* — no `node.silent` |
+| `bridge.down/oaapx01` mailed | 06:23:18, *sent* |
+| the bridge back | 06:25:49 — **111 s after the rule was gone** (Mosquitto's reconnect back-off) |
+| *Behoben* mailed | 06:26:22, *sent* |
+| oaapx01's `alive` | seq 458 → 466 across the cut, **gaps 0** — the entry's queue delivered |
+
+*oaap-demo stopped* (minute job and docker, 06:34:09–06:47:33 UTC, started
+again by the same unit also on interruption):
+
+| | |
+|---|---|
+| oaapx01: hub down | after ~30 s; its queue for the hub grew to 122, **dropped 0** |
+| `hub.unreachable/oaap-demo` **mailed by oaapx01** | 06:44:10 (10 min after the stop), *sent* |
+| oaap-demo back | 19 containers before and after, none unhealthy; bridge up 06:47:25 |
+| *Behoben* mailed by oaapx01 | 06:48:14, *sent* |
+| **found** | the hub's fleet service counts **8 gaps** in oaapx01's `alive` |
+
+**Finding 4 — the broker started before identity.** Docker starts every
+container at once. The bridge handed the entry's backlog to the hub's
+broker in its first second; identity was not listening yet, each ACL call
+for the fleet service's subscription was refused (*connection refused*,
+30-odd times within a second), and those messages were not delivered to
+it — the retained values were kept, the entry dropped nothing. The
+stage-1 reboot (§14) lost nothing only because the timing was luckier.
+Fixed in 0.1.272: the broker's command waits up to 90 s until identity
+answers at all; measured on oaap-test with identity stopped for 15 s —
+"identity answered after 15 s", no refused call. The same command now
+refuses to start without the auth plugin line (my first version of the
+wait lost a space and left the broker on oaap-test with a configuration
+of four lines: TLS listener only, no auth — Mosquitto 2.0 then admits
+nobody; found by reading the written file, fixed before anything left
+oaap-test).
+
+**Finding 5 — the auth plugin writes the internal key into the broker's
+log** whenever an identity call fails (the key travels in the URL's query
+string, §3 of `oaap.events.broker`). Docker logs are root-only; with the
+start order fixed such lines are rare. Not changed.
+
+**Session expiry (Jörg: "wie empfohlen").** `persistent_client_expiration
+7d` in the broker's template (0.1.272, `oaap.events.broker` 0.4);
+migrate.sh restarts a running broker once whose written configuration
+lacks it, and leaves a recreated one alone (both cases measured on
+oaap-test). The expiry itself is measured on a throwaway broker with the
+smallest bound (1 hour) on oaap-test: a persistent session (`stale`,
+clean session off) subscribed, left, one QoS 1 message queued for it;
+the broker logged *Expiring client stale* **3601 s after the
+disconnect**, `$SYS/broker/clients/disconnected` went from 1 to 0, and
+joining again as `stale` delivered nothing — session and queue gone.
+
+**Cleaned up on oaap-test:** the retained bridge value of the throwaway hub
+`sim-hub` had kept `hub.unreachable/sim-hub` open since 2026-11-12 22:33
+(one mail then); cleared with a one-day key, the matter closed.
 
 ## Decision record (2026-11-12)
 
@@ -972,3 +1034,15 @@ urteilt richtig, kann aber nicht mailen. Nebenbei zwei verwaiste
 Sitzungen alter Messabonnenten entfernt (sie erzeugten 16 Fehler pro
 Minute). Offen: Postfach für oaap-demo, die echte Brücke trennen,
 oaap-demo stoppen → Mail von oaapx01.
+
+**13.11. morgens (auf Jörgs Wort).** oaap-demo mailt jetzt aus eigenem
+Postfach. Die echte Brücke war 7 Minuten getrennt: eine Mail „Brücke
+getrennt“ nach gut 6 Minuten, „Behoben“ nach der Rückkehr, oaapx01 dahinter
+nicht als „schweigt“ gemeldet, kein Lebenszeichen verloren. oaap-demo war
+13 Minuten aus: **oaapx01 hat nach 10 Minuten „Zentrale nicht erreichbar“
+gemailt** und nach dem Wiederanlauf „Behoben“ — die Wache von außen
+funktioniert. Gefunden: Beim Wiederanlauf startet der Broker vor identity,
+und 8 Lebenszeichen von oaapx01 erreichten den Flottendienst nicht. Behoben
+in 0.1.272 (Broker wartet auf identity), dazu der Sitzungsablauf nach 7
+Tagen (am Wegwerf-Broker mit 1 Stunde gemessen: nach 3601 s verworfen).
+0.1.272 ist auf oaap-test erprobt, nicht gepusht.

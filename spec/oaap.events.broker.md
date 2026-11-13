@@ -1,8 +1,10 @@
 # oaap.events.broker — The MQTT Broker per Node
 
 - **ID:** `oaap.events.broker`
-- **Version:** 0.3
-- **Maturity:** draft (0.3: the platform principal **`oaap.watch`** — reads only:
+- **Version:** 0.4
+- **Maturity:** draft (0.4: a persistent session expires after 7 days
+  without its client, and the broker starts only once identity answers,
+  §3 — RFC-0085 §15, measured 2026-11-13 (expiry with a 1-hour bound: discarded after 3601 s); 0.3: the platform principal **`oaap.watch`** — reads only:
   the broker's own counters under `$SYS/broker/`, the node branches, the
   bridged branch and the fleet tree, §2.4, RFC-0085 stage 2 — measured
   2026-11-12; 0.2.2: a second publisher with the relay principal — the node's own
@@ -233,6 +235,25 @@ surface, RFC-0027).
   retained messages, session state — never a tenant's own tree).
 - Raw device port: 1883. WebSocket listener: 9001 (internal only, see
   §2.1).
+- **Session expiry (0.4):** a persistent session (clean session off)
+  whose client has not connected for **7 days** is discarded, with its
+  queue and its subscriptions (`persistent_client_expiration 7d`). Found
+  on the hub (RFC-0085 §15): the sessions of two revoked keys stayed for
+  ever, and the broker asked identity about them for every matching
+  message ("unknown key", about 16 a minute). 7 days outlast the entry's
+  24-hour queue (RFC-0085 D6) many times over; a bridge whose hub stays
+  away longer starts with an empty queue. A node that reaches 0.4 by
+  updating has its running broker restarted once by the migration step
+  (the configuration is written at container start); persistence keeps
+  sessions and retained values across that restart.
+- **Start order (0.4):** the broker starts only once identity answers
+  (waiting at most 90 s), and never with a configuration that lacks
+  the auth plugin. Every delivery is an ACL call to identity; when
+  the node starts all containers at once, a bridge hands over its
+  backlog in the broker's first second, and refused calls drop those
+  messages for every local subscriber (measured on oaap-demo: 8 of
+  oaapx01's `alive` never reached the fleet service; retained values
+  were kept).
 
 ## 4. Security requirements
 
@@ -403,3 +424,19 @@ Zwei Fehler, gefunden am 22.10. auf oaap-demo, beide mit der Minuten-Routine
   Container wieder gestartet, nur diesen nicht, und dazu nichts
   protokolliert. Jetzt startet ihn die Minuten-Routine, wenn er fehlt und
   der Knoten das Profil hat. Gewollt abschalten heißt: Profil entfernen.
+
+## Deutsche Zusammenfassung (Nachtrag v0.4)
+
+Eine Sitzung, deren Teilnehmer sich 7 Tage nicht mehr gemeldet hat, wirft
+der Broker jetzt von selbst weg, samt Warteschlange und Abos. Anlass: auf
+oaap-demo hingen noch zwei Sitzungen alter Messabonnenten, deren
+Schlüssel längst widerrufen waren; der Broker fragte für jede passende
+Nachricht bei identity nach (etwa 16-mal pro Minute „unbekannter
+Schlüssel“). 7 Tage sind ein Vielfaches der 24 Stunden, die ein Eingang
+puffert. Beim Update startet der Broker einmal neu, damit er die neue
+Einstellung liest; gespeicherte Sitzungen und Werte bleiben erhalten.
+Außerdem startet der Broker erst, wenn identity antwortet (höchstens 90
+Sekunden Wartezeit), und nie ohne seine Anmeldeprüfung. Gefunden beim
+Stopp von oaap-demo: Docker startet alle Container gleichzeitig, die Brücke
+lieferte den Rückstau von oaapx01 in der ersten Sekunde, identity lief noch
+nicht, und jede Zustellung an den Flottendienst wurde abgelehnt.
