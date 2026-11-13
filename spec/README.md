@@ -13,7 +13,7 @@ before the full specification is written.
 
 - [oaap.core.host](oaap.core.host.md) — platform installer & node baseline, what the node calls itself, profile `fleet-hub` (draft, v0.3.10)
 - [oaap.core.updates](oaap.core.updates.md) — one update engine per node, three triggers: a node updates its platform core from its recorded source, shows what would change first, and never touches app instances or user data; since 0.6 the plan is an event on a broker node; since 0.7 a tenant_admin protects an instance on its portal page; since 0.8 the node compares its packages with the distribution's advisories, since 0.9 also inside every image (draft, v0.9)
-- [oaap.core.portal](oaap.core.portal.md) — web portal (draft, v0.3.48)
+- [oaap.core.portal](oaap.core.portal.md) — web portal (draft, v0.3.49)
 - [oaap.core.management](oaap.core.management.md) — the tenant's own hand on the platform as an API: the cohort commands under `/api/v1/tenant`, for a session or an API key, jobs for what takes minutes, a template uploaded as ZIP, the handout as a one-time ZIP with a password the trainer chooses; operator routes for tenant builds (draft, v0.1.2)
 - [oaap.core.identity](oaap.core.identity.md) — identity & roles; since 0.6.3 a person through an MCP gateway's door (procedure I, RFC-0073), since 0.6.4 a chat acting as the person (procedure A, RFC-0074), since 0.6.5 a foreign bearer beside a session goes to the app (I-44) (draft, v0.6.5)
 - [oaap.core.authorization](oaap.core.authorization.md) — business authorization inside an app, apart from the platform roles: manifest declaration, roles, collections, assignments, `effective`, provider groups, administration by an app, setup from the declaration (draft, v0.5.3)
