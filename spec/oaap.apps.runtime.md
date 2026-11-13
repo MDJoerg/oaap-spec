@@ -1,7 +1,7 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.61 (**promotion from a Git test instance** by its recorded commit -- 2.14.1). 0.2.60 (**a build that upgrades OS packages is built without the layer cache**, and "unchanged" compares the package lists -- 2.31.1, RFC-0071 §16; **a portal tick confirms a widening** by the fingerprint of exactly the reported lines -- 2.14, I-43). 0.2.59 (**a second kind of generated value, `vapid`**, and a build step may generate into an empty key -- 2.8, RFC-0079). 0.2.58 (**the envelope rule on every way in**: directory and
+- **Version:** 0.2.62 (**a config key MAY declare `file: true`**: its value is a file, stored as one base64 line, and the portal offers an upload -- 2.8; **a tunnel (`tun`, 2.23) is confirmed in the store** by a `server_admin`'s tick naming the app, besides `--confirm-tun` -- RFC-0060 stage 4). 0.2.61 (**promotion from a Git test instance** by its recorded commit -- 2.14.1). 0.2.60 (**a build that upgrades OS packages is built without the layer cache**, and "unchanged" compares the package lists -- 2.31.1, RFC-0071 §16; **a portal tick confirms a widening** by the fingerprint of exactly the reported lines -- 2.14, I-43). 0.2.59 (**a second kind of generated value, `vapid`**, and a build step may generate into an empty key -- 2.8, RFC-0079). 0.2.58 (**the envelope rule on every way in**: directory and
   Git installs too, the report reaches the portal, I-43, 2.14). 0.2.57 (**a second origin for the views of MCP Apps**,
   manifest 0.13 `ui_sandbox`, 2.32.4, RFC-0075). 0.2.56 (**a chat acts at its tenant's gateways as the person**,
   RFC-0074 stage 1: manifest 0.12 `mcp_client: {use: true}`, the list
@@ -1589,6 +1589,14 @@ files the operator must edit", rule 4), so the runtime must offer it:
   and key lists were the driver): a secret list cannot be re-entered
   wholesale, because the operator can never read the stored value
   back.
+- **A key MAY declare `file: true`** (0.2.62): its value is the content
+  of a file -- an OpenVPN `.ovpn` with comments, a certificate, a realm
+  export. It is stored and handed to the container as **one base64
+  line** (the rule below: a config value stays one line), and the portal
+  offers a **file upload** instead of a text field and encodes it itself;
+  no file chosen keeps the stored value, an empty file or one above
+  256 kB is refused. The app decodes. A platform older than 0.2.62
+  ignores the field; the value is then set by hand, base64-encoded.
 - **A list-valued key MAY declare `multiline: true`** (0.2.16), and the
   portal then offers **one line per entry** instead of a single-line
   field. This is a presentation rule with a hard boundary behind it:
@@ -3780,3 +3788,12 @@ dadurch. Jetzt prüft jeder Weg genau einmal.
 lässt sich jetzt nach Produktiv übernehmen: Der Knoten holt genau diesen Commit und
 installiert ihn produktiv. Bisher ging das nur für hochgeladene Pakete — eine
 Store-App mit Test-Instanz ließ sich dadurch gar nicht aktualisieren (vorgaenge).
+
+## Deutsche Zusammenfassung (Nachtrag 0.2.62)
+
+Ein Konfigurationswert darf jetzt `file: true` erklären. Dann ist er eine
+Datei, etwa die `.ovpn`-Datei eines VPN. Das Portal bietet dafür einen
+Datei-Upload an und speichert den Inhalt als eine base64-Zeile; die App
+dekodiert ihn. Und ein Tunnel (`tun`) lässt sich jetzt auch im Store
+bestätigen, mit einem Häkchen des Server-Admins, nicht mehr nur an der
+Kommandozeile.

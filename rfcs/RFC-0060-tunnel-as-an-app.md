@@ -1,8 +1,9 @@
 # RFC-0060: A Tunnel as an App — Reaching a Foreign Network Through Its Own Door
 
 - **Status:** **Accepted (2026-10-16)** — Jörg took D1–D8 as
-  recommended. Nothing built. The Copilot measurement (§3.1) runs in
-  parallel, by Jörg, against the existing gateway on `oaap-test`.
+  recommended. Stages 0 and 1 built and measured on `oaap-test`
+  (2026-10-16, §6), **stage 4 (portal) built and measured 2026-11-13**
+  (reference 0.1.276); stage 2 (the chain) and 3 (WireGuard) open.
 - **Date:** 2026-10-16
 - **Authors:** Jörg (the case: a model endpoint on somebody else's
   machine behind somebody else's OpenVPN, to be offered to a customer
@@ -348,7 +349,25 @@ down:
 3. **WireGuard variant** of the same app — same `tun`, same proxy,
    different client.
 4. **Portal:** tunnel state on the instance page; `through` offered in
-   the destination form.
+   the destination form. **Built 2026-11-13** (reference 0.1.276,
+   `oaap.core.portal` 0.3.50, `oaap.apps.runtime` 0.2.62; app
+   `vpn-client` 0.1.4), on Jörg's wish to set the client up without the
+   command line. Beyond the two items: **the install question in the
+   store** -- a `server_admin`'s tick naming the app (`confirm_tun`,
+   judged on the host from the actor's own record, exactly like
+   `confirm_administer`; D2 unchanged: a `tenant_admin` cannot); and
+   **the `.ovpn` as a file upload** -- a config key may declare `file:
+   true` and the portal encodes it to the one base64 line §6.1 had to
+   ask for by hand. Found on the way: a ZIP package from a store
+   catalogue could never be confirmed at all (`install_artifact` built
+   its own arguments without either yes) -- fixed. **Measured on
+   `oaap-test`:** the store refused without the tick (`needs:
+   confirm_tun`, nothing built), the card carried name and tenant, with
+   the tick the container got exactly `/dev/net/tun` and `NET_ADMIN`,
+   not privileged; an uploaded `.ovpn` (comments with `;`, a `<ca>`
+   block) was stored byte for byte; the card *Tunnel* and the form's
+   suggestion `through:tun2/gaming` appeared. Not measured: a real far
+   side through the portal-made instance (the stand-in of §6.1 is gone).
 
 ## Decisions (Jörg, 2026-10-16 — all eight as recommended)
 
@@ -463,3 +482,11 @@ Portal.
 **Acht Entscheidungen** (D1–D8) hat Jörg am 16.10. wie empfohlen
 getroffen. Gebaut ist nichts; die Copilot-Messung (§3.1) macht Jörg
 parallel gegen das bestehende Gateway auf oaap-test.
+
+**Nachtrag 13.11.2026 — Stufe 4 (Portal) gebaut.** Der VPN-Client lässt
+sich jetzt ohne Kommandozeile einrichten: Installieren im Store mit einem
+Häkchen des Server-Admins für den Tunnel, die `.ovpn`-Datei als Upload,
+eine Karte „Tunnel“ mit Zustand und Zielen, und das Formular für
+Destinationen schlägt `through:<instanz>/<ziel>` vor. Nebenbei behoben:
+Pakete aus einem ZIP-Katalog ließen sich nie bestätigen. Offen bleiben
+Stufe 2 (die Kette) und 3 (WireGuard).
