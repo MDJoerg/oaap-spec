@@ -1,7 +1,7 @@
 # oaap.net.connector — The Inner Node Dials Out, the Outer Node Only Answers
 
 - **ID:** `oaap.net.connector`
-- **Version:** 0.3
+- **Version:** 0.4
 - **Maturity:** draft (0.1 was RFC-0033 stage 2: connect keys on the
   outer node, the connector and its offer list on the inner node, the
   tunnel between them, `via` targets for HTTP destinations, pause and
@@ -11,7 +11,9 @@
   a TTL, a sweep. **0.3 adds the portal button** (§2.8.10): the inner
   node's operator opens, extends and lets go an exposure there, and the
   outer node's operator closes one there, instead of only the command
-  line. A whole platform through the tunnel (stage 4) and rendezvous
+  line. **0.4 sets the connector up in the portal** (§2.9): keys,
+  connectors and offers, and the destination form suggests `via`
+  targets. A whole platform through the tunnel (stage 4) and rendezvous
   (stage 5) are the frontier, not specified)
 - **Based on:** RFC-0033 (§2, §3, §6, §7, D2, D3, D4, D6, D7, D8, D9,
   D10), RFC-0009 (on-demand TLS under the node's own name), RFC-0010
@@ -413,6 +415,44 @@ node's health page, `server_admin` may close a live one
   else** — not into a URL, not into the audit line, exactly as `expose`
   never carries it past the inner node's own files (2.8.2).
 
+### 2.9 Setting up in the portal (0.4)
+
+Everything of 2.2 and 2.3 that the command line does, a `server_admin`
+MAY do on one portal page (`/connector`), on either side:
+
+- **Outer side:** issue a connect key for a label and a tenant (2.2) and
+  revoke one. The key is shown **once, on the response page** -- never in
+  a URL, never in a log line; the request result that carries it to the
+  portal is written `0600` and removed when read. The page names the
+  outer node's address and the label for the inner side.
+- **Inner side:** add a connector (label, `https://` endpoint, key --
+  the portal never offers `--plain`), replace its key, pause, resume and
+  remove it; add and remove offers (name, target, optional path prefix
+  and methods). The rules of 2.3 are the same ones, applied by the same
+  functions: an offer naming a platform service is refused.
+- **The destination form** (`oaap.net.destinations` 2.7) suggests
+  `via:<tunnel>/<offer>` for every connected tunnel **of that tenant**
+  whose inner node offers something.
+
+Every button is one request through the host-side worker, which asks for
+`server_admin` again from the actor's own record -- required, not only
+checked when a name is given -- and writes the same audit lines as the
+command line; a refusal is written as `denied`. Revoking a key and
+removing a connector need an explicit "really". `support` sees the page
+without forms; a `tenant_admin` does not see it: a key lets another node
+into a tenant, an offer names any address the node reaches -- both are
+decisions about the node's network (2.2, 2.3).
+
+An app of the inner node is offered through its **public address**
+(`https://<instance>.<tenant>.<node>/…`): the connector service is not
+in the app's network, and the app's own sign-in (an AI gateway's API
+key) stays in force. Measured 2026-11-13 on `oaap-test` (both roles on
+one node, set up through the portal only): the call from an app went
+through the tunnel to the AI gateway, which answered with its own
+`invalid_api_key`. When the node's public name resolves to the router,
+this needs the router to loop the call back (hairpin NAT); on
+`oaap-demo`/oaapi01 that holds.
+
 ## 3. Configuration
 
 - `oaap connect key issue|revoke|list`, `oaap connect offers <label>`,
@@ -799,3 +839,16 @@ deren Antwort niemand mehr wartet.
 **Nicht gemessen:** die gerenderte Seite im echten Browser und die
 Antwort eines echten äußeren Knotens — offen für die nächste Session an
 der Maschine.
+
+## Deutsche Zusammenfassung (0.4 — Einrichten im Portal)
+
+Den Connector richtet der Server-Admin jetzt im Portal ein, auf der Seite
+**Connector**, und zwar auf beiden Seiten. Auf dem äußeren Knoten stellt er
+einen Zugangsschlüssel für einen Tunnel und einen Mandanten aus. Der Schlüssel
+erscheint nur einmal auf der Antwortseite, nie in einer Adresse. Auf dem inneren
+Knoten legt er den Connector mit Adresse und Schlüssel an und pflegt die
+Angebote. Pausieren, Widerrufen und Entfernen gehen dort auch, die letzten beiden
+nur mit „wirklich“. Das Formular für Destinationen schlägt `via:<tunnel>/<angebot>`
+vor. Eine App des inneren Knotens bietet man über ihre öffentliche Adresse an; ihr
+eigener Schlüssel bleibt nötig. Auf oaap-test ist das Ganze nur über das Portal
+gemessen.

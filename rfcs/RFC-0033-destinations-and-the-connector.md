@@ -51,8 +51,13 @@
   here the target is authored by the button itself, not chosen among
   objects an operator already checked. Covered by the worker directly
   (`test/test_exposures_portal.py`); the rendered page, a real browser
-  and a real outer node's answer are not yet measured. Stages 4–5
-  unbuilt.
+  and a real outer node's answer are not yet measured. **Setting up in
+  the portal BUILT 2026-11-13** (reference 0.1.277, `oaap.net.connector`
+  0.4 §2.9): keys, connectors and offers on one page for `server_admin`,
+  the key shown once; `via:` suggested in the destination form; measured
+  on `oaap-test` through the portal only, an app's call reaching an AI
+  gateway through the tunnel. Asked for by Jörg for the AI-services chain
+  oaapx01 → oaapi01 (RFC-0060 stage 2). Stages 4–5 unbuilt.
 - **Date:** 2026-09-08
 - **Authors:** Jörg (the pattern, the direction, the ngrok wish), Claude
   (analysis & proposal)
@@ -713,3 +718,9 @@ Maschinenschlüssel, den der innere Mandant der äußeren Instanz ausstellt
 Ereignisse und Unified Namespace reserviert und blieb es bis zum
 11.09.2026; dieses Dokument ist deshalb RFC-0033, obwohl es zuerst
 geschrieben wurde.
+
+**Nachtrag 13.11.2026 — Connector im Portal (Referenz 0.1.277).** Schlüssel,
+Connectoren und Angebote richtet der Server-Admin jetzt auf der Portalseite
+*Connector* ein. Der Schlüssel erscheint nur einmal. Das Formular für
+Destinationen schlägt `via:` vor. Auf oaap-test ist das nur über das Portal
+gemessen. Anlass ist die Kette der KI-Dienste oaapx01 → oaapi01.
