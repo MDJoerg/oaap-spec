@@ -1,7 +1,8 @@
 # oaap.ai.gateway — AI Supply Behind One Keyed Endpoint
 
 - **ID:** `oaap.ai.gateway`
-- **Version:** 0.5 (keys may expire; keys issued for a cohort of a
+- **Version:** 0.5.1 (a supplier may be marked to receive no sampling
+  parameters, §4.2; additive. 0.5: keys may expire; keys issued for a cohort of a
   training in one step, shown once as the operator's own table; the
   operator may probe a supplier and take aliases from its model list,
   §2.1, §4.2; additive.
@@ -205,6 +206,12 @@ log.
   models, accept or change the suggested names, create one alias per
   model with exactly that target. An existing alias is never
   overwritten by this.
+- A supplier MAY be marked to **receive no sampling parameters**
+  (`temperature`, `top_p`, `top_k`; 0.5.1): some suppliers refuse them
+  (newer Claude models answer `400`), while many clients send them by
+  default. The gateway removes exactly these fields on the way out and
+  touches nothing else — it is a property of the supplier, not of the
+  request, and it is not a look into the content (§6).
 
 ## 5. Metering: each gateway keeps its own books
 
@@ -550,3 +557,8 @@ Ein Modellname lässt sich mit einer Mini-Anfrage testen, die nicht in
 den eigenen Verbrauch zählt. Aus der Modellliste einer Quelle legt der
 Betreiber per Mehrfachauswahl Modellnamen an; vorhandene werden nie
 überschrieben.
+
+**0.5.1:** Eine Bezugsquelle kann so markiert werden, dass sie
+`temperature`, `top_p` und `top_k` nicht bekommt. Neuere Claude-Modelle
+lehnen diese Felder mit 400 ab, viele Werkzeuge schicken sie trotzdem.
+Das Gateway entfernt genau diese Felder und sonst nichts.
