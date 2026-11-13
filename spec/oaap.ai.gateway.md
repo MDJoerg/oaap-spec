@@ -1,7 +1,11 @@
 # oaap.ai.gateway — AI Supply Behind One Keyed Endpoint
 
 - **ID:** `oaap.ai.gateway`
-- **Version:** 0.4 (RFC-0064 stage 3: one query behind the operator's
+- **Version:** 0.5 (keys may expire; keys issued for a cohort of a
+  training in one step, shown once as the operator's own table; the
+  operator may probe a supplier and take aliases from its model list,
+  §2.1, §4.2; additive.
+  0.4, RFC-0064 stage 3: one query behind the operator's
   charts and a report interface for external billing, `complete_until`
   in every answer, §5.1; additive.
   0.3.1, RFC-0064 stage 2: suppliers and aliases are
@@ -84,6 +88,39 @@ hook (writes) and the fleet status (reads).
   content is never recorded (§6).
 - Every failure of authorization answers the **same 403 without
   detail**. Repeated failures are braked per client address.
+- A key **may carry an end** (0.5). From then on it answers exactly like
+  a revoked key — the same 403 — but a request with an expired key is
+  **not counted as a guess**: it is a real key, and a classroom behind
+  one address must not brake itself out after the course. An end may be
+  moved (extended) until the key is revoked; revoking stays final.
+
+### 2.1 Keys for a cohort (0.5)
+
+A training needs one key per participant, all with the same end. A
+gateway MAY issue them in one step:
+
+- The operator pastes a table — one participant per line, cells
+  separated by tab, semicolon or comma; the first cell is a name, an
+  optional second cell a seat number (`07`) or a deviating seat
+  (`07b`), further cells pass through. Without a number, seats are
+  counted from a chosen first number.
+- Every participant gets **an ordinary key** (§2): its own label, the
+  name as the responsible person, the same end, the same aliases, light
+  and budget, and the cohort's name in the context (project, unless
+  given). The label follows the platform's cohorts (RFC-0046):
+  `<cohort>-tn-<seat>`, so a participant's training server and key
+  carry the same seat.
+- The answer is **the same table with a column for the key** (and one
+  for the seat, where the gateway chose or changed it), shown **once**,
+  as a page and as a download, and never cached. Only the digests are
+  stored, as for every key.
+- A label is never issued twice, not even after a revoke. A participant
+  who needs a new key gets a **deviating seat** (`07b`), given by the
+  operator or taken as the next free one on request; a row whose seat is
+  taken is answered with the reason, never silently skipped.
+- A cohort can be **extended** (a new end for all its keys not revoked)
+  and **revoked as a whole**, the latter only with an explicit "really".
+  Both are audited.
 
 ## 3. Aliases, and failover inside a declared group
 
@@ -151,6 +188,23 @@ log.
   too — failing over around the gap would silently change the declared
   group (§3).
 - A supplier still used by an alias cannot be removed.
+
+### 4.2 Probing a supplier, and aliases from its model list (0.5)
+
+- The operator MAY **probe** a supplier: `GET <supplier>/v1/models` with
+  the supplier's credential. It lets no model compute and costs nothing,
+  but shows whether the supplier is reached and accepts the credential.
+  The answer is put in words: reached (with its models), credential
+  refused (401/403), path unknown (404), the platform's tunnel not
+  connected or the offer missing (`oaap.net.connector`), not reached
+  (with the kind of error, never with the credential).
+- An alias MAY be **tested** with a minimal request per target (one
+  token at most). It is not metered by this gateway — there is no key it
+  belongs to — and the supplier counts it.
+- The operator MAY **create aliases from a supplier's model list**: pick
+  models, accept or change the suggested names, create one alias per
+  model with exactly that target. An existing alias is never
+  overwritten by this.
 
 ## 5. Metering: each gateway keeps its own books
 
@@ -472,3 +526,27 @@ gelesen. Zugangsdaten sind nur schreibbar, nie lesbar, und liegen nur
 **verschlüsselt** — mit einem Schlüssel, der nicht im Speicher des
 Gateways liegt. Fehlt er, verweigert das Gateway das Speichern und
 sagt warum.
+
+### Nachtrag 0.5 (Deutsch)
+
+**Ablauf und Kohorten:** Ein Schlüssel kann ein Ende haben. Danach
+antwortet er genau wie ein widerrufener (dieselbe 403), zählt aber nicht
+als Rateversuch. Für Schulungen stellt das Gateway in einem Schritt je
+Teilnehmer einen gewöhnlichen Schlüssel aus: Der Betreiber fügt eine
+Tabelle ein (Name, optional Nummer oder abweichende Kennung, weitere
+Spalten werden durchgereicht) und bekommt dieselbe Tabelle mit einer
+Schlüsselspalte zurück, einmal angezeigt und nie zwischengespeichert. Die
+Etiketten folgen den Schulungsservern (`<kohorte>-tn-<nummer>`, RFC-0046).
+Ein Etikett wird nie zweimal vergeben, auch nach einem Widerruf nicht.
+Wer nachgeneriert, nimmt eine abweichende Kennung (`07b`). Eine Kohorte
+lässt sich verlängern und als Ganzes widerrufen, Letzteres nur mit
+„wirklich“.
+
+**Bezugsquelle prüfen und Modellnamen übernehmen:** Der Betreiber kann
+eine Quelle anpingen (`GET …/v1/models` mit ihren Zugangsdaten, nichts
+wird gerechnet). Das Ergebnis steht in Worten da: erreichbar, Anmeldung
+abgelehnt, Pfad unbekannt, Tunnel oder Angebot fehlt, nicht erreichbar.
+Ein Modellname lässt sich mit einer Mini-Anfrage testen, die nicht in
+den eigenen Verbrauch zählt. Aus der Modellliste einer Quelle legt der
+Betreiber per Mehrfachauswahl Modellnamen an; vorhandene werden nie
+überschrieben.
