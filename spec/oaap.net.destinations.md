@@ -1,7 +1,7 @@
 # oaap.net.destinations — Reaching Outward Without Holding the Key
 
 - **ID:** `oaap.net.destinations`
-- **Version:** 0.11 (a `server_admin` may hand the authoring of destinations to
+- **Version:** 0.12 (**a need MAY declare `any: true`** -- the app uses any number of the tenant's `http` destinations, each bound under its own name; the portal offers the binding -- §2.2; an AI gateway's suppliers, RFC-0060 stage 2). 0.11 (a `server_admin` may hand the authoring of destinations to
   the `tenant_admin` of ONE tenant: https targets on public addresses only, and only
   what they made -- §2.7.1, `oaap.core.tenant` 1.7). 0.10 (destinations are added,
   given a secret and removed in the portal as well, by `server_admin` -- §2.7). 0.9
@@ -110,6 +110,28 @@ within it. Fields:
   A declaration grants nothing. It tells the operator what the app can
   use. Install output and the instance view show every declared need
   and whether it is bound.
+- **A need MAY declare `any: true`** (0.12, `http` only): the app can
+  use **any number** of the tenant's `http` destinations, each bound
+  under **its own name** as the need (so the app reads
+  `OAAP_DESTINATION_<DESTINATION>_URL`, 2.3, and finds them all by the
+  prefix). The declared name names the family, not a variable:
+
+  ```yaml
+  destinations:
+    - name: supplier
+      kind: http
+      any: true
+      purpose: "suppliers reached through the platform"
+  ```
+
+  The portal shows the family as one row with a choice of the tenant's
+  unbound `http` destinations; a binding under it counts as declared,
+  with the family's purpose. Nothing else changes: the same checks, the
+  same audit line, the same grant. `any` on a `tcp` need is invalid. A
+  platform before 0.12 ignores the field -- the bindings are then made
+  at the command line, as below. First user: the AI gateway (0.5.5),
+  whose suppliers may be a machine behind a VPN client (`through`) or
+  the gateway of an inner node behind the connector (`via`).
 - An `http` destination MAY be bound under a need the manifest does not
   declare. The app then learns it only from its environment (2.3).
   A `tcp` destination MUST be bound to a **declared** `tcp` need,
@@ -897,3 +919,13 @@ Mandanten-Admin sieht die Liste seines Mandanten (was es gibt, woran es hängt),
 ohne Formulare. Personen durchreichen bleibt an der Kommandozeile. Dass ein
 Mandanten-Admin selbst Ziele schreibt, wartet weiter auf die Prüfung beim
 Verbinden.
+
+## Deutsche Zusammenfassung (Nachtrag 0.12)
+
+Eine App darf jetzt erklären, dass sie **beliebig viele** http-Destinationen
+nutzen kann (`any: true`). Jede wird unter ihrem eigenen Namen gebunden, und die
+App findet sie alle über `OAAP_DESTINATION_*_URL`. Das Portal bietet auf der
+Instanzseite eine Auswahl an, die Kommandozeile ist dafür nicht mehr nötig.
+Erster Nutzer ist das KI-Gateway: Seine Bezugsquellen können jetzt Destinationen
+sein, etwa der Gaming-PC hinter dem VPN-Client oder später das Gateway von
+oaapi01 hinter dem Connector. Die Anmeldung ergänzt die Plattform.

@@ -1094,6 +1094,10 @@
                 "pattern": "^[A-Za-z][A-Za-z0-9_]*$"
               }
             }
+          },
+          "any": {
+            "type": "boolean",
+            "description": "oaap.net.destinations 0.12: http only -- the app uses any number of the tenant's http destinations, each bound under its own name; 'name' names the family."
           }
         },
         "if": {

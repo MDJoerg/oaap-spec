@@ -3,7 +3,9 @@
 - **Status:** **Accepted (2026-10-16)** — Jörg took D1–D8 as
   recommended. Stages 0 and 1 built and measured on `oaap-test`
   (2026-10-16, §6), **stage 4 (portal) built and measured 2026-11-13**
-  (reference 0.1.276); stage 2 (the chain) and 3 (WireGuard) open.
+  (reference 0.1.276); **stage 2 begun 2026-11-13** (reference 0.1.277:
+  the AI gateway takes destinations as suppliers, bound in the portal);
+  stage 3 (WireGuard) open.
 - **Date:** 2026-10-16
 - **Authors:** Jörg (the case: a model endpoint on somebody else's
   machine behind somebody else's OpenVPN, to be offered to a customer
@@ -490,3 +492,11 @@ eine Karte „Tunnel“ mit Zustand und Zielen, und das Formular für
 Destinationen schlägt `through:<instanz>/<ziel>` vor. Nebenbei behoben:
 Pakete aus einem ZIP-Katalog ließen sich nie bestätigen. Offen bleiben
 Stufe 2 (die Kette) und 3 (WireGuard).
+
+**Nachtrag 13.11.2026 — Stufe 2 begonnen (Referenz 0.1.277).** Auf oaapi01 läuft
+der Weg KI-Gateway → Destination → VPN-Client → Gaming-PC (eingerichtet von
+Jörg). Damit das ohne Kommandozeile geht: Das KI-Gateway (0.5.5) erklärt
+`any: true` für Destinationen. Das Portal bietet das Zuordnen an, und das Gateway
+macht aus einer zugeordneten Destination mit einem Klick eine Bezugsquelle, ohne
+Schlüssel und mit Ampel gelb als Vorschlag. Offen für die Kette: der Connector von
+oaapi01 nach oaapx01 im Portal (heute nur Kommandozeile).
