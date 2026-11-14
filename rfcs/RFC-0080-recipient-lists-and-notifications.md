@@ -116,7 +116,7 @@ portal page that shows the matter.
 | `rebuild.failed` | owning tenant (+ node) | operations | a rebuild of an instance failed | exists | 1 |
 | `confirm.pending` | owning tenant (+ node) | operations | a delivery waits for a widening to be confirmed | exists | 1 |
 | `instance.down` | owning tenant (+ node) | health | a production instance unhealthy > 5 min | built (0.1.256) | 2 |
-| `login.locked` | tenant of the user (+ node) | security | identity blocked a name | built (0.1.256) | 2 |
+| `login.locked` | tenant of the user (+ node) | security | identity blocked a name | built (0.1.256); a name nobody has is counted for the weekly report instead of mailed (0.1.278) | 2 |
 | `intrusion.suspected` | node | security | — nothing detects it yet | own RFC | — |
 
 "(+ node)" means: the node's routing also sees the type, so the operator can

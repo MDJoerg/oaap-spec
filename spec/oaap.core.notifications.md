@@ -1,7 +1,7 @@
 # oaap.core.notifications — Recipient Lists and Notifications
 
 - **ID:** `oaap.core.notifications`
-- **Version:** 0.6 (0.6: the **fleet** types `node.silent`, `bridge.down`,
+- **Version:** 0.7 (0.7: a lock on a name **nobody has** -- an empty one included -- is no longer mailed; it is counted and appears in the node's weekly report as *Fremde Anmeldeversuche*, 2.2.1/2.9; 0.6: the **fleet** types `node.silent`, `bridge.down`,
 `broker.queue`, `node.loss`, `hub.unreachable`, and a closing mail names how
 long the matter lasted, RFC-0085 stage 2; 0.5: `exposure.found` -- an instance hands out a secret file, critical, tenant and node, RFC-0084; 0.4: the **weekly report** -- a daily ledger, one report per scope, delivery `now`/`report` per routing line -- 2.9, RFC-0083; 0.3: `{knoten}` is the node's alias once one is set, `{ort}` its place, the body names both names -- RFC-0082 stage 1)
 - **Maturity:** draft. 0.1 was RFC-0080 stage 1: lists, the catalogue,
@@ -106,8 +106,12 @@ says so on its own page.
   `key|<id>`, `keyclient|client`). The host **reads** that file each minute
   — identity stays its one writer — and reports a key that reached the
   threshold, once per hour per key. A name of a known user goes to that
-  user's tenant; an unknown name and API-key attempts go to the node. The
-  text names the name and the client address. A name is stripped of
+  user's tenant; API-key attempts go to the node. The text names the name
+  and the client address. A name **nobody has** (an empty one included) is
+  a stranger guessing, not an account at risk (0.7): it is not mailed but
+  counted per local day in the notify state (`foreign_logins`: locks,
+  failures, client addresses as keyed 8-digit hashes -- at most 50 --, the
+  names tried -- at most 20 --, ten days kept) and reported weekly (2.9). A name is stripped of
   control characters and cut to 64 characters before it stands anywhere.
   Logins at a tenant's own realm (an external IdP) are not seen here —
   that IdP has its own lockout.
@@ -239,10 +243,14 @@ its own tab; an unknown tab word shows the first.
   node writes the six days before from what still exists; anything not
   measured is recorded as such, never invented. A tenant's line holds its
   own events, mails, own archive, storage and the brake of its instances.
+  The node's line also holds that day's locks on names nobody has
+  (`foreign`, 2.2.1; kept ten days, so a backfilled day has them too).
 - **Report.** On the set weekday and hour (default Monday 07:00 local,
   `apps/report.json`) the node writes last week's Markdown per scope to
   `apps/reports/<scope>/<YYYY-Www>.md` (0644, a year): summary in sentences,
-  then events, every mail, backup, braked requests, measurements, and for the
+  then events, every mail, backup, braked requests, *Fremde Anmeldeversuche*
+  (locks, failures, distinct addresses, the names tried -- an empty one as
+  "(leer)"), measurements, and for the
   node growth per week/month/year ("seit N Tagen gemessen" until measured).
   It is queued as `report.weekly` (scope `both`, each scope its own) and
   mailed as `multipart/alternative`: the Markdown as text plus the same
@@ -284,6 +292,12 @@ Lagen werden bei Beginn und Behebung gemeldet, Kritisches zusätzlich
 täglich. Grenzen gegen Missbrauch (20/h je Mandant), eine Stunde
 Wiederholung, nie eine Mail über eine gescheiterte Mail. Das Protokoll
 nennt keine Adressen.
+
+**0.7 — Fremde Anmeldeversuche:** Eine Sperre auf einen Namen, den es nicht
+gibt (auch einen leeren), ist ein Fremder, der rät — kein Konto in Gefahr.
+Dafür kommt keine Mail mehr; sie wird gezählt und steht im Wochenbericht des
+Knotens (Sperren, Fehlversuche, Adressen nur als Prüfsumme, versuchte Namen).
+Sperren auf echte Namen melden weiter sofort.
 
 **0.4 (RFC-0083) — Wochenbericht:** Täglich eine Zeile je Bereich in ein
 Tagebuch (3 Jahre); montags 07:00 (einstellbar) ein Bericht je Bereich als

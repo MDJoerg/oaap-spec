@@ -1,6 +1,6 @@
 # RFC-0083: The Weekly Report — What Happened, Summarized, Once a Week
 
-- **Status:** Accepted (2026-11-12, D1–D8 as recommended); **stages 1–4 built (reference 0.1.262, §6)** -- `oaap.core.notifications` 0.4 2.9, `oaap.core.portal` 0.3.46
+- **Status:** Accepted (2026-11-12, D1–D8 as recommended); **stages 1–4 built (reference 0.1.262, §6)** -- `oaap.core.notifications` 0.4 2.9, `oaap.core.portal` 0.3.46; 0.1.278: section *Fremde Anmeldeversuche* (locks on names nobody has, no longer mailed -- `oaap.core.notifications` 0.7)
 - **Date:** 2026-11-12
 - **Authors:** Jörg (the need: "not send certain things at once but as a
   kind of weekly report — summary and details; e.g. that a kernel upgrade
