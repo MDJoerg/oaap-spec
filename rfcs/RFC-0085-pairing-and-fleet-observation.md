@@ -1016,6 +1016,17 @@ two instances, `alive` and the nine metrics through the platform broker:
    matters were removed from the notify state without a closing mail, the
    retained messages of `sim-d` cleared, the profile removed again.
 
+**Rolled out on the hub (Jörg's word, 2026-11-14 evening).** Reference
+0.1.279 pushed; oaap-demo updated from git (9/9 core services).
+`oaap fleet hub twin oaap-ops` failed there first: **oaap-demo's store had
+no `oaap_model` schema** (no app ever registered a type there; oaap-test
+had one), and the command created the twin schema, whose grants name it,
+before the registry. Worked around by `oaap data model types` (creates
+the registry), then the command succeeded (76 types); fixed in 0.1.280
+(registry first, a check in `test_fleet_twin.py`). Within two minutes:
+all five real nodes with all seven groups, 59 instances, 3 brokers, 72
+series. The week of five real nodes runs from here.
+
 ## Decision record (2026-11-12)
 
 Jörg, in chat: "wie empfohlen, rollout später". All eleven decisions of
