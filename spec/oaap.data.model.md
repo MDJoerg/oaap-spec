@@ -1,7 +1,7 @@
 # oaap.data.model — Type Registry for the Digital Twin
 
 - **ID:** `oaap.data.model`
-- **Version:** 0.1
+- **Version:** 0.2 (0.2: **semantic IDs** -- the optional `semantic_id` of a type, its three forms and the one setting for the domain of OAAP's own, §2.9, RFC-0085 amendment A2, 2026-11-14)
 - **Maturity:** draft
 - **Based on:** RFC-0031 (data model & digital twin — Model is Schritt
   2 of the build order: Store, Model, Twin, reference apps, browser,
@@ -302,6 +302,31 @@ first artefact would have registered under the wrong namespace. Fixed
 at the one call site inside the shared install function, before any
 artefact had shipped to find it live.
 
+### 2.9 Semantic IDs (0.2, RFC-0031 §3.7, RFC-0085 amendment A2)
+
+Any entry of `data_model` -- object, attribute, group or relation type --
+may carry `semantic_id`. It is optional and never required (RFC-0031
+§3.7). Three forms are accepted, everything else refuses the install:
+
+- an **IRI** (`https://admin-shell.io/idta/SoftwareNameplate/1/0`) -- a
+  published standard's ID, stored verbatim;
+- an **IRDI** (`0173-1#02-AAO205#002`, ECLASS / IEC CDD), stored verbatim;
+- **OAAP's own** in the short form `oaap-aas:<Submodel>/<major>/<minor>[/
+  <Element>...]` (`oaap-aas:HostCare/0/1/RebootPlan/Urgency`).
+
+The short form **never names a domain.** It is expanded only when a
+reader is answered -- `oaap.data.twin`'s person-facing type list gives it
+as `semantic_iri` -- against one node setting, `OAAP_SEMANTIC_BASE`
+(default `https://objid.info/oaap/aas`). Moving the domain is therefore a
+change of that setting, never a migration of stored rows (Jörg,
+2026-11-14). The implementation keeps the rule in one module
+(`services/twin/semantic.py`) that the host's manifest check and the twin
+both use.
+
+Changing an existing `semantic_id` is **destructive** under §2.5 (it is
+the type's meaning, not its presentation); adding one to a type that had
+none is additive.
+
 ## 3. Configuration
 
 None beyond what `oaap.data.store` already configures — this
@@ -380,6 +405,17 @@ reference platform (`oaap-test`) using the Partnerverwaltung/RACI
 reference apps named in the bauplan's Schritt 4 as real `data_model`
 manifests, and test 5 is proven on a node deliberately left without
 the `store` profile.
+
+## Deutsche Zusammenfassung (Nachtrag v0.2 — semantische IDs)
+
+Jeder Typ darf eine **semantische ID** tragen, Pflicht ist sie nie. Erlaubt
+sind drei Formen: eine IRI (IDTA-Teilmodell), eine IRDI (ECLASS/IEC CDD)
+oder unsere eigene Kurzform `oaap-aas:HostCare/0/1/…`. Die Kurzform enthält
+**keine Domain**. Erst bei der Ausgabe wird sie mit einer Einstellung
+(`OAAP_SEMANTIC_BASE`, Vorgabe `https://objid.info/oaap/aas`) zur vollen
+Adresse. Ein Domainwechsel ist damit eine Einstellung und keine Migration.
+Eine geänderte ID gilt als zerstörende Änderung, eine neu hinzugefügte als
+additive.
 
 ## Deutsche Zusammenfassung (v0.1)
 

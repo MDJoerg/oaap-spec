@@ -382,6 +382,16 @@ and the suite always ran the job before reading):
 **Stage 1 is complete.** Next: stage 2, the fleet service writes
 (RFC-0085 stage 5).
 
+### 10.3 Stage 2 -- built (2026-11-14, reference 0.1.279)
+
+The hub's fleet service writes the nine metrics of every node as number
+series of the node's twin object, the liveness and core-service states as
+text series, and a broker's queue and bridge state as series of the broker
+object (RFC-0085 §16, amendment A2). Measured against a throwaway
+PostgreSQL 16 on oaap-test (`test_fleet_twin.py`); the stage's own
+measurement -- a week of five real nodes, a hub restart with the broker's
+backlog arriving without duplicates -- is still to come.
+
 ## 11. Out of scope
 
 External query protocols and a Grafana data source; alerting on series

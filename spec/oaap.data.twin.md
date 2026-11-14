@@ -1,7 +1,7 @@
 # oaap.data.twin — The Digital Twin
 
 - **ID:** `oaap.data.twin`
-- **Version:** 0.4
+- **Version:** 0.5 (0.5: the write rules in one module shared by the API and the platform's own writer; an unchanged **relation** writes nothing either, and a group PUT that changes nothing records no event -- §2.15; the person-facing type list answers `semantic_iri` -- `oaap.data.model` 0.2 §2.9; RFC-0085 amendment A2)
 - **Maturity:** draft
 - **Based on:** RFC-0033 §6 / D10 (0.4 adds the remote reader, §2.14:
   a reader on another node, reached through a tunnel,
@@ -509,6 +509,29 @@ here, and every other reader of the registry would then have had to
 know that one entry does not run on this node. A second name space with
 its own file keeps the registry true.
 
+### 2.15 One write rule, two doors (0.5, RFC-0085 amendment A2)
+
+The rules of §2.5/§2.7 -- a group belongs to the origin that created it,
+a value repeated unchanged writes nothing, every write appends one
+`events` row -- live in one module (`twin_write`) that two callers use:
+
+- the API, for an app's instance credential; the binding check stays at
+  this door;
+- the **platform's own writer**, the hub's fleet service (RFC-0085 §9,
+  amendment A2), with origin `platform:fleet` and the tenant's schema role
+  (`/platform-apps/twin-secrets.json`, read-only, as the twin itself). It
+  finds its objects by source key under its origin, and it can never write
+  a group another origin created -- `owner.*` groups written by people
+  stay theirs.
+
+Two corrections came with it, both to match what §2.7 already said: an
+**unchanged relation** (same target, same validity) writes nothing --
+before, every PUT appended a new relation row; and a PUT that writes
+nothing records **no** `events` row (the first PUT of a group still does,
+as the group was created). Found 2026-11-14 while building the fleet's
+writer, which repeats the same relations every half minute; the
+counter-check without the correction is red (`test_fleet_twin.py`).
+
 ## 3. Configuration
 
 - `apps/twin-secrets.json` (`0600`, root and the `twin` container's
@@ -690,6 +713,19 @@ relays who is asking, §2.12).
 reference platform (`oaap-test`), and step 8 of RFC-0031 §9 (the
 rehearsal's own copy, D8) has its own capability-spec addendum once
 built — the one piece 0.2 still satisfies by refusal alone (§1, §4).
+
+## Deutsche Zusammenfassung (Nachtrag v0.5 — eine Schreibregel, zwei Türen)
+
+Die Schreibregeln des Zwillings stehen jetzt in **einem** Modul. Die
+Schnittstelle für Apps nutzt es, und ebenso der eigene Schreiber der
+Plattform, der Flottendienst der Zentrale (Herkunft `platform:fleet`). Der
+Flottendienst findet seine Objekte über den Quellschlüssel und kann eine
+Gruppe, die ein anderer angelegt hat, nie beschreiben. Die Gruppen
+`owner.*`, die Menschen pflegen, bleiben also deren Gruppen. Zwei
+Korrekturen stellen nur her, was §2.7 schon versprach: Eine **unveränderte
+Beziehung** schreibt keine Zeile mehr (vorher bei jedem Schreiben eine
+neue), und ein Schreiben ohne Änderung erzeugt kein Ereignis. Die Typliste
+nennt die semantische ID ausgeschrieben (`semantic_iri`).
 
 ## Deutsche Zusammenfassung (Nachtrag v0.4 — der entfernte Leser)
 

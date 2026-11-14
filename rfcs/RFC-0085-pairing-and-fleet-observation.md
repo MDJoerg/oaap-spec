@@ -5,7 +5,10 @@
   rolled out on Jörg's word (2026-11-12/13, reference 0.1.271, §15)**;
   the real bridge cut and oaap-demo stopped measured 2026-11-13, both
   mailed; reference 0.1.272 (session expiry, broker start order) staged
-  on oaap-test, not pushed
+  on oaap-test, not pushed; **amendment A2 (2026-11-14, Jörg: as
+  recommended, domain objid.info): the twin per node cut along AAS
+  submodels, with semantic IDs -- stage 4 data part and RFC-0086 stage 2
+  built in reference 0.1.279 (§16)**
 - **Date:** 2026-11-12
 - **Authors:** Jörg (the need: "monitor my nodes and get fleet management
   going; collect health data through a broker on oaapx01 and route it to
@@ -912,6 +915,74 @@ no mail.
 `sim-hub` had kept `hub.unreachable/sim-hub` open since 2026-11-12 22:33
 (one mail then); cleared with a one-day key, the matter closed.
 
+## 16. Amendment A2 — the twin per node, cut along AAS submodels (2026-11-14)
+
+**Why.** Before the first node twin is written, its groups get the shape
+a later Asset Administration Shell export needs, so nothing has to be
+renamed then (I-51, "standard outside, own model inside"). The research
+behind it -- which IDTA submodel templates fit which of our data, verified
+against the published templates -- is `program/aas-zuordnung-knotendaten.md`
+in the root repository.
+
+**Decided (Jörg, 2026-11-14, all as recommended):**
+
+1. **Domain** of OAAP's own semantic IDs: `objid.info` -- stored only in
+   the short form `oaap-aas:...`, expanded against one setting
+   (`oaap.data.model` 0.2 §2.9), so it can still move.
+2. **Groups along the submodels**, replacing §9's `status`/`latest`:
+
+   | Object (type key) | Group | Semantic ID (fit) |
+   |---|---|---|
+   | node (`FleetNode`) | `oaap.software` -- platform version, OS, profiles | IDTA 02007 Software Nameplate (good) |
+   | | `oaap.placement` -- alias, place, tags, address, entry; *reportsThrough* a broker | own `Placement/0/1` |
+   | | `oaap.hostcare` -- kernel, reboot, auto-updates, advisories, images, protections | own `HostCare/0/1` (02030/02043 in development) |
+   | | `oaap.services` -- core services and the worst state | own `CoreServices/0/1` |
+   | | `oaap.attention` -- count, kinds, detail | own `Attention/0/1` (projection of 02010) |
+   | | `oaap.dns` -- public address, names, problems | own `DnsNames/0/1` |
+   | | `oaap.liveness` -- state, since, interval, losses | own `Liveness/0/1` |
+   | | `owner.contact`, `owner.nameplate` -- **people only** | IDTA 02002 Contact Information, 02006 Digital Nameplate |
+   | instance (`FleetInstance`) | `oaap.appsoftware` -- app, version, name | IDTA 02007 |
+   | | `oaap.runtime` -- channel, state, origin, addresses; *isPartOf* the node | own `InstanceRuntime/0/1`; relation IDTA 02011 IsPartOf |
+   | broker (`FleetBroker`) | `oaap.broker` -- role; *bridgedTo* the hub | own `Broker/0/1` |
+
+   Every attribute and relation key is registered with the prefix
+   `fleet` (`fleetKernelRunning`, `fleetIsPartOf`): those keys are
+   node-wide, and a generic `state` would collide with an app's types.
+3. **The fleet service writes through the twin's own write rules**
+   (`oaap.data.twin` 0.5 §2.15), origin `platform:fleet`. The host
+   registers the types with that origin and activates them for the tenant.
+4. **Series** (RFC-0086 stage 2) instead of the `latest` group: the nine
+   metrics of the sender (cpu, mem, disk, req, lat, tx, rx, conn, ctop) as
+   number series of the node object; the liveness state and each core
+   service's state as text series; a broker's queue and a bridge's state
+   as series of the broker object. A value that changes each minute
+   belongs in a series, never in a group row (groups are append-only
+   history).
+
+**How it runs.** `oaap fleet hub twin [<tenant>]` on the hub (default
+`oaap-ops`): the tenant's twin schema, the types registered and
+activated, time series enabled, `/fleet/hub.json` naming tenant and hub.
+Every 30 s the fleet service writes what arrived: a new status document
+(objects found by source key -- the node by its name, an instance as
+`<node>/<name>`, a broker as `broker:<node>`), every node's liveness from
+the **host's verdict** (`verdict.json`, written each minute by the rule
+the mails use, `fleet_watch.view`; older than 180 s = no verdict =
+`unknown`), and the metric points. What could not be written stays
+pending; points beyond 50 000 are dropped oldest first and counted. An
+instance that left a node's status stays in the twin with state
+`removed`.
+
+**Measured (2026-11-14, oaap-test, throwaway PostgreSQL 16, the twin's
+tables from appctl itself):** `test_fleet_twin.py` 41/41 -- objects,
+groups, relations and series from one document; the same document again
+writes no row, no relation, no event (counter-check without the relation
+correction: red, 2 relation rows and 2 events per resend); a restart of
+the service finds its objects again; a vanished instance turns `removed`;
+a silent node turns `silent` without sending anything; the fleet cannot
+write a person's `owner.contact`; a database outage keeps everything
+pending. Not yet measured: a live hub with the five real nodes for a
+week (the stage's own measurement, §12 stage 5 / RFC-0086 stage 2).
+
 ## Decision record (2026-11-12)
 
 Jörg, in chat: "wie empfohlen, rollout später". All eleven decisions of
@@ -1096,3 +1167,16 @@ aus. Die drei direkten Knoten kamen wieder 3 bis 5 Minuten nach der
 Zentrale zurück und standen so lange auf „unbekannt, Sender holt auf“ —
 **kein Fehlalarm, keine Mail der Zentrale.** oaapx01 meldete „Zentrale
 nicht erreichbar“ und „Behoben“ wie geplant.
+
+**Nachtrag A2 (14.11.2026, auf Jörgs Wort wie empfohlen).** Der Zwilling je
+Knoten ist entlang der Teilmodelle der Verwaltungsschale geschnitten:
+Software, Platzierung, Pflege, Kerndienste, „braucht einen Menschen“,
+Namen, Lebenszeichen; dazu `owner.contact` und `owner.nameplate`, die nur
+Menschen pflegen. Jede Gruppe trägt eine semantische ID: wo eine
+IDTA-Vorlage passt, deren ID, sonst unsere eigene in der Kurzform
+`oaap-aas:…`, die erst bei der Ausgabe mit `objid.info` ausgeschrieben wird
+(die Domain bleibt änderbar). Statt einer Gruppe „letzte Werte“ gibt es
+Zeitreihen am Knoten. `oaap fleet hub twin` richtet das auf der Zentrale
+ein; der Flottendienst schreibt alle 30 Sekunden über dieselben
+Schreibregeln wie die Schnittstelle. Gemessen auf oaap-test gegen eine
+echte Datenbank, 41/41; die Woche mit fünf echten Knoten steht noch aus.
