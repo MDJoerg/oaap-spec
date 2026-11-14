@@ -973,7 +973,7 @@ instance that left a node's status stays in the twin with state
 `removed`.
 
 **Measured (2026-11-14, oaap-test, throwaway PostgreSQL 16, the twin's
-tables from appctl itself):** `test_fleet_twin.py` 41/41 -- objects,
+tables from appctl itself):** `test_fleet_twin.py` 43/43 -- objects,
 groups, relations and series from one document; the same document again
 writes no row, no relation, no event (counter-check without the relation
 correction: red, 2 relation rows and 2 events per resend); a restart of
@@ -982,6 +982,39 @@ a silent node turns `silent` without sending anything; the fleet cannot
 write a person's `owner.contact`; a database outage keeps everything
 pending. Not yet measured: a live hub with the five real nodes for a
 week (the stage's own measurement, §12 stage 5 / RFC-0086 stage 2).
+
+**Measured live (2026-11-14, oaap-test staged with 0.1.279, profile
+`fleet-hub` added for the measurement, tenant `fleetprobe`).** `oaap fleet
+hub twin fleetprobe` registered 76 types. A simulated node `sim-d` with a
+real node key (one day, revoked afterwards) sent a status document with
+two instances, `alive` and the nine metrics through the platform broker:
+
+| | |
+|---|---|
+| after one flush | `sim-d`, `demo-a`, `demo-b` in the twin; *demo-a/demo-b isPartOf sim-d*, *sim-d reportsThrough oaap-test*; nine number series with a point a minute |
+| status without `demo-b`, new kernel | `demo-b` `warn` → `removed`, kernel 6.12.116 → 6.12.117, the old rows kept as history |
+| `sim-d` stopped sending | the host's verdict *SCHWEIGT* after 401 s; the twin's liveness `up` → `silent` at the same minute, with nothing arriving; the text series `state` `up` 19:58–20:06, then `silent` |
+| ~15 minutes of flushes every 30 s | 76 attribute rows and 4 relation rows in all -- unchanged values write nothing, live as in the test |
+
+**Found:**
+
+1. **A foreign hub bridging into the node** (the test bench is hub and
+   entry at once) was written with role `entry`. Fixed: `remote-hub`;
+   live, the old row stays as history.
+2. **`oaap node add-profile fleet-hub` started the fleet service on an old
+   image** -- the image of the last build that had the profile (here from
+   stage 2). A real `oaap update` builds every active profile, so a hub is
+   not affected; a node that gains the profile later is. Re-running the
+   staging (with the profile now active) built it. Proposal for the next
+   platform round: `add-profile` builds the services it starts.
+3. **The test hub mailed its real list.** While oaap-test was hub, the
+   minute job judged the leftover simulated nodes of stage 2 (`sim-a`,
+   `sim-b`, retained `alive` from 2026-11-12) and `sim-d` and sent four
+   mails (`bridge.down` once, `node.silent` three times) to the node's
+   mandatory list. Stage 2 had routed a list `Flottentest` with the test
+   mailbox for exactly this; this measurement did not. The four open
+   matters were removed from the notify state without a closing mail, the
+   retained messages of `sim-d` cleared, the profile removed again.
 
 ## Decision record (2026-11-12)
 
@@ -1179,4 +1212,10 @@ IDTA-Vorlage passt, deren ID, sonst unsere eigene in der Kurzform
 Zeitreihen am Knoten. `oaap fleet hub twin` richtet das auf der Zentrale
 ein; der Flottendienst schreibt alle 30 Sekunden über dieselben
 Schreibregeln wie die Schnittstelle. Gemessen auf oaap-test gegen eine
-echte Datenbank, 41/41; die Woche mit fünf echten Knoten steht noch aus.
+echte Datenbank, 43/43, und live auf oaap-test mit einem simulierten
+Knoten: Objekte, Beziehungen, Zeitreihen, eine entfernte Instanz, ein
+Knoten, der schweigt. Befunde: Rolle einer fremden Zentrale (behoben);
+`add-profile` startet den Dienst mit einem alten Abbild (Vorschlag:
+beim Hinzufügen bauen); die Test-Zentrale hat vier Fehlalarme an den
+echten Verteiler geschickt, weil diesmal kein Testverteiler eingerichtet
+war. Die Woche mit fünf echten Knoten steht noch aus.
