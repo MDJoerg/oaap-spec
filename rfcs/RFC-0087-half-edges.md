@@ -348,6 +348,19 @@ The live join at the hub: oaap-demo runs 0.1.279, which ignores `links`;
 after its update the loop tunnel of oaap-test shows the join, the real
 chain oaapx01 ↔ oaapi01 needs 0.1.281 on oaapx01 (Jörg's word).
 
+**Live at the hub after the rollout (2026-11-14 evening, all five nodes on
+0.1.281, oaapx01 on Jörg's word).** Within minutes, in `oaap-ops`: 2 tunnels,
+each ONE object with both halves -- oaap-test's loop tunnel, and **the real
+chain**: `t-af21…` served by oaapx01, dialed by oaap-demo, reaching `ais-mg`
+there; a destination on oaapx01 uses it and `ais-mg` on oaapx01 is bound to
+it; on oaap-demo `ais-mg` is bound to the `through` destination to the
+external end. The joined state went `half` → `ok` as the second half
+arrived. 30 tenants (pseudonyms), 3 destinations, 1 external end. **One
+gap found:** the external end had no `behind` -- a `through` target names
+the tunnel app by its name inside the tenant (`ovc`), every other row uses
+the registry key (`ais-ovc`); fixed in 0.1.282 (the test had used one name
+for both).
+
 **Found on the way (not changed).** `fleet_view.auto_verdict` names an
 instance's automatic address `<registry key>.<node>`; for an instance of a
 non-default tenant the gateway's name is `<name>.<label>.<node>`

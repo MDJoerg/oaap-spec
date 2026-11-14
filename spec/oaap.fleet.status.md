@@ -310,7 +310,11 @@ the halves (RFC-0087 §5). Rules:
 2. **Rows.** `tunnel` with `side: outer` for every connect key the node
    issued, `side: inner` for every connector it runs; `destination` for
    every destination with a `via` or `through` target. `direct`
-   destinations are left out (their far end is configuration).
+   destinations are left out (their far end is configuration). Every
+   instance a row names is named by its **registry key**, as in the instance
+   rows -- also `through.instance`, although the destination's target names
+   the tunnel app by its name inside the tenant (`ovc` → `ais-ovc`;
+   reference 0.1.282, found live on oaap-demo).
 3. **The tunnel id** is `"t-" + hex(sha256("oaap-tunnel-id/1\n" +
    sha256hex(key)))[0:24]`: the outer node derives it from the key hash it
    stores, the inner node from the key (its connect service writes it into
