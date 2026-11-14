@@ -1,7 +1,8 @@
 # oaap.fleet.status — Read-Only Fleet Status Document
 
 - **ID:** `oaap.fleet.status`
-- **Version:** 0.9 (what the node calls itself -- `alias`, `place`, `tags` beside `node`, `oaap.core.host` 2.6, RFC-0082, 2026-11-12; 0.8: the images in the `host` block — counts per state
+- **Version:** 0.10 (the node's half-edges `links` and its `tenants`, within what the node and
+  each tenant give away -- RFC-0087, reference 0.1.281, 2026-11-14; 0.9: what the node calls itself -- `alias`, `place`, `tags` beside `node`, `oaap.core.host` 2.6, RFC-0082, 2026-11-12; 0.8: the images in the `host` block — counts per state
   word and the oldest date, never an instance, a base or a package — and
   the attention kind `images_open`, `oaap.core.updates` 2.9, RFC-0071,
   2026-11-06; 0.7: the advisories in the `host` block — count, oldest
@@ -278,6 +279,68 @@ node's identifier (`oaap.core.host` 2.6; unset = its normalized hostname),
 groups by `place` and `tags` and flags two nodes reporting one `alias`; a 0.8
 consumer ignores the three fields (rule 4).
 
+### Links and tenants (0.10, RFC-0087)
+
+```json
+  "tenants": {"count": 4, "ceiling": "pseudonym",
+              "items": [{"tenant": "m-3be07c1d9a", "level": "pseudonym", "instances": 3}]},
+  "links": [
+    {"kind": "tunnel", "side": "outer", "id": "t-169846ca2de0574b382f78fd", "label": "h87",
+     "tenant": "m-3be07c1d9a", "state": "ok", "since": "2026-11-14T21:32:22Z",
+     "offers": ["mg", "nas"]},
+    {"kind": "tunnel", "side": "inner", "id": "t-169846ca2de0574b382f78fd", "label": "h87x",
+     "state": "ok", "paused": false, "since": "2026-11-14T21:32:22Z",
+     "offers": [{"name": "mg", "reaches": "aigw-test"}, {"name": "nas", "reaches": "external"}]},
+    {"kind": "destination", "tenant": "m-3be07c1d9a", "name": "d-d586060b78",
+     "via": {"tunnel": "t-169846ca2de0574b382f78fd", "offer": "mg"}, "bound": []},
+    {"kind": "destination", "tenant": "ais", "name": "gamingpc",
+     "through": {"instance": "ais-ovc", "target": "gamingpc"}, "bound": ["ais-mg"]}
+  ],
+```
+
+Each node reports the links it **holds**, as it sees them; the hub joins
+the halves (RFC-0087 §5). Rules:
+
+1. **Facts, never configuration** (rule 1 holds unchanged): no endpoint, no
+   offer address, no path prefix, no credential, no VPN server -- and not
+   the connector's last error text, which names the endpoint. Where an
+   offer ends is said as the registry name of **an own instance** whose
+   name (registry key, automatic address, canonical name or alias) is the
+   offer target's host, or the word `external`.
+2. **Rows.** `tunnel` with `side: outer` for every connect key the node
+   issued, `side: inner` for every connector it runs; `destination` for
+   every destination with a `via` or `through` target. `direct`
+   destinations are left out (their far end is configuration).
+3. **The tunnel id** is `"t-" + hex(sha256("oaap-tunnel-id/1\n" +
+   sha256hex(key)))[0:24]`: the outer node derives it from the key hash it
+   stores, the inner node from the key (its connect service writes it into
+   its state, `oaap.net.connector` 2.7). Both ends of one tunnel report the
+   same id; nothing is exchanged. A `via` destination names the tunnel by
+   this id, never by its label. An inner row appears only when the connect
+   service reports the id (a connect service before 0.1.281 does not).
+4. **State.** Outer: `ok` when connected, `error` when not connected and a
+   destination uses it, else `warn`. Inner: `ok` when connected, else
+   `error`; `paused: true` says the inner side stopped it on purpose -- a
+   consumer must not read a paused tunnel as a fault.
+5. **How much leaves the node** (RFC-0087 §4): a ceiling set by the
+   server_admin (`oaap fleet disclose count|pseudonym|names`, default
+   `pseudonym`) and a level per tenant at or below it (`--tenant <t>`;
+   default: the ceiling). At `names` a tenant, its destinations and its
+   external targets appear by name; at `pseudonym` as stable pseudonyms
+   (`m-`, `d-`, `x-` and 10 hex of an HMAC with a salt of the node -- not
+   linkable between nodes); at `count` the tenant appears only in
+   `tenants.count`, its rows carry no `tenant`, a destination's name is a
+   pseudonym and `bound` is a number. Every change is audited (the node's
+   ceiling in the fleet log, a tenant's level in that tenant's log).
+6. **Instance rows** carry `tenant` (the outward name) where the tenant's
+   level allows it. Instance names themselves leave the node at every level,
+   as before 0.10, and often contain the tenant's label; hiding them is a
+   separate decision.
+7. `links` and `tenants` are **absent** when the node could not build them;
+   a consumer reads absence as "this node says nothing about links" (as a
+   0.9 node), never as "this node has none". A 0.9 consumer ignores both
+   (rule 4).
+
 ## 4. Consumers
 
 The first consumer is the fleet overview app (RFC-0021 §3): node list
@@ -296,6 +359,17 @@ are stage 2 (RFC-0021 outlook) and live on the management node, never
 on the watched node.
 
 ## Zusammenfassung auf Deutsch
+
+**0.10 (RFC-0087):** Das Dokument trägt die Halbkanten des Knotens
+(`links`): Tunnel außen und innen mit gemeinsamer ID, Destinationen über
+einen Tunnel (`via`) oder eine Tunnel-App (`through`). Dazu kommen die
+Mandanten (`tenants`) und an jeder Instanzzeile ihr Mandant. Das alles
+gilt nur so weit, wie der Knoten es preisgibt: Der Server-Admin setzt die
+Obergrenze (`oaap fleet disclose …`, Vorgabe Pseudonym), jeder Mandant
+eine Stufe darunter oder gleich. Nie im Dokument stehen eine Adresse, ein
+Pfad, ein Schlüssel oder der Fehlertext des Connectors, denn der nennt den
+Endpunkt. Ein Angebot sagt nur, welche eigene Instanz es erreicht, sonst
+`external`.
 
 **0.9:** Das Dokument trägt neben `node` (dem Namen, unter dem der Knoten
 erreicht wird) jetzt `alias`, `place` und `tags` -- wie sich der Knoten

@@ -1,7 +1,7 @@
 # oaap.net.connector — The Inner Node Dials Out, the Outer Node Only Answers
 
 - **ID:** `oaap.net.connector`
-- **Version:** 0.4
+- **Version:** 0.5 (0.5: the state names each tunnel's `tunnel_id`, RFC-0087 §3, 2026-11-14)
 - **Maturity:** draft (0.1 was RFC-0033 stage 2: connect keys on the
   outer node, the connector and its offer list on the inner node, the
   tunnel between them, `via` targets for HTTP destinations, pause and
@@ -204,6 +204,13 @@ Backend unreachable → 502 with a sentence; no answer within 120 seconds
 - **Portal.** The inner node shows its connectors with their offers and
   state; the outer node shows its tunnels with their announced offers,
   and a `via` destination shows its tunnel's state.
+- **Tunnel id (0.5, RFC-0087).** The state carries, per tunnel (outer)
+  and per connector with a key (inner), `tunnel_id`: `"t-" +
+  hex(sha256("oaap-tunnel-id/1\n" + sha256hex(key)))[0:24]`. Both ends of
+  one tunnel compute the same value -- the outer side from the hash it
+  stores, the inner side from the key only this service reads -- so the
+  fleet hub can join the two halves without anything crossing the tunnel.
+  The id is no verifier: it is neither the key nor the stored hash.
 - **Fleet status** (`oaap.fleet.status`): `connector_down` (inner, not
   paused and not connected) and `tunnel_down` (outer, a tunnel that a
   bound destination uses is not connected) on the `attention` list.

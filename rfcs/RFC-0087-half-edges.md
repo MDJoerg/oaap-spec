@@ -2,7 +2,9 @@
 
 - **Status:** **Accepted (2026-11-14)** — D1–D5 as recommended; D4
   amended by Jörg: an external end carries a link, so that data can grow
-  together with partners (§5.1, decision record)
+  together with partners (§5.1, decision record). **Stage 1 built
+  (reference 0.1.281, §10): node side measured live on oaap-test, hub side
+  against PostgreSQL; the live join at the hub waits for the rollout**
 - **Date:** 2026-11-14
 - **Authors:** Jörg (the need, I-51: "nodes share configuration, relations
   and events so that support can be automated in real time"; "the tunnel
@@ -288,6 +290,70 @@ HierarchicalStructures 02011, as the mapping table says. The instance keeps
   own `links` (a profile could then give a provider the nodes' health
   without their links; costs a new topic and sender path).
 
+## 10. Stage 1 — built and measured (2026-11-14, reference 0.1.281)
+
+**Built.**
+
+- Node: `portal/fleet_links.py` (pure: tunnel id, levels, pseudonyms, the
+  rows), wired into `/fleet/status` (`oaap.fleet.status` 0.10); the connect
+  service writes `tunnel_id` into its state (`oaap.net.connector` 0.5);
+  `oaap fleet disclose count|pseudonym|names|default [--tenant <t>]` and
+  `show`, the file `apps/fleet-disclose.json` made with its salt on first use
+  (also by the minutely status job), audited.
+- Hub: `fleet_model` 0.2.0 (4 object types, 13 relation types, 6 groups
+  incl. the people's `owner.link`), `fleet_twin` (pure mapping),
+  `fleet_sink._write_links` (join, close with `valid_to`, `removed`, the
+  joined state series).
+- Names as built, beside the words of §5: the tenant's `isPartOf` is the
+  key `fleetTenantOn` (with the IDTA IsPartOf semantic ID — relation keys
+  are unique per node, `fleetIsPartOf` is instance → node); `uses` is split
+  into `usesTunnel` and `usesExternal` (one target type per relation type);
+  the destination also gets `definedOn` (node) and `destOf` (tenant); the
+  external end `behind` (the tunnel app instance). Source keys carry a
+  prefix per kind (`tenant:`, `dest:`, `ext:`, `tunnel:`), so the instance
+  sweep `<node>/%` can never take one of them for an instance.
+
+**Measured.**
+
+- `test/test_fleet_links.py` 34/34 locally (pure, and `fleet disclose`
+  against a scratch data dir). Among them: the connect service's copy of
+  the id rule equals the portal's (read from its source); an offer to an
+  own instance's automatic address names the instance; a `last_error` that
+  names the endpoint does not leave the node.
+- `test/test_fleet_twin.py` 63/63 on oaap-test against a throwaway
+  PostgreSQL 16 (`/tmp/tsrun.sh`): two nodes report the two halves of one
+  tunnel → **one** tunnel object with both groups; the whole chain as
+  relations (app → destination → tunnel → gateway → destination → VPN →
+  external end, tenants, bindings); the same two documents again write no
+  row; connector paused → joined state `paused`; key revoked → `servedBy`
+  and `usesTunnel` closed with `valid_to`, outer half `removed`, joined
+  state `half`; tenant lowered to `count` → `tenantOn` and `heldBy` closed;
+  the same node back on 0.9 → its links untouched.
+- **Live on oaap-test (0.1.281 staged):** a tunnel `h87` (tenant
+  `fleetprobe`) from oaap-test to itself, offers `mg` →
+  `https://aigw-test.<node>` and `nas` → a LAN address, a `via` destination.
+  The status document carries both halves with **the same id**
+  `t-169846ca2de0574b382f78fd` — the outer from the portal's hash, the
+  inner from the connect service's key, two code paths; `mg` reaches
+  `aigw-test`, `nas` is `external`; neither address, nor key, nor path in
+  `links`. Default `pseudonym` active (12 tenants as `m-…`); ceiling
+  `names` + `default` at `count` → names for `fleetprobe`, the 24 instance
+  rows of `default` without tenant; every tenant change in that tenant's
+  log. Reset to the default afterwards; the tunnel stays for the hub
+  measurement.
+
+**Open in stage 1.** The portal pages for the levels (server_admin: the
+ceiling; tenant_admin: the tenant's level) — so far the command line only.
+The live join at the hub: oaap-demo runs 0.1.279, which ignores `links`;
+after its update the loop tunnel of oaap-test shows the join, the real
+chain oaapx01 ↔ oaapi01 needs 0.1.281 on oaapx01 (Jörg's word).
+
+**Found on the way (not changed).** `fleet_view.auto_verdict` names an
+instance's automatic address `<registry key>.<node>`; for an instance of a
+non-default tenant the gateway's name is `<name>.<label>.<node>`
+(`instance_view.auto_host`, `oaap.core.tenant` 2.4) — the document has
+carried a name that answers nowhere for such instances since 0.3.
+
 ## Decision record (2026-11-14)
 
 Jörg: "Alles wie empfohlen" — D1, D2, D3, D5 as recommended. **D4 as
@@ -351,6 +417,28 @@ daran? Diese Liste kommt in die bestehende Meldung (`tunnel_down`,
 3. Eine Tür für Apps nach I-41: Die VPN-App meldet ihren eigenen
    Tunnelzustand, das KI-Gateway meldet Modell → Bezugsquelle →
    Destination.
+
+**Stufe 1 gebaut (0.1.281):**
+- Der Knoten meldet seine Hälften im Statusdokument 0.10.
+- Der Connect-Dienst schreibt die Tunnel-ID in seinen Zustand.
+- Neuer Befehl `oaap fleet disclose`.
+- Die Zentrale fügt im Zwilling zusammen.
+
+Gemessen:
+- **Live auf oaap-test:** beide Hälften eines Tunnels mit derselben ID aus
+  zwei verschiedenen Codewegen, das Angebot erkennt die Instanz
+  `aigw-test`, keine Adresse und kein Schlüssel im Dokument, die Stufen
+  wirken.
+- **Zentrale gegen eine echte PostgreSQL:** ein Tunnelobjekt aus zwei
+  Knoten, die ganze Kette als Beziehungen, Anhalten, Zurückziehen und
+  Herabstufen.
+
+Noch offen:
+- die Portalseiten für die Stufen;
+- das Zusammenfügen live an der Zentrale, nach dem Update von oaap-demo.
+
+Nebenbefund: Die automatische Adresse von Instanzen in Mandanten steht im
+Statusdokument seit 0.3 falsch.
 
 **Entschieden am 14.11.: alles wie empfohlen**, D4 mit Jörgs Ergänzung:
 
