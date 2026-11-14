@@ -1,6 +1,8 @@
 # RFC-0087: Half-Edges — Each Node Reports What It Knows of Its Links, the Hub Joins Them
 
-- **Status:** Proposed (2026-11-14) — decisions D1–D5 asked of Jörg (§9)
+- **Status:** **Accepted (2026-11-14)** — D1–D5 as recommended; D4
+  amended by Jörg: an external end carries a link, so that data can grow
+  together with partners (§5.1, decision record)
 - **Date:** 2026-11-14
 - **Authors:** Jörg (the need, I-51: "nodes share configuration, relations
   and events so that support can be automated in real time"; "the tunnel
@@ -178,7 +180,7 @@ naming of A2 (short names, `fleet` prefix, own semantic IDs under
 | `oaap.fleet.tenant` | `<node>/<tenant or pseudonym>` | `oaap.tenant`: level, instance count |
 | `oaap.fleet.tunnel` | `tunnel:<id>` | `oaap.tunnel.outer`: outer label, state, since, offers · `oaap.tunnel.inner`: connector label, state, paused, last error |
 | `oaap.fleet.destination` | `<node>/<tenant>/<name>` | `oaap.destination`: kind, offer or target name, bound count |
-| `oaap.fleet.external` | `<node>/<instance>/<target>` | `oaap.external`: kind (`vpn`, `offer`) |
+| `oaap.fleet.external` | `<node>/<instance>/<target>` | `oaap.external`: kind (`vpn`, `offer`) · `owner.link` (people, §5.1) |
 
 | Relation | From → to | Meaning |
 |---|---|---|
@@ -203,6 +205,40 @@ naming of A2 (short names, `fleet` prefix, own semantic IDs under
 - A text series `state` (RFC-0086) on each tunnel object carries the joined
   state over time: `ok`, `paused`, `down-outer`, `down-inner`, `half`. "When
   was the tunnel down last week" is then a range query.
+
+### 5.1 The edge of our universe, and a link across it (D4 as amended)
+
+An external end is where what the fleet knows stops: a VPN server, a PC
+behind it, an address an offer reaches outside the node. Jörg (2026-11-14):
+*"External names are the end of our universe. But with a simple link the
+data can grow together when the need is there, when we get more context,
+or when we work with external data partners — the aim was to provide data
+outward and to consume external data. A basic concept of the asset
+administration shell and of data spaces."*
+
+So every `oaap.fleet.external` object carries a place for that link, and
+the twin already has the act that joins:
+
+- **A group `owner.link`, written by people, never by the fleet service**
+  (like `owner.contact`): `externalId` — the far end's identifier in
+  someone else's world (an AAS `globalAssetId` or `specificAssetId`, an
+  IRI, an IRDI; checked with the same rule as semantic IDs,
+  `semantic.valid()`), `externalSource` — whose world (a partner, a data
+  space, a tenant of another fleet), and `notes`. Empty by default; a
+  half-edge never fills it, because a node does not know what the far end
+  is called elsewhere.
+- **Growing together is the twin's merge** (`oaap.data.twin` §2.9): when
+  data about the same thing arrives from another origin — an import, a
+  partner's shell, a second fleet — a `tenant_admin` merges the two
+  objects; both ids keep answering, and unmerge splits them again. No
+  new mechanism.
+- **Candidates, not automation**: two objects of different origins with
+  the same `externalId` are shown as a merge candidate; nothing is merged
+  without a person (merge is a human act, `oaap.data.twin` §2.9).
+- **Our own side of the link**: on export (a later stage), our objects get
+  a `globalAssetId` formed like the semantic IDs — stored in a short form,
+  expanded with a changeable base (`objid.info` today, RFC-0085 A2), so
+  that a partner can link to us the same way.
 
 ## 6. Affected, not alarmed
 
@@ -232,7 +268,7 @@ HierarchicalStructures 02011, as the mapping table says. The instance keeps
 | 2 | `affected()` and the list in the attention detail; the text series per tunnel | the chain with the VPN switched off: the list names `gamingpc`, `ais-mg`, the tunnel, `ais-oaapi01`, `ais-chat` |
 | 3 | a declared door for apps (I-41): a tunnel app reports its own tunnel state, the AI gateway reports model name → source → destination (names and kinds only) | the gaming PC unreachable → the external end turns red |
 
-## 9. Decisions asked of Jörg
+## 9. Decisions (asked of Jörg, answered 2026-11-14: as recommended)
 
 - **D1 — the join key.** Derived from the key hash on both sides (§3,
   nothing reissued) — *recommended* — or a new id issued with each key
@@ -251,6 +287,16 @@ HierarchicalStructures 02011, as the mapping table says. The instance keeps
   `status`, already business data) — *recommended* — or a class of their
   own `links` (a profile could then give a provider the nodes' health
   without their links; costs a new topic and sender path).
+
+## Decision record (2026-11-14)
+
+Jörg: "Alles wie empfohlen" — D1, D2, D3, D5 as recommended. **D4 as
+recommended and amended:** external ends are the edge of our universe,
+but they carry a simple link so that the data can grow together — with
+more context, with external data partners, outward and inward, as in the
+AAS and in data spaces. Written into §5.1: a people-written group
+`owner.link` with an external identifier, merge candidates on equal
+identifiers, joining by the twin's existing merge.
 
 ## Deutsche Zusammenfassung
 
@@ -306,10 +352,19 @@ daran? Diese Liste kommt in die bestehende Meldung (`tunnel_down`,
    Tunnelzustand, das KI-Gateway meldet Modell → Bezugsquelle →
    Destination.
 
-**Fünf Entscheidungen (D1–D5)**, jeweils mit Empfehlung:
+**Entschieden am 14.11.: alles wie empfohlen**, D4 mit Jörgs Ergänzung:
 
 - D1: ID aus dem Hash ableiten.
 - D2: drei Stufen, Vorgabe Pseudonym.
 - D3: der Tunnel als eigenes Objekt.
-- D4: externe Enden als Objekt, Namen nur auf Stufe „Namen“.
+- D4: externe Enden als Objekt, Namen nur auf Stufe „Namen“. **Ergänzung
+  Jörg:** Externe Namen sind das Ende unseres Universums, aber mit einer
+  einfachen Verknüpfung wachsen die Daten zusammen (Partner, Datenräume,
+  AAS). Dafür bekommt jedes externe Ende die Gruppe `owner.link`, die nur
+  Menschen pflegen: eine externe Kennung (AAS-`globalAssetId`, IRI oder
+  IRDI) und wessen Welt sie ist. Gleiche Kennungen werden als Kandidat
+  angezeigt, das Zusammenführen bleibt das vorhandene Merge des Zwillings
+  durch den Mandanten-Admin. Für einen späteren Export bekommen unsere
+  eigenen Objekte eine `globalAssetId` über dieselbe änderbare Domain
+  (objid.info).
 - D5: Hälften im Statusdokument statt in einer eigenen Klasse.
