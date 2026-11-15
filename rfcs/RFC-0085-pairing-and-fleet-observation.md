@@ -1078,7 +1078,7 @@ the deploy hook (five failures in five minutes, then one a minute).
 | Door | Proof | Effect |
 |---|---|---|
 | `claim` | the node code (HMAC, expiry, nonce unused, name matches) | a node key (365 days, label `pair:<hub>`), CA if the broker uses the node's own |
-| `entry` | the offer's token (digest kept, once) | an operator key (read `oaap-node/#`, write `oaap-fleet/control/<entry>/#`) and a new pairing secret |
+| `entry` | the offer's token (digest kept, once) | an operator key (read `oaap-node/#`, write `oaap-fleet/control/<entry>/#` and `oaap-fleet/bridge/<entry>/<hub>`, the bridge's own notification -- missing until 0.1.292, see §17.7) and a new pairing secret |
 | `revoke` | HMAC with the pairing secret over hub, node, time, nonce; ≤ 5 min old; once | revokes the node keys **this hub's pairings** issued; a hand-made key stays |
 | `unpair` | the node's own key | revokes that key |
 
@@ -1159,6 +1159,21 @@ broker — covered by the end-to-end test (`test_fleet_pair.py` D1), and the
 first real case is the rollout: oaapx01 offers, oaap-demo takes it (its
 hand-made `bridge-oaapx01.conf` is replaced; the old operator key
 `547ad644` is then revoked by hand on oaapx01).
+
+### 17.7 Found in the first real use (2026-11-15)
+
+- **The operator key lacked the bridge's notification grant.** oaapx01 was
+  paired as entry for oaap-demo by offer (reference 0.1.290). The bridge
+  ran, but its `1` on `oaap-fleet/bridge/oaapx01/oaap-demo` was refused at
+  the entry; the `0` the old session left stayed retained, and the
+  entry's broker watch opened `hub.unreachable` nine minutes later. The
+  key now carries `write oaap-fleet/bridge/<entry>/<hub>` (0.1.292); an
+  entry paired before must be paired again (offer, entry) to get it.
+- **A fresh node showed no pairing card.** The minutely job wrote the
+  portal's view only after a pairing or on a hub; now on every node
+  (0.1.292). Workaround before: `oaap fleet pair show` writes it.
+- oaapx02 was then paired by file through oaapx01, from the two portals
+  (Jörg): it reached the hub within a minute with all four classes.
 
 ## Decision record (2026-11-12)
 
