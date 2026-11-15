@@ -1,7 +1,7 @@
 # oaap.data.twin — The Digital Twin
 
 - **ID:** `oaap.data.twin`
-- **Version:** 0.6 (0.6: the read `affected` -- what depends on a fleet object, §2.10a, RFC-0087 §6, reference 0.1.285; 0.5: the write rules in one module shared by the API and the platform's own writer; an unchanged **relation** writes nothing either, and a group PUT that changes nothing records no event -- §2.15; the person-facing type list answers `semantic_iri` -- `oaap.data.model` 0.2 §2.9; RFC-0085 amendment A2)
+- **Version:** 0.7 (0.7: `GET /twin/objects?type=` -- an app lists every object of a type it is bound to, §2.6a, RFC-0085 §10, reference 0.1.293; 0.6: the read `affected` -- what depends on a fleet object, §2.10a, RFC-0087 §6, reference 0.1.285; 0.5: the write rules in one module shared by the API and the platform's own writer; an unchanged **relation** writes nothing either, and a group PUT that changes nothing records no event -- §2.15; the person-facing type list answers `semantic_iri` -- `oaap.data.model` 0.2 §2.9; RFC-0085 amendment A2)
 - **Maturity:** draft
 - **Based on:** RFC-0033 §6 / D10 (0.4 adds the remote reader, §2.14:
   a reader on another node, reached through a tunnel,
@@ -234,6 +234,25 @@ requested id was merged away, the object answers as its canonical
 object instead, with a `merged_from` field naming the id it was asked
 under (§2.9) — the request never fails just because the id it named no
 longer stands alone.
+
+### 2.6a `GET /twin/objects?type={key}` — every object of a type (0.7)
+
+The list beside §2.6, for an app that holds no ids yet (RFC-0085 §10:
+the fleet app reads the fleet from its tenant's twin). The same rule as
+§2.6: refused (403) unless the caller's bindings name `type` in either
+direction; a remote reader (§2.14) reads the types it was given. `?type=`
+missing → 400. Answers `{"objects": [...], "truncated": bool}`, each
+object exactly as §2.6 answers it (header and every group with its
+current attributes, relations and activities), ordered by title; `?at=`
+is honoured (§2.8). A merged-away alias is no row of its own (§2.9). At
+most 500 objects; a longer list says `truncated: true` rather than
+cutting silently. No filter on group or value in 0.7 -- the fleet of a
+few nodes is small, and a query language is a later question.
+
+The tenant is the caller's, as everywhere: an app of tenant B bound to
+the same type lists tenant B's objects -- an empty list, never tenant
+A's (measured on oaap-test, 2026-11-15: FleetView installed in a second
+tenant of the same node read nothing).
 
 ### 2.7 `PUT /twin/objects/{id}/groups/{group}`
 
@@ -698,6 +717,10 @@ counter-check without the correction is red (`test_fleet_twin.py`).
     read-only; after `remove-reader` the same key → refused.
 15. **A remote reader of tenant A never reads tenant B:** the tenant is
     the record's, and no request field changes it.
+16. **The list (0.7, §2.6a):** an app bound to `a` gets every object of
+    `a` in its tenant with its groups; `?type=b` (unbound) → 403;
+    without `?type=` → 400; a wrong key → refused at the gateway; the
+    same app in another tenant → an empty list.
 
 Step 8 of RFC-0031 §9 (the rehearsal's own copy, D8) is the only one
 still out of scope (§1) and not a conformance test here yet.
@@ -728,6 +751,16 @@ relays who is asking, §2.12).
 reference platform (`oaap-test`), and step 8 of RFC-0031 §9 (the
 rehearsal's own copy, D8) has its own capability-spec addendum once
 built — the one piece 0.2 still satisfies by refusal alone (§1, §4).
+
+## Deutsche Zusammenfassung (Nachtrag v0.7 — die Liste für Apps)
+
+Neue Leseabfrage für Apps: `GET /twin/objects?type=<Typ>` liefert alle
+Objekte eines Typs, jedes so vollständig wie die Einzelabfrage. Es gilt
+dieselbe Regel: nur für einen Typ, den die App gebunden hat (`contributes`
+oder `consumes`). Höchstens 500 Objekte; eine längere Liste sagt das
+(`truncated`). Der Mandant ist immer der der App: Dieselbe App in einem
+anderen Mandanten bekommt eine leere Liste. Anlass ist FleetView 1.0, das
+die Flotte aus dem Zwilling der Zentrale liest (RFC-0085 §10).
 
 ## Deutsche Zusammenfassung (Nachtrag v0.6 — Betroffenheit)
 

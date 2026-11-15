@@ -521,6 +521,46 @@ it has no environment variables for nodes or keys. The present 0.3.5 stays
 until the new one shows all five nodes; then it is removed from
 oaap-demo's `default` tenant.
 
+### 10.1 Built (2026-11-15, FleetView 1.0.0, reference 0.1.293)
+
+Jörg, in chat, after FleetView 0.4 on oaapi01 still said `oaap-demo` and
+did not show oaapx02: *"Wir machen gleich richtig vor und bauen 2"* (the
+twin-reading FleetView, not a fix of the old one).
+
+- **The read.** The twin had no list for apps: an app read objects only
+  by id (oaap.data.twin §2.6). Added `GET /twin/objects?type=` (0.7
+  §2.6a): every object of a bound type, each as §2.6 answers it, at most
+  500.
+- **The app.** FleetView 1.0.0 declares `consumes: FleetNode,
+  FleetInstance`; the install binds them and issues the instance's own
+  key. Every minute it reads both lists, joins instances to nodes by
+  `fleetIsPartOf`, and shows a node under its **alias** (RFC-0082) with
+  the node name beside it while they differ. State: liveness first
+  (`removed`, `silent`, `unknown` as the hub judged), else the worst of
+  core services and instances. Pairing buttons as in 0.4 (§17). The
+  config is the read interval only; `FLEETVIEW_NODES`/`FLEETVIEW_KEYS`
+  are gone.
+- **Where it may run.** Only where the fleet types are registered (a hub
+  that ran `oaap fleet hub twin`); elsewhere the install refuses the
+  binding. In another tenant of the hub it installs and reads an empty
+  list -- the twin is per tenant, so a customer tenant never sees the
+  fleet.
+- **Not upgraded in place.** An 0.x instance in `default` would bind the
+  types for `default` and show nothing. 1.0 is installed new in
+  `oaap-ops`; the old instance and its fleet keys go once 1.0 shows the
+  fleet.
+- **Measured on oaap-test** (reference 0.1.293 staged; the fleet's types
+  registered for tenant `fleetprobe`; nodes written by the hub's own
+  writer `fleet_sink` -- oaap-test's real status document, a stand-in
+  `probe-x` with alias `probe-umbenannt` behind an entry `fvprobe` and
+  judged silent, and a removed one): FleetView 1.0.0 installed in
+  `fleetprobe` read 7 nodes through the gateway; `probe-umbenannt
+  (probe-x)` *Stumm, über fvprobe*, the removed node last, oaap-test with
+  its 39 instances. The door: no `?type=` 400, an unbound type 403, a
+  wrong key 401. The same app in tenant `zzz-probe`: *Noch keine Knoten*.
+  Found and fixed: the host-care attention kinds (`reboot_required`,
+  `images_open`, …) were shown raw.
+
 ## 11. Decisions asked of Jörg
 
 1. **One hub; nodes pair once with it; providers only through the hub**
@@ -1409,3 +1449,20 @@ ausgerollt.
 - **Ausrollen:** Erster echter Fall wäre oaapx01 als Eingang für oaap-demo
   (dabei wird die von Hand geschriebene Brücke ersetzt), danach oaapx02 per
   Datei.
+
+**FleetView 1.0 gebaut (15.11.2026, Referenz 0.1.293, §10.1).** Jörg:
+„Wir machen gleich richtig vor und bauen 2“. FleetView liest die Flotte
+jetzt aus dem Zwilling der Zentrale statt jeden Knoten einzeln mit eigenem
+Schlüssel zu fragen.
+- **Neu im Zwilling:** Apps können alle Objekte eines gebundenen Typs
+  auflisten (`GET /twin/objects?type=`, oaap.data.twin 0.7).
+- **FleetView 1.0.0** bindet `FleetNode` und `FleetInstance`. Jeder
+  gekoppelte Knoten erscheint von selbst, unter seinem Alias (der feste
+  Name klein daneben). Das Lebenszeichen der Zentrale geht vor der
+  Selbstauskunft. Keine Knotenliste, keine Schlüssel mehr.
+- **Installiert wird neu in `oaap-ops`** auf der Zentrale, nicht als
+  Update der alten Instanz. In einem anderen Mandanten bleibt die Liste
+  leer; ein Kundenmandant sieht die Flotte also nie.
+- **Gemessen auf oaap-test** mit echten Knotenobjekten, über den echten
+  Gateway-Weg. Gegenproben: ohne Typ, fremder Typ, falscher Schlüssel,
+  anderer Mandant. Ein Befund (unübersetzte Hinweisarten) wurde behoben.
