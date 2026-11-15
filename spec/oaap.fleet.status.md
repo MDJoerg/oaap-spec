@@ -156,8 +156,16 @@ Rules:
    needs them.
 
 7. **`auto_address` and `auto_state`** (0.3) carry the instance's
-   **automatic** name, `<instance>.<node host>`, and the node's verdict
-   on it. They exist because that name is deliberately **absent from
+   **automatic** name and the node's verdict on it. The name is exactly
+   the one the gateway writes (`oaap.core.tenant` 2.4): `<name>.<node
+   host>` in the default tenant, `<name>.<tenant label>.<node host>` in
+   every other one, where `<name>` is the name the tenant chose, not
+   the registry key (`viewer.cls.<node host>` for the instance keyed
+   `cls-viewer`). An instance naming a tenant the node does not have has
+   no automatic name; both fields are then omitted (fail closed, as at
+   the gateway). Clarified 2026-11-15, reference 0.1.283; before that the
+   reference published `<registry key>.<node host>` for tenant instances,
+   a name that answers nowhere. They exist because that name is deliberately **absent from
    rule 6**: automatic names are served by a wildcard record, and a
    wildcard answers for every name under it — including names that
    were never installed. A DNS verdict on such a name could therefore
@@ -395,7 +403,12 @@ löst nicht auf / nicht vergleichbar) — und `public_ip` (die zuletzt
 von außen gesehene eigene Adresse).
 
 **Seit 0.3** trägt jede Instanzzeile ihren **automatischen** Namen
-`<instanz>.<knoten>` als `auto_address` mit dem Urteil `auto_state`.
+als `auto_address` mit dem Urteil `auto_state`. Der Name ist genau
+der, den das Gateway schreibt: `<name>.<knoten>` im Standardmandanten,
+sonst `<name>.<mandantenlabel>.<knoten>`, mit dem vom Mandanten gewählten
+Namen statt des Registerschlüssels (klargestellt 15.11.2026, Referenz
+0.1.283; vorher stand bei Mandanten-Instanzen ein Name, der nirgends
+antwortet).
 Der Grund: Automatische Namen stehen bewusst **nicht** in `names`. Sie
 werden von einem Wildcard-Eintrag beantwortet, und ein Wildcard
 antwortet für *jeden* Namen darunter — auch für nie installierte. Ein
