@@ -1,7 +1,7 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.62 (**a config key MAY declare `file: true`**: its value is a file, stored as one base64 line, and the portal offers an upload -- 2.8; **a tunnel (`tun`, 2.23) is confirmed in the store** by a `server_admin`'s tick naming the app, besides `--confirm-tun` -- RFC-0060 stage 4). 0.2.61 (**promotion from a Git test instance** by its recorded commit -- 2.14.1). 0.2.60 (**a build that upgrades OS packages is built without the layer cache**, and "unchanged" compares the package lists -- 2.31.1, RFC-0071 §16; **a portal tick confirms a widening** by the fingerprint of exactly the reported lines -- 2.14, I-43). 0.2.59 (**a second kind of generated value, `vapid`**, and a build step may generate into an empty key -- 2.8, RFC-0079). 0.2.58 (**the envelope rule on every way in**: directory and
+- **Version:** 0.2.63 (**a tunnel app MAY declare a `link_state` door** (manifest 0.14): the node asks it how its tunnel and its targets are, for the fleet status document -- 2.33, RFC-0087 §8.1). 0.2.62 (**a config key MAY declare `file: true`**: its value is a file, stored as one base64 line, and the portal offers an upload -- 2.8; **a tunnel (`tun`, 2.23) is confirmed in the store** by a `server_admin`'s tick naming the app, besides `--confirm-tun` -- RFC-0060 stage 4). 0.2.61 (**promotion from a Git test instance** by its recorded commit -- 2.14.1). 0.2.60 (**a build that upgrades OS packages is built without the layer cache**, and "unchanged" compares the package lists -- 2.31.1, RFC-0071 §16; **a portal tick confirms a widening** by the fingerprint of exactly the reported lines -- 2.14, I-43). 0.2.59 (**a second kind of generated value, `vapid`**, and a build step may generate into an empty key -- 2.8, RFC-0079). 0.2.58 (**the envelope rule on every way in**: directory and
   Git installs too, the report reaches the portal, I-43, 2.14). 0.2.57 (**a second origin for the views of MCP Apps**,
   manifest 0.13 `ui_sandbox`, 2.32.4, RFC-0075). 0.2.56 (**a chat acts at its tenant's gateways as the person**,
   RFC-0074 stage 1: manifest 0.12 `mcp_client: {use: true}`, the list
@@ -2396,6 +2396,38 @@ An app declaring `ui_sandbox` gets one:
 - **What it does not do.** The platform does not render, read or check the
   views; enforcing their CSP is the sandbox page's duty (RFC-0075 §2.2).
 
+### 2.33 A tunnel app says how its tunnel and its targets are (0.2.63, manifest 0.14, RFC-0087 §8.1)
+
+An app that holds a tunnel (2.23) MAY declare **one** door:
+
+```yaml
+link_state:
+  path: /oaap/links
+```
+
+- `path` follows the rule of `mcp:` (2.32): a local path (no scheme, no
+  `//`, no `..`, no query, not `/`) under one of the app's own `routes`.
+  Anything else is refused where the manifest is validated. Only `path`
+  is known.
+- **Recorded, not interpreted.** The registry record carries it as
+  `link_state` (not `links`, which is the partner list of 2.11). The
+  internal health endpoint (gateway port 8099, platform network only,
+  2.11) gains `/l/<name>` → that path beside `/h/<name>`, for instances
+  that declare it and no other.
+- **The answer** is JSON: `{"v": 1, "tunnel": {"state": "ok"|"down"},
+  "targets": {"<name>": {"state": "ok"|"down"}}}`, names being the app's
+  own target names (those a `through` destination names). The node reads
+  exactly these fields with exactly these two words; anything else,
+  addresses included, is ignored and never leaves the node.
+- **Who asks, and when.** The node, when it builds its fleet status
+  document (`oaap.fleet.status` 0.11, 2 s per instance, like the health
+  probe). An instance in standby or maintenance is not asked; its
+  targets count as `paused`. No answer or a bad one counts as `unknown`.
+- The app decides how it knows: vpn-client 0.2.0 opens a TCP connection to
+  each target every 30 s while its tunnel stands.
+- A node before 0.2.63 ignores the field (a newer manifest minor is read,
+  RFC-0012 §8.2); the app works as before.
+
 ## 3. Configuration
 
 - Level-1 port range (default 8100–8199, expert-configurable;
@@ -2716,6 +2748,17 @@ An app declaring `ui_sandbox` gets one:
 tests 1–11 on the reference platform. 0.2 target: tests 12–16 with the
 pilot CRM's test instance and its AI coding agent as the first real
 remote deployer.
+
+## Deutsche Zusammenfassung (2.33, v0.2.63 — eine Tunnel-App sagt, wie Tunnel und Ziele stehen, Manifest 0.14, RFC-0087 §8.1)
+
+Eine App mit Tunnel kann eine Tür `link_state: {path: /oaap/links}`
+erklären (Regel wie bei `mcp:`). Die Plattform trägt sie ins Register und
+legt am internen Gesundheitsendpunkt `/l/<name>` an, nur fürs
+Plattformnetz. Beim Statusdokument fragt der Knoten dort nach: je Tunnel
+und Ziel `ok` oder `down`, nur Namen, nie eine Adresse. Schlafende oder
+gewartete Instanzen fragt er nicht (`paused`), keine Antwort heißt
+`unknown`. vpn-client 0.2.0 prüft dafür alle 30 s jedes Ziel per
+TCP-Verbindung. Ältere Knoten ignorieren das Feld.
 
 ## Deutsche Zusammenfassung (2.31, v0.2.52 — woraus ein Neubau baut, und die Zusage des Autors)
 

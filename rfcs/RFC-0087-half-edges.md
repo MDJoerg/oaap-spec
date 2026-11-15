@@ -12,7 +12,11 @@
   real hub twin; **the mail measured live 2026-11-15 on oaap-demo**
   (loop tunnel of oaap-test cut off its network: `link.down` after
   5 minutes with the affected destination, *Behoben* after reconnecting);
-  "VPN off" waits for stage 3**
+  **Stage 3a built 2026-11-15 (reference 0.1.288, vpn-client 0.2.0,
+  §8.1): a tunnel app says how its tunnel and its targets are; measured
+  live on oaap-test at the node, the hub side against PostgreSQL; the hub
+  live waits for oaap-demo on 0.1.288.** Stage 3b (the AI gateway's
+  relations) not built**
 - **Date:** 2026-11-14
 - **Authors:** Jörg (the need, I-51: "nodes share configuration, relations
   and events so that support can be automated in real time"; "the tunnel
@@ -345,6 +349,139 @@ HierarchicalStructures 02011, as the mapping table says. The instance keeps
 | 2 | `affected()` and the list in the attention detail; the text series per tunnel | the chain with the VPN switched off: the list names `gamingpc`, `ais-mg`, the tunnel, `ais-oaapi01`, `ais-chat` |
 | 3 | a declared door for apps (I-41): a tunnel app reports its own tunnel state, the AI gateway reports model name → source → destination (names and kinds only) | the gaming PC unreachable → the external end turns red |
 
+### 8.1 Stage 3a — a tunnel app says how its tunnel and its targets are (2026-11-15)
+
+Stage 3 has two halves that share nothing but the idea of a declared
+door. **3a**, built first, is the tunnel app's own state — the missing
+piece for "VPN off". **3b**, the AI gateway's model → source →
+destination, is a different shape (relations an app declares, not a
+state) and follows with its own measurement.
+
+Facts (read 2026-11-15, reference 0.1.287, vpn-client 0.1.5):
+
+1. vpn-client's `/healthz` answers 200 only while its tunnel stands, so
+   the node's probe already turns the *instance row* red when the VPN is
+   down. But the row says "the app is unwell", not "the tunnel is down",
+   and the hub opens no matter for an instance row; nothing reaches the
+   external end.
+2. A target behind a standing tunnel (the gaming PC switched off) is
+   invisible: the tunnel is up, `/healthz` is 200.
+3. The node reaches an app's health path through the gateway's internal
+   endpoint `gateway:8099/h/<name>`, which answers the platform network
+   only (RFC-0016).
+
+The door (manifest 0.14, `oaap.apps.runtime` 2.33):
+
+```yaml
+link_state:
+  path: /oaap/links
+```
+
+- A local path under one of the app's routes (the rule of `mcp:`). (Not
+  `links:` — in the registry that word is already the list of partner
+  instances, RFC-0016.) The
+  platform records it and adds `gateway:8099/l/<name>` → that path to the
+  internal endpoint, beside `/h/<name>`. Nothing else is opened.
+- The answer, `{"v": 1, "tunnel": {"state": "ok"|"down"}, "targets":
+  {"<name>": {"state": "ok"|"down"}}}`. The node reads exactly these
+  fields; any other field, and any state outside the two words, is
+  dropped (whitelist, rule 1). Names are the app's own target names —
+  the ones a `through` destination names.
+- **The node asks, the app does not push.** At each status document the
+  portal asks every instance with the door (2 s), as it probes health.
+  An instance in standby or maintenance is not asked: its targets are
+  `paused` — someone's decision, never an alarm. No answer, a bad
+  answer: `unknown`.
+
+In the status document (`oaap.fleet.status` 0.11) a `through` row's
+`through` gains `state`:
+
+| state | meaning |
+|---|---|
+| `ok` | the app's tunnel stands and it reaches the target |
+| `down-tunnel` | the app's own tunnel is down |
+| `down-target` | the tunnel stands, the target does not answer |
+| `paused` | the tunnel app sleeps or is in maintenance |
+| `unknown` | the app did not answer its door |
+
+A row without `state` (an app without the door, a node before 0.11)
+stays as in stage 1: the external end is `present`.
+
+At the hub:
+
+- the external end's `extState` carries that word (`present` without
+  it), and its text series `state` follows minute by minute like a
+  tunnel's;
+- `down-tunnel` and `down-target` are **down**: the report
+  (`affected.json`) lists the external end with what depends on it, and
+  after five minutes the same matter type `link.down` opens for it — one
+  matter per external end, named `<node>/<instance>/<target>` (the
+  target as the node gives it away, §4). `unknown` decides nothing and
+  keeps an open matter open, as for tunnels;
+- the matter's subject says *Verbindung* instead of *Tunnel*, since an
+  unreachable PC behind a standing VPN is no tunnel.
+
+The app (vpn-client 0.2.0): it checks each target with a TCP connect
+every 30 s while its tunnel stands (5 s timeout) and answers the door;
+the state page shows the same.
+
+Measured by: the RFC's line for stage 3 — the gaming PC unreachable → the
+external end turns red, and its matter names what depends on it; plus the
+tunnel itself switched off (`down-tunnel`), and standby (`paused`, no
+mail).
+
+**Built (reference 0.1.288, vpn-client 0.2.0).** `appctl`:
+`link_state_door_error`/`link_state_door`, manifest minor 14, the registry
+record, `/l/<name>` in the internal endpoint. Portal: `_link_reports`
+(asks, 2 s; standby/maintenance → `paused`; no answer → `unknown`),
+`fleet_links.read_link_answer`/`through_state`, status document 0.11.
+Hub: `fleet_twin.EXT_STATES` → `extState`; `fleet_sink.ext` (the state
+per external end, its text series, removed with the end or when the app
+loses its door); `fleet_affected.link_report` names an external end
+`<node>/<instance>/<target>` with `kind` and `behind`;
+`fleet_watch.link_text` writes its own head line; `notify` subject
+*Verbindung getrennt*. No change to `fleet_model` (`extState` was text
+already).
+
+**Measured.**
+
+- Locally: `test_fleet_links` 61/61, `test_fleet_affected` 49/49,
+  `test_link_state_door` 21/21 (new: manifest rule, registry key, the
+  `/l/` line only for a door), vpn-client `test_vpn_client` (+6: real TCP
+  target ok, closed port down, `since` kept, no address in the answer,
+  tunnel down clears the targets). In the portal's image on oaap-test:
+  `test_link_reports_portal` 10/10 (new), `test_connect_fresh` 20/20.
+  Against PostgreSQL 16 on oaap-test: `test_fleet_twin` 83/83, 11 of them
+  new — `ok` → group and series; `down-target` → one report entry
+  `ni/ais-ovc/gamingpc`, kind external, behind `ais-ovc`, affected from
+  the database (destination, `ais-mg`, the tunnel, `ais-oaapi01`,
+  `ais-chat`), the host's `link.down` after five minutes; `down-tunnel`
+  starts a new `since`; `paused` and `unknown` no entry; the app without
+  its door → `present`, no longer tracked; the destination deleted →
+  `removed`.
+- **Live on oaap-test (0.1.288 staged)** against a stand-in far end
+  (`oaap-lab/vpn-gegenstelle`: OpenVPN server with throwaway certificates,
+  a fake gaming PC at 10.8.0.1:11434), vpn-client 0.2.0 installed as
+  `fleetprobe-fxvpn` with `--confirm-tun`, destination `gamingpc` →
+  `through:fxvpn/gamingpc`. Read at the real `/fleet/status` (throwaway
+  fleet key, revoked afterwards): schema 0.11, the row says
+  `"through": {"instance": "fleetprobe-fxvpn", "target": "x-b5e2…",
+  "state": "ok"}` — tenant, destination and target as pseudonyms, no
+  address. Gaming PC switched off → `down-target` after 21 s (the app's
+  page: "antwortet nicht (ConnectionRefusedError)"), the instance row
+  stays `ok`; on again → `ok` after 21 s; the far end stopped (VPN off)
+  → `down-tunnel` after 63 s (keepalive 10/60), the instance row `warn`
+  (its `/healthz` 503); started → `ok` after 42 s; standby → `paused`
+  at once, instance `standby`; woken → `ok` after 31 s; the app's
+  container stopped by hand → `unknown`. The internal endpoint answered
+  `/l/aigw-test` (no door) with 404.
+
+**Not yet measured:** the hub live — oaap-demo runs 0.1.287, which
+writes `present` for every external end; with 0.1.288 there (Jörg's
+word, test list routed first) the fake gaming PC switched off must open
+`link.down` for `oaap-test/fleetprobe-fxvpn/x-b5e2…`. The real `ais-ovc`
+on oaap-demo runs vpn-client 0.1.5 (no door).
+
 ## 9. Decisions (asked of Jörg, answered 2026-11-14: as recommended)
 
 - **D1 — the join key.** Derived from the key hash on both sides (§3,
@@ -514,6 +651,43 @@ daran? Diese Liste kommt in die bestehende Meldung (`tunnel_down`,
 3. Eine Tür für Apps nach I-41: Die VPN-App meldet ihren eigenen
    Tunnelzustand, das KI-Gateway meldet Modell → Bezugsquelle →
    Destination.
+
+**Stufe 3a gebaut (15.11., Referenz 0.1.288, vpn-client 0.2.0, §8.1):**
+
+- Eine Tunnel-App erklärt im Manifest (0.14) die Tür
+  `link_state: {path: /oaap/links}`. Der Name ist nicht `links`, weil das
+  Register dieses Wort schon für die Partnerliste nutzt.
+- Der Knoten fragt die App bei jedem Statusdokument dort ab. Die Antwort
+  enthält den eigenen Tunnel und jedes Ziel, jeweils als `ok` oder `down`,
+  nur mit Namen.
+- Im Statusdokument (0.11) trägt jede `through`-Zeile einen Zustand:
+  - `ok`;
+  - `down-tunnel`: VPN aus;
+  - `down-target`: Ziel antwortet nicht;
+  - `paused`: die App schläft;
+  - `unknown`: keine Antwort.
+- Die Zentrale färbt das externe Ende, führt eine Zustandsreihe und öffnet
+  nach 5 Minuten `link.down` für das externe Ende. Das ist dieselbe
+  Meldungsart; der Betreff heißt jetzt „Verbindung getrennt“.
+- vpn-client 0.2.0 prüft dafür alle 30 s jedes Ziel per TCP.
+
+Gemessen:
+
+- **Live auf oaap-test** gegen eine Ersatz-Gegenstelle (in
+  `oaap-lab/vpn-gegenstelle`), gelesen am echten Statusdokument:
+  - Gaming-PC aus: `down-target` nach 21 s;
+  - VPN aus: `down-tunnel` nach 63 s;
+  - Standby: `paused` sofort;
+  - App angehalten: `unknown`;
+  - nach jedem Fall wieder `ok`.
+- **Die Zentrale** gegen eine echte PostgreSQL, 83/83.
+
+Noch offen:
+
+- Die Zentrale live: oaap-demo auf 0.1.288, auf Jörgs Wort und mit
+  Testverteiler.
+- Das echte `ais-ovc` auf vpn-client 0.2.0.
+- Stufe 3b: das KI-Gateway meldet Modell → Bezugsquelle → Destination.
 
 **Stufe 1 gebaut (0.1.281):**
 - Der Knoten meldet seine Hälften im Statusdokument 0.10.

@@ -1,7 +1,7 @@
 # oaap.fleet.status — Read-Only Fleet Status Document
 
 - **ID:** `oaap.fleet.status`
-- **Version:** 0.10 (the node's half-edges `links` and its `tenants`, within what the node and
+- **Version:** 0.11 (a `through` row says what its tunnel app says of its tunnel and the target -- `through.state`, RFC-0087 §8.1, reference 0.1.288, 2026-11-15; 0.10: the node's half-edges `links` and its `tenants`, within what the node and
   each tenant give away -- RFC-0087, reference 0.1.281, 2026-11-14; 0.9: what the node calls itself -- `alias`, `place`, `tags` beside `node`, `oaap.core.host` 2.6, RFC-0082, 2026-11-12; 0.8: the images in the `host` block — counts per state
   word and the oldest date, never an instance, a base or a package — and
   the attention kind `images_open`, `oaap.core.updates` 2.9, RFC-0071,
@@ -302,7 +302,8 @@ consumer ignores the three fields (rule 4).
     {"kind": "destination", "tenant": "m-3be07c1d9a", "name": "d-d586060b78",
      "via": {"tunnel": "t-169846ca2de0574b382f78fd", "offer": "mg"}, "bound": []},
     {"kind": "destination", "tenant": "ais", "name": "gamingpc",
-     "through": {"instance": "ais-ovc", "target": "gamingpc"}, "bound": ["ais-mg"]}
+     "through": {"instance": "ais-ovc", "target": "gamingpc", "state": "down-target"},
+     "bound": ["ais-mg"]}
   ],
 ```
 
@@ -349,7 +350,20 @@ the halves (RFC-0087 §5). Rules:
    level allows it. Instance names themselves leave the node at every level,
    as before 0.10, and often contain the tenant's label; hiding them is a
    separate decision.
-7. `links` and `tenants` are **absent** when the node could not build them;
+7. **What a tunnel app says (0.11, RFC-0087 §8.1).** When the tunnel app a
+   `through` row names declares a `link_state` door (`oaap.apps.runtime`
+   2.33), the node asks it at each document (2 s, through the gateway's
+   internal endpoint) and the row's `through` carries `state`: `ok` (its
+   tunnel stands and it reaches the target), `down-tunnel` (its own tunnel
+   is down), `down-target` (the tunnel stands, the target does not
+   answer), `paused` (the tunnel app is in standby or maintenance --
+   someone's decision, never a fault; it is not asked), `unknown` (it gave
+   no usable answer). The node reads exactly the fields `tunnel.state`
+   and `targets.<name>.state` with the words `ok` and `down`; anything
+   else the app writes stays on the node (rule 1). The target is matched
+   by its real name; the row carries its outward name (rule 5). Without a
+   door the row has no `state`, as in 0.10.
+8. `links` and `tenants` are **absent** when the node could not build them;
    a consumer reads absence as "this node says nothing about links" (as a
    0.9 node), never as "this node has none". A 0.9 consumer ignores both
    (rule 4).
@@ -372,6 +386,15 @@ are stage 2 (RFC-0021 outlook) and live on the management node, never
 on the watched node.
 
 ## Zusammenfassung auf Deutsch
+
+**0.11 (RFC-0087 §8.1):** Eine `through`-Zeile sagt jetzt, was ihre
+Tunnel-App über ihren Tunnel und das Ziel meldet (`through.state`): `ok`,
+`down-tunnel` (der Tunnel der App ist getrennt), `down-target` (Tunnel
+steht, das Ziel antwortet nicht), `paused` (die App schläft oder ist in
+Wartung, keine Störung) oder `unknown` (keine brauchbare Antwort). Der
+Knoten fragt die App an ihrer Tür `link_state` und liest nur zwei Felder
+mit je zwei Wörtern; alles andere bleibt auf dem Knoten. Ohne Tür fehlt
+`state` wie in 0.10.
 
 **0.10 (RFC-0087):** Das Dokument trägt die Halbkanten des Knotens
 (`links`): Tunnel außen und innen mit gemeinsamer ID, Destinationen über
