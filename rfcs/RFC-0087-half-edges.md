@@ -4,7 +4,9 @@
   amended by Jörg: an external end carries a link, so that data can grow
   together with partners (§5.1, decision record). **Stage 1 built
   (reference 0.1.281, §10): node side measured live on oaap-test, hub side
-  against PostgreSQL; the live join at the hub waits for the rollout**
+  against PostgreSQL; joined live at the hub 2026-11-14 (0.1.282, twin
+  oaap-ops, the real tunnel oaapx01 ↔ oaap-demo). Portal page "Flotte" for the levels built 2026-11-15 (reference 0.1.284,
+  measured live on oaap-test)**
 - **Date:** 2026-11-14
 - **Authors:** Jörg (the need, I-51: "nodes share configuration, relations
   and events so that support can be automated in real time"; "the tunnel
@@ -342,8 +344,17 @@ HierarchicalStructures 02011, as the mapping table says. The instance keeps
   log. Reset to the default afterwards; the tunnel stays for the hub
   measurement.
 
-**Open in stage 1.** The portal pages for the levels (server_admin: the
-ceiling; tenant_admin: the tenant's level) — so far the command line only.
+**Open in stage 1.** ~~The portal pages for the levels~~ — built
+2026-11-15 as one page "Flotte" (reference 0.1.284) for both roles, after
+the page "Abfluss": the server_admin sets the ceiling and every tenant's
+level, a tenant_admin sees and sets their own tenant only (no row, no count
+of any other). It reads the settings file and writes through the spool;
+the host derives role and tenant from the actor's record and calls the
+same function as `oaap fleet disclose`, so a tenant above the ceiling is
+refused there too. Every change is audited with person and role. Measured
+live on oaap-test, 24 checks: both roles through the real gateway, the
+settings file read after each act, a forged `tenant` field from a
+tenant_admin hits their own tenant, a foreign origin is refused.
 The live join at the hub: oaap-demo runs 0.1.279, which ignores `links`;
 after its update the loop tunnel of oaap-test shows the join, the real
 chain oaapx01 ↔ oaapi01 needs 0.1.281 on oaapx01 (Jörg's word).
@@ -447,11 +458,14 @@ Gemessen:
   Herabstufen.
 
 Noch offen:
-- die Portalseiten für die Stufen;
+- ~~die Portalseiten für die Stufen~~ — gebaut 15.11. als eine Seite
+  „Flotte“ (Referenz 0.1.284): Der Server-Admin setzt Obergrenze und jede
+  Mandantenstufe, ein tenant_admin sieht und setzt nur seinen Mandanten.
+  Live auf oaap-test mit beiden Rollen gemessen;
 - das Zusammenfügen live an der Zentrale, nach dem Update von oaap-demo.
 
-Nebenbefund: Die automatische Adresse von Instanzen in Mandanten steht im
-Statusdokument seit 0.3 falsch.
+Nebenbefund: Die automatische Adresse von Instanzen in Mandanten stand im
+Statusdokument seit 0.3 falsch — behoben in 0.1.283 (15.11.).
 
 **Entschieden am 14.11.: alles wie empfohlen**, D4 mit Jörgs Ergänzung:
 

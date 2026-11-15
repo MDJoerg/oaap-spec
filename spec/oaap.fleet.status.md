@@ -335,7 +335,8 @@ the halves (RFC-0087 §5). Rules:
    `error`; `paused: true` says the inner side stopped it on purpose -- a
    consumer must not read a paused tunnel as a fault.
 5. **How much leaves the node** (RFC-0087 §4): a ceiling set by the
-   server_admin (`oaap fleet disclose count|pseudonym|names`, default
+   server_admin (`oaap fleet disclose count|pseudonym|names` or the portal
+   page "Flotte", reference 0.1.284; default
    `pseudonym`) and a level per tenant at or below it (`--tenant <t>`;
    default: the ceiling). At `names` a tenant, its destinations and its
    external targets appear by name; at `pseudonym` as stable pseudonyms
