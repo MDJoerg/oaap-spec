@@ -345,7 +345,8 @@ watches them: it reads every node's `alive`, `status`, `events` and
 as the platform principal `oaap.watch` (`oaap.events.broker` 0.3), and
 writes what it saw into the node's data directory. The judging and the
 mail are the node's minute job (`oaap.core.notifications` 0.6:
-`node.silent`, `bridge.down`, `broker.queue`, `node.loss`). It needs
+`node.silent`, `bridge.down`, `broker.queue`, `node.loss`; 0.8: `link.down`
+from the fleet service's `affected.json`, RFC-0087 §6). It needs
 `broker` and `store`; `add-profile` refuses without them, and
 `remove-profile broker`/`store` refuses while `fleet-hub` is held. Every
 compose call for `fleet` MUST name the `broker` and `store` profiles and

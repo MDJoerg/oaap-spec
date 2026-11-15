@@ -1,7 +1,7 @@
 # oaap.core.notifications — Recipient Lists and Notifications
 
 - **ID:** `oaap.core.notifications`
-- **Version:** 0.7 (0.7: a lock on a name **nobody has** -- an empty one included -- is no longer mailed; it is counted and appears in the node's weekly report as *Fremde Anmeldeversuche*, 2.2.1/2.9; 0.6: the **fleet** types `node.silent`, `bridge.down`,
+- **Version:** 0.8 (0.8: the fleet type `link.down` -- a broken tunnel at the hub, one matter per tunnel naming what depends on it, RFC-0087 §6, reference 0.1.285; 0.7: a lock on a name **nobody has** -- an empty one included -- is no longer mailed; it is counted and appears in the node's weekly report as *Fremde Anmeldeversuche*, 2.2.1/2.9; 0.6: the **fleet** types `node.silent`, `bridge.down`,
 `broker.queue`, `node.loss`, `hub.unreachable`, and a closing mail names how
 long the matter lasted, RFC-0085 stage 2; 0.5: `exposure.found` -- an instance hands out a secret file, critical, tenant and node, RFC-0084; 0.4: the **weekly report** -- a daily ledger, one report per scope, delivery `now`/`report` per routing line -- 2.9, RFC-0083; 0.3: `{knoten}` is the node's alias once one is set, `{ort}` its place, the body names both names -- RFC-0082 stage 1)
 - **Maturity:** draft. 0.1 was RFC-0080 stage 1: lists, the catalogue,
@@ -68,6 +68,7 @@ the instance, the reason, a link to the portal page).
 | `broker.queue` | health | node | yes | on a fleet hub: a broker reports more than half of its `max_queued_messages` waiting (an approximation: stored minus retained messages) (§6.2) |
 | `node.loss` | health | node | no | on a fleet hub: a node's own outbox reports more lost samples than a minute ago; the first sighting only sets the baseline (§6.2) |
 | `hub.unreachable` | critical | node | yes | on an entry: the hub's bridge into it has been away for 10 minutes — the outside watch of the hub (§6.3) |
+| `link.down` | health | node | yes | on a fleet hub (0.8): a tunnel whose joined state (both halves, as the twin holds them) has been `down-inner` or `down-outer` for 5 minutes — **one matter per tunnel**, however many halves report it; the text names its two ends and what depends on it, nearest first, with tenants (RFC-0087 §6). `paused` and `half` are no fault. Without a fresh report from the fleet service (3 minutes) an open matter stays open |
 
 **Closing a matter** (0.6) mails *Behoben* with a line `Dauer:` — how long
 it lasted. For the fleet this closing mail is the "back" message of
@@ -292,6 +293,12 @@ Lagen werden bei Beginn und Behebung gemeldet, Kritisches zusätzlich
 täglich. Grenzen gegen Missbrauch (20/h je Mandant), eine Stunde
 Wiederholung, nie eine Mail über eine gescheiterte Mail. Das Protokoll
 nennt keine Adressen.
+
+**0.8 — Tunnel getrennt:** Die Zentrale meldet einen gestörten Tunnel
+einmal (`link.down`), gleich ob außen, innen oder beide Seiten es melden,
+und erst nach fünf Minuten. Die Mail nennt beide Enden und alles, was
+daran hängt, von nah nach fern, mit Mandanten — Betroffenheit statt
+Alarmflut. Angehalten oder halb bekannt ist keine Störung.
 
 **0.7 — Fremde Anmeldeversuche:** Eine Sperre auf einen Namen, den es nicht
 gibt (auch einen leeren), ist ein Fremder, der rät — kein Konto in Gefahr.

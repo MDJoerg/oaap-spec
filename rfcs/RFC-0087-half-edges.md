@@ -6,7 +6,10 @@
   (reference 0.1.281, §10): node side measured live on oaap-test, hub side
   against PostgreSQL; joined live at the hub 2026-11-14 (0.1.282, twin
   oaap-ops, the real tunnel oaapx01 ↔ oaap-demo). Portal page "Flotte" for the levels built 2026-11-15 (reference 0.1.284,
-  measured live on oaap-test)**
+  measured live on oaap-test). **Stage 2 built 2026-11-15 (reference
+  0.1.285, §6 amendment): `affected()`, the read, one hub matter
+  `link.down` per tunnel; measured against PostgreSQL and read-only on the
+  real hub twin; the alarm itself waits for the rollout and "VPN off"**
 - **Date:** 2026-11-14
 - **Authors:** Jörg (the need, I-51: "nodes share configuration, relations
   and events so that support can be automated in real time"; "the tunnel
@@ -255,6 +258,44 @@ tunnel, an external end or an instance, follow `uses`, `bindsTo`,
 detail of the existing attention item (`tunnel_down`, `connector_down`)
 when it opens a matter. No new alert kinds, no second mail.
 
+**Amendment (2026-11-15, building stage 2 — for Jörg to confirm).** The
+paragraph above assumed a matter is already opened for `tunnel_down` and
+`connector_down`. None is: both are attention items in the status document
+and FleetView shows them, but neither the node nor the hub mails them.
+Stage 2 therefore opens the matter at the hub, which alone sees both
+halves and the chain behind them: **one** matter type `link.down`
+(`oaap.core.notifications` 0.8), one matter per tunnel object, opened when
+its joined state has been `down-inner` or `down-outer` for five minutes,
+whichever half reports it — the two attention kinds on the nodes stay as
+they are and are not mailed one by one. So there is one new matter TYPE,
+and still no second mail for one fault. Built (reference 0.1.285):
+
+- `services/twin/fleet_affected.py` (pure walk + `load_graph`);
+- the fleet service writes `/fleet/affected.json` on every flush (empty
+  when nothing is down; the graph is read only when a tunnel is down);
+- the host's minute job judges it (`fleet_watch.link_conditions`) — a
+  report older than three minutes decides nothing, open matters stay;
+- the read `GET /internal/twin/objects/{id}/affected` (`oaap.data.twin`
+  0.6) for FleetView.
+
+What stage 2 does NOT detect yet: "VPN off" as such. A VPN app whose own
+tunnel is down but whose container stays healthy is invisible until
+stage 3 (the app reports its tunnel state). With stage 2 the chain from
+`ais-ovc` is already computed (measured read-only on the hub, below); it
+becomes a mail once the instance or the tunnel is reported broken.
+
+Measured: `test_fleet_affected.py` 29/29 (pure: the RFC's chain in order,
+a cycle, limits, the matter's text); `test_fleet_twin.py` against
+PostgreSQL on oaap-test (inner side broken → one entry with
+`ais-oaapi01`, `ais-chat`, tenant `ais`; reconnected → gone; the RFC's
+chain from `ais-ovc` out of the database). **Read-only on the real hub
+twin `oaap-ops`** (oaap-demo, 74 relations, 102 objects): tunnel
+`t-af21…` (outer oaapx01, inner oaap-demo) → destination on oaapx01 →
+`ais-mg` on oaapx01; from `ais-ovc` on oaap-demo → its external end →
+destination → `ais-mg` on oaap-demo → tunnel `t-af21…` → destination on
+oaapx01 → `ais-mg` on oaapx01 — tenants as pseudonyms, because the
+nodes give away `pseudonym` (§4).
+
 ## 7. AAS
 
 The relations become `RelationshipElement`s in a later export; the
@@ -458,6 +499,13 @@ Gemessen:
   Herabstufen.
 
 Noch offen:
+- ~~Stufe 2, Betroffenheit~~ — gebaut 15.11. (Referenz 0.1.285). Befund
+  beim Bauen: Für `tunnel_down`/`connector_down` öffnete bisher niemand
+  eine Meldung. Deshalb öffnet jetzt die Zentrale **eine** Meldung je
+  Tunnel (`link.down`), nach fünf Minuten, mit allem, was daran hängt.
+  Das ist eine neue Meldungsart; Jörg bestätigt das noch. „VPN aus“ als
+  solches erkennt erst Stufe 3. Die echte Kette ist aber schon lesend an
+  der Zentrale gemessen;
 - ~~die Portalseiten für die Stufen~~ — gebaut 15.11. als eine Seite
   „Flotte“ (Referenz 0.1.284): Der Server-Admin setzt Obergrenze und jede
   Mandantenstufe, ein tenant_admin sieht und setzt nur seinen Mandanten.

@@ -1,7 +1,7 @@
 # oaap.data.twin — The Digital Twin
 
 - **ID:** `oaap.data.twin`
-- **Version:** 0.5 (0.5: the write rules in one module shared by the API and the platform's own writer; an unchanged **relation** writes nothing either, and a group PUT that changes nothing records no event -- §2.15; the person-facing type list answers `semantic_iri` -- `oaap.data.model` 0.2 §2.9; RFC-0085 amendment A2)
+- **Version:** 0.6 (0.6: the read `affected` -- what depends on a fleet object, §2.10a, RFC-0087 §6, reference 0.1.285; 0.5: the write rules in one module shared by the API and the platform's own writer; an unchanged **relation** writes nothing either, and a group PUT that changes nothing records no event -- §2.15; the person-facing type list answers `semantic_iri` -- `oaap.data.model` 0.2 §2.9; RFC-0085 amendment A2)
 - **Maturity:** draft
 - **Based on:** RFC-0033 §6 / D10 (0.4 adds the remote reader, §2.14:
   a reader on another node, reached through a tunnel,
@@ -313,6 +313,21 @@ relations outward from one object, depth-limited (default 2, max 5),
 `?at=` applied at every hop, built by repeated calls to the same
 loader §2.9 uses — not a recursive CTE. Correct, not yet fast; revisit
 only if it becomes slow at the size this platform actually runs at.
+
+### 2.10a `GET /internal/twin/objects/{id}/affected` — what depends on it (0.6)
+
+Person-facing only, like the tree. From one fleet object (RFC-0087), the
+open relations read **backwards** — `usesTunnel`, `usesExternal`,
+`behind`, `reaches`, `bindsTo` — breadth first, each object once, at most
+200 rows (`truncated` says so). Every row carries kind, title, node, the
+tenant (`heldBy`, `destOf`), its distance, the relation it was reached by
+and the row it depends on; `tenants` sums them up, and a tunnel names its
+two ends. A tunnel that *reaches* an affected instance is listed as a
+whole: the twin does not know which of its offers a destination calls, so
+such a row reads "possibly affected". Today's state only (no `?at=`). The
+walk is one pure function the hub's fleet service also uses for its
+`link.down` matter (`oaap.core.notifications` 0.8), so the page and the
+mail never disagree. Not a fleet object: 404.
 
 ### 2.11 `POST /internal/twin/types` — tenant type creation
 
@@ -713,6 +728,16 @@ relays who is asking, §2.12).
 reference platform (`oaap-test`), and step 8 of RFC-0031 §9 (the
 rehearsal's own copy, D8) has its own capability-spec addendum once
 built — the one piece 0.2 still satisfies by refusal alone (§1, §4).
+
+## Deutsche Zusammenfassung (Nachtrag v0.6 — Betroffenheit)
+
+Neue Leseabfrage `GET /internal/twin/objects/{id}/affected`: Von einem
+Objekt der Flotte aus werden die Beziehungen rückwärts gelesen — wer nutzt
+es, wer bindet das, wer erreicht das — mit Ort, Mandant und Entfernung je
+Zeile. Ein Tunnel, der eine betroffene Instanz erreicht, steht als Ganzes
+da („möglicherweise betroffen“), weil der Zwilling nicht weiß, welches
+Angebot eine Destination nutzt. Dieselbe Funktion nutzt die Zentrale für
+ihre Meldung `link.down`; Seite und Mail sagen also dasselbe.
 
 ## Deutsche Zusammenfassung (Nachtrag v0.5 — eine Schreibregel, zwei Türen)
 
