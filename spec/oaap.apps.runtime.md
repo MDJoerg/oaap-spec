@@ -1,7 +1,7 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.64 (**an app MAY declare an `assets` door** (manifest 0.15): it names its assets -- model names, sources -- and how they hang together, and the node asks it for the fleet status document -- 2.34, RFC-0087 §8.2). 0.2.63 (**a tunnel app MAY declare a `link_state` door** (manifest 0.14): the node asks it how its tunnel and its targets are, for the fleet status document -- 2.33, RFC-0087 §8.1). 0.2.62 (**a config key MAY declare `file: true`**: its value is a file, stored as one base64 line, and the portal offers an upload -- 2.8; **a tunnel (`tun`, 2.23) is confirmed in the store** by a `server_admin`'s tick naming the app, besides `--confirm-tun` -- RFC-0060 stage 4). 0.2.61 (**promotion from a Git test instance** by its recorded commit -- 2.14.1). 0.2.60 (**a build that upgrades OS packages is built without the layer cache**, and "unchanged" compares the package lists -- 2.31.1, RFC-0071 §16; **a portal tick confirms a widening** by the fingerprint of exactly the reported lines -- 2.14, I-43). 0.2.59 (**a second kind of generated value, `vapid`**, and a build step may generate into an empty key -- 2.8, RFC-0079). 0.2.58 (**the envelope rule on every way in**: directory and
+- **Version:** 0.2.65 (**a declared health path the app never built** (404/405) is not the app's verdict: the probe asks its home page, and an answer below 400 there is *reachable*, the missing path named; install says so at once -- 2.11, reference 0.1.294). 0.2.64 (**an app MAY declare an `assets` door** (manifest 0.15): it names its assets -- model names, sources -- and how they hang together, and the node asks it for the fleet status document -- 2.34, RFC-0087 §8.2). 0.2.63 (**a tunnel app MAY declare a `link_state` door** (manifest 0.14): the node asks it how its tunnel and its targets are, for the fleet status document -- 2.33, RFC-0087 §8.1). 0.2.62 (**a config key MAY declare `file: true`**: its value is a file, stored as one base64 line, and the portal offers an upload -- 2.8; **a tunnel (`tun`, 2.23) is confirmed in the store** by a `server_admin`'s tick naming the app, besides `--confirm-tun` -- RFC-0060 stage 4). 0.2.61 (**promotion from a Git test instance** by its recorded commit -- 2.14.1). 0.2.60 (**a build that upgrades OS packages is built without the layer cache**, and "unchanged" compares the package lists -- 2.31.1, RFC-0071 §16; **a portal tick confirms a widening** by the fingerprint of exactly the reported lines -- 2.14, I-43). 0.2.59 (**a second kind of generated value, `vapid`**, and a build step may generate into an empty key -- 2.8, RFC-0079). 0.2.58 (**the envelope rule on every way in**: directory and
   Git installs too, the report reaches the portal, I-43, 2.14). 0.2.57 (**a second origin for the views of MCP Apps**,
   manifest 0.13 `ui_sandbox`, 2.32.4, RFC-0075). 0.2.56 (**a chat acts at its tenant's gateways as the person**,
   RFC-0074 stage 1: manifest 0.12 `mcp_client: {use: true}`, the list
@@ -783,6 +783,23 @@ got `200` for another app's health page. The endpoint therefore
 checks the caller's source address against the platform network's
 ranges and answers everything else with 403; when the ranges cannot
 be read, nothing matches.
+
+**A declared health path the app never built (0.2.65).** The node cannot
+make every app meet its rules -- an AI-built web site on oaapx02
+(2026-11-15) declared `/healthz`, answered it with 404 and its home page
+with 200, and the node, with FleetView, read *Auffällig*. So a declared
+path that answers **404 or 405** is not taken as the app's verdict:
+
+- The internal endpoint carries a second route per instance whose
+  health path is not `/`: `/r/<name>`, the app's home page.
+- The probe asks `/r/<name>` only after `/h/<name>` said 404/405. An
+  answer below 400 there counts as **reachable** (state `ok`, label
+  *Erreichbar*); the detail names the missing path and says to check
+  the manifest. A 5xx, no answer, or a home page that also fails stays
+  what it was -- that is a broken app.
+- **Install says so at once:** once the app answers at all (up to 20 s),
+  the declared path is asked; on 404/405 a `NOTE` (home page answers) or
+  a `WARNING` (it does not) is printed. Never a refusal: it is a hint.
 
 ### 2.12 Multi-container apps (RFC-0016)
 
@@ -2635,6 +2652,11 @@ assets:
 37. **Health through the gateway (2.11)**: the portal's health page
     reports each isolated app's real state, obtained via the gateway's
     internal probe endpoint; an app container cannot reach that endpoint.
+37a. **A missing health path (2.11, 0.2.65)**: an app declaring
+    `health.path: /healthz` that answers it 404 and its home page 200 is
+    *Erreichbar* with the missing path named, makes no attention entry,
+    and its install prints the `NOTE`; a home page answering 5xx or not
+    at all leaves it unhealthy.
 38. **Endpoint grant needs the profile (2.13, RFC-0015)**: granting a
     declared endpoint is refused on a node without the `exposed`
     profile — through the CLI and through the portal's queued path. On
@@ -2789,6 +2811,18 @@ assets:
 tests 1–11 on the reference platform. 0.2 target: tests 12–16 with the
 pilot CRM's test instance and its AI coding agent as the first real
 remote deployer.
+
+## Deutsche Zusammenfassung (2.11, v0.2.65 — ein fehlender Health-Pfad)
+
+Eine App, die einen Health-Pfad erklärt, ihn aber nie gebaut hat (404
+oder 405), gilt nicht mehr als auffällig, wenn ihre Startseite antwortet.
+Dafür bekommt der interne Prüfweg des Gateways je Instanz eine zweite
+Route auf die Startseite (`/r/<name>`). Die Instanz heißt dann
+„Erreichbar“, und die Gesundheitsseite nennt den fehlenden Pfad. Bei einem
+Serverfehler, ohne Antwort oder bei kaputter Startseite bleibt sie
+auffällig. Die Installation weist sofort darauf hin. Anlass: eine
+KI-gebaute Webseite auf oaapx02 (15.11.2026). Wir können nicht davon
+ausgehen, dass fremde Apps unsere Regeln immer einhalten.
 
 ## Deutsche Zusammenfassung (2.34, v0.2.64 — eine App nennt ihre Assets, Manifest 0.15, RFC-0087 §8.2)
 
