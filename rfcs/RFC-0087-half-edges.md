@@ -311,7 +311,9 @@ the way: (a) the portal does not judge the age of the connect service's
 state file, so a STOPPED connect service still reads as connected (the
 measurement therefore cut the network instead); (b) the closing mail's
 `Dauer` counts from the matter's opening while the quoted text says how
-long the tunnel was down — both true, not yet in step.
+long the tunnel was down — both true, not yet in step. **(b) fixed,
+reference 0.1.287 (`oaap.core.notifications` 0.9):** the fleet conditions
+carry `began`, the matter keeps the earliest, and `Dauer` counts from it.
 
 **(a) fixed, reference 0.1.286 (`oaap.net.connector` 0.6).** The connect
 service rewrites its state at least every 30 s and names the beat; a
@@ -533,7 +535,10 @@ Noch offen:
   behoben 15.11. (Referenz 0.1.286): Herzschlag alle 30 s, eine
   liegengebliebene Zustandsdatei gilt als getrennt, behält aber die
   Tunnel-Kennung. Live gemessen mit echtem Anhalten: Mail nach 11 Minuten,
-  Behoben 6 Minuten nach dem Neustart. Offen bleibt der Befund „Dauer“;
+  Behoben 6 Minuten nach dem Neustart;
+- ~~Befund „Dauer“~~ — behoben 15.11. (Referenz 0.1.287,
+  oaap.core.notifications 0.9): Das Behoben zählt bei Flottenmeldungen ab
+  dem Beginn der Störung;
 - ~~Stufe 2, Betroffenheit~~ — gebaut 15.11. (Referenz 0.1.285). Befund
   beim Bauen: Für `tunnel_down`/`connector_down` öffnete bisher niemand
   eine Meldung. Deshalb öffnet jetzt die Zentrale **eine** Meldung je

@@ -1,7 +1,7 @@
 # oaap.core.notifications — Recipient Lists and Notifications
 
 - **ID:** `oaap.core.notifications`
-- **Version:** 0.8 (0.8: the fleet type `link.down` -- a broken tunnel at the hub, one matter per tunnel naming what depends on it, RFC-0087 §6, reference 0.1.285; 0.7: a lock on a name **nobody has** -- an empty one included -- is no longer mailed; it is counted and appears in the node's weekly report as *Fremde Anmeldeversuche*, 2.2.1/2.9; 0.6: the **fleet** types `node.silent`, `bridge.down`,
+- **Version:** 0.9 (0.9: `Dauer` counts from when the fault began where the condition knows it -- the fleet types -- not from the matter's opening, reference 0.1.287, RFC-0087 finding b; 0.8: the fleet type `link.down` -- a broken tunnel at the hub, one matter per tunnel naming what depends on it, RFC-0087 §6, reference 0.1.285; 0.7: a lock on a name **nobody has** -- an empty one included -- is no longer mailed; it is counted and appears in the node's weekly report as *Fremde Anmeldeversuche*, 2.2.1/2.9; 0.6: the **fleet** types `node.silent`, `bridge.down`,
 `broker.queue`, `node.loss`, `hub.unreachable`, and a closing mail names how
 long the matter lasted, RFC-0085 stage 2; 0.5: `exposure.found` -- an instance hands out a secret file, critical, tenant and node, RFC-0084; 0.4: the **weekly report** -- a daily ledger, one report per scope, delivery `now`/`report` per routing line -- 2.9, RFC-0083; 0.3: `{knoten}` is the node's alias once one is set, `{ort}` its place, the body names both names -- RFC-0082 stage 1)
 - **Maturity:** draft. 0.1 was RFC-0080 stage 1: lists, the catalogue,
@@ -71,7 +71,12 @@ the instance, the reason, a link to the portal page).
 | `link.down` | health | node | yes | on a fleet hub (0.8): a tunnel whose joined state (both halves, as the twin holds them) has been `down-inner` or `down-outer` for 5 minutes — **one matter per tunnel**, however many halves report it; the text names its two ends and what depends on it, nearest first, with tenants (RFC-0087 §6). `paused` and `half` are no fault. Without a fresh report from the fleet service (3 minutes) an open matter stays open |
 
 **Closing a matter** (0.6) mails *Behoben* with a line `Dauer:` — how long
-it lasted. For the fleet this closing mail is the "back" message of
+it lasted. From 0.9 that is how long the **fault** lasted where the
+condition knows its start (`began`: `node.silent` from the last sign of
+life, `bridge.down`, `hub.unreachable` and `link.down` from their
+`since`) — so the closing mail agrees with the text of the opening one;
+the earliest `began` of a matter stays. Other types count from the
+matter's opening, as before. For the fleet this closing mail is the "back" message of
 RFC-0085 (`node.back`, `bridge.back`); no separate type exists. The fleet's
 sources are trusted only while fresh: a fleet service whose state is older
 than three minutes, or not connected, keeps its open matters open, as
@@ -293,6 +298,12 @@ Lagen werden bei Beginn und Behebung gemeldet, Kritisches zusätzlich
 täglich. Grenzen gegen Missbrauch (20/h je Mandant), eine Stunde
 Wiederholung, nie eine Mail über eine gescheiterte Mail. Das Protokoll
 nennt keine Adressen.
+
+**0.9 — Dauer ab der Störung:** Im Behoben steht bei den Flottenmeldungen
+jetzt, wie lange die Störung selbst dauerte, nicht wie lange die Meldung
+offen war. Bisher stand im Text der ersten Mail „seit 5 Minuten“, das
+Behoben zählte aber erst ab dem Öffnen. Beides stimmte, passte aber nicht
+zusammen. Andere Meldungen zählen weiter ab dem Öffnen.
 
 **0.8 — Tunnel getrennt:** Die Zentrale meldet einen gestörten Tunnel
 einmal (`link.down`), gleich ob außen, innen oder beide Seiten es melden,
