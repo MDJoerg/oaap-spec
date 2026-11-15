@@ -1,6 +1,7 @@
 # RFC-0088: The Tenant's Own Asset Universe — Apps Fill the Tenant's Twin, the Tenant Admin Is Warned
 
-- **Status:** **Accepted (2026-11-15, D1–D5 as recommended)** — nothing built yet
+- **Status:** **Accepted (2026-11-15, D1–D5 as recommended)** — **stage 1 built in
+  reference 0.1.291 and measured on oaap-test (§9)**; stages 2–4 open
 - **Date:** 2026-11-15
 - **Authors:** Jörg (the need, capability idea I-53: "open our graph model
   and the twins to tenant admins too — AI gateway, MCP gateway: complex
@@ -190,6 +191,90 @@ tenant that is also its own operator — gets both cuts and, through
 - **D5 — thresholds.** 14/7/1 days, 10/5 minutes, 90 % — *recommended*,
   per tenant adjustable later.
 
+## 9. Stage 1, built (reference 0.1.291, 2026-11-15)
+
+Jörg, in chat: *"Dann die vorgeschlagenen Punkte bauen"* (after D1–D5).
+
+### 9.1 How it runs
+
+- **Who asks the door.** The host's minutely job (`metrics sample`), every
+  five minutes: it makes the plan from the registry -- every instance with
+  an `assets` door, by its tenant, for the tenants that have it on; a
+  sleeping or maintained instance is in the plan but not asked -- and runs
+  `assets_run.py` in the twin's own container (`docker exec`, the plan on
+  stdin). That container already holds the tenants' twin and time-series
+  credentials, the write rules (`twin_write`) and the platform network to
+  the gateway's internal `/a/<instance>`. No new service, no new mount, no
+  new key. The status document is untouched; the fleet reader stays as it
+  was (§2).
+- **Prepared once per tenant and model version:** the reader's types
+  registered and activated for the tenant (origin `platform:assets`,
+  package `oaap-assets` 0.1.0), the twin schema and the time series made
+  if missing; the host keeps a stamp (`data/assets/ready.json`).
+- **What is written.** One `AssetApp` object per instance (source key
+  `<instance>`, group `oaap.assetapp`: instance, app, the door's answer
+  ok/paused/unknown) and one `AssetItem` per asset (source key
+  `<instance>/<kind>/<name>`, group `oaap.assetitem`). Relations, all on
+  `oaap.assetitem`: `assetOf` (→ the app), `uses` (model → source),
+  `mayUse` (key → model), `toolOf` (tool → source), `opens` (sign-in →
+  source), `agentUses` (agent → model or tool). Every attribute and
+  relation key carries the prefix `assets` (node-wide keys, as the fleet's
+  carry `fleet`). The relation names differ from §3 (`assetUses`,
+  `assetVia`, `keyMay`, `actsFor`): `assetVia` needs a destination object,
+  which the tenant's twin does not have -- the destination is an attribute
+  of the source; `actsFor` waits for D3 (stage 3).
+- **Removal:** what an answering app no longer names is `removed` and its
+  relations closed; an app gone from the plan is `removed` with its assets;
+  `paused`/`unknown` change nothing. History stays.
+- **State over time:** a text series `state` per source and model name,
+  one point per run.
+- **The tenant reader's whitelist** (`services/twin/assets_twin.py`) takes
+  every field of §2 for every kind, so that stage 2 needs no platform
+  change. **Not in stage 1: persons** -- `owner` and `acts_for` are dropped
+  until stage 3 brings D3's person objects.
+
+### 9.2 Reading and switching
+
+- `GET /internal/twin/assets` (twin service, the portal relays the person):
+  the tenant's apps and assets with values, relations and *affected* per
+  row (the walk follows `uses`, `mayUse`, `toolOf`, `opens`, `agentUses`
+  backwards). Only `tenant_admin` and `server_admin`.
+- **The portal page "Assets"** (side bar, *Katalog & Daten*): a list per
+  kind with state, details and *Hängt davon ab*, each name linked to the
+  twin's object page (history, date slider). A server_admin chooses the
+  tenant.
+- **The switch (D2) is on that page, not on "Flotte"** as §3 said: "Flotte"
+  is about what leaves the node; this switch is about what is written into
+  the tenant's own twin, and belongs where its result is seen. Off keeps
+  what the twin holds; nothing new is written. Through the spool (action
+  `assets-set`), judged on the host: a tenant_admin switches their own
+  tenant, a server_admin any.
+- **CLI:** `oaap assets show | collect | on <tenant> | off <tenant>`.
+
+### 9.3 Measured (oaap-test, tenant `fleetprobe`, ai-gateway 0.7.0)
+
+1. The minutely job wrote the four assets of `fleetprobe-fxgw` (sources
+   `gaming`, `fern`; model names `chat-gaming`, `chat-fern`) without being
+   asked, with `uses` and `assetOf`.
+2. **The stand-in gaming PC off** (`ovpn-fx`, behind the destination
+   `gamingpc`): the gateway's door said `gaming: down` after its minute
+   check; the next run wrote it; the page showed *nicht erreichbar* and
+   *Hängt davon ab: Modellname chat-gaming*; the series holds `ok`
+   16:28–16:32 and `down` from 16:33.
+3. **A model name deleted** (`chat-fern`, through the gateway's own route):
+   *entfernt* on the page, its `uses` closed. Created again: the same
+   object, state back, history kept.
+4. The read refuses a plain `user` (403); the page refuses a foreign
+   origin and a plain user, answers 404 for an unknown tenant; off and on
+   through the page took effect.
+5. Found by the measurement and fixed: the app's name was empty (the
+   registry calls it `app_id`), and the page's rows were empty -- in Jinja
+   `r.values` is the dict's method, not its key.
+
+The hub was not touched by this stage; the stand-in being off was seen by
+the fleet as before (`down-tunnel` on the hub, no matter opened within
+the four minutes; `link.down` routed to the test list for the run).
+
 ## Decision record (2026-11-15)
 
 Jörg, in the decision dialog, all five as recommended:
@@ -266,3 +351,21 @@ Flotte mit Pseudonymen.
 angenommen. Der Knoten schreibt; standardmäßig an, abschaltbar; Personen
 nur für den tenant_admin; Lebenszyklus vorerst als „verschwunden“;
 Schwellen 14/7/1 Tage, 10/5 Minuten, 90 %. Gebaut ist noch nichts.
+
+**Stufe 1 gebaut (15.11.2026, Referenz 0.1.291, §9).** Der Minutenlauf des
+Knotens fragt alle fünf Minuten die `assets`-Tür jeder App und schreibt in
+den Zwilling des Mandanten. Er nutzt dafür ein Skript im Zwilling-Container:
+kein neuer Dienst, kein neuer Schlüssel.
+- **Geschrieben werden:** je Instanz ein App-Objekt, je Asset ein Objekt
+  mit Beziehungen (nutzt, darf nutzen, Werkzeug von, öffnet, arbeitet mit)
+  und eine Zustandsreihe je Quelle und Modellname.
+- **Neue Portalseite „Assets“:** je Art eine Liste mit Zustand und „Hängt
+  davon ab“. Der Schalter an/aus steht dort, nicht auf „Flotte“. Dazu der
+  Befehl `oaap assets`.
+- **Personen** kommen erst mit Stufe 3.
+- **Gemessen auf oaap-test:**
+  - Schein-Gaming-PC aus: Die Quelle wurde „nicht erreichbar“, die Seite
+    nannte den abhängigen Modellnamen, und die Reihe zeigt den Wechsel.
+  - Modellname gelöscht: „entfernt“; nach dem Wiederanlegen dasselbe
+    Objekt mit Geschichte.
+  - Zwei Fehler durch die Messung gefunden und behoben.
