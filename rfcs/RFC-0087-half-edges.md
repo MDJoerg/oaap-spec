@@ -9,7 +9,10 @@
   measured live on oaap-test). **Stage 2 built 2026-11-15 (reference
   0.1.285, §6 amendment): `affected()`, the read, one hub matter
   `link.down` per tunnel; measured against PostgreSQL and read-only on the
-  real hub twin; the alarm itself waits for the rollout and "VPN off"**
+  real hub twin; **the mail measured live 2026-11-15 on oaap-demo**
+  (loop tunnel of oaap-test cut off its network: `link.down` after
+  5 minutes with the affected destination, *Behoben* after reconnecting);
+  "VPN off" waits for stage 3**
 - **Date:** 2026-11-14
 - **Authors:** Jörg (the need, I-51: "nodes share configuration, relations
   and events so that support can be automated in real time"; "the tunnel
@@ -295,6 +298,20 @@ twin `oaap-ops`** (oaap-demo, 74 relations, 102 objects): tunnel
 destination → `ais-mg` on oaap-demo → tunnel `t-af21…` → destination on
 oaapx01 → `ais-mg` on oaapx01 — tenants as pseudonyms, because the
 nodes give away `pseudonym` (§4).
+
+**Live, 2026-11-15, hub oaap-demo on 0.1.285** (`link.down` routed to a
+test list first): the connect service of oaap-test was taken off its
+network at 09:05:20 while running — both halves of the loop tunnel
+`t-1698…` lost their connection. The node's next status fetch (every
+5 minutes) brought `down-inner` to the hub at 09:08:34; the matter opened
+and the mail arrived at 09:14:15 naming the tunnel, both ends, the inner
+side and the destination `d-d586…` with its tenant (pseudonyms). Network
+back at 09:14:54, tunnel up at 09:15:24, *Behoben* at 09:20:16. Found on
+the way: (a) the portal does not judge the age of the connect service's
+state file, so a STOPPED connect service still reads as connected (the
+measurement therefore cut the network instead); (b) the closing mail's
+`Dauer` counts from the matter's opening while the quoted text says how
+long the tunnel was down — both true, not yet in step.
 
 ## 7. AAS
 
