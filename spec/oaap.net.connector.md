@@ -1,7 +1,7 @@
 # oaap.net.connector — The Inner Node Dials Out, the Outer Node Only Answers
 
 - **ID:** `oaap.net.connector`
-- **Version:** 0.5 (0.5: the state names each tunnel's `tunnel_id`, RFC-0087 §3, 2026-11-14)
+- **Version:** 0.6 (0.6: the state carries a `beat` and is rewritten on it; a state left behind by a stopped service is no state, reference 0.1.286, 2026-11-15; 0.5: the state names each tunnel's `tunnel_id`, RFC-0087 §3, 2026-11-14)
 - **Maturity:** draft (0.1 was RFC-0033 stage 2: connect keys on the
   outer node, the connector and its offer list on the inner node, the
   tunnel between them, `via` targets for HTTP destinations, pause and
@@ -201,6 +201,18 @@ Backend unreachable → 502 with a sentence; no answer within 120 seconds
   read it: per tunnel (outer) whether it is connected, since when, from
   which address, and the offers it announced; per connector (inner)
   whether it is connected, paused, the last error and the next attempt.
+- **Beat (0.6).** The service rewrites its state on every change and at
+  least every `beat` seconds (30), and names the beat in it. A reader
+  that finds a state with a `beat` whose `time` is older than four beats
+  and at least two minutes takes it as **no state**: nothing connected.
+  The service that wrote it is gone, and what it remembers is not a
+  fact. For the fleet's half-edges such a state keeps its names and
+  `tunnel_id` (which do not age) with nothing connected, so the hub sees
+  both halves down rather than one half missing. A state without `beat`
+  (before 0.6, written on changes only) is taken as it is. One rule, one function for portal and CLI
+  (`connect_fresh.py` in the reference). Found 2026-11-15: a stopped
+  service went on reading as connected -- on the page, in the fleet
+  status and so at the hub.
 - **Portal.** The inner node shows its connectors with their offers and
   state; the outer node shows its tunnels with their announced offers,
   and a `via` destination shows its tunnel's state.
@@ -859,3 +871,15 @@ nur mit „wirklich“. Das Formular für Destinationen schlägt `via:<tunnel>/<
 vor. Eine App des inneren Knotens bietet man über ihre öffentliche Adresse an; ihr
 eigener Schlüssel bleibt nötig. Auf oaap-test ist das Ganze nur über das Portal
 gemessen.
+
+## Deutsche Zusammenfassung (0.6 — Herzschlag)
+
+Der Verbindungsdienst schreibt seinen Zustand jetzt nicht nur bei
+Änderungen, sondern mindestens alle 30 Sekunden neu, und nennt diesen
+Schlag in der Datei. Ist die Datei älter als vier Schläge und mindestens
+zwei Minuten, gilt sie als **kein Zustand**: Dann ist nichts verbunden.
+Bisher las ein angehaltener Dienst sich weiter als „verbunden“, auf der
+Seite, im Statusdokument und damit an der Zentrale. Jetzt nennt die Seite
+„seit … nichts mehr“, der Knoten meldet `connector_down`/`tunnel_down`,
+und die Zentrale öffnet `link.down`. Eine Datei ohne Schlag (Dienst vor
+0.6) wird genommen wie bisher.

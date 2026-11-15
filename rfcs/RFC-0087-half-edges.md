@@ -313,6 +313,19 @@ measurement therefore cut the network instead); (b) the closing mail's
 `Dauer` counts from the matter's opening while the quoted text says how
 long the tunnel was down — both true, not yet in step.
 
+**(a) fixed, reference 0.1.286 (`oaap.net.connector` 0.6).** The connect
+service rewrites its state at least every 30 s and names the beat; a
+state older than four beats and two minutes is no state (nothing
+connected) for portal, CLI and status document. The first live run of
+this rule found its own gap: with no state the inner half lost its
+`tunnel_id` — only state.json carries it — and dropped out of `links`;
+the hub saw one half (`half`, no fault) and stayed silent. Now a stale
+state keeps its names and loses only "connected". Measured on oaap-test,
+hub oaap-demo, test list routed: connect **stopped** 09:29:27, status
+document `connector_down` + `tunnel_down`, both halves `error` at 09:34;
+hub `down-inner` since 09:34:31; mail 09:40:23; started 09:41:17,
+*Behoben* 09:47:22. The page says "meldet seit … nichts mehr".
+
 ## 7. AAS
 
 The relations become `RelationshipElement`s in a later export; the
@@ -516,6 +529,11 @@ Gemessen:
   Herabstufen.
 
 Noch offen:
+- ~~Befund: angehaltener Connect-Dienst liest sich als verbunden~~ —
+  behoben 15.11. (Referenz 0.1.286): Herzschlag alle 30 s, eine
+  liegengebliebene Zustandsdatei gilt als getrennt, behält aber die
+  Tunnel-Kennung. Live gemessen mit echtem Anhalten: Mail nach 11 Minuten,
+  Behoben 6 Minuten nach dem Neustart. Offen bleibt der Befund „Dauer“;
 - ~~Stufe 2, Betroffenheit~~ — gebaut 15.11. (Referenz 0.1.285). Befund
   beim Bauen: Für `tunnel_down`/`connector_down` öffnete bisher niemand
   eine Meldung. Deshalb öffnet jetzt die Zentrale **eine** Meldung je
