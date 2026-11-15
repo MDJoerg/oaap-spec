@@ -14,8 +14,9 @@
   5 minutes with the affected destination, *Behoben* after reconnecting);
   **Stage 3a built 2026-11-15 (reference 0.1.288, vpn-client 0.2.0,
   §8.1): a tunnel app says how its tunnel and its targets are; measured
-  live on oaap-test at the node, the hub side against PostgreSQL; the hub
-  live waits for oaap-demo on 0.1.288.** Stage 3b (the AI gateway's
+  live on oaap-test at the node, the hub side against PostgreSQL; **the
+  hub live 2026-11-15 on oaap-demo (0.1.288): fake gaming PC off → mail
+  "Verbindung getrennt", *Behoben* with the right duration**.** Stage 3b (the AI gateway's
   relations) not built**
 - **Date:** 2026-11-14
 - **Authors:** Jörg (the need, I-51: "nodes share configuration, relations
@@ -476,11 +477,21 @@ already).
   container stopped by hand → `unknown`. The internal endpoint answered
   `/l/aigw-test` (no door) with 404.
 
-**Not yet measured:** the hub live — oaap-demo runs 0.1.287, which
-writes `present` for every external end; with 0.1.288 there (Jörg's
-word, test list routed first) the fake gaming PC switched off must open
-`link.down` for `oaap-test/fleetprobe-fxvpn/x-b5e2…`. The real `ais-ovc`
-on oaap-demo runs vpn-client 0.1.5 (no door).
+**Live at the hub, 2026-11-15** (pushed, oaap-demo and oaap-test on
+0.1.288 from Git, `link.down` routed to a test list first): the hub's
+twin held the external end `oaap-test/fleetprobe-fxvpn/x-b5e2…` as `ok`.
+Fake gaming PC off at 11:34:09 → the node sent its changed document at
+once, `extState` `down-target` and the series from 11:35:30; matter
+opened and mailed at 11:41:13 — subject *Verbindung getrennt:
+oaap-test/fleetprobe-fxvpn/x-b5e2…*, "Das externe Ende … hinter
+fleetprobe-fxvpn auf oaap-test ist seit 5 Minuten nicht erreichbar …
+Der Tunnel der App steht, aber das Ziel antwortet nicht", the affected
+destination with its tenant (pseudonyms). On again 11:55:57 → series
+`ok` at 11:58, *Behoben* 11:59:11 with "Dauer: 23 Minuten" (from the
+fault's start). Routing restored. One cosmetic flaw: the affected row
+says "nutzt oaap-test/fleetprobe-fxvpn/x-b5e2…" (the report's key)
+instead of the target's short name. The real `ais-ovc` on oaap-demo
+runs vpn-client 0.1.5 (no door).
 
 ## 9. Decisions (asked of Jörg, answered 2026-11-14: as recommended)
 
@@ -682,11 +693,16 @@ Gemessen:
   - nach jedem Fall wieder `ok`.
 - **Die Zentrale** gegen eine echte PostgreSQL, 83/83.
 
+- **Die Zentrale live** (15.11., oaap-demo auf 0.1.288, Testverteiler):
+  Schein-PC aus um 11:34, Mail „Verbindung getrennt“ um 11:41 mit dem
+  externen Ende und der betroffenen Destination, Behoben um 11:59 mit
+  „Dauer: 23 Minuten“.
+
 Noch offen:
 
-- Die Zentrale live: oaap-demo auf 0.1.288, auf Jörgs Wort und mit
-  Testverteiler.
 - Das echte `ais-ovc` auf vpn-client 0.2.0.
+- Schönheitsfehler im Text: „nutzt oaap-test/fleetprobe-fxvpn/x-…“
+  statt nur des Zielnamens.
 - Stufe 3b: das KI-Gateway meldet Modell → Bezugsquelle → Destination.
 
 **Stufe 1 gebaut (0.1.281):**
