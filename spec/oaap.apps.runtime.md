@@ -1,7 +1,7 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.63 (**a tunnel app MAY declare a `link_state` door** (manifest 0.14): the node asks it how its tunnel and its targets are, for the fleet status document -- 2.33, RFC-0087 §8.1). 0.2.62 (**a config key MAY declare `file: true`**: its value is a file, stored as one base64 line, and the portal offers an upload -- 2.8; **a tunnel (`tun`, 2.23) is confirmed in the store** by a `server_admin`'s tick naming the app, besides `--confirm-tun` -- RFC-0060 stage 4). 0.2.61 (**promotion from a Git test instance** by its recorded commit -- 2.14.1). 0.2.60 (**a build that upgrades OS packages is built without the layer cache**, and "unchanged" compares the package lists -- 2.31.1, RFC-0071 §16; **a portal tick confirms a widening** by the fingerprint of exactly the reported lines -- 2.14, I-43). 0.2.59 (**a second kind of generated value, `vapid`**, and a build step may generate into an empty key -- 2.8, RFC-0079). 0.2.58 (**the envelope rule on every way in**: directory and
+- **Version:** 0.2.64 (**an app MAY declare an `assets` door** (manifest 0.15): it names its assets -- model names, sources -- and how they hang together, and the node asks it for the fleet status document -- 2.34, RFC-0087 §8.2). 0.2.63 (**a tunnel app MAY declare a `link_state` door** (manifest 0.14): the node asks it how its tunnel and its targets are, for the fleet status document -- 2.33, RFC-0087 §8.1). 0.2.62 (**a config key MAY declare `file: true`**: its value is a file, stored as one base64 line, and the portal offers an upload -- 2.8; **a tunnel (`tun`, 2.23) is confirmed in the store** by a `server_admin`'s tick naming the app, besides `--confirm-tun` -- RFC-0060 stage 4). 0.2.61 (**promotion from a Git test instance** by its recorded commit -- 2.14.1). 0.2.60 (**a build that upgrades OS packages is built without the layer cache**, and "unchanged" compares the package lists -- 2.31.1, RFC-0071 §16; **a portal tick confirms a widening** by the fingerprint of exactly the reported lines -- 2.14, I-43). 0.2.59 (**a second kind of generated value, `vapid`**, and a build step may generate into an empty key -- 2.8, RFC-0079). 0.2.58 (**the envelope rule on every way in**: directory and
   Git installs too, the report reaches the portal, I-43, 2.14). 0.2.57 (**a second origin for the views of MCP Apps**,
   manifest 0.13 `ui_sandbox`, 2.32.4, RFC-0075). 0.2.56 (**a chat acts at its tenant's gateways as the person**,
   RFC-0074 stage 1: manifest 0.12 `mcp_client: {use: true}`, the list
@@ -2428,6 +2428,47 @@ link_state:
 - A node before 0.2.63 ignores the field (a newer manifest minor is read,
   RFC-0012 §8.2); the app works as before.
 
+### 2.34 An app names its assets and how they hang together (0.2.64, manifest 0.15, RFC-0087 §8.2)
+
+An app MAY declare **one** door where it names its assets:
+
+```yaml
+assets:
+  path: /oaap/assets
+```
+
+- `path` follows the rule of 2.33. Only `path` is known. The registry
+  record carries it as `assets`; the internal health endpoint gains
+  `/a/<name>` → that path, for instances that declare it and no other.
+- **The answer** is JSON:
+  `{"v": 1, "assets": [{"kind", "name", "state", "uses", "destination"}]}`.
+  - `kind`: `model` or `source`. The list grows by this specification,
+    never by an app; an asset of another kind is ignored.
+  - `name`: the app's own name for it (letters, digits, `.`, `_`, `-`,
+    at most 81 characters, starting with a letter or digit).
+  - `state` (optional): `ok`, `down` or `idle` (no recent attempt).
+  - `uses` (a `model` only): names of `source` assets of the same answer.
+  - `destination` (a `source` only): the name of a destination as the app
+    receives it (`OAAP_DESTINATION_<NAME>_URL`, oaap.net.destinations),
+    compared case-insensitively with `_` read as `-`. It counts only when
+    a destination of that name is bound to this instance.
+  - At most 200 assets are read. The node reads exactly these fields;
+    anything else -- addresses, upstream model ids, keys, persons -- is
+    ignored and never leaves the node.
+- **Who asks, and when.** The node, when it builds its fleet status
+  document (`oaap.fleet.status` 0.12, 2 s per instance, like 2.33). An
+  instance in standby or maintenance is not asked (`paused`); no answer
+  or a bad one counts as `unknown`. Neither replaces what the hub knew.
+- The app decides how it knows: ai-gateway 0.7.0 names its model names
+  and sources, checks a source behind a platform destination every 60 s
+  with its connection test, and judges a source at an outside provider
+  only by real requests of the last 15 minutes.
+- **One door, more readers.** The fleet is the first reader and takes
+  what `oaap.fleet.status` rule 5 allows. A later reader (the tenant's
+  own twin, capability idea I-53) may take more of the same answer --
+  fields added by a later version of this section, never by an app.
+- A node before 0.2.64 ignores the field (RFC-0012 §8.2).
+
 ## 3. Configuration
 
 - Level-1 port range (default 8100–8199, expert-configurable;
@@ -2748,6 +2789,19 @@ link_state:
 tests 1–11 on the reference platform. 0.2 target: tests 12–16 with the
 pilot CRM's test instance and its AI coding agent as the first real
 remote deployer.
+
+## Deutsche Zusammenfassung (2.34, v0.2.64 — eine App nennt ihre Assets, Manifest 0.15, RFC-0087 §8.2)
+
+Eine App kann eine Tür `assets: {path: /oaap/assets}` erklären. Dort
+nennt sie ihre Assets: Modellnamen und Bezugsquellen, je mit Zustand `ok`,
+`down` oder `idle`. Ein Modellname sagt, welche Quellen er nutzt; eine
+Quelle sagt, über welche Destination sie geht. Gezählt wird nur eine
+Destination, die an die Instanz gebunden ist. Der Knoten fragt bei jedem
+Statusdokument über den internen Endpunkt `/a/<name>` und liest nur diese
+Felder. Adressen, Modellkennungen beim Anbieter, Schlüssel und Personen
+verlassen den Knoten nie. Die Flotte ist der erste Leser; ein späterer
+Leser für den Zwilling des Mandanten (I-53) darf mehr Felder nehmen, die
+dann diese Spezifikation festlegt.
 
 ## Deutsche Zusammenfassung (2.33, v0.2.63 — eine Tunnel-App sagt, wie Tunnel und Ziele stehen, Manifest 0.14, RFC-0087 §8.1)
 

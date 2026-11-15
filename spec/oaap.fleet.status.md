@@ -1,7 +1,7 @@
 # oaap.fleet.status — Read-Only Fleet Status Document
 
 - **ID:** `oaap.fleet.status`
-- **Version:** 0.11 (a `through` row says what its tunnel app says of its tunnel and the target -- `through.state`, RFC-0087 §8.1, reference 0.1.288, 2026-11-15; 0.10: the node's half-edges `links` and its `tenants`, within what the node and
+- **Version:** 0.12 (an `app` row names an app's assets and how they hang together -- model names, sources, the destination a source goes through -- RFC-0087 §8.2, 2026-11-15); 0.11 (a `through` row says what its tunnel app says of its tunnel and the target -- `through.state`, RFC-0087 §8.1, reference 0.1.288, 2026-11-15; 0.10: the node's half-edges `links` and its `tenants`, within what the node and
   each tenant give away -- RFC-0087, reference 0.1.281, 2026-11-14; 0.9: what the node calls itself -- `alias`, `place`, `tags` beside `node`, `oaap.core.host` 2.6, RFC-0082, 2026-11-12; 0.8: the images in the `host` block — counts per state
   word and the oldest date, never an instance, a base or a package — and
   the attention kind `images_open`, `oaap.core.updates` 2.9, RFC-0071,
@@ -363,6 +363,22 @@ the halves (RFC-0087 §5). Rules:
    else the app writes stays on the node (rule 1). The target is matched
    by its real name; the row carries its outward name (rule 5). Without a
    door the row has no `state`, as in 0.10.
+7a. **What an app says of its assets (0.12, RFC-0087 §8.2).** For each
+   instance that declares an `assets` door (`oaap.apps.runtime` 2.34) the
+   node adds a `links` row
+   `{"kind": "app", "instance": "<registry key>", "tenant": "<outward>",
+   "state": "ok"|"paused"|"unknown", "assets": [...]}`. Only a row with
+   `state: ok` carries `assets`; `paused` (standby, maintenance -- not
+   asked) and `unknown` (no usable answer) carry none, and a consumer
+   keeps what it knew. An asset is `{"kind": "model"|"source", "name",
+   "state"?: "ok"|"down"|"idle", "uses"?: [source names], "destination"?:
+   "<destination name>"}`. Names follow rule 5 per tenant: at `names` the
+   app's names; at `pseudonym` and `count` an `a-` pseudonym (the HMAC
+   over `a-/<tenant>/<kind>/<name>`); a `destination` is named exactly as
+   that destination's own row is, so a consumer can join them, and is
+   left out when it is not bound to the instance. A tenant at `count` has
+   no `app` rows at all. The node reads the app's answer by whitelist;
+   addresses, upstream model ids, keys and persons never reach the row.
 8. `links` and `tenants` are **absent** when the node could not build them;
    a consumer reads absence as "this node says nothing about links" (as a
    0.9 node), never as "this node has none". A 0.9 consumer ignores both
@@ -386,6 +402,16 @@ are stage 2 (RFC-0021 outlook) and live on the management node, never
 on the watched node.
 
 ## Zusammenfassung auf Deutsch
+
+**0.12 (RFC-0087 §8.2):** Neue Zeilenart `app` in `links`: Eine App mit
+der Tür `assets` nennt ihre Modellnamen und Bezugsquellen, je mit Zustand
+(`ok`, `down`, `idle`), welche Quellen ein Modellname nutzt und über
+welche Destination eine Quelle geht. Die Namen folgen den Stufen je
+Mandant (Pseudonym `a-…`); die Destination heißt genauso wie in ihrer
+eigenen Zeile, damit die Zentrale beides verbinden kann. Schläft die App
+oder antwortet sie nicht, steht `paused` bzw. `unknown` ohne Liste da,
+und die Zentrale behält, was sie wusste. Auf Stufe `count` gibt es keine
+`app`-Zeile.
 
 **0.11 (RFC-0087 §8.1):** Eine `through`-Zeile sagt jetzt, was ihre
 Tunnel-App über ihren Tunnel und das Ziel meldet (`through.state`): `ok`,

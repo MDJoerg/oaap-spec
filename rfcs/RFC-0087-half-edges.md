@@ -16,8 +16,11 @@
   §8.1): a tunnel app says how its tunnel and its targets are; measured
   live on oaap-test at the node, the hub side against PostgreSQL; **the
   hub live 2026-11-15 on oaap-demo (0.1.288): fake gaming PC off → mail
-  "Verbindung getrennt", *Behoben* with the right duration**.** Stage 3b (the AI gateway's
-  relations) not built**
+  "Verbindung getrennt", *Behoben* with the right duration**.** **Stage 3b
+  built 2026-11-15 (reference 0.1.289, ai-gateway 0.7.0, §8.2): an app
+  names its assets and how they hang together — the AI gateway's model
+  names → sources → destinations; measured live on oaap-test at the node,
+  the hub side against PostgreSQL; the hub live waits for 0.1.289 there**
 - **Date:** 2026-11-14
 - **Authors:** Jörg (the need, I-51: "nodes share configuration, relations
   and events so that support can be automated in real time"; "the tunnel
@@ -493,6 +496,201 @@ says "nutzt oaap-test/fleetprobe-fxvpn/x-b5e2…" (the report's key)
 instead of the target's short name. The real `ais-ovc` on oaap-demo
 runs vpn-client 0.1.5 (no door).
 
+### 8.2 Stage 3b — an app names its assets and how they hang together (2026-11-15)
+
+3a told the hub how a link *is*. 3b tells it what hangs *on* a link
+inside an app: when the VPN to the gaming PC is off, the matter of 3a
+names the destination and the gateway instance — not that the model
+names `chat-gaming` and `code` stopped answering, which is what the
+people who use them notice.
+
+Facts (read 2026-11-15, ai-gateway 0.6.1, reference 0.1.288):
+
+1. A model name (alias) lists its targets as `source:model`; a source has
+   an address and a traffic light. A source reached through the platform
+   has the address `OAAP_DESTINATION_<NAME>_URL` (manifest `any: true`,
+   one destination per name), and the gateway already knows which one
+   (`destination_of`, the "via" column of its page).
+2. The gateway keeps no state of a source over time: the connection test
+   is a button, a failed attempt before a failover is written to stdout
+   only, the usage row records the request's final outcome.
+3. At the hub the gateway instance is `bindsTo` its destinations, so
+   `affected()` from an external end reaches the instance — and stops
+   there.
+
+**The door** (manifest 0.15, `oaap.apps.runtime` 2.34):
+
+```yaml
+assets:
+  path: /oaap/assets
+```
+
+- The rule of `link_state` (2.33): a local path under one of the app's
+  routes; recorded as `assets`; the internal endpoint gains
+  `gateway:8099/a/<name>` for instances that declare it and no other.
+- **The answer:**
+
+  ```json
+  {"v": 1, "assets": [
+    {"kind": "source", "name": "gaming", "state": "down", "destination": "gaming"},
+    {"kind": "source", "name": "anthropic", "state": "idle"},
+    {"kind": "model", "name": "chat-gaming", "state": "down", "uses": ["gaming"]}
+  ]}
+  ```
+
+  Whitelist (rule 1): `kind` is `model` or `source` — the list grows by
+  this spec, not by an app; `name` follows the name rule of the status
+  document; `state` is `ok`, `down` or `idle` (no recent attempt), any
+  other word is dropped; a model's `uses` names sources **of the same
+  answer**; a source's `destination` is the name the app knows it by (the
+  `<NAME>` of its variable, compared case-insensitively, `_` = `-`) and
+  counts only when it is a destination **bound to this instance**; at
+  most 200 assets. Everything else stays on the node: no address, no
+  upstream model id, no light, no key, no person — keys and cohorts name
+  people (the cohort's responsible person is a real name) and are no
+  fleet matter.
+- **The node asks**, at each status document, 2 s, as for `link_state`.
+  Standby or maintenance: not asked, the row says `paused`; no usable
+  answer: `unknown`. Neither carries a list, and the hub keeps what it
+  knew — a sleeping gateway still has its model names.
+
+**In the status document** (`oaap.fleet.status` 0.12) a `links` row of
+the new kind `app`:
+
+```json
+{"kind": "app", "instance": "ais-mg", "tenant": "m-3be07c1d9a", "state": "ok",
+ "assets": [{"kind": "source", "name": "a-…", "state": "down", "destination": "d-…"},
+            {"kind": "model", "name": "a-…", "state": "down", "uses": ["a-…"]}]}
+```
+
+The levels of §4 hold per tenant: at `count` no row; at `pseudonym` each
+asset name is a pseudonym `a-` (the HMAC of §4 over
+`a-/<tenant>/<kind>/<name>`) and a destination is named by **the same
+pseudonym its own row carries**, so the hub can join them; at `names`
+the names.
+
+**At the hub:**
+
+- a fifth object type `FleetAsset` with the group `oaap.asset`
+  (`assetName`, `assetKind`, `assetState`), source key
+  `asset:<node>/<instance>/<kind>/<name>`;
+- relations `assetOf` (asset → instance, "gehört zu"), `assetUses`
+  (model → source, "nutzt"), `assetVia` (source → destination, "geht
+  über");
+- `affected()` follows `assetVia` and `assetUses` backwards: the VPN off →
+  the external end → the destination → the gateway instance **and** its
+  source → the model names using it. The matter of 3a then names them;
+  an asset's tenant is its instance's;
+- a row with a list syncs: what is missing from it is `removed`, its
+  relations closed (history stays); `paused` and `unknown` touch nothing;
+  when the row disappears (the app lost its door, the instance is gone)
+  its assets are `removed`;
+- **no new matter type.** A source `down` is shown at the hub, not mailed.
+  A provider's outage, an expiring key, a model withdrawn by its provider
+  are matters of the tenant who holds the contract — see below.
+
+**The app** (ai-gateway 0.7.0):
+
+- it remembers per source the result of every attempt — each relay
+  attempt including the ones before a failover, and the connection test:
+  *reached* (any HTTP answer below 500) or *not* (no answer, 5xx);
+- every 60 s it checks the sources that go **through a platform
+  destination** with `GET …/models` (the connection test: computes
+  nothing, costs nothing); a source at an outside provider is **not**
+  called for the fleet's sake — its state comes from real requests of the
+  last 15 minutes, else `idle`;
+- a model name is `ok` when one of its sources is, `down` when all of its
+  sources are, else `idle`; a source no model name uses is named too
+  (nothing hangs on it).
+
+Measured by: the stand-in far end of 3a behind a gateway source on
+oaap-test — the gaming PC off → the hub's matter names the model name(s)
+behind the external end and the source turns `down`; a model name
+deleted → its asset `removed`; the tenant at `count` → no `app` row;
+standby → `paused`, the assets stay.
+
+**Built (reference 0.1.289, ai-gateway 0.7.0).** `appctl`: one rule for
+both declared doors (`_door_path_error`), `assets_door_error`/`assets_door`,
+manifest minor 15, the registry record `assets`, `/a/<name>` in the
+internal endpoint. Portal: `_asset_reports` (2 s; standby/maintenance →
+`paused`; no answer → `unknown`), `fleet_links.read_assets_answer`/`app_row`,
+status document 0.12. Hub: `fleet_model` 0.3.0 (object type `FleetAsset`,
+group `oaap.asset`, relations `assetOf`/`assetUses`/`assetVia`),
+`fleet_twin.app_assets`, `fleet_sink._write_assets` (the destination joined
+by its outward name within the instance's tenant), `fleet_affected`
+(follows `assetVia`/`assetUses`; `assetOf` gives an asset its instance and
+tenant but is no dependency — an instance does not drag all its assets
+into a report), `fleet_watch` (rows "Bezugsquelle …", "Modellname … in
+<instance>"; the 3a flaw fixed: a row under an external end says "nutzt
+gamingpc", not the report's key). Gateway: `assets.py` (pure: `Seen`, the
+model rule, the answer), every relay attempt and connection test noted,
+the minute check for sources behind a destination, `/oaap/assets`.
+
+**Measured.**
+
+- Locally: `test_assets_door` 23/23 (new), `test_fleet_links` 78/78 (+17:
+  the whitelist, names/pseudonym/count, the destination joined by the
+  pseudonym of its own row, a direct or unbound destination not named,
+  `paused`/`unknown` without a list), `test_fleet_affected` 59/59 (+10:
+  source and model names behind the external end, the model name that
+  only uses an outside provider not affected, the mail's rows),
+  `test_link_state_door` 21/21; ai-gateway `test_assets` 27/27 (new: the
+  door, a source down by the attempt *before* a failover, the minute
+  check touches only the destination source, the outside provider never
+  called, the node's reader takes the same answer), `test_gateway`
+  237/237. In the portal's image on oaap-test: `test_link_reports_portal`
+  16/16 (+6). Against PostgreSQL 16 on oaap-test: `test_fleet_twin`
+  101/101 (+18: four asset objects, their relations, the report naming
+  `gaming` and `chat-gaming` behind the external end but not `chat-fern`,
+  the same document twice writes no row, `paused` keeps the assets, a
+  model name dropped → `removed` with its relations closed, the row gone →
+  all `removed`).
+- **Live on oaap-test (0.1.289 staged)**: ai-gateway 0.7.0 as
+  `fleetprobe-fxgw`, bound to the destination `gamingpc` (through the
+  vpn-client of 3a to the stand-in gaming PC), sources `gaming` (through
+  the destination) and `fern` (`api.anthropic.com`, no key), model names
+  `chat-gaming` and `chat-fern`. Read at the real `/fleet/status`
+  (throwaway fleet key, revoked afterwards): schema 0.12, one `app` row,
+  all names `a-…` pseudonyms, the source's `destination` equal to the
+  destination row's `d-9459516a17`. The minute check → source `ok`;
+  gaming PC off → source and model name `down` after 21 s (the through
+  row `down-target` at the same time), `fern` and `chat-fern` stay
+  `idle`; on → `ok` after 63 s; standby → `paused` without a list at
+  once; woken → the list again (states `idle` after the restart, as
+  designed); tenant at `count` → no `app` row, back at the default → one.
+  The hub (oaap-demo, still 0.1.288) took the 0.12 documents without a
+  sink error and opened nothing (`link.down` routed to the test list
+  meanwhile, restored).
+- **Found on the way (fixed in 0.1.289):** `oaap app config set` took a
+  value with a newline for a multiline key as it was. `instance.env` is
+  line-based, so the second line became keys of their own (`fern`,
+  `chat-fern ` with a space), `docker run --env-file` refused the file and
+  the instance had no container any more — against `oaap.apps.runtime`
+  2.8 ("on the wire a config value stays one line"), which the portal and
+  cohorts already kept. Now `apply_config` stores a multiline value
+  `;`-joined and refuses a newline in a single-line key
+  (`config_env_value`, shared with cohorts), and `load_env`/`save_env`
+  neither read nor write a line whose name `--env-file` would refuse, so
+  the next save heals a damaged file (`test_config_multiline` 10/10).
+
+**Not yet measured:** the hub live — oaap-demo on 0.1.289 (Jörg's word),
+then `oaap fleet hub twin oaap-ops` once (the new type), the test list
+routed; the gaming PC off must name `chat-gaming` in the matter.
+
+**The same door, a second reader (Jörg, 2026-11-15; I-53).** Jörg wants
+the twins and their graph opened to tenant admins as well: the AI and MCP
+gateways run quietly and carry much hidden dependency, and a tenant admin
+would be served by the same kind of early warning — expiring API keys,
+a provider's outage, the lifecycle of the models in use, who and which
+agents use what. This RFC does not build that view. It cuts the door so
+the view can use it: the answer is the app's own account of its assets,
+read **by whitelist and per reader**. The fleet reader takes what §4
+allows and no more; a later reader for the tenant's own twin
+(`oaap.data.twin`, a schema per tenant, already built) may take the same
+answer with fields the fleet never sees — added to the answer by a
+later version, never by an app on its own. Its own RFC decides what
+those fields are and who sees them.
+
 ## 9. Decisions (asked of Jörg, answered 2026-11-14: as recommended)
 
 - **D1 — the join key.** Derived from the key hash on both sides (§3,
@@ -704,6 +902,58 @@ Noch offen:
 - Schönheitsfehler im Text: „nutzt oaap-test/fleetprobe-fxvpn/x-…“
   statt nur des Zielnamens.
 - Stufe 3b: das KI-Gateway meldet Modell → Bezugsquelle → Destination.
+
+**Stufe 3b gebaut (15.11., Referenz 0.1.289, ai-gateway 0.7.0, §8.2):**
+Eine App nennt ihre Assets und wie sie zusammenhängen.
+
+- Eine neue Tür im Manifest (0.15): `assets: {path: /oaap/assets}`. Die
+  Antwort enthält Modellnamen und Bezugsquellen, je mit Zustand `ok`,
+  `down` oder `idle` (zuletzt nicht benutzt). Ein Modellname sagt, welche
+  Quellen er nutzt. Eine Quelle sagt, über welche Destination sie geht.
+  Gezählt wird nur eine Destination, die an diese Instanz gebunden ist.
+- Nicht im Statusdokument: keine Adressen, keine Modellkennungen beim
+  Anbieter, keine Schlüssel, keine Personen.
+- Statusdokument 0.12: eine neue Zeilenart `app`, mit den Stufen aus §4
+  (Pseudonym `a-…` statt Name).
+- In der Zentrale: ein neuer Objekttyp „Asset“ mit den Beziehungen
+  „gehört zu“, „nutzt“ und „geht über“. Die Betroffenheit folgt ihnen.
+  Bei „VPN aus“ nennt die Meldung dann auch die Modellnamen.
+  Eine neue Meldungsart gibt es nicht.
+- Das KI-Gateway 0.7.0 merkt sich je Quelle das Ergebnis jedes Versuchs.
+  Quellen hinter einer Destination der Plattform prüft es jede Minute mit
+  dem Verbindungstest. Externe Anbieter fragt es dafür nicht zusätzlich
+  an; ihr Zustand kommt aus echten Anfragen der letzten 15 Minuten.
+- **Jörgs Gedanke (I-53):** Dieselbe Tür soll später auch den Zwilling
+  des Mandanten füllen, für Mandanten-Admins mit Warnungen (Schlüssel
+  laufen ab, Anbieter gestört, Modell wird abgekündigt). Dieser RFC baut
+  das nicht. Er schneidet die Tür aber so, dass ein zweiter Leser mehr
+  Felder nehmen darf als die Flotte.
+
+Gemessen:
+
+- Tests: Tür 23/23, Knoten 78/78, Betroffenheit 59/59, Gateway 27/27 neu
+  und 237/237 alt, Portal im eigenen Abbild 16/16, Zentrale gegen eine
+  echte PostgreSQL 101/101.
+- **Live auf oaap-test** mit dem Gateway hinter der Ersatz-Gegenstelle
+  aus 3a, gelesen am echten Statusdokument:
+  - eine `app`-Zeile, alle Namen als Pseudonym, die Quelle zeigt auf
+    dieselbe Destination wie deren eigene Zeile;
+  - Gaming-PC aus: Quelle und Modellname nach 21 s `down`, die Quelle
+    beim fremden Anbieter bleibt `idle`;
+  - PC an: nach 63 s wieder `ok`;
+  - Standby: `paused` ohne Liste;
+  - Mandant auf `count`: keine `app`-Zeile.
+- Die Zentrale (noch 0.1.288) nahm die neuen Dokumente ohne Fehler an.
+
+**Nebenbefund, behoben in 0.1.289:** `oaap app config set` schrieb einen
+mehrzeiligen Wert mit Zeilenumbruch in `instance.env`. Die zweite Zeile
+wurde dabei zu eigenen Schlüsseln, und danach startete der Container nicht
+mehr. Jetzt werden mehrzeilige Werte mit `;` verbunden, wie es die
+Spezifikation verlangt und das Portal schon tat. Eine beschädigte Datei
+heilt beim nächsten Speichern.
+
+Noch offen: die Zentrale live (oaap-demo auf 0.1.289 auf Jörgs Wort,
+danach einmal `oaap fleet hub twin oaap-ops` für den neuen Typ).
 
 **Stufe 1 gebaut (0.1.281):**
 - Der Knoten meldet seine Hälften im Statusdokument 0.10.
