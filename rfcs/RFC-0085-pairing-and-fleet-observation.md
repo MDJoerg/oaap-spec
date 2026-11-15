@@ -8,7 +8,9 @@
   on oaap-test, not pushed; **amendment A2 (2026-11-14, Jörg: as
   recommended, domain objid.info): the twin per node cut along AAS
   submodels, with semantic IDs -- stage 4 data part and RFC-0086 stage 2
-  built in reference 0.1.279 (§16)**
+  built in reference 0.1.279 (§16)**; **amendment A3 (2026-11-15, Jörg:
+  "Ja, bauen"): stage 3, pairing by file from the portal -- built in
+  reference 0.1.290 and measured on oaap-test (§17), not yet rolled out**
 - **Date:** 2026-11-12
 - **Authors:** Jörg (the need: "monitor my nodes and get fleet management
   going; collect health data through a broker on oaapx01 and route it to
@@ -1027,6 +1029,137 @@ the registry), then the command succeeded (76 types); fixed in 0.1.280
 all five real nodes with all seven groups, 59 instances, 3 brokers, 72
 series. The week of five real nodes runs from here.
 
+## 17. Amendment A3 — pairing by file, built (stage 3, 2026-11-15)
+
+Jörg, in chat: *"Ein einfacher Kopplungsprozess aus dem Portal heraus wäre
+schön. Sowas wie Download Kopplung und Upload in FleetView mit Wizard?"* —
+then *"Ja, bauen."* §4 stands; A3 settles what §4 left open and changes
+three things, each for a reason found while building.
+
+### 17.1 The pairing file
+
+A code of §4 is **a file and a text at once**: `OAAP-PAIR1.` followed by
+base64url of a JSON object, saved as `<name>.oaap-pair`, or pasted (line
+breaks a mail client adds are ignored). The portal offers it as a download
+and as text; no QR code in this stage (it would need a library). Two kinds:
+
+| File | Made at | Taken at | Carries |
+|---|---|---|---|
+| `node-code` | hub (*Flotte → Zentrale: Knoten koppeln*) | node (*Flotte → Kopplungsdatei einspielen*) | hub, entry, the entry's HTTPS name and broker, the certificate pin, the node's name, `replace`, a nonce, expiry (15 min), HMAC-SHA256 with the pairing secret the entry shares with the hub; for a direct pairing in the hub's LAN also `address` (HTTPS) and `broker_address` |
+| `entry-offer` | entry (*Flotte → Angebot für eine Zentrale*) | hub (*Flotte → Eingang hinzufügen*) | entry, HTTPS name, broker, pin, a one-time token, expiry (15 min) |
+
+**Rule: a file goes to the party that makes the call.** The node calls the
+entry, so the node code goes hub → node, as §4.1 said. The *entry* pairing
+is turned round against §4.3 (there the hub showed an entry code): the hub
+sits in a home network that no one can call, so it is the hub that calls
+the entry, and the offer goes entry → hub. The entry still decides — it
+makes the offer.
+
+**Pinning.** Every call checks the SHA-256 of the HTTPS certificate named
+in the file, not a CA chain: the file was handed over by a person and is
+the trust anchor; a self-signed gateway works like a public one. The pin
+is what the *caller* sees — through the public name, and for a LAN
+pairing through the edge in front of the node if there is one (measured:
+oaap-test behind oaap-demo speaks no TLS for its public name itself). A
+certificate renewed between making and using a file (≤ 15 min) refuses;
+make a new file.
+
+### 17.2 The doors
+
+`POST /fleet/pair/{claim,entry,revoke,unpair}` on the portal of the entry
+(or of the hub, for a direct pairing), under `/fleet/*` where the gateway
+strips identity headers. The portal judges nothing that matters: it takes
+the call, hands it to the host through the spool (action
+`fleet-pair-public`, among the actions that name no person because each
+carries its own proof) and waits up to 25 s; a busy worker (a build) gives
+503 and the request is withdrawn, so nothing half-happens. Same brake as
+the deploy hook (five failures in five minutes, then one a minute).
+
+| Door | Proof | Effect |
+|---|---|---|
+| `claim` | the node code (HMAC, expiry, nonce unused, name matches) | a node key (365 days, label `pair:<hub>`), CA if the broker uses the node's own |
+| `entry` | the offer's token (digest kept, once) | an operator key (read `oaap-node/#`, write `oaap-fleet/control/<entry>/#`) and a new pairing secret |
+| `revoke` | HMAC with the pairing secret over hub, node, time, nonce; ≤ 5 min old; once | revokes the node keys **this hub's pairings** issued; a hand-made key stays |
+| `unpair` | the node's own key | revokes that key |
+
+**Change to §4.5:** the hub revokes over HTTPS (`revoke`), not by a command
+on `oaap-fleet/control/<entry>/revoke/<n>`. The hub reaches the entry by
+HTTPS anyway (it made the entry pairing that way), and the entry then needs
+no listener on the control branch; the branch stays reserved.
+
+A code is spent by its first try, also a refused one (a name conflict
+without `replace`): one code, one try.
+
+### 17.3 What the hub writes
+
+Taking an offer, the hub writes `data/broker-conf.d/bridge-<entry>.conf`
+exactly as stage 1 wrote it by hand (§5.3; a CA file beside it when the
+entry's broker uses its own CA), keeps a hand-made file of the same name
+in `data/fleet-pair/` (not in `conf.d`, where Mosquitto would read it
+twice) and restarts its broker — a bridge is not reloaded by SIGHUP. The
+pairing secrets live in `data/fleet-pair/pair.json` (0600, mounted in no
+container); the portal reads `apps/fleet-pair-view.json`, which holds no
+secret, token or MAC.
+
+### 17.4 Classes and removal
+
+- **`alive` is not optional** (§4.1 showed it as a checkbox): without it
+  the hub cannot tell a silent node from a removed one. `metrics`,
+  `status`, `events` are chosen at pairing and changed later; the sender
+  honours them (what is not offered is taken off the queue unsent), and
+  `alive` carries `classes`, which the hub keeps and shows ("bietet: …").
+  A sender configured by hand, without `classes`, sends everything as
+  before.
+- **A node removed at the hub is `removed`**, never `silent`, in the
+  mails, in `oaap fleet hub show` and in the twin's liveness — until an
+  `alive` newer than the removal arrives (a new code clears the mark).
+
+### 17.5 Commands
+
+`oaap fleet pair show | code <node> [--via <entry>] [--lan] [--replace]
+[--out <file>] | offer | entry <file> | apply <file> [--classes …] |
+classes --classes … | unpair | remove <node>` — the same functions as the
+portal (`fleet_pair_*` in appctl, rules in `services/fleet_pair.py`).
+
+### 17.6 Measured (oaap-test, reference 0.1.290, 2026-11-15)
+
+oaap-test was hub and entry for the test (profiles `exposed` and
+`fleet-hub` added, both removed afterwards); its fleet matters and
+oaap-demo's `node.silent` were routed to the test list first (the lesson
+of §16).
+
+1. **Direct pairing in the LAN, by command:** code → apply → the call went
+   through the edge oaap-demo, pinned; the entry issued a node key and
+   returned its own CA; the sender connected with TLS to 10.10.10.96. The
+   hub's fleet service received `alive` seq 1 within a minute, later with
+   `classes: [alive, metrics, status]`.
+2. **Refused:** the same code again (*schon benutzt*), a code with the
+   node name changed (*ungültig*), junk at the door (HTTP 400), the
+   offer used twice (HTTP 403), a code applied 16 minutes after it was
+   made (*abgelaufen*).
+3. **Removed at the hub:** the key revoked at once; the node's next run
+   *the broker refused the login (0x87)*; the hub showed `removed`, no
+   matter opened.
+4. **The entry way through the real door:** an offer from oaap-test,
+   taken by a stand-in hub `probehub` (operator key with exactly the two
+   grants, pairing secret, CA), a node code signed with that secret
+   accepted, the signed revoke revoked one key, the same revoke again and
+   one without a valid MAC refused.
+5. **Unpair from the node:** first measurement failed — identity's
+   `_by_key` needs a request (its brake reads the client address) and the
+   host's check crashed (*Schlüsselverwaltung antwortet nicht*); the check
+   now compares the hash itself (the door brakes). Measured again: the
+   entry revoked the node's key.
+6. **The portal (click test inside the container, gateway headers):** the
+   page, the wizard, the file once with download, the confirmation page,
+   junk refused, a foreign origin and a tenant_admin refused, the offer.
+
+**Not measured:** the bridge written by the hub against a real second
+broker — covered by the end-to-end test (`test_fleet_pair.py` D1), and the
+first real case is the rollout: oaapx01 offers, oaap-demo takes it (its
+hand-made `bridge-oaapx01.conf` is replaced; the old operator key
+`547ad644` is then revoked by hand on oaapx01).
+
 ## Decision record (2026-11-12)
 
 Jörg, in chat: "wie empfohlen, rollout später". All eleven decisions of
@@ -1230,3 +1363,34 @@ Knoten, der schweigt. Befunde: Rolle einer fremden Zentrale (behoben);
 beim Hinzufügen bauen); die Test-Zentrale hat vier Fehlalarme an den
 echten Verteiler geschickt, weil diesmal kein Testverteiler eingerichtet
 war. Die Woche mit fünf echten Knoten steht noch aus.
+
+**Nachtrag A3 (15.11.2026, Jörg: „Ja, bauen“) — Kopplung per Datei aus dem
+Portal (§17).** Gebaut in Referenz 0.1.290, auf oaap-test gemessen, nicht
+ausgerollt.
+- **Ablauf:** Die Kopplungsdatei (`.oaap-pair`, zugleich Text zum
+  Einfügen) geht an den, der anruft. Die Zentrale erzeugt unter *Flotte →
+  Zentrale: Knoten koppeln* eine Datei; am Knoten wird sie unter *Flotte →
+  Kopplungsdatei einspielen* hochgeladen. Eine Prüfseite zeigt Zentrale,
+  Weg und Namen sowie Häkchen für das, was den Knoten verlässt. Mit
+  „Koppeln“ holt sich der Knoten seinen Schlüssel selbst beim Eingang. Den
+  Eingang selbst koppelt man einmal andersherum: Der Eingang erzeugt ein
+  Angebot, die Zentrale lädt es hoch, ruft den Eingang an, holt ihren
+  Brückenschlüssel und schreibt ihre Brücke.
+- **Sicherheit:** Jede Datei gilt 15 Minuten und genau einmal. Ein Anruf
+  prüft den Fingerabdruck des Zertifikats aus der Datei.
+- **Abweichungen von §4:** Das Entfernen an der Zentrale geht per HTTPS
+  mit Unterschrift statt über einen Steuer-Topic. Das Lebenszeichen ist
+  Pflicht. Ein entfernter Knoten heißt „entfernt“ und löst keine
+  Verstummt-Mail aus.
+- **Gemessen:** direkt und über einen Eingang. Abgelehnt wurden ein
+  doppelt benutzter, ein gefälschter und ein abgelaufener Code, ein
+  doppeltes Angebot und ein Widerruf ohne Unterschrift. Ein entfernter
+  Knoten wird vom Broker abgewiesen; ein Knoten, der sich selbst
+  entkoppelt, verliert seinen Schlüssel. Der Klicktest der Seite lief
+  durch.
+- **Zwei Fehler durch die Messung gefunden und behoben:** Hinter einem
+  Edge muss der Anruf über den Edge gehen. Die Schlüsselprüfung beim
+  Selbst-Entkoppeln stürzte außerhalb einer Anfrage ab.
+- **Ausrollen:** Erster echter Fall wäre oaapx01 als Eingang für oaap-demo
+  (dabei wird die von Hand geschriebene Brücke ersetzt), danach oaapx02 per
+  Datei.
