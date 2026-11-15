@@ -1,6 +1,6 @@
 # RFC-0088: The Tenant's Own Asset Universe — Apps Fill the Tenant's Twin, the Tenant Admin Is Warned
 
-- **Status:** Proposed (2026-11-15) — decisions D1–D5 open for Jörg
+- **Status:** **Accepted (2026-11-15, D1–D5 as recommended)** — nothing built yet
 - **Date:** 2026-11-15
 - **Authors:** Jörg (the need, capability idea I-53: "open our graph model
   and the twins to tenant admins too — AI gateway, MCP gateway: complex
@@ -190,6 +190,20 @@ tenant that is also its own operator — gets both cuts and, through
 - **D5 — thresholds.** 14/7/1 days, 10/5 minutes, 90 % — *recommended*,
   per tenant adjustable later.
 
+## Decision record (2026-11-15)
+
+Jörg, in the decision dialog, all five as recommended:
+
+- **D1** the node writes the tenant's twin, from the `assets` door it
+  already asks; the whitelist per reader lives in one place;
+- **D2** on for tenants with a door-app, switchable by the tenant_admin;
+- **D3** person objects by identity UUID, visible to the tenant_admin only,
+  deleted with the user;
+- **D4** lifecycle as `asset.vanished` only; a provider deprecation
+  catalogue later, as its own piece;
+- **D5** thresholds 14/7/1 days, 10/5 minutes, 90 %; per tenant adjustable
+  later.
+
 ## Deutsche Zusammenfassung
 
 Jörgs Gedanke (I-53): Graph und Zwilling auch für Mandanten-Admins, mit
@@ -247,3 +261,8 @@ Flotte mit Pseudonymen.
 - D3: Personen nur für den tenant_admin.
 - D4: Lebenszyklus erst als „verschwunden“.
 - D5: Schwellen wie oben.
+
+**Entschieden (15.11.2026):** Jörg hat D1–D5 alle wie empfohlen
+angenommen. Der Knoten schreibt; standardmäßig an, abschaltbar; Personen
+nur für den tenant_admin; Lebenszyklus vorerst als „verschwunden“;
+Schwellen 14/7/1 Tage, 10/5 Minuten, 90 %. Gebaut ist noch nichts.
