@@ -19,8 +19,10 @@
   "Verbindung getrennt", *Behoben* with the right duration**.** **Stage 3b
   built 2026-11-15 (reference 0.1.289, ai-gateway 0.7.0, §8.2): an app
   names its assets and how they hang together — the AI gateway's model
-  names → sources → destinations; measured live on oaap-test at the node,
-  the hub side against PostgreSQL; the hub live waits for 0.1.289 there**
+  names → sources → destinations; measured live on oaap-test at the node
+  and **at the hub 2026-11-15 (fleet on 0.1.289): the matter names the
+  source and the model name behind the external end**; the tenant's own
+  view follows in RFC-0088**
 - **Date:** 2026-11-14
 - **Authors:** Jörg (the need, I-51: "nodes share configuration, relations
   and events so that support can be automated in real time"; "the tunnel
@@ -673,9 +675,21 @@ the minute check for sources behind a destination, `/oaap/assets`.
   neither read nor write a line whose name `--env-file` would refuse, so
   the next save heals a damaged file (`test_config_multiline` 10/10).
 
-**Not yet measured:** the hub live — oaap-demo on 0.1.289 (Jörg's word),
-then `oaap fleet hub twin oaap-ops` once (the new type), the test list
-routed; the gaming PC off must name `chat-gaming` in the matter.
+**Live at the hub, 2026-11-15** (pushed, all five nodes on 0.1.289 from
+Git incl. oaapx01, `oaap fleet hub twin oaap-ops` once: 8 new types;
+`link.down` routed to a test list): the hub's twin held the four assets
+of `fleetprobe-fxgw` and — after the real `ais-mg` on oaap-demo was
+redeployed as ai-gateway 0.7.0 and `ais-ovc` as vpn-client 0.2.0 — the
+four of `ais-mg` (`secure-tools` → source → destination `gamingpc`,
+`free-tools` → `openrouter`), each with its relations. Fake gaming PC off
+at 13:42:35; the node's next status fetch (every 300 s, by design) brought
+`down-target` at 13:47:20; the matter at 13:53:20, *Verbindung getrennt:
+oaap-test/fleetprobe-fxvpn/x-b5e2…*, listing "Destination d-9459… (nutzt
+x-b5e2…)", "Bezugsquelle a-5a03… in fleetprobe-fxgw (geht über d-9459…)",
+"Instanz fleetprobe-fxgw (bindet d-9459…)", "Modellname a-5ba6… in
+fleetprobe-fxgw (nutzt a-5a03…)" — pseudonyms, as the tenant's level says;
+the 3a flaw is gone. On at 13:54:16, *Behoben* 13:59:23, "Dauer: 12
+Minuten". Routing restored.
 
 **The same door, a second reader (Jörg, 2026-11-15; I-53).** Jörg wants
 the twins and their graph opened to tenant admins as well: the AI and MCP
@@ -952,8 +966,13 @@ mehr. Jetzt werden mehrzeilige Werte mit `;` verbunden, wie es die
 Spezifikation verlangt und das Portal schon tat. Eine beschädigte Datei
 heilt beim nächsten Speichern.
 
-Noch offen: die Zentrale live (oaap-demo auf 0.1.289 auf Jörgs Wort,
-danach einmal `oaap fleet hub twin oaap-ops` für den neuen Typ).
+**Die Zentrale live** (15.11., ganze Flotte auf 0.1.289, Testverteiler):
+Schein-PC aus um 13:42; die Mail um 13:53 nennt hinter dem externen Ende
+die Destination, die Bezugsquelle, die Instanz und den Modellnamen (als
+Pseudonyme, wie die Stufe des Mandanten es will). Behoben um 13:59 mit
+„Dauer: 12 Minuten“. Das echte `ais-mg` (ai-gateway 0.7.0) und `ais-ovc`
+(vpn-client 0.2.0) auf oaap-demo melden ihre Türen ebenfalls. Die Sicht
+des Mandanten folgt in RFC-0088.
 
 **Stufe 1 gebaut (0.1.281):**
 - Der Knoten meldet seine Hälften im Statusdokument 0.10.
