@@ -4,7 +4,9 @@
   of 2026-10-01 (§6). **Stages 1 and 2 are built** (reference 0.1.192, app
   `package-catalog` 0.1.0); stage 3 (recipient nodes) is not — replaced by
   RFC-0077 (marketplace + mirror mode). One change to §4,
-  made while building and recorded in §7.
+  made while building and recorded in §7. **§9 (2026-11-16): the tested
+  package into the catalog and `visible_to` are built** (reference 0.1.295,
+  catalog 0.4.0).
 - **Date:** 2026-10-01
 - **Authors:** Jörg (the need and the three decisions), Claude (facts read in
   the reference code, design)
@@ -229,6 +231,55 @@ integrity in transit, not the publisher — the operator is the publisher);
 tenant-uploaded packages; automatic installation without a human or a policy
 (RFC-0049 owns the policy).
 
+## 9. The tested package into the catalog, and `visible_to` (2026-11-16)
+
+**The need (Jörg, 2026-11-16).** BDT-App and BDT-Hub are rebuilt in the tenant
+`bdt` on `oaapx01`, each with a test and a production instance, and tested
+versions are to reach other tenants of the same node (`pxx`, `bec`) quickly.
+The pieces existed — deploy hook into the test instance (RFC-0019), promotion
+(RFC-0020), the catalog as store source (stage 2) — but between promotion and
+catalog sat "download the ZIP, upload it into the catalog": the very detour
+promotion was built to remove. §5 had foreseen it ("feeding the catalog from a
+promotion … as an unreleased entry"), and §6 answer 1 had left room for
+`visible_to`. Both are built now (reference 0.1.295, catalog 0.4.0,
+`oaap.apps.runtime` 0.2.66).
+
+**The tested package into the catalog.** A `server_admin` hands the retained
+package of an instance to a catalog of the node (portal: instance → Deployment
+→ "In den Katalog übernehmen"; CLI `oaap app catalog-put`). Decided in design:
+
+- **Not released.** Releasing stays a person's act in the catalog; "handed
+  over" never means "supplied".
+- **The catalog stays the only writer of its state.** The host does not touch
+  `state.json`; it drops the ZIP and a note into `inbox/`, and the catalog
+  takes it in under its upload rules and answers. Two writers of one state
+  would be the drift this repository keeps paying for.
+- **Any instance that runs from a retained package**, test or production — the
+  bytes are the same after a promotion; the origin (tenant, instance, channel)
+  is recorded with the version.
+- **Directory handles without following links**, because `inbox/` is written by
+  the app and the host writes as root.
+
+**`visible_to`.** An entry names the tenants that see it, by label; absent =
+everybody. The portal filters the store page for a tenant_admin; the host
+refuses to resolve an entry into a tenant it does not name — on every way in
+(store install and update, create from the store, profiles, cohorts), the
+operator included. A damaged filter makes the entry unusable rather than
+public. Set per app in the catalog ("Sichtbar für"), not per version: the
+need is "which customers get this product", and a per-version filter would be
+a second question nobody has asked yet.
+
+**The way for BDT, end to end:** deploy hook → `bdt-app-test` → promote →
+`bdt-app` (same bytes) → "In den Katalog übernehmen" → release in the catalog,
+"Sichtbar für: pxx, bec" → `pxx`/`bec` update in their store (through their
+own test instance where one exists, §7).
+
+**Known limits.** Labels are names: a renamed tenant must be renamed in the
+catalog's filter too (the grace period of a tenant rename does not reach it).
+The store's "update available" marker in the instance list compares against
+one catalogue for all callers, so it may name a version a tenant cannot
+resolve; the update itself is then refused with the filter named.
+
 ## Zusammenfassung (deutsch)
 
 **Stand 04.10.2026:** Stufe 1 (Katalog-App) und Stufe 2 (Katalog als
@@ -275,3 +326,16 @@ Produktiv-Instanz mit Test-Instanz im selben Mandanten wird nicht direkt
 aktualisiert, sondern über die Test-Instanz und „Nach Produktiv übernehmen".
 Ohne Test-Instanz geht es direkt. Eine weitere Instanz bekommt einen eigenen
 Namen; ein vergebener Name wird abgelehnt.
+
+**Nachtrag 16.11.2026 (§9) — getestetes Paket in den Katalog, `visible_to`.**
+Anlass: BDT-App und BDT-Hub werden im Mandanten bdt auf oaapx01 neu aufgebaut
+(je Test und Produktiv) und sollen schnell zu pxx und bec. Zwischen
+„Übernehmen nach Produktiv" und Katalog stand bisher Herunter- und Hochladen.
+Jetzt: Instanz → Deployment → **„In den Katalog übernehmen"** (oder
+`oaap app catalog-put`) — der Knoten legt das aufbewahrte, getestete Paket in
+den Eingang des Katalogs, der Katalog nimmt es mit seinen Upload-Regeln auf,
+**nicht freigegeben**, mit Herkunft. Freigeben bleibt Jörgs Klick. Dazu im
+Katalog je App **„Sichtbar für"** (Mandanten-Kennungen): Die Store-Seite zeigt
+die App nur diesen Mandanten, und der Knoten lehnt jede Installation in einen
+nicht genannten Mandanten ab — auch für den Betreiber. Ein kaputter Filter
+macht den Eintrag unbrauchbar, nie öffentlich.

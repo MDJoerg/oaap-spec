@@ -1,7 +1,7 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.65 (**a declared health path the app never built** (404/405) is not the app's verdict: the probe asks its home page, and an answer below 400 there is *reachable*, the missing path named; install says so at once -- 2.11, reference 0.1.294). 0.2.64 (**an app MAY declare an `assets` door** (manifest 0.15): it names its assets -- model names, sources -- and how they hang together, and the node asks it for the fleet status document -- 2.34, RFC-0087 §8.2). 0.2.63 (**a tunnel app MAY declare a `link_state` door** (manifest 0.14): the node asks it how its tunnel and its targets are, for the fleet status document -- 2.33, RFC-0087 §8.1). 0.2.62 (**a config key MAY declare `file: true`**: its value is a file, stored as one base64 line, and the portal offers an upload -- 2.8; **a tunnel (`tun`, 2.23) is confirmed in the store** by a `server_admin`'s tick naming the app, besides `--confirm-tun` -- RFC-0060 stage 4). 0.2.61 (**promotion from a Git test instance** by its recorded commit -- 2.14.1). 0.2.60 (**a build that upgrades OS packages is built without the layer cache**, and "unchanged" compares the package lists -- 2.31.1, RFC-0071 §16; **a portal tick confirms a widening** by the fingerprint of exactly the reported lines -- 2.14, I-43). 0.2.59 (**a second kind of generated value, `vapid`**, and a build step may generate into an empty key -- 2.8, RFC-0079). 0.2.58 (**the envelope rule on every way in**: directory and
+- **Version:** 0.2.66 (**the tested package into the catalog**: `catalog-put` hands an instance's retained package to a package catalog of the node through its inbox, not released; **`visible_to`** on a catalog entry limits it to named tenants, judged by the host on every resolution -- 2.6, RFC-0050 §9, reference 0.1.295). 0.2.65 (**a declared health path the app never built** (404/405) is not the app's verdict: the probe asks its home page, and an answer below 400 there is *reachable*, the missing path named; install says so at once -- 2.11, reference 0.1.294). 0.2.64 (**an app MAY declare an `assets` door** (manifest 0.15): it names its assets -- model names, sources -- and how they hang together, and the node asks it for the fleet status document -- 2.34, RFC-0087 §8.2). 0.2.63 (**a tunnel app MAY declare a `link_state` door** (manifest 0.14): the node asks it how its tunnel and its targets are, for the fleet status document -- 2.33, RFC-0087 §8.1). 0.2.62 (**a config key MAY declare `file: true`**: its value is a file, stored as one base64 line, and the portal offers an upload -- 2.8; **a tunnel (`tun`, 2.23) is confirmed in the store** by a `server_admin`'s tick naming the app, besides `--confirm-tun` -- RFC-0060 stage 4). 0.2.61 (**promotion from a Git test instance** by its recorded commit -- 2.14.1). 0.2.60 (**a build that upgrades OS packages is built without the layer cache**, and "unchanged" compares the package lists -- 2.31.1, RFC-0071 §16; **a portal tick confirms a widening** by the fingerprint of exactly the reported lines -- 2.14, I-43). 0.2.59 (**a second kind of generated value, `vapid`**, and a build step may generate into an empty key -- 2.8, RFC-0079). 0.2.58 (**the envelope rule on every way in**: directory and
   Git installs too, the report reaches the portal, I-43, 2.14). 0.2.57 (**a second origin for the views of MCP Apps**,
   manifest 0.13 `ui_sandbox`, 2.32.4, RFC-0075). 0.2.56 (**a chat acts at its tenant's gateways as the person**,
   RFC-0074 stage 1: manifest 0.12 `mcp_client: {use: true}`, the list
@@ -1503,6 +1503,44 @@ destination (`upstream`, bearer = a machine key). This changes nothing on the
 host: what arrives is checked and taken in by the catalog app with its own
 rules and then appears in `store.json` like an uploaded package, and the host
 applies every rule above to it. The node never talks to the marketplace.
+
+**Which tenants see an entry — `visible_to` (0.2.66, RFC-0050 §9).** An entry
+of a catalog's list MAY carry `visible_to`: a non-empty list of tenant labels.
+Absent means every tenant (RFC-0050 §6 answer 1). Rules:
+
+- a `visible_to` that is not a non-empty list of valid labels makes the entry
+  **unusable** (left out), never "everybody" — a damaged filter must not become
+  the widest one;
+- the store page shows a `tenant_admin` only the entries that name their
+  tenant (or carry no filter), and nothing says that others exist; a
+  `server_admin` sees every entry with its filter;
+- the host judges again when it resolves an install or an update: an entry
+  whose `visible_to` does not name the tenant the instance is in (update) or
+  lands in (new) **does not resolve**, whoever asks — the operator included —
+  and the refusal names the filter, not "not listed". The same holds for
+  every other way that resolves a store id into a tenant (profiles, cohort
+  templates).
+
+**The tested package into the catalog — `catalog-put` (0.2.66, RFC-0050 §9).**
+A `server_admin` MAY hand the retained package of an instance that runs from
+an uploaded package (2.14) to a package catalog that is a store source of this
+node: portal (instance → Deployment → "In den Katalog übernehmen") or
+`oaap app catalog-put <instance> [--catalog <source|instance>]`. Rules:
+
+- only a **retained package** — the bytes that were tested; an instance from
+  Git or a store list is refused (it is distributed from there);
+- the host writes into `inbox/` of the catalog's storage the ZIP and then,
+  last, a note (`<app>-<version>-<sha12>.json`: SHA-256, tenant label,
+  instance name, channel, the person). That directory is written by the app,
+  so the host goes through directory handles that do not follow symbolic
+  links; a link in place of `inbox` is refused, not followed;
+- the **catalog is the only writer of its state**: it checks the checksum
+  against the note and the package under its upload rules, takes it in **not
+  released**, records the origin, and answers in `<stem>.result.json`; the
+  host reads the answer (bounded wait) and passes it to the person — a refusal
+  with its reason, and no answer as "not answered yet", never as refused;
+- releasing stays a person's act in the catalog. A tenant_admin cannot hand
+  over (the catalog supplies other tenants).
 
 **Creating instances from the portal — only on a `dev` node.** The rule
 above ("a request can never supply a source") is what makes a
