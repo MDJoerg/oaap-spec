@@ -1,7 +1,7 @@
 # RFC-0089: Commands to a Node over the Fleet Path — Signed, Named Verbs the Node Accepts, Answers on the Way Back
 
-- **Status:** **Draft (2026-11-16)** — decisions D1–D6 (§4) are Jörg's.
-  Nothing is built.
+- **Status:** **Accepted (2026-11-16, D1–D6 as recommended — Jörg: „Weiter
+  wie empfohlen“).** Nothing is built; stage 1 is next.
 - **Date:** 2026-11-16
 - **Authors:** Jörg (the need: reboot, backup, later a service portal for
   tenant owners, "on the same event-broker path the health data comes to
