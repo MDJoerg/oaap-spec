@@ -578,9 +578,11 @@ objects**, and the data grows together through **relations**:
 
 - **The twin forgets nothing.** Every write is appended, nothing is
   deleted, and there is no erasure path yet. **Do not put personal data
-  or health data in clear text into the twin.** Put keys (pseudonymous
-  where they refer to people), titles, relations, states and
-  non-critical facts there; keep the actual records in your app's own
+  in clear text into the twin** — least of all special categories such
+  as medical records. Put keys (pseudonymous where they refer to
+  people), titles, relations, states — including the health state of
+  your app and its parts — and other facts without a personal reference
+  there; keep the actual records in your app's own
   storage, where they can be deleted with the person or the instance.
 - **Read rights are per object type.** Every instance that reads a type
   sees every group of it; groups restricted to named readers are not
@@ -743,7 +745,8 @@ ohne diese Fähigkeit weiter. **Zwilling** (`data_model`/`contributes`/
 `consumes`): mehrere Apps beschreiben dieselben Objekte, jede in ihrer
 eigenen Gruppe, Relationen verbinden sie; nur auf Knoten mit Profil
 `store`. Grenzen heute: **append-only ohne Löschweg** — also keine
-personenbezogenen oder Gesundheitsdaten im Klartext hinein —, Lesen je
+personenbezogenen Daten im Klartext hinein (Zustandsdaten der App
+dagegen schon) —, Lesen je
 Objekttyp, keine Generalprobe. **Fachliche Berechtigungen**
 (`authorization`): der Mandant vergibt, die App fragt mit der
 `X-OAAP-User-Id` nach, höchstens 30 s zwischenspeichern, im Zweifel
