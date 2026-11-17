@@ -1,4 +1,4 @@
-# OAAP App Deployment Contract (draft v0.8)
+# OAAP App Deployment Contract (draft v0.9)
 
 **Audience:** developers and AI coding agents (Codex, Claude Code, …)
 building an app that will be deployed on an OAAP platform.
@@ -32,7 +32,18 @@ name, and a verified e-mail address. **If your app stores a reference
 to a person, this changes what you should store** — see rule 1 and the
 "App-internal users and roles" section. It also records that a refused
 request now returns the visitor to the page they asked for after they
-sign in, which makes an invitation link work.
+sign in, which makes an invitation link work. v0.9 (2026-11-17) catches
+up with **manifest 0.3 to 0.15**, built between September and November
+and never written here: the **digital twin** (`data_model`,
+`contributes`, `consumes`) with its present limits — append-only, no
+erasure, read rights per type — **business authorization**
+(`authorization`), **destinations**, **cases**, **MCP**, the
+**launchpad** group, the **care** promise that lets a node rebuild an
+image on a security notice, and **closed tenants** whose instances
+reach the outside only through a destination (RFC-0068). It also says
+plainly that the **instance name is not the app id**. Found while
+preparing an external app (again BDT) for a rebuild: the briefing and
+the starter package handed to app agents still described September.
 
 Give this document to your coding agent as a working instruction:
 "Make the app deployable on OAAP according to this contract."
@@ -70,7 +81,7 @@ schema rejects, and do not rely on that as a safety net.
 Example for a typical single-service web app:
 
 ```yaml
-oaap_manifest: "0.1"
+oaap_manifest: "0.15"       # newest format; a node reads older ones too
 
 app:
   id: montage-doku          # stable, lowercase, [a-z0-9-]
@@ -106,7 +117,19 @@ config:
 health:
   path: /healthz            # GET returning 200 when healthy
   startup_grace_seconds: 120  # e.g. time for migrations on startup
+
+care:
+  rebuild: self             # see "Keeping the image healthy" below
 ```
+
+The **app id** names the app; the **instance name** names one running
+copy of it. Whoever creates an instance chooses its name — it need not
+equal the app id, two instances of one app on a node necessarily differ,
+and an instance can be renamed later (RFC-0026; the old address keeps
+answering for a grace period). Never build an instance name, a host or
+an address into your code. Optional sections — the twin, authorization,
+destinations, cases, MCP — are described in "What the platform offers
+your app" below.
 
 ## Rules (MUST)
 
@@ -183,9 +206,10 @@ health:
    runtime. External services only if explicitly configured — that
    means: the address of every outbound target is a **declared config
    variable** (with a default if you like), never a constant in the
-   code. The platform does not restrict outbound traffic today (see
-   "Network and build" below); your app must still degrade, not fail,
-   when the target is unreachable.
+   code — or, better, a **destination** (see "What the platform offers
+   your app"). A tenant may be *closed* (RFC-0068), and then a
+   destination is the only way out (see "Network and build" below);
+   your app must degrade, not fail, when the target is unreachable.
 9. **Accept the platform's Host.** Do not pin `Host` checks to
    `localhost` (common DNS-rebinding protection in local-server apps) —
    the app receives the platform's public hostname; see guarantee 2.
@@ -339,10 +363,15 @@ see "Working with the platform side"), and it comes with these facts:
   alone in its own network. Other apps on the node cannot reach it, and
   it cannot reach them. A connection between two apps is an explicit
   operator decision (`oaap app link`), never in the manifest.
-- **Outbound:** open, today. HTTPS and outbound WebSockets to the
-  internet work without any declaration. Per-app egress control may
-  come later as a node profile; build for "configured target, graceful
-  degradation" (rule 8) and you will not notice.
+- **Outbound:** open by default. HTTPS and outbound WebSockets to the
+  internet work without any declaration — **unless the tenant is
+  closed** (RFC-0068, `oaap.apps.runtime` 2.27): then the instance's
+  networks are internal, it reaches no internet, no LAN and no outside
+  DNS, and its only way out is a **destination** an operator binds to
+  it (`OAAP_DESTINATION_<NAME>_URL`). Single instances may be exempted
+  with a reason, never by the manifest. Declare every outside target as
+  a destination and degrade gracefully (rule 8), and a closed tenant
+  costs you nothing.
 - **Build (`native`):** `docker build` of your `Dockerfile` runs on the
   **target node**, with internet access — the public npm, PyPI or Maven
   registries are reachable, and so are prebuilt native modules
@@ -351,6 +380,16 @@ see "Working with the platform side"), and it comes with these facts:
   you build it in. Include a compiler toolchain in your build stage when
   a native module may have to compile (arm64 nodes are where prebuilds
   are missing).
+- **Keeping the image healthy (manifest ≥ 0.10, RFC-0071):** the node
+  reports security notices for the packages in your image. Two things
+  let it heal them without waiting for your next release: your
+  `Dockerfile` applies Debian's fixes at build time
+  (`RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get -y
+  upgrade && rm -rf /var/lib/apt/lists/*` right after `FROM`), and your
+  manifest promises `care: {rebuild: self}` — building the same source
+  on a freshly pulled base changes nothing but the base, because every
+  dependency is pinned. If you cannot promise that, write
+  `rebuild: release`; then only your next version heals.
 - **Limits:** a package (ZIP) is at most **256 MB**; `node_modules`,
   build output and virtual environments do not belong in it. A whole
   deployment — build plus start until healthy — is aborted after
@@ -400,9 +439,11 @@ reserves the right to let it change (RFC-0040, RFC-0026). Treat display
 names and e-mail addresses as changeable too — they arrive on every
 request, so read them fresh rather than keeping a copy in step by hand.
 Do not seed real persons as hard-wired login users; seed them as
-master data without a login and link on first contact. A platform
-service for centrally managed app roles may come later as an opt-in
-capability; this pattern works without any platform support.
+master data without a login and link on first contact. This pattern
+works without any platform support. Where several people in a tenant
+should manage rights inside your app, the platform now offers **business
+authorization** (RFC-0045) as an opt-in — see "What the platform offers
+your app".
 
 **Invitations work (RFC-0040).** A person following a link into a page
 of your app that requires a login is sent to the platform's login form
@@ -483,6 +524,101 @@ both live in or next to your repository, not in chat sessions:
    always a human decision (RFC-0020): the administrator promotes the
    artifact you tested, unchanged, so make sure the package you hand
    over is the one you mean.
+
+## What the platform offers your app (manifest 0.3–0.15)
+
+Every section below is **optional** and follows one rule: **the app
+declares, a person in the tenant grants, the app checks.** A
+declaration grants nothing by itself. For each capability the platform
+puts `OAAP_*` variables into the container; they are platform-owned —
+do **not** declare them under `config`, nobody can override them, and
+a rehearsal instance (test code on a copy of production data) gets
+none of the keys. **If a variable is missing, run without that
+capability instead of failing** — a node may lack the profile for it,
+or nobody has granted it yet.
+
+| Need | Manifest | Your app receives | Spec |
+|---|---|---|---|
+| Shared data with other apps of the tenant | `data_model`, `contributes`, `consumes` (≥ 0.3) | `OAAP_TWIN_URL`, `OAAP_PLATFORM_KEY` | `oaap.data.model`, `oaap.data.twin` |
+| Fine-grained business rights the tenant manages | `authorization` (≥ 0.6) | `OAAP_AUTHZ_URL`, `OAAP_AUTHZ_KEY` | `oaap.core.authorization` |
+| A target outside (another system, an AI service) | `destinations` (≥ 0.5) | `OAAP_DESTINATION_<NAME>_URL` | `oaap.net.destinations` |
+| Put something in front of people | `cases: {submit: true}` (≥ 0.9) | `OAAP_CASES_URL`, `OAAP_CASES_KEY` | `oaap.apps.runtime` 2.24 |
+| Offer tools to AI assistants | `mcp: {path: /mcp}` (≥ 0.11) | calls on behalf of the person asking | `oaap.apps.runtime` 2.32 |
+| Group the portal tile | `launchpad: {group: …}` (≥ 0.4) | — | `oaap.apps.runtime` 2.16 |
+| Survive security notices | `care: {rebuild: self}` (≥ 0.10) | a node that rebuilds for you | `oaap.apps.runtime` 2.31 |
+
+Sections for platform-near apps (`mcp_sources`, `mcp_client`,
+`ui_sandbox`, `link_state`, `assets`) are described in
+`oaap.apps.runtime` 2.32–2.34; an ordinary business app does not need
+them. `openapi` is reserved and refused.
+
+### The digital twin
+
+The twin is a tenant's shared memory. Several apps describe **the same
+objects**, and the data grows together through **relations**:
+
+- The app that creates an object is its `owner` and holds its **core
+  group**. Other apps write as `contributor` into **their own group**
+  on the same object — nobody ever writes into another origin's group.
+  `consumes` reads. A contributor declares its group under
+  `data_model.group_types` (with `"on": <object type>`).
+- Give every object your business key as `source_key`, so that it stays
+  the same thing when a second app knows it. A person can merge
+  duplicates; a merged-away id keeps answering.
+- `OAAP_TWIN_URL` **already ends in `/twin`** — append only
+  `/objects`, `/objects/{id}`, `/objects?type=…`,
+  `/objects/{id}/groups/{group}`; never a second `/twin`. Send
+  `OAAP_PLATFORM_KEY` as a bearer token. Tenant and origin come from
+  the key, never from the request.
+- A twin lives **per tenant on its node**, and only where the node
+  carries the profile `store`. Elsewhere the app installs and runs
+  normally, without the two variables.
+
+**Limits you must know today:**
+
+- **The twin forgets nothing.** Every write is appended, nothing is
+  deleted, and there is no erasure path yet. **Do not put personal data
+  or health data in clear text into the twin.** Put keys (pseudonymous
+  where they refer to people), titles, relations, states and
+  non-critical facts there; keep the actual records in your app's own
+  storage, where they can be deleted with the person or the instance.
+- **Read rights are per object type.** Every instance that reads a type
+  sees every group of it; groups restricted to named readers are not
+  built.
+- **A rehearsal instance has no twin** (it would read production data).
+
+### Business authorization (RFC-0045)
+
+Declare objects, activities and role templates under `authorization`.
+The tenant grants them to people in the portal ("Rollen & Rechte"); your
+app asks `GET {OAAP_AUTHZ_URL}/effective?user=<X-OAAP-User-Id>` with
+`OAAP_AUTHZ_KEY` as bearer and receives the person's flattened grants
+for **your** objects only. Cache an answer for at most `fresh_for`
+seconds (30) and **fail closed**: unreachable service, unknown object
+or unparseable answer means "no". The reference client
+`oaap-reference/platform/authz_client.py` (stdlib only) does exactly
+this. Rights stay out of `X-OAAP-Roles`, which remains the platform
+role list.
+
+### Destinations, cases, MCP
+
+- **Destinations** name a need (`name`, `kind: http|tcp`, `purpose`);
+  an operator binds one of the tenant's destinations to the instance
+  and your app reads its address from `OAAP_DESTINATION_<NAME>_URL`.
+  Credentials for the target stay with the destination, not in your
+  configuration.
+- **Cases:** with `cases: {submit: true}` your backend can open a case
+  in its tenant's case inbox (an error that needs a person, an approval,
+  a question). The source — instance, app, version, tenant — is
+  recorded by the gateway; a person you name `on_behalf_of` is your
+  statement, stored as such.
+- **MCP:** with `mcp: {path: /mcp}` your app serves MCP (Streamable
+  HTTP) at a path under one of its routes. The tenant's MCP gateway
+  offers your tools to AI assistants **as the person asking**: your app
+  receives the same `X-OAAP-*` headers as on its pages and must check
+  the same rights. Describe tools precisely — the gateway holds a
+  tool's description and blocks it after a change until a person
+  confirms again.
 
 ## Recommendations (SHOULD)
 
@@ -598,3 +734,24 @@ Hindernis zum Umgehen, sondern der Anlass, es im Postkasten zu
 begründen. Und die **Produktivsetzung** ist immer eine menschliche
 Entscheidung (RFC-0020): Übernommen wird das Paket, das getestet wurde,
 unverändert.
+
+**Neu in v0.9 — was die Plattform einer App heute bietet (Manifest
+0.3–0.15):** Alles ist freiwillig, und überall gilt: **Die App erklärt,
+ein Mensch im Mandanten gewährt, die App prüft.** Die Plattform reicht
+dafür `OAAP_*`-Variablen in den Container; fehlt eine, läuft die App
+ohne diese Fähigkeit weiter. **Zwilling** (`data_model`/`contributes`/
+`consumes`): mehrere Apps beschreiben dieselben Objekte, jede in ihrer
+eigenen Gruppe, Relationen verbinden sie; nur auf Knoten mit Profil
+`store`. Grenzen heute: **append-only ohne Löschweg** — also keine
+personenbezogenen oder Gesundheitsdaten im Klartext hinein —, Lesen je
+Objekttyp, keine Generalprobe. **Fachliche Berechtigungen**
+(`authorization`): der Mandant vergibt, die App fragt mit der
+`X-OAAP-User-Id` nach, höchstens 30 s zwischenspeichern, im Zweifel
+ablehnen. **Destinationen** für jedes Ziel draußen — in einem
+**geschlossenen Mandanten** (RFC-0068) der einzige Weg hinaus.
+**Vorgänge** (`cases`) legen Menschen etwas vor, **MCP** bietet
+Werkzeuge für KI-Assistenten im Namen der fragenden Person. **Pflege**:
+`apt-get upgrade` im Dockerfile plus `care: {rebuild: self}` erlauben
+dem Knoten, bei Sicherheitsmeldungen selbst neu zu bauen. Und: Die
+**App-Kennung ist nicht der Instanzname** — den wählt, wer anlegt, und
+er ist umbenennbar; nie Namen oder Adressen in den Code schreiben.
