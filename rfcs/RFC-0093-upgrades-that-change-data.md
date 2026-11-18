@@ -105,7 +105,9 @@ on 2026-11-18 (unreachable).
 Every one of these is a fact the package knew nothing about and the
 portal could not have said.
 
-## 2. Upgrade notes in the package (manifest 0.17)
+## 2. Upgrade notes in the package (manifest 0.17 or the next free one)
+
+*Note 2026-11-18: RFC-0094 (help) proposes to take 0.17 for `docs:`; then `upgrade:` becomes 0.18 (RFC-0094 D10).*
 
 ```yaml
 oaap_manifest: "0.17"
