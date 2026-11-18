@@ -1,7 +1,7 @@
 # oaap.ai.mcp-gateway — Tool Servers Behind One Keyed Endpoint per View
 
 - **ID:** `oaap.ai.mcp-gateway`
-- **Version:** 0.16.1 (L29: the catalog of a procedure-U server is read by the operator without an assertion, and a person with a stored credential may read the **first** list from `/me`, §3.12). 0.16.0 (procedure U also as **`basic`**: the person enters user (e.g. e-mail) and token separately, the gateway sends `Authorization: Basic base64(user:token)` -- what Atlassian Cloud's MCP server asks for, §3.12). 0.15.0 (RFC-0095 stage 3: **readiness** -- `GET /mcp/_readiness?view=` through the via door tells a chat per server whether the view is set up for the person (`ready`, `needs_credential`, `credential_rejected`, `not_for_you`), `/me/v1/readiness`; D2: `/me` and procedure U also for calls signed in at the realm, when the platform names the person's realm id and promises the header, §1b). 0.14.0 (RFC-0095 stage 2: **procedure U**, §3.12 -- a server where every person brings their own credential; entered on `/me`, write only, sealed in the vault bound to the person, sent only with that person's calls; refused before anything goes out when missing; the operator counts and deletes, never reads). 0.13.1 (an old row refused/destination without a door does not guess who refused, §1a). 0.13.0 (RFC-0095 stage 1: **`/me`**, the person's own page -- their usage rows of the last 30 days, a refusal in words with who refused, §1a; usage rows gain two structured columns **`status`** and **`door`**, §9. 0.12.0: servers can be **renamed**, §3.11 -- catalog and entries follow, a source server is found by its origin; `GET /mcp/_views` lists the views a person carried by a chat can open, all of them with reasons for the tenant's administration, §3.9a. 0.11.0: views can be **copied and renamed**, §5.4 -- a rename moves the keys and profiles that name the view; entries can be **assigned in bulk**: a set of catalog entries per view in one step, same approval per entry, §5.1. 0.10.0: RFC-0066 for the gateway: **procedure P**, §3.10 -- a person carried by a chat of the platform reaches a backend such as SAP as themselves, through a destination with principal propagation; `destination:<need>/<path>`, §3.1). 0.9.0 (RFC-0073 §16: the catalog of a platform source is read without a person at the platform's discovery door -- only the lists, as the gateway's machine principal; calls stay bound to a person, §3.7). 0.8.0 (RFC-0075 stage 1: views of MCP Apps are read, pinned by
+- **Version:** 0.17.0 (the **groups** of an access profile can be changed on the operator's page, checked before anything changes, §2.3 (L11); the sign-in tab links the instance's page in the portal from `OAAP_PORTAL_URL` (runtime 2.38) and says the `MCPGW_*` fields stay empty when the platform sets sign-in up, §2.2 (L1, L5)). 0.16.1 (L29: the catalog of a procedure-U server is read by the operator without an assertion, and a person with a stored credential may read the **first** list from `/me`, §3.12). 0.16.0 (procedure U also as **`basic`**: the person enters user (e.g. e-mail) and token separately, the gateway sends `Authorization: Basic base64(user:token)` -- what Atlassian Cloud's MCP server asks for, §3.12). 0.15.0 (RFC-0095 stage 3: **readiness** -- `GET /mcp/_readiness?view=` through the via door tells a chat per server whether the view is set up for the person (`ready`, `needs_credential`, `credential_rejected`, `not_for_you`), `/me/v1/readiness`; D2: `/me` and procedure U also for calls signed in at the realm, when the platform names the person's realm id and promises the header, §1b). 0.14.0 (RFC-0095 stage 2: **procedure U**, §3.12 -- a server where every person brings their own credential; entered on `/me`, write only, sealed in the vault bound to the person, sent only with that person's calls; refused before anything goes out when missing; the operator counts and deletes, never reads). 0.13.1 (an old row refused/destination without a door does not guess who refused, §1a). 0.13.0 (RFC-0095 stage 1: **`/me`**, the person's own page -- their usage rows of the last 30 days, a refusal in words with who refused, §1a; usage rows gain two structured columns **`status`** and **`door`**, §9. 0.12.0: servers can be **renamed**, §3.11 -- catalog and entries follow, a source server is found by its origin; `GET /mcp/_views` lists the views a person carried by a chat can open, all of them with reasons for the tenant's administration, §3.9a. 0.11.0: views can be **copied and renamed**, §5.4 -- a rename moves the keys and profiles that name the view; entries can be **assigned in bulk**: a set of catalog entries per view in one step, same approval per entry, §5.1. 0.10.0: RFC-0066 for the gateway: **procedure P**, §3.10 -- a person carried by a chat of the platform reaches a backend such as SAP as themselves, through a destination with principal propagation; `destination:<need>/<path>`, §3.1). 0.9.0 (RFC-0073 §16: the catalog of a platform source is read without a person at the platform's discovery door -- only the lists, as the gateway's machine principal; calls stay bound to a person, §3.7). 0.8.0 (RFC-0075 stage 1: views of MCP Apps are read, pinned by
   content and approved with their tool, §4.3). 0.7.3 (views, effect class and light of a key or profile can be
   changed without revoking it; a `403` names its reason; sources can be read in
   on demand, §2.3, §3.6). 0.7.2 (RFC-0074 stage 3: the usage row records `confirmed`,
@@ -179,6 +179,13 @@ issuer — the tenant's identity provider — named in its configuration
 (`MCPGW_ISSUER`, RFC-0065 D14). Without an issuer, sign-in is off and
 the well-known path answers `404` for every view alike.
 
+(0.17, L1/L5) Where the platform sets sign-in up (the portal's button
+„Anmeldung einrichten“, `oaap.core.portal` 2.16), the `MCPGW_*` fields of
+the instance's configuration stay **empty** -- the configuration's
+labels and the sign-in tab say so, and the tab links the instance's
+page in the portal (`OAAP_PORTAL_URL`, `oaap.apps.runtime` 2.38), card
+MCP; without that variable it names the way in words.
+
 **Resource metadata.** `GET /.well-known/oauth-protected-resource/mcp/<view>`
 (and `/.well-known/oauth-protected-resource` for the gateway as a whole)
 returns `{"resource": "<origin>/mcp/<view>", "authorization_servers":
@@ -236,7 +243,9 @@ identity provider (the token's `groups` claim, full paths such as
 - The **rate** of a profile applies **per person**; its **budget** is
   shared by all persons of the profile.
 - Profiles are revocable and audited like keys; changing a profile's
-  groups is audited with old and new value.
+  groups is audited with old and new value. (0.17) The operator's page
+  changes them together with views and limits; the groups are checked
+  first, so a wrong group changes nothing at all.
 - **Changing limits (0.7.3).** The views, the highest effect class and the
   light of a key or profile can be changed on the operator's page and on the
   command line (`key set`), with the same rules as when issuing; a key keeps
@@ -1170,6 +1179,11 @@ the command line inside the container (`app.py key|server|view …`).
     a person with a credential reads the first list from `/me` (audit
     `catalog.first`, nothing approved), never again once read, never
     without a credential, never for another kind of server.
+36. (0.17) L11: changing a profile's groups on the operator's page
+    (audit `profile.groups`); wrong groups change nothing, not even the
+    views. L5: with `OAAP_PORTAL_URL` the sign-in tab links
+    `<url>?tab=ueberblick#mcp`, without it the way in words; with
+    sign-in off it says the `MCPGW_*` fields stay empty.
 
 ## 13. Dependencies
 
@@ -1524,3 +1538,13 @@ hinterlegtem Zugang darf auf `/me` die **erste** Werkzeugliste lesen
 wurde. Freigeben bleibt Sache der Verwaltung; danach liest nur noch die
 Verwaltung neu, damit ein Zugang mit weniger Rechten die Liste der
 anderen nie verkürzt.
+
+## Deutsche Zusammenfassung (0.17)
+
+**L11:** Die Gruppen eines Zugangsprofils lassen sich auf der
+Betreiberseite ändern, zusammen mit Sichten und Grenzen. Falsche Gruppen
+werden vorher abgewiesen, dann ändert sich gar nichts. **L1/L5:** Der
+Reiter „Anmeldung“ verlinkt die Seite der Instanz im Portal (Karte MCP,
+Knopf „Anmeldung einrichten“) und sagt, dass die Felder `MCPGW_*` dafür
+leer bleiben. Die Adresse kommt von der Plattform (`OAAP_PORTAL_URL`, ab
+0.1.308), sonst nennt das Gateway den Weg in Worten.
