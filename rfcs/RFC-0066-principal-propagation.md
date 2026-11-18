@@ -454,6 +454,23 @@ aiohttp's jar keeps no cookie of a bare IP address, and the first
 version of the test, on `127.0.0.1`, passed with the bug in place. The
 bait found that too.
 
+### 8.4 The MCP gateway with Form A: procedure P (2026-11-18, mcp-gateway 0.12.0)
+
+Scenario D did not wait for Form B. A chat of the platform already hands
+the MCP gateway an assertion addressed to **the gateway** (procedure A,
+`oaap.ai.mcp-gateway` §3.9) -- exactly what §3.1 asks of the caller. So
+procedure P in the gateway is Form A: a server with access `propagate`
+behind `destination:<need>/<path>`, the assertion copied onto the call,
+nothing else (`oaap.ai.mcp-gateway` §3.10). Decided with Jörg on
+2026-11-18 (P1–P6, `program/mandantenlandschaft-bec-2026-11-18.md`): the
+catalog is read by a person as themselves (P3), sessions stay per person
+and no cookie is kept (P4). Measured beforehand in tenant `bec` on
+oaapx01 from inside the gateway's container: `JMUELLER` → 200 at the
+a4h MCP server „Access Explorer“ (25 read-only tools); without
+`sap_user` or without assertion → 403. Form B stays open for persons
+signed in at the identity provider; the gateway refuses them with a
+sentence.
+
 ## 9. Stages
 
 | Stage | Content |
@@ -618,3 +635,8 @@ noch ändern. Befund für später: Das Token ist an niemand Bestimmten
 adressiert (`aud: account`) — für das MCP-Gateway braucht es eine
 Adressierung an das Gateway (Audience-Mapper oder Resource Indicators).
 **Nacharbeit a4h:** RZ10-Eintrag `login/certificate_mapping_rulebased = 1`.
+
+**Verfahren P im MCP-Gateway (18.11., mcp-gateway 0.12.0, §8.4):** Das
+Gateway nimmt Form A. Der Chat gibt ihm schon eine Zusicherung, die an das
+Gateway adressiert ist, und genau die verlangt die Destination. Form B bleibt
+offen für Personen, die sich beim Anmeldedienst anmelden.

@@ -1,7 +1,7 @@
 # oaap.ai.mcp-gateway — Tool Servers Behind One Keyed Endpoint per View
 
 - **ID:** `oaap.ai.mcp-gateway`
-- **Version:** 0.9.0 (RFC-0073 §16: the catalog of a platform source is read without a person at the platform's discovery door -- only the lists, as the gateway's machine principal; calls stay bound to a person, §3.7). 0.8.0 (RFC-0075 stage 1: views of MCP Apps are read, pinned by
+- **Version:** 0.10.0 (RFC-0066 for the gateway: **procedure P**, §3.10 -- a person carried by a chat of the platform reaches a backend such as SAP as themselves, through a destination with principal propagation; `destination:<need>/<path>`, §3.1). 0.9.0 (RFC-0073 §16: the catalog of a platform source is read without a person at the platform's discovery door -- only the lists, as the gateway's machine principal; calls stay bound to a person, §3.7). 0.8.0 (RFC-0075 stage 1: views of MCP Apps are read, pinned by
   content and approved with their tool, §4.3). 0.7.3 (views, effect class and light of a key or profile can be
   changed without revoking it; a `403` names its reason; sources can be read in
   on demand, §2.3, §3.6). 0.7.2 (RFC-0074 stage 3: the usage row records `confirmed`,
@@ -49,8 +49,10 @@ tools, resources and prompts; **two ways in** — a key, or a person
 signed in at the tenant's identity provider and billed through an
 access profile; and two procedures toward servers — **technical**
 access (T) and **token exchange** (X), where the server sees the person.
-Carrying the person into SAP by a certificate (procedure P) follows
-(RFC-0065 §11, RFC-0066).
+Since 0.10 the gateway also carries a person from a chat of the platform
+into SAP (procedure P, §3.10): through a destination with principal
+propagation, whose certificate the platform issues -- the gateway holds
+none (RFC-0065 §6, RFC-0066).
 
 ## 1. Routes
 
@@ -201,8 +203,8 @@ supported (RFC-0065 D2).
 | Field | Meaning |
 |---|---|
 | name | `[a-z0-9-]`, unique; shown to the operator, never to a client |
-| address | an `http(s)://` URL, or `destination:<need>` (§3.1) |
-| access | procedure **T**: `none`, `bearer`, `basic` or `header:<Name>`; or procedure **X**: `exchange` (§3.5); a credential is stored only encrypted (§3.4) |
+| address | an `http(s)://` URL, or `destination:<need>[/<path>]` (§3.1) |
+| access | procedure **T**: `none`, `bearer`, `basic` or `header:<Name>`; or procedure **X**: `exchange` (§3.5); or procedure **P**: `propagate` (§3.10); a credential is stored only encrypted (§3.4) |
 | light | `green`, `yellow`, `red` — what the server does with data sent to it (`oaap.ai.gateway` §7) |
 | limits | §8 |
 
@@ -215,6 +217,11 @@ supported (RFC-0065 D2).
   carry its own credential (one truth, not two). A destination that is
   not bound makes the server unavailable, with a sentence saying which
   need is missing.
+- **`destination:<need>/<path>`** (0.10) appends the path to the
+  destination's target: `destination:sap-a4h/zmcp2/bc/access-support` is
+  `https://<target>/zmcp2/bc/access-support`. A path with a `..` segment,
+  a query or a fragment is refused when saving and when connecting -- it
+  must not lead out of the destination.
 - **A URL** is reached as the instance may reach it under RFC-0068. It
   must not contain user information (`user:pass@`).
 - The gateway **never follows a redirect**; a `3xx` from a server is an
@@ -442,6 +449,48 @@ the person's assertion (`oaap.core.identity` 2.13) and sends the request to
   `user_iss` = `platform`, `client` = the chat, `assistant`.
 - A key at a view that accepts only `platform` is `401`, as any key at a view
   without `key`.
+
+### 3.10 Procedure P: a person through a destination into the backend (0.10, RFC-0066)
+
+A server with access **`propagate`** is reached through a destination with
+the authentication `principal_propagation` (`oaap.net.destinations` 2.9,
+RFC-0066 stage 1), bound to this gateway with the separate propagation grant.
+The destination names the backend user (`sap_user`), issues a short-lived
+client certificate for exactly that user from the tenant's CA and presents it
+to the pinned target. The gateway only proves on whose behalf it calls.
+
+- **Address:** `destination:<need>[/<path>]` only; a URL is refused. **No
+  credential:** saving one with `propagate` is refused.
+- **Per call:** the assertion the platform gave **this gateway** for the
+  person -- from a chat through the via door (procedure A, §3.9) or on the
+  operator's page (§3.7) -- is sent as `X-OAAP-User-Assertion`. The
+  destination checks it against the instance the call comes from (RFC-0066
+  §3.1); nothing else is sent: no `Authorization`, no cookie. The gateway
+  keeps no cookie from an answer (the destination drops them as well).
+- **Without an assertion, no call:** a key is refused (`-32003`), never a
+  technical fallback (D8). A person signed in at the identity provider is
+  refused with a sentence naming RFC-0066 Form B, which the destination does
+  not take yet. A view with such a server takes no keys; adding it to a key
+  view, or switching such a view to keys, is refused (as X and I).
+- **Sessions per person** (RFC-0065 §6, decision P4): the downstream session
+  belongs to the person and the profile (§3.9); the session toward the
+  backend lives inside it. Another person never uses it -- a request with
+  another person's session id is unknown (`404`) and nothing reaches the
+  backend. A server without `Mcp-Session-Id` (stateless) works the same.
+- **The catalog** is read by a person as themselves (decision P3): on the
+  operator's page with the operator's assertion, who needs a backend user of
+  their own. There is no technical catalog user; without a person the catalog
+  stays as last read, and the sentence says so -- also at the periodic read.
+- **A refusal is the person's:** a `401` or `403` at the end of the
+  destination -- the destination (no assertion, no `sap_user`) or the backend
+  (no mapping of the certificate) -- is passed on as „Die Destination oder das
+  Zielsystem lehnt ab (HTTP n): <sentence>“ (one printable line, at most 200
+  characters), measured as `refused`/`destination`, and **does not count for
+  the circuit breaker**.
+- **Measured as** procedure `P` with `user_sub`, `user_iss`, `client` and
+  `assistant` as in procedure A.
+- **The light** is the operator's: a demo system with demo data `yellow`,
+  customer systems `red` by default (decision P5).
 
 ## 4. The catalog: default deny, pinned
 
@@ -911,6 +960,13 @@ the command line inside the container (`app.py key|server|view …`).
     the server is not called.
 27. The usage row of a signed-in call carries profile, `sub` and issuer;
     no row, log line or page contains a token.
+28. A server with procedure P (§3.10) receives the person's assertion
+    addressed to this gateway at the path behind the destination, no
+    `Authorization` and never a cookie it set; a key, or no person, is
+    refused without a call; a second person never gets the first one's
+    session; a `403` of the destination reaches the person with its
+    sentence, is measured `refused`/`destination` and does not open the
+    circuit breaker.
 
 ## 13. Dependencies
 
@@ -929,7 +985,8 @@ the command line inside the container (`app.py key|server|view …`).
   client: they need a server-initiated stream (`GET`), which 0.2 does
   not open; in the `2026-07-28` era they are replaced altogether.
 - `completion/complete` and `logging/setLevel`.
-- Procedure P (0.4, RFC-0066); P-saml and Entra (0.5); `pattern` and
+- Procedure P with the person's IdP token (RFC-0066 Form B, for persons signed in
+  at the identity provider); P-saml and Entra; `pattern` and
   `format` enforcement in input schemas.
 - Signature algorithms other than RS256; several issuers per gateway.
 - Creating the clients in the realm: by hand in 0.3, a job of the IdP
@@ -1164,3 +1221,19 @@ selbst auf. Die App sieht dabei das Gateway als Maschinen-Benutzer und zeigt
 ihm dessen Liste; nach dem Lesen steht „Als Gateway gelesen“. Aufrufe laufen
 nie über diese Tür, sondern weiter als Person. Ohne Erkundungs-Tür (Plattform
 vor 0.1.300) nennt der Satz den Knopf „Katalog lesen“ und `--token-stdin`.
+
+## Deutsche Zusammenfassung (0.10.0, RFC-0066 — Verfahren P)
+
+Das Gateway trägt eine Person aus dem Chat jetzt bis ins Zielsystem, etwa SAP:
+Ein Server mit dem Zugang `propagate` liegt hinter einer Destination mit
+Principal Propagation. Das Gateway gibt der Destination nur die Zusicherung, die
+die Plattform ihm für diese Person ausgestellt hat. Die Destination nennt den
+SAP-Benutzer (`sap_user`), stellt für genau ihn ein kurzlebiges Zertifikat aus
+und meldet ihn damit am gepinnten Ziel an. Das Gateway hält keinen Schlüssel,
+kein Zertifikat und keinen Cookie. Ohne Person gibt es keinen Aufruf, auch keinen
+technischen Rückfall. Eine Anmeldung beim Anmeldedienst (Form B) nimmt die
+Destination noch nicht an, das sagt ein Satz. Sitzungen bleiben je Person
+getrennt (P4). Den Katalog liest eine Person als sie selbst, auf der
+Betreiberseite (P3). Lehnt die Destination oder SAP eine Person ab, bekommt sie
+den Satz zu sehen, und der Sicherungsautomat zählt das nicht. Neu ist außerdem
+`destination:<name>/<pfad>` für den Pfad hinter der Destination.
