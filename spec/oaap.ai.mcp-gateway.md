@@ -1,7 +1,7 @@
 # oaap.ai.mcp-gateway — Tool Servers Behind One Keyed Endpoint per View
 
 - **ID:** `oaap.ai.mcp-gateway`
-- **Version:** 0.10.0 (RFC-0066 for the gateway: **procedure P**, §3.10 -- a person carried by a chat of the platform reaches a backend such as SAP as themselves, through a destination with principal propagation; `destination:<need>/<path>`, §3.1). 0.9.0 (RFC-0073 §16: the catalog of a platform source is read without a person at the platform's discovery door -- only the lists, as the gateway's machine principal; calls stay bound to a person, §3.7). 0.8.0 (RFC-0075 stage 1: views of MCP Apps are read, pinned by
+- **Version:** 0.11.0 (views can be **copied and renamed**, §5.4 -- a rename moves the keys and profiles that name the view; entries can be **assigned in bulk**: a set of catalog entries per view in one step, same approval per entry, §5.1. 0.10.0: RFC-0066 for the gateway: **procedure P**, §3.10 -- a person carried by a chat of the platform reaches a backend such as SAP as themselves, through a destination with principal propagation; `destination:<need>/<path>`, §3.1). 0.9.0 (RFC-0073 §16: the catalog of a platform source is read without a person at the platform's discovery door -- only the lists, as the gateway's machine principal; calls stay bound to a person, §3.7). 0.8.0 (RFC-0075 stage 1: views of MCP Apps are read, pinned by
   content and approved with their tool, §4.3). 0.7.3 (views, effect class and light of a key or profile can be
   changed without revoking it; a `403` names its reason; sources can be read in
   on demand, §2.3, §3.6). 0.7.2 (RFC-0074 stage 3: the usage row records `confirmed`,
@@ -612,6 +612,15 @@ Putting an entry into a view is an approval (§4.2).
 Changing the server of an entry is not possible; the operator removes
 it and adds the other.
 
+**Assigning in bulk (0.11).** The operator may submit, for one view, the
+set of catalog entries it should contain out of those shown to them
+(e.g. a tree *server → kind → entry* with checkboxes). Each entry added
+goes through the same approval as a single one (name proposed, effect
+class chosen beside it, refusals per entry with their reason, the rest
+applies); an entry shown and not selected is removed; an entry **not
+shown** -- for instance one its server no longer offers -- is left as it
+is. Nothing is removed by omission from a list the operator never saw.
+
 ### 5.2 Effect classes
 
 The operator assigns every tool in a view an **effect class**: `read`,
@@ -662,6 +671,19 @@ entry stays suspended meanwhile.
 
 Fixed values are the operator's configuration, not a client's argument;
 they are stored and audited (§10 does not apply to them).
+
+### 5.4 Copy and rename (0.11)
+
+A view may be **copied** under a new name: settings and entries with
+their approvals (pinned snapshot, fingerprint, who, when) go along
+unchanged -- the copy is the same approval, not a new one. A
+**rename** is a copy that also moves every valid key and access profile
+naming the view to the new name and then deletes the old view, audited
+with the keys and profiles moved. Before it, the operator is shown who
+names the view. Names outside the gateway -- a client's endpoint
+`/mcp/<view>`, a chat assistant's view field -- are not changed and are
+named as such; the old endpoint then answers like any unknown view
+(§12.1). Usage rows keep the name they were recorded with.
 
 ## 6. Protocol behaviour
 
@@ -967,6 +989,13 @@ the command line inside the container (`app.py key|server|view …`).
     session; a `403` of the destination reaches the person with its
     sentence, is measured `refused`/`destination` and does not open the
     circuit breaker.
+29. (0.11) Bulk assignment: selected entries are approved with the
+    chosen class, shown-and-unselected ones removed, unshown ones kept;
+    one refused entry does not stop the others. Copy keeps both views
+    with equal fingerprints; rename moves keys and profiles (a profile's
+    other views untouched), the same key reaches the new endpoint, the
+    old one answers like an unknown view, a taken or invalid name is
+    refused and nothing changes.
 
 ## 13. Dependencies
 
@@ -1237,3 +1266,15 @@ getrennt (P4). Den Katalog liest eine Person als sie selbst, auf der
 Betreiberseite (P3). Lehnt die Destination oder SAP eine Person ab, bekommt sie
 den Satz zu sehen, und der Sicherungsautomat zählt das nicht. Neu ist außerdem
 `destination:<name>/<pfad>` für den Pfad hinter der Destination.
+
+## Deutsche Zusammenfassung (0.11)
+
+Einträge lassen sich jetzt **gesammelt zuordnen**: Der Betreiber schickt für
+eine Sicht die Menge der Einträge, die drin sein sollen, aus denen, die ihm
+gezeigt wurden (in der App ein Baum Server → Art → Eintrag mit
+Ankreuzfeldern). Jeder neue Eintrag geht durch dieselbe Freigabe wie einzeln;
+was gezeigt und nicht angekreuzt war, geht heraus; was nicht gezeigt war,
+bleibt. Sichten lassen sich **kopieren** (Freigaben gehen unverändert mit) und
+**umbenennen**: Dann werden Schlüssel und Zugangsprofile umgestellt und die
+alte Sicht gelöscht. MCP-Clients und Chat-Assistenten stellt das Gateway nicht
+um -- die Seite sagt das vorher.
