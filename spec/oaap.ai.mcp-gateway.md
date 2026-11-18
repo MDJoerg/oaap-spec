@@ -1,7 +1,7 @@
 # oaap.ai.mcp-gateway — Tool Servers Behind One Keyed Endpoint per View
 
 - **ID:** `oaap.ai.mcp-gateway`
-- **Version:** 0.13.1 (an old row refused/destination without a door does not guess who refused, §1a). 0.13.0 (RFC-0095 stage 1: **`/me`**, the person's own page -- their usage rows of the last 30 days, a refusal in words with who refused, §1a; usage rows gain two structured columns **`status`** and **`door`**, §9. 0.12.0: servers can be **renamed**, §3.11 -- catalog and entries follow, a source server is found by its origin; `GET /mcp/_views` lists the views a person carried by a chat can open, all of them with reasons for the tenant's administration, §3.9a. 0.11.0: views can be **copied and renamed**, §5.4 -- a rename moves the keys and profiles that name the view; entries can be **assigned in bulk**: a set of catalog entries per view in one step, same approval per entry, §5.1. 0.10.0: RFC-0066 for the gateway: **procedure P**, §3.10 -- a person carried by a chat of the platform reaches a backend such as SAP as themselves, through a destination with principal propagation; `destination:<need>/<path>`, §3.1). 0.9.0 (RFC-0073 §16: the catalog of a platform source is read without a person at the platform's discovery door -- only the lists, as the gateway's machine principal; calls stay bound to a person, §3.7). 0.8.0 (RFC-0075 stage 1: views of MCP Apps are read, pinned by
+- **Version:** 0.14.0 (RFC-0095 stage 2: **procedure U**, §3.12 -- a server where every person brings their own credential; entered on `/me`, write only, sealed in the vault bound to the person, sent only with that person's calls; refused before anything goes out when missing; the operator counts and deletes, never reads). 0.13.1 (an old row refused/destination without a door does not guess who refused, §1a). 0.13.0 (RFC-0095 stage 1: **`/me`**, the person's own page -- their usage rows of the last 30 days, a refusal in words with who refused, §1a; usage rows gain two structured columns **`status`** and **`door`**, §9. 0.12.0: servers can be **renamed**, §3.11 -- catalog and entries follow, a source server is found by its origin; `GET /mcp/_views` lists the views a person carried by a chat can open, all of them with reasons for the tenant's administration, §3.9a. 0.11.0: views can be **copied and renamed**, §5.4 -- a rename moves the keys and profiles that name the view; entries can be **assigned in bulk**: a set of catalog entries per view in one step, same approval per entry, §5.1. 0.10.0: RFC-0066 for the gateway: **procedure P**, §3.10 -- a person carried by a chat of the platform reaches a backend such as SAP as themselves, through a destination with principal propagation; `destination:<need>/<path>`, §3.1). 0.9.0 (RFC-0073 §16: the catalog of a platform source is read without a person at the platform's discovery door -- only the lists, as the gateway's machine principal; calls stay bound to a person, §3.7). 0.8.0 (RFC-0075 stage 1: views of MCP Apps are read, pinned by
   content and approved with their tool, §4.3). 0.7.3 (views, effect class and light of a key or profile can be
   changed without revoking it; a `403` names its reason; sources can be read in
   on demand, §2.3, §3.6). 0.7.2 (RFC-0074 stage 3: the usage row records `confirmed`,
@@ -545,6 +545,44 @@ creates a second server, and "gone" and "back" keep working. Usage rows
 keep the name they were recorded with. Refused: a name that is taken or
 invalid.
 
+### 3.12 Procedure U: the person's own credential (0.14, RFC-0095 stage 2)
+
+Auth kind **`personal`**. The operator sets how the credential is sent
+-- `bearer` or `header:<Name>` with an optional prefix (at most 40
+characters) -- and a hint and link for the person (where to create it,
+which scopes). The server record carries **no credential**: a
+`personal` server has no shared fallback, ever (saving one is refused).
+Like X, I and P it is a person kind: never in a view that accepts keys.
+
+- **Entering** (`POST /me/credential`, `/me/credential-delete`, role
+  `user`, for oneself only): one line, at most 4096 characters. The
+  page shows "stored on …, last used …", never the value, not even in
+  part.
+- **Keeping:** the vault (§3.4), its **own domain** -- a server
+  credential and a personal one are never interchangeable -- one row
+  per (issuer, sub, server), the sealed text bound to (issuer, sub): a
+  row copied into another person's place does not open. A backup of
+  `/data` alone reveals nothing. Renaming a server keeps the rows;
+  deleting it deletes them.
+- **The call:** the person's credential in the configured form,
+  nothing else of the person. Without one: `refused`/`personal`, door
+  `gateway`, **before** anything goes out, with a sentence pointing to
+  `/me`. A `401`/`403` of the server: `refused`/`credential`, door
+  `server`, with its status; it does not open the circuit breaker.
+  Procedure letter `U` in the usage row.
+- **Catalog:** read with the credential of the operator who presses
+  "read catalog" (their own row); without a person, not at all.
+- **Operator** (server page): the number of persons and their platform
+  ids, stored and last used, **delete** -- never read. Unused for 180
+  days (`last_used`, else `stored`): marked; deleting stays a human
+  decision.
+- **Audit:** `personal.store`, `personal.delete` -- the person as
+  `person:<sub>`, never a name (§10), never the value; an operator's
+  delete names the operator and the person's id.
+- In 0.14 the person is the platform's (`X-OAAP-User-Id`, issuer
+  `platform`): a call signed in at the realm finds the credential once
+  the platform passes the realm `sub` (RFC-0095 D2).
+
 ## 4. The catalog: default deny, pinned
 
 ### 4.1 Reading
@@ -921,7 +959,7 @@ chat's statement, recorded for review, never a permission.
 |---|---|
 | `ok` | the server answered with a result |
 | `tool_error` | the server answered with `isError: true` |
-| `refused` | the gateway refused (unknown or suspended entry, effect class, argument check) |
+| `refused` | the gateway refused (unknown or suspended entry, effect class, argument check; (0.14) `personal`: no stored credential), or the door/server refused the person (`platform`, `destination`, (0.14) `credential`: the server rejected the personal credential) |
 | `limited` | a limit of §8 or the key's budget |
 | `upstream_error` | unreachable, timeout, HTTP or protocol error, version outside the list, or a JSON-RPC error from the server |
 
@@ -1064,6 +1102,14 @@ the command line inside the container (`app.py key|server|view …`).
     destination or the target system refused (HTTP 403)" without any
     text of the server; an unknown tool is shown as refused by the
     gateway; without `X-OAAP-User-Id` `403`; `/` stays `admin`.
+32. (0.14) Procedure U: the server receives exactly the calling person's
+    credential in the configured form -- a second person's call never
+    carries it; without one the call is refused before anything goes
+    out; a `401` of the server is `refused`/`credential` and does not
+    open the breaker; a sealed row moved to another person does not
+    open; a shared server credential and a `personal` server in a key
+    view are refused; the bait value appears in no file under `/data`,
+    no page, row, audit entry or log.
 
 ## 13. Dependencies
 
@@ -1369,3 +1415,19 @@ Satz entsteht nur aus Codes. Dafür bekommt jede Messzeile zwei Spalten,
 `status` (HTTP-Nummer) und `door` (Gateway, Plattform, Destination,
 Server). Freier Text kommt nicht hinzu, §10 bleibt wörtlich wahr. Dasselbe
 gibt es als JSON unter `/me/v1/calls`.
+
+## Deutsche Zusammenfassung (0.14)
+
+Neu ist **Verfahren U** (RFC-0095 Stufe 2): Bei einem Server mit Zugang
+`personal` bringt jede Person ihren eigenen Zugang mit, etwa ein
+persönliches Jira-Token. Der Betreiber stellt nur ein, wie er geschickt wird
+(Bearer oder Kopfzeile mit Präfix), und gibt der Person einen Hinweis und
+einen Link. Einen gemeinsamen Zugang gibt es nicht, auch nicht als
+Rückfall. Die Person trägt ihren Zugang auf `/me` ein. Er liegt
+verschlüsselt im Tresor, in einem eigenen Bereich und an die Person
+gebunden, und wird nie wieder angezeigt. Er geht nur mit ihren Aufrufen
+hinaus. Fehlt er, wird abgelehnt, bevor etwas hinausgeht. Lehnt der Server
+ihn ab (401/403), zeigt `/me` „erneuern“, und der Sicherungsautomat bleibt
+zu. Der Betreiber sieht je Server, wie viele Personen einen Zugang haben,
+und kann einen löschen, aber keinen lesen. Nach 180 Tagen ohne Nutzung
+wird ein Zugang markiert.
