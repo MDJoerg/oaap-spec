@@ -1,7 +1,7 @@
 # oaap.core.gateway — HTTP Gateway (outline)
 
 - **ID:** `oaap.core.gateway`
-- **Version:** 0.2.22 (0.2.22: **secret files refused** on every instance site -- see that section, RFC-0084)
+- **Version:** 0.2.23 (0.2.23: **login on every route** per instance -- an operator switch on the instance record makes every route of that instance ask identity, the manifest's `public` ones included, RFC-0092; 0.2.22: 0.2.22: **secret files refused** on every instance site -- see that section, RFC-0084)
 - **Maturity:** draft (outline — full specification to follow;
   an edge route covers **two** levels below its host (`*.*.host`), so a
   tenant's instances behind an edge are forwarded, 2026-11-07 after a
@@ -103,6 +103,17 @@ happened and never see credentials.
   — `server_admin` bypasses it unconditionally (RFC-0008). No new
   header is forwarded to apps; the App Deployment Contract is
   unaffected.
+- **Login on every route** (RFC-0092, 0.2.23): an instance MAY carry
+  the operator switch `login_required` (instance record, never the
+  manifest). While it is set, every route of that instance — on every
+  entry point — MUST ask identity, including a route the manifest
+  declares `public`; such a route gets the forward-auth call of a
+  non-public route with an empty role list (plus the instance's
+  visibility groups) and no longer counts as public for the throttle.
+  Role-gated routes, `/auth/*`, the `/platform/*` blocks and doors that
+  carry their own credential are unchanged; no method is opened that
+  was not open before. Enforced where the site is written, never by
+  rewriting the stored routes.
 - **Route semantics**: declared paths are prefix matches, longest
   declared prefix wins; requests under no declared route are rejected
   at the gateway. The original `Host` header is preserved;
@@ -955,3 +966,11 @@ nur der Schlüssel, den die Plattform genau dieser Instanz ausgestellt
 hat. Weitergeleitet wird wie beim Feedback: an das `vorgaenge` des
 eigenen Mandanten, mit Herkunftszeilen vom Gateway. Ohne `vorgaenge`
 antwortet die Tür mit 404.
+
+## Deutsche Zusammenfassung (0.2.23 — Anmeldung auf allen Routen)
+
+Je Instanz kann der Betreiber den Schalter `login_required` setzen (am
+Instanzsatz, nie im Manifest). Dann fragt jede Route dieser Instanz die
+Anmeldung ab, auf jedem Eingang, auch die Routen, die das Paket als
+`public` erklärt. Routen mit Rollen, `/auth/*`, die `/platform/*`-Blöcke
+und Türen mit eigenem Schlüssel bleiben unverändert (RFC-0092).

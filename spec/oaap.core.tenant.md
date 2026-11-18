@@ -1,7 +1,7 @@
 # oaap.core.tenant — Account and Tenant, the Boundary of Belonging
 
 - **ID:** `oaap.core.tenant`
-- **Version:** 1.8 (brokers in front of a tenant's realm are doors: read, judged open or closed, counted by the §2.8 refusal, acknowledged closed only by the operator with a reason, read daily -- 2.10.1, conformance test 29, RFC-0091 stage 1). 1.7 (the tenant record carries `tenant_admin_may`: rights a `server_admin` hands to this tenant's `tenant_admin`, first `destinations` -- 1.1 table, `oaap tenant allow|disallow`, `oaap.net.destinations` 2.7.1). 1.6 (the bindings follow an issuer change **of the same space**: same connector, same name, same id at the provider, 2.11, conformance test 25, RFC-0073 T6; 1.5: the **clients of an MCP gateway**: a connector makes them on an
+- **Version:** 1.9 (a platform role per realm group: `role_map`, written by `server_admin`, only `guest`, `partner`, `user`, synced at every provider login for the roles it gave and never for hand-given ones -- 2.8.1, conformance test 30, RFC-0091 stage 2). 1.8 (brokers in front of a tenant's realm are doors: read, judged open or closed, counted by the §2.8 refusal, acknowledged closed only by the operator with a reason, read daily -- 2.10.1, conformance test 29, RFC-0091 stage 1). 1.7 (the tenant record carries `tenant_admin_may`: rights a `server_admin` hands to this tenant's `tenant_admin`, first `destinations` -- 1.1 table, `oaap tenant allow|disallow`, `oaap.net.destinations` 2.7.1). 1.6 (the bindings follow an issuer change **of the same space**: same connector, same name, same id at the provider, 2.11, conformance test 25, RFC-0073 T6; 1.5: the **clients of an MCP gateway**: a connector makes them on an
   operator's request and only ever disables them, 2.9.1, RFC-0073 stage 3; `tenant check`
   asks the provider whether a tenant's client is there, 2.1, conformance test 28;
   1.4: a provisioned space gets the node's mailbox and German as its
@@ -743,6 +743,34 @@ succeeded. An implementation MUST record what was asserted (`amr`/
 `acr`) so an audit entry can say it, and MUST NOT present that as
 enforcement of its own.
 
+#### 2.8.1 A platform role per realm group (1.9, RFC-0091 §2)
+
+The sentence "no claim of a provider ever becomes a role" stays true:
+the claim still does not. What 1.9 adds is a **mapping the operator
+writes** — `role_map`, realm group path → platform role — and it is the
+operator's line that becomes the role.
+
+- **Allowed roles: `guest`, `partner`, `user`.** Nothing else, because
+  the tenant's own realm administrator can move people between groups;
+  a mapping to `keyuser` or `admin` would let them make administrators
+  of the platform. An implementation MUST refuse any other value.
+- **Only `server_admin` writes it**, judged with the rest of the policy,
+  filed in the tenant's log. A `role_map` counts as a granting policy
+  for the refusal of §2.8 and §2.10.1: with an open door it needs a
+  reason.
+- **At every provider login** the person's asserted groups are looked
+  up in the mapping. A mapped role the person lacks is added and its
+  origin recorded (which group gave it); a role that came from the
+  mapping and whose group is no longer asserted, or no longer mapped,
+  is ended. **A role given by a person is never added, ended or
+  re-labelled by the sync** — when a person already holds a role by
+  hand, the mapping does not claim it. Every change is an entry in the
+  tenant's log.
+- An unmapped group grants nothing; matching is by path, as the token
+  carries paths. A person left with no role stays, bound and visible,
+  without rights. Sessions already open keep their roles until the next
+  request reads the record again.
+
 ### 2.9 Making that provider, not only naming it (0.8, RFC-0041 K3)
 
 A node MAY hold **connectors**: a product, an address and a credential
@@ -1431,6 +1459,12 @@ On a node with one tenant: none that anyone can observe, exactly as in
     `idp.door` notification; the same reading again files neither, and an unchanged daily
     reading writes no log line.
 
+30. **A role per realm group** (1.9). Map `partner` → `partner`: a first login asserting
+    `/partner` gets `partner` with its origin; the next login without the group ends it; a
+    person who holds `partner` by hand keeps it whatever the groups say, and the log names
+    no change for them. A mapping to `admin`, `keyuser` or `tenant_admin` is refused. With
+    an open broker and no reason, a `role_map` is refused like `role`.
+
 ## 5. Dependencies
 
 `oaap.core.identity` (user records, roles, the authorization call),
@@ -1598,6 +1632,17 @@ Entfernen sich die Identität als Merkposten notiert — und dieser
 Merkposten macht zurückgelassene Kundendaten zum ersten Mal überhaupt
 sichtbar, statt sie nach einer einmaligen Meldung verschwinden zu
 lassen.
+
+## Deutsche Zusammenfassung (1.9 — eine Plattformrolle je Realm-Gruppe)
+
+Der server_admin kann je Mandant eine Tabelle `role_map` schreiben:
+Realm-Gruppe → Plattformrolle, erlaubt sind nur `guest`, `partner` und
+`user`. Bei **jeder** Anmeldung über den Anmeldedienst gleicht OAAP ab:
+Eine zugeordnete Rolle kommt dazu (mit Herkunft „Gruppe …“), eine Rolle
+aus der Tabelle, deren Gruppe fehlt, endet. Von Hand vergebene Rollen
+fasst der Abgleich nie an. Jede Änderung steht im Mandantenlog. Mit
+offener Tür (Selbstregistrierung oder offener Broker) braucht eine
+`role_map` eine Begründung.
 
 ## Deutsche Zusammenfassung (1.8 — Broker sind Türen)
 
