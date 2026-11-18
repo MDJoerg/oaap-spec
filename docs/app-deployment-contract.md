@@ -1,4 +1,4 @@
-# OAAP App Deployment Contract (draft v0.9)
+# OAAP App Deployment Contract (draft v0.9.1)
 
 **Audience:** developers and AI coding agents (Codex, Claude Code, …)
 building an app that will be deployed on an OAAP platform.
@@ -43,7 +43,7 @@ image on a security notice, and **closed tenants** whose instances
 reach the outside only through a destination (RFC-0068). It also says
 plainly that the **instance name is not the app id**. Found while
 preparing an external app (again BDT) for a rebuild: the briefing and
-the starter package handed to app agents still described September.
+the starter package handed to app agents still described September. v0.9.1 (2026-11-18): guarantee 1 names all **six** identity headers, says **no other `X-OAAP-*` header is identity** (no `X-OAAP-Groups`, no `X-OAAP-Tenant` — the gateway strips both since reference 0.1.296), and what an app receives with an **API key** and through an **MCP door**.
 
 Give this document to your coding agent as a working instruction:
 "Make the app deployable on OAAP according to this contract."
@@ -221,7 +221,7 @@ conformant provider MUST deliver them (pinned formally in the
 `oaap.apps.runtime` / `oaap.core.gateway` capability specs):
 
 1. **Identity headers cannot be spoofed.** The gateway strips **all
-   five** `X-OAAP-*` identity headers from every incoming client
+   six** `X-OAAP-*` identity headers from every incoming client
    request on **all** routes — including `public` ones — and sets them
    itself after authentication. If the header is present, it is
    authentic.
@@ -229,6 +229,21 @@ conformant provider MUST deliver them (pinned formally in the
    headers are **always absent there — even for a caller who is logged
    in**. A route cannot be "public and additionally roles": as soon as a
    real role is declared next to `public`, login is required.
+   **Read no other `X-OAAP-*` header as identity.** The platform sets
+   exactly six: `X-OAAP-User`, `X-OAAP-User-Id`, `X-OAAP-Roles`,
+   `X-OAAP-Display-Name`, `X-OAAP-Email`, `X-OAAP-User-Assertion`.
+   There is **no `X-OAAP-Groups`** and **no `X-OAAP-Tenant`** — an app
+   knows its tenant from its own instance, and groups are a platform
+   visibility switch, not something an app is told. Since reference
+   0.1.296 the gateway also strips a client-sent `X-OAAP-Groups` and
+   `X-OAAP-Tenant` on every app route; before that they passed through
+   unchanged (measured 2026-11-17), so an app that believed them could
+   be talked into anything.
+   **With an API key** (RFC-0027) the app receives `X-OAAP-User`,
+   `X-OAAP-User-Id`, `X-OAAP-Roles` and `X-OAAP-Display-Name` (the
+   title of the machine access), **no `X-OAAP-Email`**, and the
+   `Authorization: Bearer oaapk_…` header itself. Through an **MCP door**
+   the gateway removes `Authorization` before the app.
 2. **Host and forwarding headers.** The app receives the original
    `Host` header unchanged, plus `X-Forwarded-Proto` and
    `X-Forwarded-For` set by the gateway (needed for absolute URLs and

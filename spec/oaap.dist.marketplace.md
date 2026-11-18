@@ -37,8 +37,13 @@ marketplace's feed — the node itself does not change.
 
 ## 3. Seeing is not obtaining — the access rule
 
-For one principal (a person or machine as the platform names it; groups from
-`X-OAAP-Groups`) and one asset there are three states:
+For one principal (a person or machine as the platform names it) and one
+asset there are three states. **Groups have no source today:** the platform
+sets no `X-OAAP-Groups` (`oaap.core.identity` 2.6) and the gateway strips a
+client-sent one (reference 0.1.296). A grant or visibility entry of kind
+`group` is stored but matches nobody until the platform names groups
+(marketplace 0.3.1; until then the app believed a client-sent header —
+measured 2026-11-17, without effect on any live node).
 
 | State | Listed, searchable, detail | Download, feed |
 |---|---|---|

@@ -1,7 +1,8 @@
 # oaap.core.identity — Identity & Roles
 
 - **ID:** `oaap.core.identity`
-- **Version:** 0.6.5 (**a bearer that is not ours** goes to the app when a
+- **Version:** 0.6.6 (**a client-sent `X-OAAP-Groups`/`X-OAAP-Tenant` is
+  stripped** on every app route, 2.6; 0.6.5: **a bearer that is not ours** goes to the app when a
   session comes with it, 2.3, I-44; 0.6.4: **a chat acts as the person**, procedure A,
   RFC-0074 stage 1: `/verify?via=`, 2.13, and procedure I takes the
   platform's own assertion addressed to the gateway, 2.12; 0.6.3: **a person
@@ -430,7 +431,12 @@ independently.
 - No `X-OAAP-Groups` header exists or is planned — groups are a
   platform-level visibility switch, not part of the App Deployment
   Contract. An app that wants group-aware behavior has no API for that
-  in this version.
+  in this version. Because the name is in the platform's namespace, the
+  gateway strips a **client-sent** `X-OAAP-Groups` (and `X-OAAP-Tenant`,
+  which the platform does not set on an app request either) on every
+  app route, at site level, before authentication (0.6.6; reference
+  0.1.296). Until then both passed through unchanged — measured
+  2026-11-17 — and an app that read them believed the client.
 
 ### 2.7 The self-service surface an app may use (0.3.4)
 
