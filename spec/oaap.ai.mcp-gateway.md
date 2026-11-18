@@ -1,7 +1,7 @@
 # oaap.ai.mcp-gateway — Tool Servers Behind One Keyed Endpoint per View
 
 - **ID:** `oaap.ai.mcp-gateway`
-- **Version:** 0.15.0 (RFC-0095 stage 3: **readiness** -- `GET /mcp/_readiness?view=` through the via door tells a chat per server whether the view is set up for the person (`ready`, `needs_credential`, `credential_rejected`, `not_for_you`), `/me/v1/readiness`; D2: `/me` and procedure U also for calls signed in at the realm, when the platform names the person's realm id and promises the header, §1b). 0.14.0 (RFC-0095 stage 2: **procedure U**, §3.12 -- a server where every person brings their own credential; entered on `/me`, write only, sealed in the vault bound to the person, sent only with that person's calls; refused before anything goes out when missing; the operator counts and deletes, never reads). 0.13.1 (an old row refused/destination without a door does not guess who refused, §1a). 0.13.0 (RFC-0095 stage 1: **`/me`**, the person's own page -- their usage rows of the last 30 days, a refusal in words with who refused, §1a; usage rows gain two structured columns **`status`** and **`door`**, §9. 0.12.0: servers can be **renamed**, §3.11 -- catalog and entries follow, a source server is found by its origin; `GET /mcp/_views` lists the views a person carried by a chat can open, all of them with reasons for the tenant's administration, §3.9a. 0.11.0: views can be **copied and renamed**, §5.4 -- a rename moves the keys and profiles that name the view; entries can be **assigned in bulk**: a set of catalog entries per view in one step, same approval per entry, §5.1. 0.10.0: RFC-0066 for the gateway: **procedure P**, §3.10 -- a person carried by a chat of the platform reaches a backend such as SAP as themselves, through a destination with principal propagation; `destination:<need>/<path>`, §3.1). 0.9.0 (RFC-0073 §16: the catalog of a platform source is read without a person at the platform's discovery door -- only the lists, as the gateway's machine principal; calls stay bound to a person, §3.7). 0.8.0 (RFC-0075 stage 1: views of MCP Apps are read, pinned by
+- **Version:** 0.16.0 (procedure U also as **`basic`**: the person enters user (e.g. e-mail) and token separately, the gateway sends `Authorization: Basic base64(user:token)` -- what Atlassian Cloud's MCP server asks for, §3.12). 0.15.0 (RFC-0095 stage 3: **readiness** -- `GET /mcp/_readiness?view=` through the via door tells a chat per server whether the view is set up for the person (`ready`, `needs_credential`, `credential_rejected`, `not_for_you`), `/me/v1/readiness`; D2: `/me` and procedure U also for calls signed in at the realm, when the platform names the person's realm id and promises the header, §1b). 0.14.0 (RFC-0095 stage 2: **procedure U**, §3.12 -- a server where every person brings their own credential; entered on `/me`, write only, sealed in the vault bound to the person, sent only with that person's calls; refused before anything goes out when missing; the operator counts and deletes, never reads). 0.13.1 (an old row refused/destination without a door does not guess who refused, §1a). 0.13.0 (RFC-0095 stage 1: **`/me`**, the person's own page -- their usage rows of the last 30 days, a refusal in words with who refused, §1a; usage rows gain two structured columns **`status`** and **`door`**, §9. 0.12.0: servers can be **renamed**, §3.11 -- catalog and entries follow, a source server is found by its origin; `GET /mcp/_views` lists the views a person carried by a chat can open, all of them with reasons for the tenant's administration, §3.9a. 0.11.0: views can be **copied and renamed**, §5.4 -- a rename moves the keys and profiles that name the view; entries can be **assigned in bulk**: a set of catalog entries per view in one step, same approval per entry, §5.1. 0.10.0: RFC-0066 for the gateway: **procedure P**, §3.10 -- a person carried by a chat of the platform reaches a backend such as SAP as themselves, through a destination with principal propagation; `destination:<need>/<path>`, §3.1). 0.9.0 (RFC-0073 §16: the catalog of a platform source is read without a person at the platform's discovery door -- only the lists, as the gateway's machine principal; calls stay bound to a person, §3.7). 0.8.0 (RFC-0075 stage 1: views of MCP Apps are read, pinned by
   content and approved with their tool, §4.3). 0.7.3 (views, effect class and light of a key or profile can be
   changed without revoking it; a `403` names its reason; sources can be read in
   on demand, §2.3, §3.6). 0.7.2 (RFC-0074 stage 3: the usage row records `confirmed`,
@@ -577,15 +577,20 @@ invalid.
 ### 3.12 Procedure U: the person's own credential (0.14, RFC-0095 stage 2)
 
 Auth kind **`personal`**. The operator sets how the credential is sent
--- `bearer` or `header:<Name>` with an optional prefix (at most 40
-characters) -- and a hint and link for the person (where to create it,
+-- `bearer`, `header:<Name>` with an optional prefix (at most 40
+characters), or (0.16) `basic` -- and a hint and link for the person (where to create it,
 which scopes). The server record carries **no credential**: a
 `personal` server has no shared fallback, ever (saving one is refused).
 Like X, I and P it is a person kind: never in a view that accepts keys.
 
 - **Entering** (`POST /me/credential`, `/me/credential-delete`, role
-  `user`, for oneself only): one line, at most 4096 characters. The
-  page shows "stored on …, last used …", never the value, not even in
+  `user`, for oneself only): one line, at most 4096 characters. For a
+  `basic` server (0.16) the page asks for user and token separately;
+  the user is one line without a colon, at most 256 characters, and
+  `user:token` is sealed as one value. The gateway builds the Basic
+  value only when sending; a value stored before the server was set to
+  `basic` (no colon) is refused with a sentence to enter it anew, and
+  nothing goes out. The page shows "stored on …, last used …", never the value, not even in
   part.
 - **Keeping:** the vault (§3.4), its **own domain** -- a server
   credential and a personal one are never interchangeable -- one row
@@ -1147,6 +1152,12 @@ the command line inside the container (`app.py key|server|view …`).
     is ignored unless `OAAP_IDENTITY_HEADERS` names it, a foreign
     issuer is ignored; with both, `/me` shows the realm calls and a
     realm-signed call reaches the person's credential.
+34. (0.16) Procedure U `basic`: without a user nothing is stored; a
+    user with a colon is refused; with both, the catalog read and a
+    call carry exactly `Basic base64(user:token)` of that person; the
+    token is in no file under `/data` and no log in clear; a refusal of
+    the server makes the view `credential_rejected`; an old value
+    without a user goes nowhere.
 
 ## 13. Dependencies
 
@@ -1481,3 +1492,12 @@ die Kennung der Person im Realm (`X-OAAP-User-Idp`, ab 0.1.307) und sagt
 sie in `OAAP_IDENTITY_HEADERS` zu, zeigt `/me` auch die Aufrufe mit
 eigener Anmeldung (Claude Code). Ein solcher Aufruf findet dann auch den
 persönlichen Zugang der Person.
+
+## Deutsche Zusammenfassung (0.16)
+
+Verfahren U kennt jetzt auch **`basic`**: Auf `/me` trägt die Person
+Benutzer (etwa ihre E-Mail) und Token getrennt ein, das Gateway bildet
+`Authorization: Basic base64(benutzer:token)` erst beim Senden. So
+verlangt es der MCP-Server von Atlassian Cloud (Jira, Confluence) für
+persönliche API-Token. Ein alter Wert ohne Benutzer geht nicht hinaus,
+die Person wird gebeten, ihn neu einzutragen.
