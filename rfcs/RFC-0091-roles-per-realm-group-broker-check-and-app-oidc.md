@@ -3,8 +3,9 @@
 - **Status:** **Accepted (2026-11-18)** — Jörg: D1–D7 as recommended.
   Stage 1 (broker check) built in reference 0.1.297, `oaap.core.tenant`
   1.8 §2.10.1, `oaap.core.notifications` 0.11 (`idp.door`), plus a
-  daily reading of every tenant realm; stage 0 measurement on oaap-test
-  pending; stages 2 and 3 not built
+  daily reading of every tenant realm; stage 0 measured. Stage 2 (role
+  per realm group) built in reference 0.1.299, `oaap.core.tenant` 1.9
+  §2.8.1, measured on oaap-test. Stage 3 not built
 - **Date:** 2026-11-18
 - **Authors:** Jörg (the scenario, 2026-11-17: a consulting tenant with
   employees, partners and premium partners/customers who bring their own
@@ -115,7 +116,8 @@ At **every** provider login (D3), in the same place and with the same
 shape as `_authz_sync_login`:
 
 - Roles that came from the mapping carry their origin
-  (`role_source: {"partner": "group:partner"}`). Only those are added
+  (`role_source: {"partner": "partner"}` — role → the realm group path
+  that gave it). Only those are added
   or ended by the sync; a role a person was given by hand is never
   touched.
 - A person removed from the group loses the mapped role at their next
@@ -281,6 +283,21 @@ and stage 1 end to end:**
   `trustEmail` with the default first-broker-login flow does with an
   existing e-mail. The realms `rfc0091probe` and `rfc0091partner` stay
   on oaap-test for that.
+
+**Measured 2026-11-18 on oaap-test (0.1.299), stage 2,** with a real
+login through the realm `vuebung` (Keycloak 26.7.4, the tenant's own
+client with the group mapper of RFC-0045): `--role-map partner=admin` is
+refused with the sentence of §2.1; `partner=partner` is stored and logged
+(`tenant.idp-policy`, "Rollen je Realm-Gruppe: partner=partner"). A test
+person in `/partner` signing in for the first time got `user` (the
+policy's `role`) and `partner` with its origin, log `user.idp-first-login`
+and `user.idp-role-sync` "partner erhalten (partner)". Taken out of the
+group, the next login ended `partner` and kept `user` ("partner beendet").
+`partner` given by hand through the identity service's own update route
+then stayed through a login with the group and one without, with no
+`user.idp-role-sync` line. The token carries the path with a leading
+slash (`/partner`); the mapping is written without it. Test person,
+group and mapping removed afterwards.
 
 ## 6. Decisions for Jörg
 
