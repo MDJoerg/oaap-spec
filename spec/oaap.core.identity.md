@@ -1,7 +1,7 @@
 # oaap.core.identity — Identity & Roles
 
 - **ID:** `oaap.core.identity`
-- **Version:** 0.6.7 (**the discovery door**: `/verify?discover=` passes a gateway's catalog requests to a source without a person, the body parsed as JSON, the app seeing the gateway's machine principal -- 2.12.1, RFC-0073 §16, reference 0.1.300). 0.6.6 (**a client-sent `X-OAAP-Groups`/`X-OAAP-Tenant` is
+- **Version:** 0.6.8 (**every node has its assertion key**: made at installation, on every update and at every app installation, never replaced -- 2.11, reference 0.1.302). 0.6.7 (**the discovery door**: `/verify?discover=` passes a gateway's catalog requests to a source without a person, the body parsed as JSON, the app seeing the gateway's machine principal -- 2.12.1, RFC-0073 §16, reference 0.1.300). 0.6.6 (**a client-sent `X-OAAP-Groups`/`X-OAAP-Tenant` is
   stripped** on every app route, 2.6; 0.6.5: **a bearer that is not ours** goes to the app when a
   session comes with it, 2.3, I-44; 0.6.4: **a chat acts as the person**, procedure A,
   RFC-0074 stage 1: `/verify?via=`, 2.13, and procedure I takes the
@@ -621,10 +621,16 @@ X-OAAP-User-Assertion: <base64url header>.<base64url claims>.<base64url HMAC-SHA
   keeps in its own directory, mounted read-only into identity and into
   the one service that checks assertions. Without that key verify
   returns the header **empty** — no assertion is better than one
-  nobody can check. The host makes the key when a propagation
-  destination is created or an app declaring `may_grant` is installed
-  (`oaap.core.authorization` 2.12), which is also the second reader of
-  an assertion.
+  nobody can check. **Every node has the key (0.6.8):** the host makes
+  it at installation, on every update and at every app installation,
+  once, and never replaces a key that is there. Before 0.6.8 it was made
+  only when a propagation destination was created or an app declaring
+  `may_grant` was installed (`oaap.core.authorization` 2.12, the second
+  reader of an assertion) — a chat or an MCP gateway needs it just as
+  much and triggered neither, so a node could run a chat whose every
+  round was refused (oaapx01, 2026-11-18). A list of who needs it was
+  the defect; there is none. The node's status names a missing key and
+  does not count the node as healthy.
 - **Only for a person** (`kind: human`) and only when the call names an
   instance. A machine principal, an API key, or a verify without
   `instance` gets the header empty.
@@ -1228,3 +1234,5 @@ Inhalt der Anfrage als eine Kopfzeile, liest ihn als JSON und lässt nur die
 Listen durch (Werkzeuge, Ressourcen, Vorlagen, Prompts, dazu Aufbau und Abbau
 der Verbindung). Aufrufe werden abgewiesen. Die App sieht das Gateway als
 Maschinen-Benutzer, ohne Zusicherung.
+
+**0.6.8 (L18):** Jeder Knoten hat seinen Zusicherungsschlüssel. Bisher entstand er nur bei einer Destination mit Principal Propagation oder einer App mit `may_grant`; ein Chat oder MCP-Gateway brauchte ihn auch, löste ihn aber nicht aus -- auf oaapx01 wurde deshalb jede Chat-Runde abgelehnt. Jetzt macht ihn die Installation, jedes Update und jede App-Installation, einmal; ein vorhandener bleibt. `oaap status` meldet einen fehlenden Schlüssel.
