@@ -1,7 +1,7 @@
 # oaap.core.tenant — Account and Tenant, the Boundary of Belonging
 
 - **ID:** `oaap.core.tenant`
-- **Version:** 1.9 (a platform role per realm group: `role_map`, written by `server_admin`, only `guest`, `partner`, `user`, synced at every provider login for the roles it gave and never for hand-given ones -- 2.8.1, conformance test 30, RFC-0091 stage 2). 1.8 (brokers in front of a tenant's realm are doors: read, judged open or closed, counted by the §2.8 refusal, acknowledged closed only by the operator with a reason, read daily -- 2.10.1, conformance test 29, RFC-0091 stage 1). 1.7 (the tenant record carries `tenant_admin_may`: rights a `server_admin` hands to this tenant's `tenant_admin`, first `destinations` -- 1.1 table, `oaap tenant allow|disallow`, `oaap.net.destinations` 2.7.1). 1.6 (the bindings follow an issuer change **of the same space**: same connector, same name, same id at the provider, 2.11, conformance test 25, RFC-0073 T6; 1.5: the **clients of an MCP gateway**: a connector makes them on an
+- **Version:** 1.10 (the client of an app: an app that declares `identity.oidc_client` (manifest 0.16) gets ONE confidential client `oaap-app-<instance>` in its tenant's space, made by the connector on an operator's request, disabled at removal -- 2.9.2, conformance test 31, RFC-0091 stage 3). 1.9 (a platform role per realm group: `role_map`, written by `server_admin`, only `guest`, `partner`, `user`, synced at every provider login for the roles it gave and never for hand-given ones -- 2.8.1, conformance test 30, RFC-0091 stage 2). 1.8 (brokers in front of a tenant's realm are doors: read, judged open or closed, counted by the §2.8 refusal, acknowledged closed only by the operator with a reason, read daily -- 2.10.1, conformance test 29, RFC-0091 stage 1). 1.7 (the tenant record carries `tenant_admin_may`: rights a `server_admin` hands to this tenant's `tenant_admin`, first `destinations` -- 1.1 table, `oaap tenant allow|disallow`, `oaap.net.destinations` 2.7.1). 1.6 (the bindings follow an issuer change **of the same space**: same connector, same name, same id at the provider, 2.11, conformance test 25, RFC-0073 T6; 1.5: the **clients of an MCP gateway**: a connector makes them on an
   operator's request and only ever disables them, 2.9.1, RFC-0073 stage 3; `tenant check`
   asks the provider whether a tenant's client is there, 2.1, conformance test 28;
   1.4: a provisioned space gets the node's mailbox and German as its
@@ -872,6 +872,53 @@ somebody else's server.
   at removal does not stop the removal; the operator is told which two
   clients to disable by hand.
 
+#### 2.9.2 The client of an app (1.10, RFC-0091 stage 3)
+
+Some apps must authenticate clients that are not browsers themselves —
+Forgejo answers `git push` over HTTPS with its own tokens — and cannot
+sit behind the portal login. Such an app MAY declare
+`identity.oidc_client` (manifest 0.16, `oaap.apps.runtime` 2.35); a
+connector then MAY make it **one** client in the space of its tenant.
+The app signs persons in through the realm's login page, never its own:
+it is a reasoned exception to "apps never build a login" (RFC-0040 §6)
+in the same way the `public` route is.
+
+- **On an operator's request** (`oaap idp app`), never at install —
+  the rule of 2.9.1. Install names the command when the tenant's
+  provider was made by a connector.
+- **In the space of the instance's tenant, made by this connector**, as
+  in 2.9.1: a provider named by hand gets no client from OAAP, the space
+  is not created here, the tenant's own client is not touched. A
+  rehearsal (RFC-0030) gets no client.
+- **`oaap-app-<instance>`**: confidential; authorization code flow and
+  nothing else — no implicit flow, no password grant, no service
+  account; redirect URIs are every declared path under every public name
+  of the instance (canonical name, aliases, automatic node addresses),
+  always `https://`, because that is what the browser sees also behind
+  an edge. With `groups_claim: true` the client carries the same group
+  mapper as the tenant's own client (full paths, claim `groups`).
+- **The rules of 2.9 hold.** The version first, the plan printed
+  beforehand, a dry run calls nothing, nothing deletes. A client found
+  under that name is taken if it is confidential; it MAY be enabled
+  again and given missing redirect URIs and the group mapper, and
+  nothing else about it changes. A public client under that name is
+  refused. A redirect URI is added, **never taken away**: a name the
+  instance no longer carries stays until somebody removes it in the
+  product, a new name needs the command again.
+- **What is handed on**: the issuer, the client id and its secret, as
+  platform variables of the instance (`oaap.apps.runtime` 2.35). The app
+  never receives a credential that can change the realm. The record says
+  which connector, which space, which client and redirect URIs, when and
+  by whom; the tenant's log has one line (`app.idp`).
+- **Disabled, never deleted** — on `--off`, at removal, and at a
+  redeploy whose manifest no longer declares the client. A provider that
+  cannot be reached at removal does not stop the removal; the operator
+  is told which client to disable by hand.
+- **Roles inside the app are the app's.** What the app makes of the
+  `groups` claim (Forgejo: site administrator, restricted user) is its
+  own business and grants no platform role (RFC-0045's territory); K4
+  is about OAAP's roles.
+
 ### 2.10 The switches inside that space (0.9, RFC-0041 K7)
 
 Two of a tenant's settings do not live in this record at all. Who may
@@ -1464,6 +1511,14 @@ On a node with one tenant: none that anyone can observe, exactly as in
     person who holds `partner` by hand keeps it whatever the groups say, and the log names
     no change for them. A mapping to `admin`, `keyuser` or `tenant_admin` is refused. With
     an open broker and no reason, a `role_map` is refused like `role`.
+31. **The client of an app** (1.10). An instance declaring `identity.oidc_client` in a tenant
+    whose provider a connector made: the plan names exactly one confidential client
+    `oaap-app-<instance>` with the declared paths under every public name, `https://`; a dry
+    run calls nothing; the run hands issuer, client id and secret to the instance and nothing
+    else, and logs `app.idp`. A public client of that name is refused unchanged; a found
+    confidential one keeps its other redirect URIs. A provider named by hand, a rehearsal or an
+    instance without the declaration is refused. Removal and `--off` disable the client and
+    delete nothing; the three variables leave the instance and a kept `instance.env`.
 
 ## 5. Dependencies
 
@@ -1632,6 +1687,21 @@ Entfernen sich die Identität als Merkposten notiert — und dieser
 Merkposten macht zurückgelassene Kundendaten zum ersten Mal überhaupt
 sichtbar, statt sie nach einer einmaligen Meldung verschwinden zu
 lassen.
+
+## Deutsche Zusammenfassung (1.10 — der Client einer App)
+
+Eine App, die Nicht-Browser-Clients selbst prüfen muss (Forgejo bei
+`git push` über HTTPS), kann im Manifest `identity.oidc_client` erklären.
+Auf Anforderung des Betreibers (`oaap idp app`, nie bei der Installation)
+legt der Connector dann **einen** vertraulichen Client `oaap-app-<instanz>`
+im Realm des Mandanten an. Die Weiterleitungsadressen sind die erklärten
+Pfade unter allen Namen der Instanz, immer mit `https://`. Die App bekommt
+Issuer, Client-ID und Geheimnis als Plattformvariablen, nie einen
+Verwaltungszugang zum Realm. Ein gefundener vertraulicher Client wird nur
+ergänzt, ein öffentlicher abgelehnt; Adressen werden nie weggenommen.
+Beim Entfernen der App wird der Client deaktiviert, nicht gelöscht. Was
+die App aus den Gruppen macht (Forgejo-Admin, eingeschränkter Benutzer),
+ist ihre Sache und gibt keine Plattformrolle.
 
 ## Deutsche Zusammenfassung (1.9 — eine Plattformrolle je Realm-Gruppe)
 

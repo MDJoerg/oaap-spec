@@ -1,7 +1,7 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.67 (**the discovery door**: a consuming gateway's site carries, next to each door of procedure I, `/platform/mcp/discover/<source>`, which passes only the catalog requests without a person; the body goes to identity as one header -- 2.32.5, RFC-0073 §16, reference 0.1.300). 0.2.66 (**the tested package into the catalog**: `catalog-put` hands an instance's retained package to a package catalog of the node through its inbox, not released; **`visible_to`** on a catalog entry limits it to named tenants, judged by the host on every resolution -- 2.6, RFC-0050 §9, reference 0.1.295). 0.2.65 (**a declared health path the app never built** (404/405) is not the app's verdict: the probe asks its home page, and an answer below 400 there is *reachable*, the missing path named; install says so at once -- 2.11, reference 0.1.294). 0.2.64 (**an app MAY declare an `assets` door** (manifest 0.15): it names its assets -- model names, sources -- and how they hang together, and the node asks it for the fleet status document -- 2.34, RFC-0087 §8.2). 0.2.63 (**a tunnel app MAY declare a `link_state` door** (manifest 0.14): the node asks it how its tunnel and its targets are, for the fleet status document -- 2.33, RFC-0087 §8.1). 0.2.62 (**a config key MAY declare `file: true`**: its value is a file, stored as one base64 line, and the portal offers an upload -- 2.8; **a tunnel (`tun`, 2.23) is confirmed in the store** by a `server_admin`'s tick naming the app, besides `--confirm-tun` -- RFC-0060 stage 4). 0.2.61 (**promotion from a Git test instance** by its recorded commit -- 2.14.1). 0.2.60 (**a build that upgrades OS packages is built without the layer cache**, and "unchanged" compares the package lists -- 2.31.1, RFC-0071 §16; **a portal tick confirms a widening** by the fingerprint of exactly the reported lines -- 2.14, I-43). 0.2.59 (**a second kind of generated value, `vapid`**, and a build step may generate into an empty key -- 2.8, RFC-0079). 0.2.58 (**the envelope rule on every way in**: directory and
+- **Version:** 0.2.68 (**an app signs in itself through its tenant's realm**: manifest 0.16 `identity.oidc_client` {redirect_paths, groups_claim}; once a connector made the client (`oaap.core.tenant` 2.9.2) the instance gets `OAAP_OIDC_ISSUER`, `OAAP_OIDC_CLIENT_ID`, `OAAP_OIDC_CLIENT_SECRET`, record `oidc_idp` -- 2.35, RFC-0091 stage 3). 0.2.67 (**the discovery door**: a consuming gateway's site carries, next to each door of procedure I, `/platform/mcp/discover/<source>`, which passes only the catalog requests without a person; the body goes to identity as one header -- 2.32.5, RFC-0073 §16, reference 0.1.300). 0.2.66 (**the tested package into the catalog**: `catalog-put` hands an instance's retained package to a package catalog of the node through its inbox, not released; **`visible_to`** on a catalog entry limits it to named tenants, judged by the host on every resolution -- 2.6, RFC-0050 §9, reference 0.1.295). 0.2.65 (**a declared health path the app never built** (404/405) is not the app's verdict: the probe asks its home page, and an answer below 400 there is *reachable*, the missing path named; install says so at once -- 2.11, reference 0.1.294). 0.2.64 (**an app MAY declare an `assets` door** (manifest 0.15): it names its assets -- model names, sources -- and how they hang together, and the node asks it for the fleet status document -- 2.34, RFC-0087 §8.2). 0.2.63 (**a tunnel app MAY declare a `link_state` door** (manifest 0.14): the node asks it how its tunnel and its targets are, for the fleet status document -- 2.33, RFC-0087 §8.1). 0.2.62 (**a config key MAY declare `file: true`**: its value is a file, stored as one base64 line, and the portal offers an upload -- 2.8; **a tunnel (`tun`, 2.23) is confirmed in the store** by a `server_admin`'s tick naming the app, besides `--confirm-tun` -- RFC-0060 stage 4). 0.2.61 (**promotion from a Git test instance** by its recorded commit -- 2.14.1). 0.2.60 (**a build that upgrades OS packages is built without the layer cache**, and "unchanged" compares the package lists -- 2.31.1, RFC-0071 §16; **a portal tick confirms a widening** by the fingerprint of exactly the reported lines -- 2.14, I-43). 0.2.59 (**a second kind of generated value, `vapid`**, and a build step may generate into an empty key -- 2.8, RFC-0079). 0.2.58 (**the envelope rule on every way in**: directory and
   Git installs too, the report reaches the portal, I-43, 2.14). 0.2.57 (**a second origin for the views of MCP Apps**,
   manifest 0.13 `ui_sandbox`, 2.32.4, RFC-0075). 0.2.56 (**a chat acts at its tenant's gateways as the person**,
   RFC-0074 stage 1: manifest 0.12 `mcp_client: {use: true}`, the list
@@ -2567,6 +2567,52 @@ assets:
   fields added by a later version of this section, never by an app.
 - A node before 0.2.64 ignores the field (RFC-0012 §8.2).
 
+### 2.35 An app signs in itself through its tenant's realm (0.2.68, manifest 0.16, RFC-0091 stage 3)
+
+An app that must authenticate non-browser clients itself (Git over
+HTTPS) and therefore serves a reasoned `public` route MAY ask for its
+own client in its tenant's identity space:
+
+```yaml
+oaap_manifest: "0.16"
+identity:
+  oidc_client:
+    redirect_paths: [/user/oauth2/oaap/callback]
+    groups_claim: true        # the client carries the `groups` claim
+```
+
+- **`redirect_paths`**: one to four local paths, each `/`-rooted, no
+  `//`, no `..`, no query, not under `/auth/` or `/platform/` (2.4).
+  **`groups_claim`**: `true` or `false` (default `false`). No other key
+  is known; an unknown one is refused, like `mcp_client`.
+- **The declaration grants nothing.** The client is made by a connector
+  on an operator's request (`oaap idp app <connector> --instance
+  <name>`, `oaap.core.tenant` 2.9.2), never at install; install names
+  that command when the tenant's provider was made by a connector, and
+  otherwise says that the app keeps its own accounts.
+- Once made, the instance gets three platform-owned variables (2.8):
+
+| Variable | Value |
+|---|---|
+| `OAAP_OIDC_ISSUER` | the issuer of the tenant's space |
+| `OAAP_OIDC_CLIENT_ID` | `oaap-app-<instance>` |
+| `OAAP_OIDC_CLIENT_SECRET` | its secret |
+
+- Written only by that request; writing them recreates the container
+  like a config save. A redeploy keeps them. They are dropped when the
+  manifest no longer declares the client (the client is then disabled),
+  when the operator switches it off, and at removal — also from a kept
+  `instance.env`. A rehearsal never gets them.
+- The registry record `oidc_idp` carries connector, space, issuer,
+  client id, redirect URIs, when and by whom, and `off` once disabled.
+  Never the secret. A redeploy keeps it.
+- **Without the three variables the app MUST work with its own
+  accounts** — a node without a managed realm, or one before 0.2.68,
+  which ignores the section (RFC-0012 §8.2).
+- The groups claim carries full realm group paths (`/forgejo-admins`).
+  What the app makes of them is its own business and never a platform
+  role (`oaap.core.tenant` 2.9.2).
+
 ## 3. Configuration
 
 - Level-1 port range (default 8100–8199, expert-configurable;
@@ -2904,6 +2950,18 @@ Serverfehler, ohne Antwort oder bei kaputter Startseite bleibt sie
 auffällig. Die Installation weist sofort darauf hin. Anlass: eine
 KI-gebaute Webseite auf oaapx02 (15.11.2026). Wir können nicht davon
 ausgehen, dass fremde Apps unsere Regeln immer einhalten.
+
+## Deutsche Zusammenfassung (2.35, v0.2.68 — eine App meldet sich selbst über den Realm an, Manifest 0.16, RFC-0091 Stufe 3)
+
+Eine App, die Git über HTTPS oder andere Nicht-Browser-Clients selbst
+prüfen muss, kann `identity: {oidc_client: {redirect_paths: [...],
+groups_claim: true}}` erklären. Die Erklärung allein gibt nichts: Den
+Client im Realm des Mandanten legt der Betreiber mit `oaap idp app` an,
+nie die Installation. Danach bekommt die Instanz `OAAP_OIDC_ISSUER`,
+`OAAP_OIDC_CLIENT_ID` und `OAAP_OIDC_CLIENT_SECRET`. Ein Redeploy behält
+sie; ohne die Erklärung, beim Abschalten und beim Entfernen verschwinden
+sie, und der Client wird deaktiviert. Ohne die drei Variablen arbeitet
+die App mit ihren eigenen Konten weiter.
 
 ## Deutsche Zusammenfassung (2.34, v0.2.64 — eine App nennt ihre Assets, Manifest 0.15, RFC-0087 §8.2)
 

@@ -5,7 +5,10 @@
   1.8 §2.10.1, `oaap.core.notifications` 0.11 (`idp.door`), plus a
   daily reading of every tenant realm; stage 0 measured. Stage 2 (role
   per realm group) built in reference 0.1.299, `oaap.core.tenant` 1.9
-  §2.8.1, measured on oaap-test. Stage 3 not built
+  §2.8.1, measured on oaap-test. Stage 3 (an app's own client)
+  built in reference 0.1.301, `oaap.core.tenant` 1.10 §2.9.2,
+  `oaap.apps.runtime` 0.2.68 §2.35 (manifest 0.16), Forgejo package
+  15.0.11 in `oaap-store`, measured on oaap-test. **All stages built.**
 - **Date:** 2026-11-18
 - **Authors:** Jörg (the scenario, 2026-11-17: a consulting tenant with
   employees, partners and premium partners/customers who bring their own
@@ -210,6 +213,17 @@ identity:
     groups_claim: true          # add the oaap-groups mapper
 ```
 
+*As built (0.1.301), two deliberate departures from the next lines:*
+the client is made **on an operator's request** (`oaap idp app
+<connector> --instance <name>`), not at install — the rule
+`oaap.core.tenant` 2.9.1 already set for the gateway's clients
+("installing an app does not change somebody else's server"); install
+names the command. And a redirect URI of a name the instance no longer
+carries is **not taken away** — K3.3's "extend, never replace"; a new
+name needs the command again. The variable is `OAAP_OIDC_CLIENT_SECRET`,
+a platform-owned variable like `OAAP_MCP_IDP_SECRET`, not an RFC-0079
+generated value: the realm generates it, not the node.
+
 On `app install`/`update` in a tenant whose provider is a managed realm,
 the platform:
 
@@ -299,6 +313,53 @@ then stayed through a login with the group and one without, with no
 slash (`/partner`); the mapping is written without it. Test person,
 group and mapping removed afterwards.
 
+**Measured 2026-11-18 on oaap-test (0.1.301), stage 3,** with the
+Forgejo package 15.0.11 as instance `git` in the tenant `vuebung` and
+a "foreign" identity provider in front of its realm: the realm
+`rfc0091partner` as `keycloak-oidc` broker `partner-kc` (trustEmail,
+a Hardcoded Group mapper → `/partner`), a test person `fjpartner` only
+in the partner realm.
+
+- Install named `oaap idp app auth --instance vuebung-git`; the dry run
+  printed one client `oaap-app-git` with one redirect URI
+  (`https://git.vuebung.<node>/user/oauth2/oaap/callback`) and called
+  nothing. The run made the client exactly as §4.2 says (confidential,
+  code flow only, no implicit/password/service account, no web origins,
+  the `oaap-groups` mapper with full paths), handed the three variables,
+  recreated the container, logged `app.idp`; the record holds no secret.
+  Forgejo derived its ROOT_URL from `OAAP_INSTANCE_NAMES` and added the
+  source `oaap` itself; a config change later brought it up to date
+  instead of adding a second one.
+- **A login through the foreign broker into Forgejo works end to end:**
+  Forgejo → vuebung's login page offering `partner-kc` → the partner
+  realm's form → back through `first-broker-login` (no form: the profile
+  was complete, trustEmail) → Forgejo's callback → signed in as
+  `fjpartner`, a new Forgejo account. **The Hardcoded Group mapper does
+  reach the `groups` claim:** with `OAAP_FORGEJO_RESTRICTED_GROUP=/partner`
+  the account is a restricted user (the open stage 0 question).
+- **Finding: Forgejo makes the first person who registers its site
+  administrator — also through the realm.** Without a local admin the
+  foreign partner's test person became Forgejo administrator. The
+  package's source step now waits until an administrator exists (log
+  line, then within 30 s); measured: no source (Forgejo answers its
+  realm login path with 500, nobody gets in)
+  before, the source after `forgejo admin user create --admin`, and the
+  same person signing in then got a restricted account without admin.
+- Git over HTTPS through the public route with an access token of that
+  account: repository created over the API (201), push and clone work;
+  without a token Git asks for credentials.
+- `--off`: client disabled, variables gone, container recreated; Forgejo
+  still sends people to the realm, and the realm refuses (400, client
+  disabled). Removal with `--purge` disabled the client, deleted
+  nothing; a reinstall and `oaap idp app` enabled the found client
+  again. No `idp.door` was filed (the reading runs daily; the broker was
+  gone before it). Broker, group, both test persons, the partner client
+  and the instance were removed afterwards; the disabled client
+  `oaap-app-git` stays in vuebung, as the rule says.
+- Side note: `codeberg.org` did not answer that day (from the node and
+  from Jörg's machine); the package takes the image from the project's
+  mirror `data.forgejo.org`.
+
 ## 6. Decisions for Jörg
 
 - **D1 — Reopen K4's sentence?** A realm group may become a platform
@@ -372,4 +433,16 @@ Stufe 3 erneuern (D7).
 
 **Stufen:** 0 Messung auf oaap-test (zweiter Realm als „fremder“ IdP),
 1 Broker-Prüfung (schließt eine heute bestehende Lücke, braucht nur
-D4/D5), 2 Rollen je Gruppe, 3 App-Client + Forgejo. Gebaut ist nichts.
+D4/D5), 2 Rollen je Gruppe, 3 App-Client + Forgejo.
+
+**Stand 18.11.2026: alle Stufen gebaut und gemessen.** Stufe 1 in
+0.1.297, Stufe 2 in 0.1.299, Stufe 3 in 0.1.301. Stufe 3 weicht an zwei
+Stellen bewusst ab: Den Client legt der Betreiber mit `oaap idp app` an,
+nicht die Installation (dieselbe Regel wie beim MCP-Gateway). Und
+Weiterleitungsadressen werden nur ergänzt, nie weggenommen. Gemessen:
+Anmeldung über einen fremden Anmeldedienst bis in Forgejo, die Gruppe aus
+dem Hardcoded-Group-Mapper kommt im Token an (eingeschränkter Benutzer),
+Git über HTTPS mit Token, Abschalten und Entfernen deaktivieren den
+Client. **Befund:** Forgejo macht die erste registrierte Person zum
+Administrator, auch über den Realm. Das Paket legt die Anmeldequelle
+deshalb erst an, wenn es einen lokalen Administrator gibt.
