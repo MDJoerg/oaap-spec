@@ -1,6 +1,14 @@
 # RFC-0094: Help as the Tenant's Documentation — Apps Bring Their Docs, Products, Versions, Languages
 
-- **Status:** **Draft (2026-11-18)** — D1–D10 open. Nothing built.
+- **Status:** **Accepted (2026-11-18)** — Jörg: "D1-D10 wie empfohlen".
+  Stage 1 built: reference 0.1.302 (`oaap.apps.runtime` 0.2.69 §2.36,
+  manifest 0.17), `help` 0.4.0, `mcp-gateway` 0.11.0 (D6). Two details
+  settled while building: `entry` and `icon` are paths inside the product
+  folder (not the package); the documentation directory hangs off the
+  instance ID, not its key (a rename moves nothing, RFC-0026). Not yet in
+  stage 1: icons, images in documents and the per-person filter by
+  instance visibility (RFC-0007) — `index.json` carries the visibility,
+  help reads it in stage 2.
 - **Date:** 2026-11-18
 - **Authors:** Jörg (the direction, 2026-11-18: "help in every tenant,
   fed automatically by the installed apps, OAAP's own docs switchable off,
@@ -79,8 +87,8 @@ docs:
   - product: bdt                    # id within the tenant's help; default app.id
     title: "BDT – Business Daily Tools"   # default app.name
     path: app/help/                 # folder in the package
-    entry: index.md                 # start page of the product; default index.md, then README.md
-    icon: app/help/icon.svg         # optional, svg/png in the package, for the tile
+    entry: index.md                 # start page, in that folder; default index.md, then README.md
+    icon: icon.svg                  # optional, svg/png in that folder, for the tile
     color: "#0a6ed1"                # optional, for colourful layouts
     lang: de                        # language of documents that do not say
     audience: [user, keyuser, admin]  # platform roles who see it (RFC-0078 §6)

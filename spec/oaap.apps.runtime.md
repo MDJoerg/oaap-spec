@@ -1,7 +1,7 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.68 (**an app signs in itself through its tenant's realm**: manifest 0.16 `identity.oidc_client` {redirect_paths, groups_claim}; once a connector made the client (`oaap.core.tenant` 2.9.2) the instance gets `OAAP_OIDC_ISSUER`, `OAAP_OIDC_CLIENT_ID`, `OAAP_OIDC_CLIENT_SECRET`, record `oidc_idp` -- 2.35, RFC-0091 stage 3). 0.2.67 (**the discovery door**: a consuming gateway's site carries, next to each door of procedure I, `/platform/mcp/discover/<source>`, which passes only the catalog requests without a person; the body goes to identity as one header -- 2.32.5, RFC-0073 §16, reference 0.1.300). 0.2.66 (**the tested package into the catalog**: `catalog-put` hands an instance's retained package to a package catalog of the node through its inbox, not released; **`visible_to`** on a catalog entry limits it to named tenants, judged by the host on every resolution -- 2.6, RFC-0050 §9, reference 0.1.295). 0.2.65 (**a declared health path the app never built** (404/405) is not the app's verdict: the probe asks its home page, and an answer below 400 there is *reachable*, the missing path named; install says so at once -- 2.11, reference 0.1.294). 0.2.64 (**an app MAY declare an `assets` door** (manifest 0.15): it names its assets -- model names, sources -- and how they hang together, and the node asks it for the fleet status document -- 2.34, RFC-0087 §8.2). 0.2.63 (**a tunnel app MAY declare a `link_state` door** (manifest 0.14): the node asks it how its tunnel and its targets are, for the fleet status document -- 2.33, RFC-0087 §8.1). 0.2.62 (**a config key MAY declare `file: true`**: its value is a file, stored as one base64 line, and the portal offers an upload -- 2.8; **a tunnel (`tun`, 2.23) is confirmed in the store** by a `server_admin`'s tick naming the app, besides `--confirm-tun` -- RFC-0060 stage 4). 0.2.61 (**promotion from a Git test instance** by its recorded commit -- 2.14.1). 0.2.60 (**a build that upgrades OS packages is built without the layer cache**, and "unchanged" compares the package lists -- 2.31.1, RFC-0071 §16; **a portal tick confirms a widening** by the fingerprint of exactly the reported lines -- 2.14, I-43). 0.2.59 (**a second kind of generated value, `vapid`**, and a build step may generate into an empty key -- 2.8, RFC-0079). 0.2.58 (**the envelope rule on every way in**: directory and
+- **Version:** 0.2.69 (**an app brings its documentation**: manifest 0.17 `docs:` (help products: folder, title, language, audience, readers, folder → document type, media) and `docs_sources: {read: true}`; the node copies exactly the declared folders at every install, update, promotion and removal into the tenant's documentation directory and mounts it read-only at `/oaap/docs` into the tenant's instances that declare `docs_sources` -- 2.36, RFC-0094 stage 1). 0.2.68 (**an app signs in itself through its tenant's realm**: manifest 0.16 `identity.oidc_client` {redirect_paths, groups_claim}; once a connector made the client (`oaap.core.tenant` 2.9.2) the instance gets `OAAP_OIDC_ISSUER`, `OAAP_OIDC_CLIENT_ID`, `OAAP_OIDC_CLIENT_SECRET`, record `oidc_idp` -- 2.35, RFC-0091 stage 3). 0.2.67 (**the discovery door**: a consuming gateway's site carries, next to each door of procedure I, `/platform/mcp/discover/<source>`, which passes only the catalog requests without a person; the body goes to identity as one header -- 2.32.5, RFC-0073 §16, reference 0.1.300). 0.2.66 (**the tested package into the catalog**: `catalog-put` hands an instance's retained package to a package catalog of the node through its inbox, not released; **`visible_to`** on a catalog entry limits it to named tenants, judged by the host on every resolution -- 2.6, RFC-0050 §9, reference 0.1.295). 0.2.65 (**a declared health path the app never built** (404/405) is not the app's verdict: the probe asks its home page, and an answer below 400 there is *reachable*, the missing path named; install says so at once -- 2.11, reference 0.1.294). 0.2.64 (**an app MAY declare an `assets` door** (manifest 0.15): it names its assets -- model names, sources -- and how they hang together, and the node asks it for the fleet status document -- 2.34, RFC-0087 §8.2). 0.2.63 (**a tunnel app MAY declare a `link_state` door** (manifest 0.14): the node asks it how its tunnel and its targets are, for the fleet status document -- 2.33, RFC-0087 §8.1). 0.2.62 (**a config key MAY declare `file: true`**: its value is a file, stored as one base64 line, and the portal offers an upload -- 2.8; **a tunnel (`tun`, 2.23) is confirmed in the store** by a `server_admin`'s tick naming the app, besides `--confirm-tun` -- RFC-0060 stage 4). 0.2.61 (**promotion from a Git test instance** by its recorded commit -- 2.14.1). 0.2.60 (**a build that upgrades OS packages is built without the layer cache**, and "unchanged" compares the package lists -- 2.31.1, RFC-0071 §16; **a portal tick confirms a widening** by the fingerprint of exactly the reported lines -- 2.14, I-43). 0.2.59 (**a second kind of generated value, `vapid`**, and a build step may generate into an empty key -- 2.8, RFC-0079). 0.2.58 (**the envelope rule on every way in**: directory and
   Git installs too, the report reaches the portal, I-43, 2.14). 0.2.57 (**a second origin for the views of MCP Apps**,
   manifest 0.13 `ui_sandbox`, 2.32.4, RFC-0075). 0.2.56 (**a chat acts at its tenant's gateways as the person**,
   RFC-0074 stage 1: manifest 0.12 `mcp_client: {use: true}`, the list
@@ -2567,6 +2567,57 @@ assets:
   fields added by a later version of this section, never by an app.
 - A node before 0.2.64 ignores the field (RFC-0012 §8.2).
 
+### 2.36 An app brings its documentation; help reads its tenant's (0.2.69, manifest 0.17, RFC-0094 stage 1)
+
+```yaml
+oaap_manifest: "0.17"
+docs:                              # a list; one mapping counts as a list of one
+  - product: bdt                   # default app.id; unique per tenant
+    title: "BDT – Business Daily Tools"
+    path: app/help/                # a folder in the package
+    entry: index.md                # in that folder
+    icon: icon.svg                 # in that folder (read from stage 2)
+    color: "#0a6ed1"
+    lang: de
+    audience: [user, keyuser, admin]   # default [admin]
+    readers: [end-user]            # end-user | power-user | admin | developer | consultant | operator
+    kinds: {faq.md: faq, kacheln/: function, quickstart/: tutorial}
+    media: [png, svg]              # besides .md; html only when named
+    context: {}                    # reserved
+docs_sources:                      # the consumer side (help)
+  read: true
+```
+
+- **Validation** refuses unknown fields, paths that leave the package, an
+  unknown document type (the fixed list of RFC-0094 §4.1), an unknown
+  reader, an unknown media type, more than eight products, a product id
+  twice. Defaults never widen: `audience` `[admin]`, no `html`.
+- **What the node does.** At every install, update and promotion (all
+  through the same install path) of an instance whose manifest declares
+  `docs:`, it copies — from the unpacked package of exactly that install,
+  nothing else of the package — each declared folder, only `.md` and the
+  declared media types, no link followed, no path leaving the folder, at
+  most 5,000 files and 50 MB per product (an `html` file at most 20 MB),
+  into `tenants/<tenant-id>/docs/<instance-id>/<version>/<product>/`, with
+  `docs.json` beside it (instance key and name, app, version, channel,
+  the products with file counts, dropped products with the reason). A
+  product that breaks a limit is dropped and named in the install output;
+  **the install never fails because of documentation**. The previous
+  version's folder is replaced; a rehearsal publishes nothing.
+- **`tenants/<tenant-id>/docs/index.json`** lists every current set with
+  the instance's current key, name, channel and visibility (RFC-0007);
+  rewritten at every publish, removal and rename. Files `0644`, folders
+  `0755`, owned by the node.
+- **Removal** removes the instance's folder and rewrites the index.
+- **The mount.** An instance whose manifest declares `docs_sources:
+  {read: true}` gets `tenants/<its tenant>/docs` **read-only** at
+  `/oaap/docs` in its primary service. Never another tenant's, never in a
+  rehearsal. The directory is the boundary: no listener, no key, no route.
+- The tenant's log carries `instance.docs` (version, products with file
+  counts, dropped products).
+- A node before 0.2.69 ignores both sections (RFC-0012 §8.2): the app
+  installs, its documentation stays inside its package.
+
 ### 2.35 An app signs in itself through its tenant's realm (0.2.68, manifest 0.16, RFC-0091 stage 3)
 
 An app that must authenticate non-browser clients itself (Git over
@@ -2950,6 +3001,19 @@ Serverfehler, ohne Antwort oder bei kaputter Startseite bleibt sie
 auffällig. Die Installation weist sofort darauf hin. Anlass: eine
 KI-gebaute Webseite auf oaapx02 (15.11.2026). Wir können nicht davon
 ausgehen, dass fremde Apps unsere Regeln immer einhalten.
+
+## Deutsche Zusammenfassung (2.36, v0.2.69 — eine App bringt ihre Doku mit, Manifest 0.17, RFC-0094 Stufe 1)
+
+Eine App erklärt im Manifest ihre Hilfsprodukte (`docs:`): je einen Ordner
+im Paket mit Titel, Sprache, Zielgruppe und einer Zuordnung Ordner →
+Dokumenttyp. Bei jeder Installation, jedem Update und jeder Übernahme
+kopiert der Knoten genau diese Ordner (nur Markdown und die erklärten
+Medien, ohne Links, mit Grenzen) nach `tenants/<mandant>/docs/<instanz-id>/
+<version>/` und führt eine `index.json`. Eine Hilfe-Instanz mit
+`docs_sources: {read: true}` bekommt diesen Ordner ihres eigenen Mandanten
+lesend unter `/oaap/docs` eingehängt. Eine Doku, die eine Grenze verletzt,
+fällt weg und wird genannt; die Installation scheitert daran nie. Beim
+Entfernen verschwindet die Doku der Instanz.
 
 ## Deutsche Zusammenfassung (2.35, v0.2.68 — eine App meldet sich selbst über den Realm an, Manifest 0.16, RFC-0091 Stufe 3)
 
