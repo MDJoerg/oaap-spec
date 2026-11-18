@@ -1,7 +1,7 @@
 # oaap.core.notifications — Recipient Lists and Notifications
 
 - **ID:** `oaap.core.notifications`
-- **Version:** 0.10 (0.10: `link.down` also for an **external end** whose tunnel app says its tunnel or the target is down -- one matter per end, named `<node>/<instance>/<target>`; its subject says *Verbindung getrennt* instead of *Tunnel getrennt*, RFC-0087 §8.1, reference 0.1.288; 0.9: `Dauer` counts from when the fault began where the condition knows it -- the fleet types -- not from the matter's opening, reference 0.1.287, RFC-0087 finding b; 0.8: the fleet type `link.down` -- a broken tunnel at the hub, one matter per tunnel naming what depends on it, RFC-0087 §6, reference 0.1.285; 0.7: a lock on a name **nobody has** -- an empty one included -- is no longer mailed; it is counted and appears in the node's weekly report as *Fremde Anmeldeversuche*, 2.2.1/2.9; 0.6: the **fleet** types `node.silent`, `bridge.down`,
+- **Version:** 0.11 (0.11: `idp.door` -- a broker in front of a tenant's realm is open and was not at the last reading, security, tenant and node, RFC-0091 stage 1, reference 0.1.297; 0.10: `link.down` also for an **external end** whose tunnel app says its tunnel or the target is down -- one matter per end, named `<node>/<instance>/<target>`; its subject says *Verbindung getrennt* instead of *Tunnel getrennt*, RFC-0087 §8.1, reference 0.1.288; 0.9: `Dauer` counts from when the fault began where the condition knows it -- the fleet types -- not from the matter's opening, reference 0.1.287, RFC-0087 finding b; 0.8: the fleet type `link.down` -- a broken tunnel at the hub, one matter per tunnel naming what depends on it, RFC-0087 §6, reference 0.1.285; 0.7: a lock on a name **nobody has** -- an empty one included -- is no longer mailed; it is counted and appears in the node's weekly report as *Fremde Anmeldeversuche*, 2.2.1/2.9; 0.6: the **fleet** types `node.silent`, `bridge.down`,
 `broker.queue`, `node.loss`, `hub.unreachable`, and a closing mail names how
 long the matter lasted, RFC-0085 stage 2; 0.5: `exposure.found` -- an instance hands out a secret file, critical, tenant and node, RFC-0084; 0.4: the **weekly report** -- a daily ledger, one report per scope, delivery `now`/`report` per routing line -- 2.9, RFC-0083; 0.3: `{knoten}` is the node's alias once one is set, `{ort}` its place, the body names both names -- RFC-0082 stage 1)
 - **Maturity:** draft. 0.1 was RFC-0080 stage 1: lists, the catalogue,
@@ -62,6 +62,7 @@ the instance, the reason, a link to the portal page).
 | `rebuild.failed` | operations | tenant | no | a rebuild was filed `failed` |
 | `confirm.pending` | operations | tenant | no | a delivery through the deploy hook waits for a person's confirmation |
 | `instance.down` | health | tenant | yes | a production instance unhealthy for 5 minutes — **one matter per instance** (2.2.1) |
+| `idp.door` | security | both | no | a reading of the tenant's realm (by hand or the daily one) finds a broker open that was not open at the last reading — one message per broker, naming it and the tenant's first-login policy (`oaap.core.tenant` 2.10.1, RFC-0091 §3.3) |
 | `login.locked` | security | tenant | no | identity locked a login after failed attempts — one mail per tenant and minute, naming every lock (2.2.1) |
 | `node.silent` | health | node | yes | on a fleet hub: a node's last `alive` is older than 5 minutes, by the node's own time — one matter per node; a node behind an entry whose bridge is down is *unknown*, not silent; nothing new opens in the fleet service's first two minutes (RFC-0085 §6.1) |
 | `bridge.down` | health | node | yes | on a fleet hub: one of its own bridges has notified `0` for 5 minutes — one matter per entry, naming the nodes behind it (§6.2) |
@@ -334,3 +335,12 @@ behoben). „Anmeldung gesperrt“ — der Host liest die Fehlversuchsdatei von
 Identity (5 in 5 Minuten) und meldet je Name einmal pro Stunde, an den
 Mandanten des Benutzers, Unbekanntes an den Knoten. Die Portalseite hat
 jetzt Reiter.
+
+## Deutsche Zusammenfassung (0.11 — eine neue offene Tür am Anmeldedienst)
+
+Neue Meldungsart `idp.door` (Sicherheit, Mandant und Knoten): Liest OAAP
+den Realm eines Mandanten – von Hand mit `oaap idp settings` oder bei der
+täglichen Lesung – und findet dort einen Broker (Google, Entra, fremder
+Anmeldedienst), der offen ist und bei der letzten Lesung nicht offen war,
+geht eine Meldung je Broker hinaus. Sie nennt den Broker und was eine
+erste Anmeldung im Mandanten bedeutet (RFC-0091 Stufe 1).

@@ -1,7 +1,10 @@
 # RFC-0091: Roles per Realm Group, the Broker Check, and an App as OIDC Client — Partners and Customers with Their Own Identity Provider
 
-- **Status:** **Draft (2026-11-18)** — D1–D7 open, each with a
-  recommendation; nothing built
+- **Status:** **Accepted (2026-11-18)** — Jörg: D1–D7 as recommended.
+  Stage 1 (broker check) built in reference 0.1.297, `oaap.core.tenant`
+  1.8 §2.10.1, `oaap.core.notifications` 0.11 (`idp.door`), plus a
+  daily reading of every tenant realm; stage 0 measurement on oaap-test
+  pending; stages 2 and 3 not built
 - **Date:** 2026-11-18
 - **Authors:** Jörg (the scenario, 2026-11-17: a consulting tenant with
   employees, partners and premium partners/customers who bring their own
@@ -249,6 +252,35 @@ initial admin. Without a realm everything stays as today.
 | 3 | App client §4.2 + Forgejo package §4.4, measured with a login through the foreign broker into Forgejo | D6, D7 |
 
 Stage 1 closes a gap that exists today and can be built without stage 2.
+
+**Measured 2026-11-18 on oaap-test (Keycloak 26.7.4), stage 0 part 1
+and stage 1 end to end:**
+
+- The fields are as assumed: `providerId`, `enabled`, `trustEmail`,
+  `config.hostedDomain` (google), `config.tenant` (microsoft),
+  `config.issuer`/`authorizationUrl`/`tokenUrl` (oidc, keycloak-oidc).
+  The client secret comes back masked.
+- A broker that follows the realm's default carries **no**
+  `firstBrokerLoginFlowAlias`; the flow in force is the realm's
+  `firstBrokerLoginFlow`. The reading uses the broker's value, else the
+  realm's.
+- The connector credential (service account with `create-realm`) reads
+  the brokers of a realm **it made** (200) and gets **403** on a realm it
+  did not make. That is recorded as *unknown*, never as *none*; an
+  adopted realm needs `view-identity-providers` for the service account
+  before its brokers can be judged.
+- End to end with a Google broker without a domain added to the tenant
+  realm `vuebung` (policy `role` → `user`, no reason): the reading files
+  `tenant.idp-door` in the tenant's log and queues one `idp.door`; the
+  policy view shows the broker OPEN and the disagreement; a new role
+  without a reason is refused naming the broker; an acknowledgement
+  without a reason is refused, with one it closes the door. Broker
+  removed and acknowledgement withdrawn afterwards.
+- Not yet measured (stages 2/3): a login through a foreign broker, the
+  Hardcoded-Group mapper reaching the `groups` claim, and what
+  `trustEmail` with the default first-broker-login flow does with an
+  existing e-mail. The realms `rfc0091probe` and `rfc0091partner` stay
+  on oaap-test for that.
 
 ## 6. Decisions for Jörg
 

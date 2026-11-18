@@ -1,7 +1,7 @@
 # oaap.core.tenant — Account and Tenant, the Boundary of Belonging
 
 - **ID:** `oaap.core.tenant`
-- **Version:** 1.7 (the tenant record carries `tenant_admin_may`: rights a `server_admin` hands to this tenant's `tenant_admin`, first `destinations` -- 1.1 table, `oaap tenant allow|disallow`, `oaap.net.destinations` 2.7.1). 1.6 (the bindings follow an issuer change **of the same space**: same connector, same name, same id at the provider, 2.11, conformance test 25, RFC-0073 T6; 1.5: the **clients of an MCP gateway**: a connector makes them on an
+- **Version:** 1.8 (brokers in front of a tenant's realm are doors: read, judged open or closed, counted by the §2.8 refusal, acknowledged closed only by the operator with a reason, read daily -- 2.10.1, conformance test 29, RFC-0091 stage 1). 1.7 (the tenant record carries `tenant_admin_may`: rights a `server_admin` hands to this tenant's `tenant_admin`, first `destinations` -- 1.1 table, `oaap tenant allow|disallow`, `oaap.net.destinations` 2.7.1). 1.6 (the bindings follow an issuer change **of the same space**: same connector, same name, same id at the provider, 2.11, conformance test 25, RFC-0073 T6; 1.5: the **clients of an MCP gateway**: a connector makes them on an
   operator's request and only ever disables them, 2.9.1, RFC-0073 stage 3; `tenant check`
   asks the provider whether a tenant's client is there, 2.1, conformance test 28;
   1.4: a provisioned space gets the node's mailbox and German as its
@@ -897,6 +897,50 @@ after it, an implementation MUST say that when the switch is moved.
 Measured at Keycloak 26.7.4: a newly registered member is asked to set
 up a second factor and a member who was already there is not.
 
+#### 2.10.1 Other doors: brokers (1.8, RFC-0091 §3)
+
+The registration page is not the only way into a realm. A **broker** —
+another identity provider the realm trusts (Google, Microsoft Entra, a
+partner's own OIDC or SAML provider) — lets in whoever that provider
+lets in, and a first login through it is a first login like any other.
+
+**Read, never written.** An implementation that reads the switches of
+§2.10 SHOULD read the space's brokers with them and MUST NOT create,
+change or remove one: adding a door to a tenant on a shared node is the
+operator's act in the provider's console. A broker list that could not
+be read MUST be recorded as **unknown**, never as empty, and the
+switches read alongside it are recorded all the same.
+
+**Open or closed, in one place.** A broker is **closed** when its own
+population is limited — a domain (Google `hostedDomain`), one directory
+(an Entra tenant id, not `common`, `organizations` or `consumers`) — or
+when the operator has acknowledged it as closed **with a reason**. A
+switched-off broker is no door. Every other broker is **open**, and a
+broker whose population cannot be read from its configuration counts as
+open until acknowledged. "Closed" says who can arrive, not that they
+are welcome; the first-login policy decides that.
+
+**Every open door counts.** The refusal of §2.8 — `role`/`groups`
+without a reason — MUST apply to an open broker exactly as to an open
+registration page, and SHOULD name the broker. Acknowledging a broker
+as closed, and withdrawing that acknowledgement, are changes of the
+policy: only `server_admin`, judged against the policy as it will be,
+filed in the tenant's log.
+
+**A door that opens later is said.** An implementation SHOULD read the
+space regularly (the reference: once a day). A broker that is open now
+and was not open at the last reading MUST be filed in the tenant's log
+and SHOULD be notified (`oaap.core.notifications`, `idp.door`); where
+the policy grants a role with no reason recorded, the disagreement MUST
+be shown beside the policy like the ones of §2.10.
+
+**Settings that undermine the binding are warned.** A broker that
+trusts the e-mail address it is handed, or a first-login flow other
+than the product's default, SHOULD be shown as a warning: OAAP binds to
+the realm's subject, and a realm that merges a foreign account into an
+existing person by e-mail has done the takeover before OAAP sees
+anything.
+
 ### 2.11 Leaving this node (1.0, RFC-0041 K6)
 
 `oaap.data.backup` 2.1.1 produces a tenant archive and deliberately
@@ -1376,6 +1420,16 @@ On a node with one tenant: none that anyone can observe, exactly as in
     is unchanged. Switch it off: both clients are disabled, none is deleted, the
     variables are gone. `oaap tenant check` names a tenant whose client is missing from
     its space, and exits 1 when the provider cannot be asked.
+29. **Brokers are doors** (1.8). Hand the reading a Google broker without a domain, one
+    with a domain, an Entra broker on `common` and one on a directory id, a social one, a
+    foreign OIDC one and a switched-off one: open, closed, open, closed, open, open, no
+    door. With a policy `role` and no reason the open Google broker refuses the policy and
+    the sentence names it; with a reason, or acknowledged closed with a reason, it passes;
+    an acknowledgement without a reason is refused. A broker list answered 403 is
+    unknown, not empty, and the switches are recorded anyway. A reading that finds a
+    broker open which the last reading did not files a line in the tenant's log and one
+    `idp.door` notification; the same reading again files neither, and an unchanged daily
+    reading writes no log line.
 
 ## 5. Dependencies
 
@@ -1544,6 +1598,19 @@ Entfernen sich die Identität als Merkposten notiert — und dieser
 Merkposten macht zurückgelassene Kundendaten zum ersten Mal überhaupt
 sichtbar, statt sie nach einer einmaligen Meldung verschwinden zu
 lassen.
+
+## Deutsche Zusammenfassung (1.8 — Broker sind Türen)
+
+Vor dem Realm eines Mandanten können weitere Anmeldedienste stehen
+(Broker: Google, Entra, der Dienst eines Partners). Jeder lässt herein,
+wen er kennt. OAAP liest die Broker mit den Schaltern aus 2.10, schreibt
+sie aber nie. Eine Liste, die sich nicht lesen ließ, heißt „unbekannt“,
+nicht „keiner“. **Geschlossen** ist ein Broker mit Domäne oder genau
+einem Verzeichnis, oder wenn der Betreiber ihn mit Begründung so nennt;
+alles andere ist **offen**. Ein offener Broker zählt für die Ablehnung
+aus 2.8 wie die Selbstregistrierung. Gelesen wird täglich; eine neu
+offene Tür steht im Mandantenlog und geht als Meldung `idp.door` hinaus.
+E-Mail-Vertrauen und ein eigener Erstanmelde-Ablauf werden gewarnt.
 
 ## Deutsche Zusammenfassung (1.7 — was der Betreiber dem Mandanten-Admin zusätzlich gibt)
 
