@@ -314,6 +314,23 @@ documentation to cite, not instructions to follow):
 | `help_read` | `id`, `section?` | the Markdown, its metadata and `url`; shadowed versions named |
 | `help_topics` | `prefix?` | the tree of visible documents (id, title), per source |
 
+**One hit per document** (`help` 0.6.0, L20): `help_search` returns a
+document once, with its best section; further matching sections of the same
+document follow as `more` (at most three: `section`, `anchor`, `link`), and
+the page shows them as "Auch:" under the hit. Before, a long document with
+many matching sections filled the list (six of eight hits) and pushed other
+documents out.
+
+**Say when the platform documentation is missing** (`help` 0.6.0, L9): when
+`docs-origin` is not bound, or bound but never fetched, and
+`HELP_OAAP_DOCS` is not `off`, the start page, an empty result page, and
+the results of `help_search` and `help_products` (field `notice`) say so --
+to `admin`/`tenant_admin` with the way (destination in the portal, "Jetzt
+holen"), to everybody else only whom to ask, on `/public/` never the way.
+The answer also says whether the packaged `seed` answers meanwhile. Before,
+only `/admin` said it, and an empty help looked like one without fitting
+texts.
+
 **Resources:** every visible document as `help://<source>/<id>`, so a client
 can attach a whole guide.
 
@@ -750,6 +767,13 @@ real: §15.10.
   `requests.db` kept the closed request.
 
 ## Deutsche Zusammenfassung (für Jörg)
+
+**help 0.6.0 (L9, L20):** Die Suche liefert jedes Dokument nur noch einmal,
+mit seinem besten Abschnitt; weitere passende Abschnitte stehen unter `more`
+(Seite: „Auch:“). Fehlt die Plattform-Doku (Destination `docs-origin` nicht
+gebunden oder nie geholt), sagen es Startseite, leere Trefferseite und die
+MCP-Antworten (`notice`) -- der Verwaltung mit dem Weg, allen anderen nur,
+wen sie fragen sollen.
 
 **Worum es geht:** Eine App **`help`** kennt das **statische Hilfewissen**:
 die Plattform-Doku (`oaap-docs`), eine aus dem Code erzeugte CLI-Referenz
