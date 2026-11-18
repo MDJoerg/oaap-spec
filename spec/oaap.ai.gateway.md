@@ -1,7 +1,9 @@
 # oaap.ai.gateway — AI Supply Behind One Keyed Endpoint
 
 - **ID:** `oaap.ai.gateway`
-- **Version:** 0.5.1 (a supplier may be marked to receive no sampling
+- **Version:** 0.5.2 (the aliases of a valid key **may be changed** without a
+  new secret, audited old → new, effective from the next request; light and
+  release stay as issued, §2; additive. 0.5.1: a supplier may be marked to receive no sampling
   parameters, §4.2; additive. 0.5: keys may expire; keys issued for a cohort of a
   training in one step, shown once as the operator's own table; the
   operator may probe a supplier and take aliases from its model list,
@@ -80,7 +82,11 @@ hook (writes) and the fleet status (reads).
   is not part of it: it is set by RFC-0022, `default` until then.
 - The context **may be changed at any time**. Every change is audited
   with old and new value and takes effect from the next request.
-- A key may be **restricted to a subset of aliases**.
+- A key may be **restricted to a subset of aliases**. The subset **may be
+  changed** while the key is valid (0.5.2) -- audited with old and new value,
+  effective from the next request, the secret unchanged. Light and release
+  for personal data are *not* changed with it: they bound where any alias of
+  the key may lead. Keys of a cohort change together, not one by one.
 - A key carries a **budget** and a **rate limit**. These are hard: they
   protect against a runaway bill, which an invoice afterwards does not.
 - A key carries the **worst light it may use** and a **release for
@@ -404,6 +410,11 @@ which is the only form of it that survives daily use.
    period that can still grow says so (`complete: false`).
 10. A gateway drawing from another gateway holds exactly one key
     there; that key never appears downstream.
+11. Changing the aliases of a valid key (0.5.2) takes effect on the next
+    request with the same secret: `/v1/models` lists the new subset, a
+    removed alias answers `400` with the permitted ones, the audit log
+    names old and new; an unknown alias or a revoked key is refused and
+    nothing changes.
 
 ## 10. Dependencies
 
@@ -562,3 +573,10 @@ Betreiber per Mehrfachauswahl Modellnamen an; vorhandene werden nie
 `temperature`, `top_p` und `top_k` nicht bekommt. Neuere Claude-Modelle
 lehnen diese Felder mit 400 ab, viele Werkzeuge schicken sie trotzdem.
 Das Gateway entfernt genau diese Felder und sonst nichts.
+
+**0.5.2:** Die Modellnamen eines gültigen Schlüssels lassen sich ändern,
+ohne einen neuen Schlüssel auszustellen -- das Geheimnis beim Verbraucher
+bleibt. Die Prüfspur nennt alt und neu, die Änderung gilt ab der nächsten
+Anfrage. Ampel und Freigabe für personenbezogene Daten bleiben, wie beim
+Ausstellen entschieden. Anlass: bec am 18.11., ein neuer Modellname war dem
+Schlüssel des Chats nicht erlaubt (L26).
