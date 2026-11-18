@@ -5,8 +5,10 @@
   (reference 0.1.237, `mcp-gateway` 0.4.0, §12)**, rolled out to the four LAN nodes;
   **stage 2 built and measured on `oaap-test` (reference 0.1.238, `mcp-gateway` 0.5.0,
   §13)**, rolled out to all five nodes; **stage 3 built and measured on `oaap-test`
-  (reference 0.1.239, `mcp-gateway` 0.6.0, D9–D13, §14)**, not rolled out
-- **Date:** 2026-11-07
+  (reference 0.1.239, `mcp-gateway` 0.6.0, D9–D13, §14)**, not rolled out;
+  **amendment §16 (discovery, D14–D16) accepted 2026-11-18**, built
+  (reference 0.1.300, `mcp-gateway` 0.10.0), measurement on `oaap-test` §16.7
+- **Date:** 2026-11-07 (amended 2026-11-18)
 - **Authors:** Jörg (direction: I-41 of 2026-11-05, "the manifest declares
   doors, the platform interprets nothing"), Claude (facts read in specs and
   reference code, design)
@@ -240,6 +242,8 @@ borrow a person.
 4. The person comes only from the provider's binding; nothing the gateway
    states can name a person.
 5. No fallback: a failed act is a refusal, never a call as the gateway.
+   The one exception is the discovery door of §16, and it carries only the
+   catalog methods; the platform reads the request to know that.
 6. The app receives the same six headers as for a session, and never
    `X-OAAP-Act-Token`.
 7. Every act is in the tenant's log, without the token.
@@ -621,6 +625,179 @@ deleted; `oaap-admin` unchanged.
 **Not measured:** Claude Code itself — the browser step happens at
 Jörg's PC.
 
+## 16. Amendment: discovery without a person (2026-11-18, D14–D16)
+
+### 16.1 Found while setting up a tenant
+
+Setting up tenant `bec` on `oaapx01` for a chat that searches the OAAP help
+(2026-11-18): the gateway found `bec-help` as a source (§3), but could not
+read its catalog. §3 says the catalog is read "with the first signed-in
+person who uses it", and the gateway refuses otherwise: *"Verfahren I braucht
+ein Token eines Menschen — app.py server read … --token-stdin ja"*. In a
+tenant that uses only the platform chat (procedure A, RFC-0074) there is no
+such person: nobody signs in at the gateway, and procedure A needs a view,
+which needs approved entries, which need the catalog. The only way out was a
+raw provider token on the command line. A tenant_admin cannot set up their
+own tenant that way.
+
+Jörg's line (2026-11-18): *within a tenant, discovering what exists is
+allowed, protected by the rights in the tenant; a tenant_admin sets up their
+tenant without detours.*
+
+### 16.2 The door
+
+A second door per source on the consuming gateway's own site, next to the
+door of §4:
+
+```text
+MCP gateway ──POST /platform/mcp/discover/<instance>   (own site)
+              Authorization: Bearer <sources key>            -- no person
+          platform gateway: forward_auth → identity /verify?discover=…
+              the request body travels with it as one header
+              key limited to oaap.mcp.sources:<gateway>?  same tenant?
+              body: ONE JSON-RPC object, method in the catalog set?
+          ◀── headers of the gateway's machine principal instance:<gateway>
+platform gateway ──▶ <instance> at its declared path, the SAME bytes
+```
+
+- **The catalog set** (D14): `initialize`, `notifications/initialized`,
+  `ping`, `tools/list`, `resources/list`, `resources/templates/list`,
+  `prompts/list`, and `resources/read` **only of a view** — `params` with
+  nothing but `uri` (and `_meta`), the `uri` beginning with `ui://`. HTTP
+  `POST` with such a body, and `DELETE` without a body (closing the
+  session). Everything else — `tools/call`, `resources/read` of any other
+  resource, `prompts/get`, `completion/complete`, a JSON-RPC response, a
+  batch, a `GET` — is refused with 403 and never reaches the app.
+- **Why views** (added 2026-11-18 after the measurement, §16.7): since
+  RFC-0075 the gateway reads the views (`ui://`) that tools name and pins
+  them by content with the tool; without them a tool with a view cannot be
+  approved. They are templates, part of what the operator approves — and
+  the app still sees only the gateway's principal.
+- **Why the platform reads the body.** A forward-auth check sees headers, not
+  the request; the method of an MCP call is inside it. A door that let every
+  request through without a person would leave the line between "look" and
+  "act" to the gateway alone (option A1 of the discussion, rejected). The
+  gateway hands the body to identity as one header, base64-encoded
+  (Caddy's `{http.request.body_base64}`, which reads the body and puts it
+  back, so the app gets exactly the bytes identity judged; base64 because a
+  header carries no line break — with the plain body a pretty-printed
+  request ended in a 502, measured). Identity decodes it strictly and parses
+  it as JSON —
+  never a pattern over text, because a nested `"method"` or a `\u` escape
+  defeats every pattern. More than 8 KiB, not one object, not UTF-8, not
+  valid base64: refused. The catalog requests a gateway
+  sends are a few hundred bytes.
+- **Who the app sees** (D15): the gateway's machine principal
+  `instance:<gateway>`, with its own roles — the same principal the platform
+  already created for the sources key. The route roles and visibility groups
+  of the source apply to it as to anybody. An app whose route the gateway's
+  principal may not pass answers 403, and the gateway says so on the
+  server's page; the operator can then give the principal a role or read the
+  catalog as a person (§3, unchanged).
+- **Consequence the operator must know** (D15): an app that lists different
+  tools for different people shows the gateway the list for *its*
+  principal. Approval is per entry and every call still runs as the person
+  (procedure I or A), so a tool missing from the gateway's list cannot be
+  called, and a tool the person may not use is refused by the app at call
+  time. The gateway's server page says "Katalog als Gateway gelesen".
+- **Nothing else changes.** §4 (procedure I) and the via door of RFC-0074
+  (procedure A) still require a person for every call; §8.5 holds for them.
+  The discovery door exists exactly where the door of §4 exists (same
+  tenant, same node, not a rehearsal, not in maintenance), and identity logs
+  each discovery as `mcp.discover` per gateway and target, without the body.
+
+### 16.3 In the gateway
+
+`read_catalog` for a server with access `platform` and no person uses the
+discovery door: the address `/platform/mcp/to/<i>` becomes
+`/platform/mcp/discover/<i>`, the credential is the sources key, no act
+header. With a person (command line `--token-stdin`) it reads as before. The
+automatic read after a source appears and the periodic read
+(`MCPGW_CATALOG_MINUTES`) work again for sources. A changed description
+still blocks the entry (RFC-0065 §4.2).
+
+### 16.4 Security requirements (added)
+
+8. The discovery door passes only the catalog set; the platform decides it
+   from the parsed request, and the app receives the bytes that were judged.
+9. At the discovery door the app sees the gateway's machine principal, never
+   a person, and never a header the gateway sent.
+10. The discovery door exists only where the door of §4 exists.
+
+### 16.5 Conformance (added; every line has a bait)
+
+11. `tools/list` through the discovery door → the app's list; the app sees
+    `instance:<gateway>`, no assertion.
+12. `tools/call`, `resources/read` of anything but `ui://` (or with more
+    parameters than the URI), `prompts/get`, a batch `[…]`, a JSON-RPC
+    response, `{"method":"tools/call","params":{"method":"tools/list"}}`, a
+    `method` key carrying `tools/call`, a body of 9 KiB, a `GET` → 403;
+    the app counts no request (bait).
+13. Without the sources key, with another gateway's key, for a source of
+    another tenant, at a rehearsal → refused as at the door of §4.
+14. A client-sent `X-OAAP-User-Id` or `X-OAAP-Act-Assertion` does not
+    arrive at the app through the discovery door.
+
+### 16.6 Decisions
+
+| # | Proposal | Decided |
+|---|---|---|
+| **D14** | Within a tenant, the platform lets a gateway read a source's **catalog** without a person; **calls** stay bound to a person. An exception to §8.5, limited to the catalog set — including reading the views (`ui://`) of MCP Apps | yes (Jörg, 2026-11-18; `ui://` the same day after the measurement) |
+| **D15** | Only an MCP gateway of the same tenant, with its sources key; the app sees the gateway's machine principal. An app may list differently for it — stated in the spec and on the server page | yes (Jörg, 2026-11-18) |
+| **D16** | Form: amendment to RFC-0073 (same family of doors), not an RFC of its own | yes (Jörg, 2026-11-18) |
+
+### 16.7 Built and measured (2026-11-18, reference 0.1.300, `mcp-gateway` 0.10.0)
+
+**Before building**, on `oaap-test` in a throwaway Caddy 2.11.4 (the
+version on `oaapx01`): with `{http.request.body}` in a `forward_auth`
+header the check got the body as the header and no body, the upstream the
+same bytes and not the header; a refused `tools/call` reached nothing.
+
+**On `oaap-test`, tenant `vuebung`** (gateway `vuebung-mcpgw`, sources
+`vuebung-kp` and `vuebung-vorgaenge`), from inside the gateway's container:
+
+- `initialize` and `tools/list` at the discovery door: 200, the four tools
+  of `vuebung-kp`. A pretty-printed `tools/list` with a line break and an
+  umlaut: 200.
+- Refused (403): `tools/call`, `resources/read` of a non-view, `prompts/get`,
+  `tools/call` with a nested `tools/list`, `method`, a duplicate
+  `method`, a batch, a `tools/call` with a line break, `GET`. Without the
+  key 401, with an assertion 401. A client-sent `X-OAAP-MCP-Request` is
+  overwritten: `tools/list` passes, a `tools/call` body is still refused.
+  The door of §4 without a person stays 401. `DELETE` passes the platform
+  (the app answers 405: `kontext-probe` has no session to close).
+- 9 KiB: refused by identity's web server (431) before the check — the
+  effective limit is about 6 KiB of body, ample for catalog requests.
+- **The gateway at start, with nobody signed in:** „Katalog von
+  „vuebung-kp“ gelesen: 4 Tools, 1 Prompts … Als Gateway gelesen“ and
+  „vuebung-vorgaenge … 5 Tools, 1 Resources“ (the view, `ui://`).
+- The tenant's log: `mcp.discover` ok per session opened, every refusal
+  `denied`, no body in any line.
+
+**Found while measuring, fixed before this record:**
+
+1. With the plain body, a request with a line break ended in a 502 — a
+   header carries no line break. Now `{http.request.body_base64}`; identity
+   decodes strictly. Measured again: the pretty-printed request passes.
+2. `vuebung-vorgaenge` failed: since RFC-0075 the gateway reads the views
+   (`ui://`) its tools name. Jörg decided the same day: views pass, nothing
+   else of `resources/read` (§16.2, D14).
+3. `server read` on the command line is a process of its own and did not
+   know the discovery doors the running service had remembered; it now
+   reads the list once when it lacks a door.
+4. A site written by the first stage (block format 8, plain body) was not
+   rewritten by the second: the marker was the same. Only `oaap-test` had
+   that in-between state; every other node comes from format 7.
+
+**Not measured:** `oaapx01` (not rolled out); a source whose route the
+gateway's principal may not pass on a real node (covered by the unit test).
+
+Rejected: **A1** (the door of §4 without a person — the platform would lose
+the line), **A3** (the app publishes its catalog as a file — maintained
+twice, goes stale, and the gateway is meant to notice changes), **B** (the
+operator reads with their own identity — needs rights in every source and a
+platform session in the gateway).
+
 ## Deutsche Zusammenfassung
 
 **Worum es geht:** Schritt 2 der KI-Chat-Reihenfolge (I-41). Eine OAAP-App, die
@@ -725,3 +902,22 @@ Anmeldedienstes macht alle Bindungen ungültig (auf oaap-test geprüft und von
 Hand umgehängt; Vorschlag T6), die Konnektor-Adresse hat keinen Befehl, und
 der IPv6-Eintrag bei DuckDNS zeigt auf die Fritzbox. Offen: Claude Code selbst
 an Jörgs Rechner.
+
+**Ergänzung §16: Erkunden ohne Person (18.11., D14–D16, entschieden, nicht gebaut):**
+Beim Einrichten des Mandanten `bec` auf oaapx01 hat das Gateway die help-App als
+Quelle gefunden, konnte aber ihren Katalog nicht lesen: Dafür brauchte es das
+Token eines angemeldeten Menschen, und das ging nur über die Kommandozeile. In
+einem Mandanten, der nur den Plattform-Chat nutzt, gibt es diesen Menschen
+nicht. Jörgs Linie: Innerhalb eines Mandanten darf die Plattform erkunden, was
+es gibt; geschützt wird über die Rechte im Mandanten, und ein tenant_admin soll
+seinen Mandanten ohne Umwege einrichten können. Die Lösung (A2): eine zweite Tür
+je Quelle, `/platform/mcp/discover/<instanz>`, auf der Seite des Gateways. Sie
+lässt **nur die Listen** durch (Werkzeuge, Ressourcen, Vorlagen, Prompts, dazu
+Verbindungsaufbau und -abbau), **nie einen Aufruf**. Weil der Pförtner (Caddy)
+nur die Kopfzeilen sieht, gibt er den Inhalt der Anfrage als eine Kopfzeile an
+identity weiter; identity liest ihn als JSON und entscheidet, die App bekommt
+genau diese Bytes. Die App sieht dabei das Gateway als Maschinen-Benutzer
+(D15); eine App, die jeder Person andere Werkzeuge zeigt, zeigt dem Gateway
+dessen Liste. Aufrufe laufen weiterhin immer als Person (Verfahren I oder A).
+Verworfen: die bestehende Tür ohne Person öffnen (A1), Katalog als Datei (A3),
+Lesen mit der Identität des Betreibers (B).

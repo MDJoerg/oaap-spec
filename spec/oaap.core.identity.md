@@ -1,7 +1,7 @@
 # oaap.core.identity — Identity & Roles
 
 - **ID:** `oaap.core.identity`
-- **Version:** 0.6.6 (**a client-sent `X-OAAP-Groups`/`X-OAAP-Tenant` is
+- **Version:** 0.6.7 (**the discovery door**: `/verify?discover=` passes a gateway's catalog requests to a source without a person, the body parsed as JSON, the app seeing the gateway's machine principal -- 2.12.1, RFC-0073 §16, reference 0.1.300). 0.6.6 (**a client-sent `X-OAAP-Groups`/`X-OAAP-Tenant` is
   stripped** on every app route, 2.6; 0.6.5: **a bearer that is not ours** goes to the app when a
   session comes with it, 2.3, I-44; 0.6.4: **a chat acts as the person**, procedure A,
   RFC-0074 stage 1: `/verify?via=`, 2.13, and procedure I takes the
@@ -687,7 +687,40 @@ source, actor the gateway principal, the person in the detail; refusals
 (token, binding, route) with result `denied`. Never a token.
 
 There is **no fallback**: a failed act is a refusal, never a call as the
-gateway (RFC-0065 D8).
+gateway (RFC-0065 D8). The one exception is 2.12.1, and it carries only the
+catalog requests.
+
+#### 2.12.1 The discovery door: the catalog without a person (0.6.7, RFC-0073 §16)
+
+A verify call with `discover=oaap.mcp.sources:<gateway>` comes only from the
+discovery door `oaap.apps.runtime` 2.32.5 writes. Checked every call:
+
+1. **The gateway's key and the same tenant** exactly as 2.12 steps 1 and 2.
+2. **No person.** An `X-OAAP-Act-Token` or `X-OAAP-Act-Assertion` is
+   refused (`401`): this door names nobody.
+3. **The request.** `X-Forwarded-Method` is `POST` and `X-OAAP-MCP-Request`
+   (the request body, put there by the door, strict base64 of UTF-8; a
+   header that does not decode is `403`) is **parsed as JSON** — never
+   matched as text — into exactly one JSON-RPC 2.0 request object without a
+   duplicate key, at most 8 KiB, whose `method` is one of `initialize`,
+   `notifications/initialized`, `ping`, `tools/list`, `resources/list`,
+   `resources/templates/list`, `prompts/list` — or `resources/read` whose
+   `params` hold only `uri` (and `_meta`) and whose `uri` begins with
+   `ui://`: the views of MCP Apps the gateway pins with their tool
+   (`oaap.ai.mcp-gateway` §4.3). Or `DELETE` (closing the session) without a
+   body. Anything else — a call, a read, `prompts/get`, a
+   batch, a response, a `GET`, no body — is `403` with the reason.
+4. **Maintenance** of the source as for the gateway's principal (RFC-0059).
+5. **The route** of the source against the **gateway's machine principal**:
+   roles and visibility groups as the ordinary verify; `403` with a sentence
+   naming the gateway's principal.
+
+On success: `204` with the six headers of `instance:<gateway>` and an
+**empty assertion** (2.11: no person is at the screen). An app that lists
+differently per person shows the gateway the list for its principal; calls
+still run as the person (2.12, 2.13). A line `mcp.discover` in the tenant's
+audit log for each session opened (`initialize`) and for every refusal —
+subject the source, actor the gateway principal; never the body.
 
 ### 2.13 A chat acts as the person: procedure A (0.6.4, RFC-0074 stage 1)
 
@@ -1188,3 +1221,10 @@ entscheidet die Sitzung, und das Token geht unverändert an die App. Rollen,
 Gruppen und Mandantengrenze gelten wie immer. Ohne Sitzung bleibt es bei 401
 (eine Maschine bekommt nie ein Anmeldeformular). Ein Token mit `oaapk_` ist
 immer ein Schlüssel, auch ein kaputter. Eine Sitzung rettet ihn nicht.
+
+**0.6.7 (RFC-0073 §16):** Die Erkundungs-Tür. Ein MCP-Gateway darf den
+Katalog einer Quelle seines Mandanten ohne Person lesen. identity bekommt den
+Inhalt der Anfrage als eine Kopfzeile, liest ihn als JSON und lässt nur die
+Listen durch (Werkzeuge, Ressourcen, Vorlagen, Prompts, dazu Aufbau und Abbau
+der Verbindung). Aufrufe werden abgewiesen. Die App sieht das Gateway als
+Maschinen-Benutzer, ohne Zusicherung.

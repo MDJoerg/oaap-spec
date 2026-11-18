@@ -1,7 +1,7 @@
 # oaap.ai.mcp-gateway — Tool Servers Behind One Keyed Endpoint per View
 
 - **ID:** `oaap.ai.mcp-gateway`
-- **Version:** 0.8.0 (RFC-0075 stage 1: views of MCP Apps are read, pinned by
+- **Version:** 0.9.0 (RFC-0073 §16: the catalog of a platform source is read without a person at the platform's discovery door -- only the lists, as the gateway's machine principal; calls stay bound to a person, §3.7). 0.8.0 (RFC-0075 stage 1: views of MCP Apps are read, pinned by
   content and approved with their tool, §4.3). 0.7.3 (views, effect class and light of a key or profile can be
   changed without revoking it; a `403` names its reason; sources can be read in
   on demand, §2.3, §3.6). 0.7.2 (RFC-0074 stage 3: the usage row records `confirmed`,
@@ -347,6 +347,20 @@ signed-in operator for this page (aud = this gateway) as act credential, as
 in procedure A — so a tenant without a sign-in service can put its own apps'
 tools into a view. The command line still takes a provider token
 (`--token-stdin`). Without either, the catalog stays as last read.
+
+**Reading its catalog without a person (0.9, RFC-0073 §16).** When the
+sources list names a `discover` door for the source (`oaap.apps.runtime`
+2.32.5), the gateway reads the catalog there whenever no person is at hand —
+after a source appears, every `MCPGW_CATALOG_MINUTES`, and on the operator's
+page without an assertion: `Authorization: Bearer <sources key>`, no act
+credential, only `initialize`, `notifications/initialized`, the four lists,
+reading the views (`ui://`) its tools name (§4.3) and closing the session.
+The platform passes nothing else. The source sees
+the gateway's machine principal and may list differently than for a person;
+the sentence after reading says „Als Gateway gelesen“. With a person, the
+gateway reads through the door of procedure I as before. Calls are never
+made at the discovery door. Without a `discover` door (a platform before
+reference 0.1.300) the sentence names the button and `--token-stdin`.
 
 - **Configuration.** `MCPGW_CLIENT_SECRET` — the secret of the gateway's own
   confidential client (`MCPGW_AUDIENCE`) — and `MCPGW_PLATFORM_AUDIENCE`, the
@@ -1138,3 +1152,15 @@ freigibt, gibt genau diese eine Ansicht mit frei; ohne lesbare Ansicht keine
 Freigabe. Liefert der Server später etwas anderes, geht davon nichts an den
 Client, und nach dem nächsten Katalog-Lesen sind Ansicht und Tool gesperrt, bis
 jemand das Tool bestätigt. Im festgehaltenen Text des Tools steht nur `_meta.ui`.
+
+## Deutsche Zusammenfassung (0.9.0, RFC-0073 §16 — Erkunden ohne Person)
+
+Den Katalog einer Quelle der Plattform liest das Gateway jetzt auch ohne
+angemeldeten Menschen: über die Erkundungs-Tür der Plattform, die nur den
+Verbindungsaufbau und die vier Listen durchlässt. Damit funktionieren das
+Lesen gleich nach dem Erkennen einer Quelle und das regelmäßige Nachlesen
+(`MCPGW_CATALOG_MINUTES`) wieder, und eine geänderte Beschreibung fällt von
+selbst auf. Die App sieht dabei das Gateway als Maschinen-Benutzer und zeigt
+ihm dessen Liste; nach dem Lesen steht „Als Gateway gelesen“. Aufrufe laufen
+nie über diese Tür, sondern weiter als Person. Ohne Erkundungs-Tür (Plattform
+vor 0.1.300) nennt der Satz den Knopf „Katalog lesen“ und `--token-stdin`.

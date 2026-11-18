@@ -1,7 +1,7 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.66 (**the tested package into the catalog**: `catalog-put` hands an instance's retained package to a package catalog of the node through its inbox, not released; **`visible_to`** on a catalog entry limits it to named tenants, judged by the host on every resolution -- 2.6, RFC-0050 §9, reference 0.1.295). 0.2.65 (**a declared health path the app never built** (404/405) is not the app's verdict: the probe asks its home page, and an answer below 400 there is *reachable*, the missing path named; install says so at once -- 2.11, reference 0.1.294). 0.2.64 (**an app MAY declare an `assets` door** (manifest 0.15): it names its assets -- model names, sources -- and how they hang together, and the node asks it for the fleet status document -- 2.34, RFC-0087 §8.2). 0.2.63 (**a tunnel app MAY declare a `link_state` door** (manifest 0.14): the node asks it how its tunnel and its targets are, for the fleet status document -- 2.33, RFC-0087 §8.1). 0.2.62 (**a config key MAY declare `file: true`**: its value is a file, stored as one base64 line, and the portal offers an upload -- 2.8; **a tunnel (`tun`, 2.23) is confirmed in the store** by a `server_admin`'s tick naming the app, besides `--confirm-tun` -- RFC-0060 stage 4). 0.2.61 (**promotion from a Git test instance** by its recorded commit -- 2.14.1). 0.2.60 (**a build that upgrades OS packages is built without the layer cache**, and "unchanged" compares the package lists -- 2.31.1, RFC-0071 §16; **a portal tick confirms a widening** by the fingerprint of exactly the reported lines -- 2.14, I-43). 0.2.59 (**a second kind of generated value, `vapid`**, and a build step may generate into an empty key -- 2.8, RFC-0079). 0.2.58 (**the envelope rule on every way in**: directory and
+- **Version:** 0.2.67 (**the discovery door**: a consuming gateway's site carries, next to each door of procedure I, `/platform/mcp/discover/<source>`, which passes only the catalog requests without a person; the body goes to identity as one header -- 2.32.5, RFC-0073 §16, reference 0.1.300). 0.2.66 (**the tested package into the catalog**: `catalog-put` hands an instance's retained package to a package catalog of the node through its inbox, not released; **`visible_to`** on a catalog entry limits it to named tenants, judged by the host on every resolution -- 2.6, RFC-0050 §9, reference 0.1.295). 0.2.65 (**a declared health path the app never built** (404/405) is not the app's verdict: the probe asks its home page, and an answer below 400 there is *reachable*, the missing path named; install says so at once -- 2.11, reference 0.1.294). 0.2.64 (**an app MAY declare an `assets` door** (manifest 0.15): it names its assets -- model names, sources -- and how they hang together, and the node asks it for the fleet status document -- 2.34, RFC-0087 §8.2). 0.2.63 (**a tunnel app MAY declare a `link_state` door** (manifest 0.14): the node asks it how its tunnel and its targets are, for the fleet status document -- 2.33, RFC-0087 §8.1). 0.2.62 (**a config key MAY declare `file: true`**: its value is a file, stored as one base64 line, and the portal offers an upload -- 2.8; **a tunnel (`tun`, 2.23) is confirmed in the store** by a `server_admin`'s tick naming the app, besides `--confirm-tun` -- RFC-0060 stage 4). 0.2.61 (**promotion from a Git test instance** by its recorded commit -- 2.14.1). 0.2.60 (**a build that upgrades OS packages is built without the layer cache**, and "unchanged" compares the package lists -- 2.31.1, RFC-0071 §16; **a portal tick confirms a widening** by the fingerprint of exactly the reported lines -- 2.14, I-43). 0.2.59 (**a second kind of generated value, `vapid`**, and a build step may generate into an empty key -- 2.8, RFC-0079). 0.2.58 (**the envelope rule on every way in**: directory and
   Git installs too, the report reaches the portal, I-43, 2.14). 0.2.57 (**a second origin for the views of MCP Apps**,
   manifest 0.13 `ui_sandbox`, 2.32.4, RFC-0075). 0.2.56 (**a chat acts at its tenant's gateways as the person**,
   RFC-0074 stage 1: manifest 0.12 `mcp_client: {use: true}`, the list
@@ -2275,8 +2275,10 @@ mcp_sources:
   `mcp:`, not a rehearsal, not the gateway itself, sorted by name. Each
   entry: `name`, `app`, `version`, `channel`, `path`, `address` — the
   door as the platform gateway serves it on the source's own port, behind
-  the source's routes (procedure T with an agent key) — and `door`, the
-  block on the gateway's own site that carries a signed-in person (2.32.1).
+  the source's routes (procedure T with an agent key) — `door`, the
+  block on the gateway's own site that carries a signed-in person (2.32.1),
+  and since 0.2.67 `discover`, the block that carries only the catalog
+  requests without a person (2.32.5).
 - **Stale never.** The site marker carries a digest of the list, so the
   site is rewritten whenever a source comes, goes or changes, by the same
   refresh that keeps the feedback block current (block format 6).
@@ -2329,6 +2331,47 @@ door strips it like the token.)
   lists ignores it.
 - **One hop, inside the platform.** The gateway calls its own site; no
   instance opens a connection to another instance's port (RFC-0068).
+
+#### 2.32.5 The discovery door: the catalog without a person (0.2.67, RFC-0073 §16)
+
+Next to each door of 2.32.1 the same site carries
+`/platform/mcp/discover/<source>` (with and without a trailing slash), and
+each list entry names it as `discover`:
+
+```text
+handle /platform/mcp/discover/<source> {
+    request_body {
+        max_size 8KB
+    }
+    rewrite * <the source's mcp.path>
+    forward_auth identity:8000 {
+        uri /verify?roles=<roles of the source's route>&groups=<its visibility groups>
+                   &tenant=<tenant>&instance=<source>&discover=oaap.mcp.sources:<gateway>
+        header_up X-OAAP-MCP-Request {http.request.body_base64}
+        copy_headers <the six identity headers>
+    }
+    request_header -Authorization
+    request_header -X-OAAP-Act-Token
+    request_header -X-OAAP-Act-Assertion
+    request_header -X-OAAP-MCP-Request
+    reverse_proxy <the container behind that route>
+}
+```
+
+- **One credential:** the gateway's sources key. No person — identity
+  refuses an act token or an assertion here (`oaap.core.identity` 2.12.1).
+- **The body goes to the check.** A forward auth sees headers only, and the
+  method of an MCP call is in the body. `{http.request.body_base64}` reads
+  the body and puts it back; identity receives it base64-encoded as
+  `X-OAAP-MCP-Request` (a header carries no line break) and the app receives
+  the same bytes, never the header (measured on Caddy 2.11.4, 2026-11-18).
+  Only the catalog methods pass.
+- **The app sees the gateway's machine principal** `instance:<gateway>`,
+  with an empty assertion; the source's route roles and visibility groups
+  apply to that principal.
+- **Exactly where the door of 2.32.1 is**, and stale never by the same
+  marker (block format 8). `request_header -X-OAAP-MCP-Request` is not an
+  identity strip; the check for stale identity lists ignores it.
 
 #### 2.32.2 Sign-in settings of a gateway (0.2.55, RFC-0073 stage 3)
 
@@ -3966,3 +4009,8 @@ Datei-Upload an und speichert den Inhalt als eine base64-Zeile; die App
 dekodiert ihn. Und ein Tunnel (`tun`) lässt sich jetzt auch im Store
 bestätigen, mit einem Häkchen des Server-Admins, nicht mehr nur an der
 Kommandozeile.
+
+**0.2.67 (RFC-0073 §16):** Neben jeder Tür von Verfahren I trägt die Seite
+eines Gateways eine Erkundungs-Tür `/platform/mcp/discover/<quelle>`. Caddy
+gibt den Inhalt der Anfrage als Kopfzeile an identity, die App bekommt genau
+dieselben Bytes. Durch diese Tür gehen nur die Listen, nie ein Aufruf.
