@@ -1,6 +1,7 @@
 # RFC-0095: The MCP Gateway for the Person — Own Calls, Own Credentials, Readiness
 
-- **Status:** Draft (2026-11-18)
+- **Status:** **Accepted (2026-11-18)** — Jörg: "D1–D11 wie empfohlen".
+  Nothing built yet; stage 1 next.
 - **Date:** 2026-11-18
 - **Authors:** Jörg (the direction, 2026-11-18, after the first real use in
   the tenant bec: "as a user I don't see the MCP gateway — right for
