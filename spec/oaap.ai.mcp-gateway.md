@@ -1,7 +1,7 @@
 # oaap.ai.mcp-gateway — Tool Servers Behind One Keyed Endpoint per View
 
 - **ID:** `oaap.ai.mcp-gateway`
-- **Version:** 0.14.0 (RFC-0095 stage 2: **procedure U**, §3.12 -- a server where every person brings their own credential; entered on `/me`, write only, sealed in the vault bound to the person, sent only with that person's calls; refused before anything goes out when missing; the operator counts and deletes, never reads). 0.13.1 (an old row refused/destination without a door does not guess who refused, §1a). 0.13.0 (RFC-0095 stage 1: **`/me`**, the person's own page -- their usage rows of the last 30 days, a refusal in words with who refused, §1a; usage rows gain two structured columns **`status`** and **`door`**, §9. 0.12.0: servers can be **renamed**, §3.11 -- catalog and entries follow, a source server is found by its origin; `GET /mcp/_views` lists the views a person carried by a chat can open, all of them with reasons for the tenant's administration, §3.9a. 0.11.0: views can be **copied and renamed**, §5.4 -- a rename moves the keys and profiles that name the view; entries can be **assigned in bulk**: a set of catalog entries per view in one step, same approval per entry, §5.1. 0.10.0: RFC-0066 for the gateway: **procedure P**, §3.10 -- a person carried by a chat of the platform reaches a backend such as SAP as themselves, through a destination with principal propagation; `destination:<need>/<path>`, §3.1). 0.9.0 (RFC-0073 §16: the catalog of a platform source is read without a person at the platform's discovery door -- only the lists, as the gateway's machine principal; calls stay bound to a person, §3.7). 0.8.0 (RFC-0075 stage 1: views of MCP Apps are read, pinned by
+- **Version:** 0.15.0 (RFC-0095 stage 3: **readiness** -- `GET /mcp/_readiness?view=` through the via door tells a chat per server whether the view is set up for the person (`ready`, `needs_credential`, `credential_rejected`, `not_for_you`), `/me/v1/readiness`; D2: `/me` and procedure U also for calls signed in at the realm, when the platform names the person's realm id and promises the header, §1b). 0.14.0 (RFC-0095 stage 2: **procedure U**, §3.12 -- a server where every person brings their own credential; entered on `/me`, write only, sealed in the vault bound to the person, sent only with that person's calls; refused before anything goes out when missing; the operator counts and deletes, never reads). 0.13.1 (an old row refused/destination without a door does not guess who refused, §1a). 0.13.0 (RFC-0095 stage 1: **`/me`**, the person's own page -- their usage rows of the last 30 days, a refusal in words with who refused, §1a; usage rows gain two structured columns **`status`** and **`door`**, §9. 0.12.0: servers can be **renamed**, §3.11 -- catalog and entries follow, a source server is found by its origin; `GET /mcp/_views` lists the views a person carried by a chat can open, all of them with reasons for the tenant's administration, §3.9a. 0.11.0: views can be **copied and renamed**, §5.4 -- a rename moves the keys and profiles that name the view; entries can be **assigned in bulk**: a set of catalog entries per view in one step, same approval per entry, §5.1. 0.10.0: RFC-0066 for the gateway: **procedure P**, §3.10 -- a person carried by a chat of the platform reaches a backend such as SAP as themselves, through a destination with principal propagation; `destination:<need>/<path>`, §3.1). 0.9.0 (RFC-0073 §16: the catalog of a platform source is read without a person at the platform's discovery door -- only the lists, as the gateway's machine principal; calls stay bound to a person, §3.7). 0.8.0 (RFC-0075 stage 1: views of MCP Apps are read, pinned by
   content and approved with their tool, §4.3). 0.7.3 (views, effect class and light of a key or profile can be
   changed without revoking it; a `403` names its reason; sources can be read in
   on demand, §2.3, §3.6). 0.7.2 (RFC-0074 stage 3: the usage row records `confirmed`,
@@ -96,6 +96,35 @@ from before 0.13 (no `door`) gets the door its outcome implies -- except
 `refused`/`destination`, which before 0.13 meant either that the gateway
 could not carry the person or that the destination refused: its sentence
 names both and no door (0.13.1).
+
+### 1b. Readiness and the person's realm id (0.15, RFC-0095 stage 3, D2)
+
+**Readiness.** `GET /mcp/_readiness?view=<view>` -- only through the
+platform's via door, like `/mcp/_views` (§3.9a); otherwise the one
+denial. For the carried person: when no access profile of the chat
+opens the view (or its way or light does not fit), `state:
+"not_for_you"` with the reason and **no servers** -- the same answer
+for a view that does not exist. Otherwise per server of the view's
+active entries: `state` `ready` (nothing needed from the person),
+`needs_credential` (procedure U, no credential stored, with the
+operator's hint and link) or `credential_rejected` (the last call of
+this person to this server since the credential was stored was
+`refused`/`credential`), the number of tools and entries; overall
+`ready`, `missing_tools` and `me` -- the gateway's own `/me` address
+from `OAAP_INSTANCE_NAMES`, or empty. The chat maps assistants to
+views (RFC-0095 D9); the gateway knows no assistants.
+`GET /me/v1/readiness` lists the person's procedure-U servers and their
+state.
+
+**The realm id (D2).** On `/me` the platform sends `X-OAAP-User-Idp:
+<issuer> <sub>` (`oaap.core.identity` 2.14). The gateway believes it
+only when `OAAP_IDENTITY_HEADERS` names it (runtime 2.37) and the
+issuer is its own (`MCPGW_ISSUER`). Then `/me` also shows the rows of
+that realm id, and the gateway remembers the link (realm id → platform
+id; audit `person.link`, ids only). A call signed in at the realm to a
+procedure-U server uses the credential of the linked platform id;
+without a link it is refused with the hint to open `/me` once. The
+link is set only on `/me`, never from an MCP request.
 
 ## 2. Two ways in: a key, or a person signed in
 
@@ -1110,6 +1139,14 @@ the command line inside the container (`app.py key|server|view …`).
     open; a shared server credential and a `personal` server in a key
     view are refused; the bait value appears in no file under `/data`,
     no page, row, audit entry or log.
+33. (0.15) Readiness: without a credential `needs_credential` with hint
+    and `me`; after storing `ready` (no reload of the chat); after a
+    `401` of the server `credential_rejected`; a chat without a
+    profile and an unknown view get the same `not_for_you` without
+    servers; without the via door the one denial. D2: the realm header
+    is ignored unless `OAAP_IDENTITY_HEADERS` names it, a foreign
+    issuer is ignored; with both, `/me` shows the realm calls and a
+    realm-signed call reaches the person's credential.
 
 ## 13. Dependencies
 
@@ -1431,3 +1468,16 @@ ihn ab (401/403), zeigt `/me` „erneuern“, und der Sicherungsautomat bleibt
 zu. Der Betreiber sieht je Server, wie viele Personen einen Zugang haben,
 und kann einen löschen, aber keinen lesen. Nach 180 Tagen ohne Nutzung
 wird ein Zugang markiert.
+
+## Deutsche Zusammenfassung (0.15)
+
+**Bereitschaft** (RFC-0095 Stufe 3): Über die via-Tür fragt ein Chat
+`/mcp/_readiness?view=…` und erfährt je Server, ob die Sicht für die Person
+eingerichtet ist: bereit, „eigener Zugang fehlt“ (mit Hinweis und Link)
+oder „Zugang vom Server abgelehnt“. Dazu die Adresse von `/me`. Kann die
+Person die Sicht nicht öffnen, nennt die Antwort keine Server, und eine
+unbekannte Sicht sieht genauso aus. **D2:** Nennt die Plattform auf `/me`
+die Kennung der Person im Realm (`X-OAAP-User-Idp`, ab 0.1.307) und sagt
+sie in `OAAP_IDENTITY_HEADERS` zu, zeigt `/me` auch die Aufrufe mit
+eigener Anmeldung (Claude Code). Ein solcher Aufruf findet dann auch den
+persönlichen Zugang der Person.

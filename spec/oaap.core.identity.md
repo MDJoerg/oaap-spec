@@ -1,7 +1,7 @@
 # oaap.core.identity — Identity & Roles
 
 - **ID:** `oaap.core.identity`
-- **Version:** 0.6.8 (**every node has its assertion key**: made at installation, on every update and at every app installation, never replaced -- 2.11, reference 0.1.302). 0.6.7 (**the discovery door**: `/verify?discover=` passes a gateway's catalog requests to a source without a person, the body parsed as JSON, the app seeing the gateway's machine principal -- 2.12.1, RFC-0073 §16, reference 0.1.300). 0.6.6 (**a client-sent `X-OAAP-Groups`/`X-OAAP-Tenant` is
+- **Version:** 0.6.9 (a seventh header **`X-OAAP-User-Idp`**: the person's binding at the tenant's OIDC identity provider as `<issuer> <sub>`, empty without one -- on the one list, so stripped, copied and kept out of the log like the others, 2.14, reference 0.1.307, RFC-0095 D2). 0.6.8 (**every node has its assertion key**: made at installation, on every update and at every app installation, never replaced -- 2.11, reference 0.1.302). 0.6.7 (**the discovery door**: `/verify?discover=` passes a gateway's catalog requests to a source without a person, the body parsed as JSON, the app seeing the gateway's machine principal -- 2.12.1, RFC-0073 §16, reference 0.1.300). 0.6.6 (**a client-sent `X-OAAP-Groups`/`X-OAAP-Tenant` is
   stripped** on every app route, 2.6; 0.6.5: **a bearer that is not ours** goes to the app when a
   session comes with it, 2.3, I-44; 0.6.4: **a chat acts as the person**, procedure A,
   RFC-0074 stage 1: `/verify?via=`, 2.13, and procedure I takes the
@@ -767,6 +767,31 @@ refusals with result `denied`. Never an assertion, never a key.
 There is **no fallback** (RFC-0074 §5.2): a missing, expired or foreign
 assertion is a refusal, never a call as the chat.
 
+### 2.14 The person's binding at the realm (0.6.9, RFC-0095 D2)
+
+`/verify` puts a seventh header on every request it lets through:
+**`X-OAAP-User-Idp: <issuer> <sub>`** -- the issuer and subject of the
+person's binding at the tenant's OIDC identity provider (RFC-0091), and
+an empty value when the person has no such binding or the subject would
+not read unambiguously (a space in it). Always present, empty where
+there is none: the overwrite rule of the five.
+
+- It is an **identifier, never a token**: what an app can do with it is
+  recognise that a call signed in at the realm (an MCP client with its
+  own sign-in) was made by this person -- the MCP gateway's `/me`
+  (`oaap.ai.mcp-gateway` §1a) shows those calls and lets them use the
+  person's own credentials (§3.12).
+- It stands on the **one list** of identity headers: stripped on every
+  route the gateway does not authenticate, copied on every
+  forward_auth, removed on every destination call that is not a
+  propagation, filtered out of the access log. Sites written before
+  are rewritten by the update (`_site_identity_stale`), including the
+  platform's fixed Caddyfile.
+- Every instance is told which headers this list holds
+  (`OAAP_IDENTITY_HEADERS`, `oaap.apps.runtime` 2.37). An app believes
+  `X-OAAP-User-Idp` only when it is named there -- an older platform
+  would have let a client send it.
+
 ## 3. Configuration
 
 - Session secret and setup token are generated at install time
@@ -1236,3 +1261,13 @@ der Verbindung). Aufrufe werden abgewiesen. Die App sieht das Gateway als
 Maschinen-Benutzer, ohne Zusicherung.
 
 **0.6.8 (L18):** Jeder Knoten hat seinen Zusicherungsschlüssel. Bisher entstand er nur bei einer Destination mit Principal Propagation oder einer App mit `may_grant`; ein Chat oder MCP-Gateway brauchte ihn auch, löste ihn aber nicht aus -- auf oaapx01 wurde deshalb jede Chat-Runde abgelehnt. Jetzt macht ihn die Installation, jedes Update und jede App-Installation, einmal; ein vorhandener bleibt. `oaap status` meldet einen fehlenden Schlüssel.
+
+## Deutsche Zusammenfassung (Nachtrag 0.6.9)
+
+Eine siebte Kopfzeile: **`X-OAAP-User-Idp`** nennt die Bindung der Person
+an den Anmeldedienst des Mandanten als „Issuer Kennung“, leer ohne
+Bindung. Sie ist eine Kennung, kein Token. Damit erkennt das MCP-Gateway
+auf `/me` Aufrufe mit eigener Anmeldung (Claude Code) als die der Person.
+Sie steht auf der einen Liste und wird deshalb überall entfernt, kopiert
+und aus dem Protokoll gehalten wie die anderen, auch in der festen
+Caddyfile.

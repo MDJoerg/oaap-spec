@@ -4,7 +4,9 @@
   **Stage 1 built** (mcp-gateway 0.15.0, spec 0.13.0, 2026-11-18):
   `/me`, `/me/v1/calls`, columns `status`/`door`; the realm `sub`
   header of D2 not yet. **Stage 2 built** (mcp-gateway 0.16.0, spec
-  0.14.0): procedure U, personal credentials on `/me`. Stage 3 open.
+  0.14.0): procedure U, personal credentials on `/me`. **Stage 3 and
+  D2 built** (mcp-gateway 0.17.0, chat 0.7.0, spec 0.15.0, reference
+  0.1.307 with `X-OAAP-User-Idp`). Stage 4 (OAuth per person) later.
 - **Date:** 2026-11-18
 - **Authors:** Jörg (the direction, 2026-11-18, after the first real use in
   the tenant bec: "as a user I don't see the MCP gateway — right for
