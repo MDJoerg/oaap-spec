@@ -1,7 +1,7 @@
 # oaap.ai.mcp-gateway — Tool Servers Behind One Keyed Endpoint per View
 
 - **ID:** `oaap.ai.mcp-gateway`
-- **Version:** 0.11.0 (views can be **copied and renamed**, §5.4 -- a rename moves the keys and profiles that name the view; entries can be **assigned in bulk**: a set of catalog entries per view in one step, same approval per entry, §5.1. 0.10.0: RFC-0066 for the gateway: **procedure P**, §3.10 -- a person carried by a chat of the platform reaches a backend such as SAP as themselves, through a destination with principal propagation; `destination:<need>/<path>`, §3.1). 0.9.0 (RFC-0073 §16: the catalog of a platform source is read without a person at the platform's discovery door -- only the lists, as the gateway's machine principal; calls stay bound to a person, §3.7). 0.8.0 (RFC-0075 stage 1: views of MCP Apps are read, pinned by
+- **Version:** 0.12.0 (servers can be **renamed**, §3.11 -- catalog and entries follow, a source server is found by its origin; `GET /mcp/_views` lists the views a person carried by a chat can open, all of them with reasons for the tenant's administration, §3.9a. 0.11.0: views can be **copied and renamed**, §5.4 -- a rename moves the keys and profiles that name the view; entries can be **assigned in bulk**: a set of catalog entries per view in one step, same approval per entry, §5.1. 0.10.0: RFC-0066 for the gateway: **procedure P**, §3.10 -- a person carried by a chat of the platform reaches a backend such as SAP as themselves, through a destination with principal propagation; `destination:<need>/<path>`, §3.1). 0.9.0 (RFC-0073 §16: the catalog of a platform source is read without a person at the platform's discovery door -- only the lists, as the gateway's machine principal; calls stay bound to a person, §3.7). 0.8.0 (RFC-0075 stage 1: views of MCP Apps are read, pinned by
   content and approved with their tool, §4.3). 0.7.3 (views, effect class and light of a key or profile can be
   changed without revoking it; a `403` names its reason; sources can be read in
   on demand, §2.3, §3.6). 0.7.2 (RFC-0074 stage 3: the usage row records `confirmed`,
@@ -450,6 +450,19 @@ the person's assertion (`oaap.core.identity` 2.13) and sends the request to
 - A key at a view that accepts only `platform` is `401`, as any key at a view
   without `key`.
 
+### 3.9a Views for a person carried by a chat (0.12)
+
+`GET /mcp/_views` answers only a request through the platform's via door
+(chat, person and assertion set, §3.9); anything else gets the one denial
+of §2. It lists the views this person may open from this chat -- by the
+same rule as a call: a profile naming `@<chat>` or `@*`, the way
+`platform`, the light -- each with the number of active tools, prompts
+and resources, its light and highest effect class. A person whose roles
+include `tenant_admin`, `server_admin` or `admin` gets **all** views, the
+others marked with the reason they are closed, so the administration sees
+what is still to set up. Only names, counts and reasons, never an
+entry's text. `_views` can never be a view's name (§5).
+
 ### 3.10 Procedure P: a person through a destination into the backend (0.10, RFC-0066)
 
 A server with access **`propagate`** is reached through a destination with
@@ -491,6 +504,18 @@ to the pinned target. The gateway only proves on whose behalf it calls.
   `assistant` as in procedure A.
 - **The light** is the operator's: a demo system with demo data `yellow`,
   customer systems `red` by default (decision P5).
+
+### 3.11 Renaming a server (0.12)
+
+A server may be renamed. Its catalog and its entries in every view follow;
+approvals stay (same pinned snapshot and fingerprint); the names of the
+entries **in the views** do not change, not even a proposed
+`<server>_<name>`, so clients notice nothing. A server created from the
+platform's source list (§3.6) keeps its origin (the instance name) and is
+matched by it, not by its name, when the list is compared: renaming never
+creates a second server, and "gone" and "back" keep working. Usage rows
+keep the name they were recorded with. Refused: a name that is taken or
+invalid.
 
 ## 4. The catalog: default deny, pinned
 
@@ -996,6 +1021,11 @@ the command line inside the container (`app.py key|server|view …`).
     other views untouched), the same key reaches the new endpoint, the
     old one answers like an unknown view, a taken or invalid name is
     refused and nothing changes.
+30. (0.12) A renamed server keeps its entries active and reachable;
+    a renamed source server is found by the next comparison of the
+    source list, no second server. `/mcp/_views` without the via door is
+    the one denial; through it a person sees only views a call would
+    open, the administration all of them with reasons.
 
 ## 13. Dependencies
 
@@ -1278,3 +1308,13 @@ bleibt. Sichten lassen sich **kopieren** (Freigaben gehen unverändert mit) und
 **umbenennen**: Dann werden Schlüssel und Zugangsprofile umgestellt und die
 alte Sicht gelöscht. MCP-Clients und Chat-Assistenten stellt das Gateway nicht
 um -- die Seite sagt das vorher.
+
+## Deutsche Zusammenfassung (0.12)
+
+Server lassen sich **umbenennen**. Katalog und Einträge ziehen mit, die
+Namen in den Sichten bleiben, Clients merken nichts. Ein Server aus der
+Quellenliste der Plattform wird weiter über seine Herkunft gefunden. Neu ist
+`GET /mcp/_views`, nur über die via-Tür eines Chats: Es nennt die Sichten,
+die die Person aus diesem Chat öffnen kann, nach derselben Regel wie beim
+Aufruf. Die Verwaltung des Mandanten bekommt alle Sichten, die übrigen mit
+Grund. Der Chat baut daraus die Suchhilfe im Feld „Sicht“.
