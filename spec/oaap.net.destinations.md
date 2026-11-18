@@ -1,7 +1,7 @@
 # oaap.net.destinations — Reaching Outward Without Holding the Key
 
 - **ID:** `oaap.net.destinations`
-- **Version:** 0.12 (**a need MAY declare `any: true`** -- the app uses any number of the tenant's `http` destinations, each bound under its own name; the portal offers the binding -- §2.2; an AI gateway's suppliers, RFC-0060 stage 2). 0.11 (a `server_admin` may hand the authoring of destinations to
+- **Version:** 0.12.1 (**the propagation grant survives a redeploy** with its binding -- §2.2, test 7; an update had dropped it, measured on oaapx01 2026-11-18). 0.12 (**a need MAY declare `any: true`** -- the app uses any number of the tenant's `http` destinations, each bound under its own name; the portal offers the binding -- §2.2; an AI gateway's suppliers, RFC-0060 stage 2). 0.11 (a `server_admin` may hand the authoring of destinations to
   the `tenant_admin` of ONE tenant: https targets on public addresses only, and only
   what they made -- §2.7.1, `oaap.core.tenant` 1.7). 0.10 (destinations are added,
   given a secret and removed in the portal as well, by `server_admin` -- §2.7). 0.9
@@ -90,7 +90,8 @@ within it. Fields:
   destination of another tenant; the refusal is the one
   `oaap.core.tenant` 2.3 prescribes for an object that does not exist.
 - Bindings are recorded in the instance's registry record, **survive a
-  redeploy** like visibility and address do, are shown with the
+  redeploy** like visibility and address do -- and so does a binding's
+  propagation grant (2.9, 0.12.1), for every need still bound; are shown with the
   instance, and are revocable. Binding and unbinding are written to the
   tenant's audit log.
 - **The manifest may declare needs** (manifest 0.5, section
@@ -630,8 +631,9 @@ internal and not an operator setting.
 4. The listener does not answer on the host's addresses.
 5. A binding across tenants is refused as "no such destination".
 6. `remove` of a bound destination is refused and names the instances.
-7. A redeploy keeps the bindings; `unbind` removes the variable and the
-   container is recreated without it.
+7. A redeploy keeps the bindings and their propagation grants (the
+   gateway still forwards to connect, no `403`); `unbind` removes the
+   variable and the container is recreated without it.
 8. A rehearsal of a bound instance comes up without the variable and
    without the handed-over fields, and its call → 403.
 9. A `tcp` binding writes the declared fields; binding it to an
@@ -929,3 +931,8 @@ Instanzseite eine Auswahl an, die Kommandozeile ist dafür nicht mehr nötig.
 Erster Nutzer ist das KI-Gateway: Seine Bezugsquellen können jetzt Destinationen
 sein, etwa der Gaming-PC hinter dem VPN-Client oder später das Gateway von
 oaapi01 hinter dem Connector. Die Anmeldung ergänzt die Plattform.
+
+**0.12.1:** Die Freigabe „trägt die Person“ (`--propagate`) an einer Bindung
+übersteht jetzt ein Update der App, so wie die Bindung selbst. Vorher fiel sie
+beim Update weg, und das MCP-Gateway in bec bekam 403 (gemessen auf oaapx01 am
+18.11.).
