@@ -1,7 +1,7 @@
 # oaap.core.tenant — Account and Tenant, the Boundary of Belonging
 
 - **ID:** `oaap.core.tenant`
-- **Version:** 1.10 (the client of an app: an app that declares `identity.oidc_client` (manifest 0.16) gets ONE confidential client `oaap-app-<instance>` in its tenant's space, made by the connector on an operator's request, disabled at removal -- 2.9.2, conformance test 31, RFC-0091 stage 3). 1.9 (a platform role per realm group: `role_map`, written by `server_admin`, only `guest`, `partner`, `user`, synced at every provider login for the roles it gave and never for hand-given ones -- 2.8.1, conformance test 30, RFC-0091 stage 2). 1.8 (brokers in front of a tenant's realm are doors: read, judged open or closed, counted by the §2.8 refusal, acknowledged closed only by the operator with a reason, read daily -- 2.10.1, conformance test 29, RFC-0091 stage 1). 1.7 (the tenant record carries `tenant_admin_may`: rights a `server_admin` hands to this tenant's `tenant_admin`, first `destinations` -- 1.1 table, `oaap tenant allow|disallow`, `oaap.net.destinations` 2.7.1). 1.6 (the bindings follow an issuer change **of the same space**: same connector, same name, same id at the provider, 2.11, conformance test 25, RFC-0073 T6; 1.5: the **clients of an MCP gateway**: a connector makes them on an
+- **Version:** 1.11 (a gateway's sign-in clients, 2.9.1, may be requested by the `tenant_admin` of the instance's tenant too, not only by the operator: the request chooses nothing -- L4, reference 0.1.309). 1.10 (the client of an app: an app that declares `identity.oidc_client` (manifest 0.16) gets ONE confidential client `oaap-app-<instance>` in its tenant's space, made by the connector on an operator's request, disabled at removal -- 2.9.2, conformance test 31, RFC-0091 stage 3). 1.9 (a platform role per realm group: `role_map`, written by `server_admin`, only `guest`, `partner`, `user`, synced at every provider login for the roles it gave and never for hand-given ones -- 2.8.1, conformance test 30, RFC-0091 stage 2). 1.8 (brokers in front of a tenant's realm are doors: read, judged open or closed, counted by the §2.8 refusal, acknowledged closed only by the operator with a reason, read daily -- 2.10.1, conformance test 29, RFC-0091 stage 1). 1.7 (the tenant record carries `tenant_admin_may`: rights a `server_admin` hands to this tenant's `tenant_admin`, first `destinations` -- 1.1 table, `oaap tenant allow|disallow`, `oaap.net.destinations` 2.7.1). 1.6 (the bindings follow an issuer change **of the same space**: same connector, same name, same id at the provider, 2.11, conformance test 25, RFC-0073 T6; 1.5: the **clients of an MCP gateway**: a connector makes them on an
   operator's request and only ever disables them, 2.9.1, RFC-0073 stage 3; `tenant check`
   asks the provider whether a tenant's client is there, 2.1, conformance test 28;
   1.4: a provisioned space gets the node's mailbox and German as its
@@ -836,9 +836,18 @@ A connector MAY make the two clients a gateway instance needs
 (`mcp_sources: {read: true}`, `oaap.apps.runtime` 2.32.2): one through
 which persons sign in, and one with which the gateway exchanges their
 token for one addressed to the platform (procedure I,
-`oaap.ai.mcp-gateway` §3.7). Only **on an operator's request** — a
-command or a button, never at install: installing an app does not change
-somebody else's server.
+`oaap.ai.mcp-gateway` §3.7). Only **on request** — a command or a
+button, never at install: installing an app does not change somebody
+else's server.
+
+- **Who may ask** (1.11, L4): the operator (`server_admin`, or the
+  command at the node), and the `tenant_admin` of the instance's tenant
+  through the portal. The request names only the instance and on/off;
+  the connector is the one that made the tenant's space, the space is the
+  tenant's, the client names follow from the instance -- so asking is not
+  holding the credential, which stays the operator's (2.9). The host asks
+  role and tenant again; anybody else is refused and the refusal is
+  written to the tenant's log.
 
 - **In the space of the instance's tenant, made by this connector.** The
   tenant's provider MUST have been made through the same connector (2.9);
@@ -2172,3 +2181,11 @@ existiert. Es gelten die Regeln von 2.9: Version zuerst, Plan vorher, Probelauf
 ruft nichts, nichts wird gelöscht. Abschalten und Entfernen der Instanz setzen
 beide Clients auf „deaktiviert“. `oaap tenant check` fragt jetzt beim Anbieter
 nach, ob der Client eines Mandanten da und aktiv ist.
+
+## Deutsche Zusammenfassung (1.11 — wer die Clients eines Gateways anfordern darf, L4)
+
+Die beiden Clients eines MCP-Gateways (2.9.1) darf jetzt auch der
+`tenant_admin` des Mandanten der Instanz anfordern, nicht nur der Betreiber.
+Der Auftrag nennt nur Instanz und an/aus: Konnektor, Realm und Client-Namen
+stehen fest, das Geheimnis des Konnektors bleibt beim Betreiber. Der Host
+prüft Rolle und Mandant noch einmal.
