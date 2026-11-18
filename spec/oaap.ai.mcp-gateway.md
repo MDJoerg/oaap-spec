@@ -1,7 +1,7 @@
 # oaap.ai.mcp-gateway — Tool Servers Behind One Keyed Endpoint per View
 
 - **ID:** `oaap.ai.mcp-gateway`
-- **Version:** 0.12.0 (servers can be **renamed**, §3.11 -- catalog and entries follow, a source server is found by its origin; `GET /mcp/_views` lists the views a person carried by a chat can open, all of them with reasons for the tenant's administration, §3.9a. 0.11.0: views can be **copied and renamed**, §5.4 -- a rename moves the keys and profiles that name the view; entries can be **assigned in bulk**: a set of catalog entries per view in one step, same approval per entry, §5.1. 0.10.0: RFC-0066 for the gateway: **procedure P**, §3.10 -- a person carried by a chat of the platform reaches a backend such as SAP as themselves, through a destination with principal propagation; `destination:<need>/<path>`, §3.1). 0.9.0 (RFC-0073 §16: the catalog of a platform source is read without a person at the platform's discovery door -- only the lists, as the gateway's machine principal; calls stay bound to a person, §3.7). 0.8.0 (RFC-0075 stage 1: views of MCP Apps are read, pinned by
+- **Version:** 0.13.0 (RFC-0095 stage 1: **`/me`**, the person's own page -- their usage rows of the last 30 days, a refusal in words with who refused, §1a; usage rows gain two structured columns **`status`** and **`door`**, §9. 0.12.0: servers can be **renamed**, §3.11 -- catalog and entries follow, a source server is found by its origin; `GET /mcp/_views` lists the views a person carried by a chat can open, all of them with reasons for the tenant's administration, §3.9a. 0.11.0: views can be **copied and renamed**, §5.4 -- a rename moves the keys and profiles that name the view; entries can be **assigned in bulk**: a set of catalog entries per view in one step, same approval per entry, §5.1. 0.10.0: RFC-0066 for the gateway: **procedure P**, §3.10 -- a person carried by a chat of the platform reaches a backend such as SAP as themselves, through a destination with principal propagation; `destination:<need>/<path>`, §3.1). 0.9.0 (RFC-0073 §16: the catalog of a platform source is read without a person at the platform's discovery door -- only the lists, as the gateway's machine principal; calls stay bound to a person, §3.7). 0.8.0 (RFC-0075 stage 1: views of MCP Apps are read, pinned by
   content and approved with their tool, §4.3). 0.7.3 (views, effect class and light of a key or profile can be
   changed without revoking it; a `403` names its reason; sources can be read in
   on demand, §2.3, §3.6). 0.7.2 (RFC-0074 stage 3: the usage row records `confirmed`,
@@ -61,6 +61,7 @@ none (RFC-0065 §6, RFC-0066).
 | `/mcp/<view>` | `public` | MCP clients, with a gateway key or a sign-in token (§2) |
 | `/.well-known/oauth-protected-resource…` | `public` | MCP clients looking for where to sign in (§2.2) |
 | `/report/v1/…` | `admin` | a billing system with a platform API key (RFC-0027) |
+| `/me`, `/me/v1/…` | `user`, `keyuser`, `admin` | the person whose calls run through the gateway (0.13, §1a) |
 | `/` and everything else | `admin` | the operator |
 | `/healthz` | — | the platform |
 
@@ -68,6 +69,30 @@ none (RFC-0065 §6, RFC-0066).
 strips client-sent identity headers and brakes per client address
 (RFC-0010); the `Authorization` header passes unchanged. The gateway
 authorizes every request itself.
+
+### 1a. The person's page (0.13, RFC-0095 stage 1)
+
+The platform authenticates `/me` like any `user` route and sets
+`X-OAAP-User-Id`. The gateway shows **only usage rows with issuer
+`platform` and exactly that `sub`** -- the calls the platform carried
+(procedures A, P, I) -- of the last **30 days**. Key calls have no
+person and never appear; calls of a client signed in at the realm
+(§2.2) appear once the platform passes the person's realm `sub`
+(RFC-0095 D2, not in 0.13). Without `X-OAAP-User-Id`: `403`, nothing
+shown.
+
+- `GET /me` -- a page: time, view, kind and name in the view, chat and
+  assistant, procedure, outcome, duration; filters "only problems"
+  (default when the last 7 days hold one), view, day.
+- `GET /me/v1/calls?problems=0|1&view=&day=YYYY-MM-DD` -- the same as
+  JSON: `{"v":1,"days":30,"filter":{…},"calls":[{time, view, kind,
+  name, client, assistant, procedure, outcome, reason, status, door, ms,
+  sentence, hint}],"note":…}`.
+
+Every outcome other than `ok` gets a **sentence made from the row's
+codes** (`outcome`, `reason`, `status`, `door`) and a hint what the
+person can do -- never from recorded text; there is none (§10). A row
+from before 0.13 (no `door`) gets the door its outcome implies.
 
 ## 2. Two ways in: a key, or a person signed in
 
@@ -873,7 +898,10 @@ or access profile, for a person their `sub` and issuer (RFC-0065 D16),
 view,
 **kind** (`tool`, `resource`, `template`, `prompt`), **name in the
 view**, server, **name at the server**, access procedure (`T` or `X`), outcome,
-duration, **bytes up** (the client's request body) and **bytes down**
+duration, (0.13) **`status`** -- the HTTP status a refusal or a server error
+carried, a number, `0` if none -- and **`door`** -- who refused or failed,
+one of `gateway`, `platform`, `destination`, `server`, empty for `ok`;
+**bytes up** (the client's request body) and **bytes down**
 (what the client received), and the **context snapshot** of the key
 (`oaap.ai.gateway` §5). For procedure A also the chat, the assistant and
 (0.7.2) **`confirmed`**: `yes` when the chat sent `X-OAAP-Confirmed: yes`
@@ -1026,6 +1054,13 @@ the command line inside the container (`app.py key|server|view …`).
     source list, no second server. `/mcp/_views` without the via door is
     the one denial; through it a person sees only views a call would
     open, the administration all of them with reasons.
+31. (0.13) `/me` shows a person exactly their own rows -- bait: a
+    second person's row in a view named nowhere else never appears, nor
+    a key call, nor a row of another issuer; a destination's `403` is
+    recorded `status` 403, `door` `destination` and shown as "the
+    destination or the target system refused (HTTP 403)" without any
+    text of the server; an unknown tool is shown as refused by the
+    gateway; without `X-OAAP-User-Id` `403`; `/` stays `admin`.
 
 ## 13. Dependencies
 
@@ -1318,3 +1353,16 @@ Quellenliste der Plattform wird weiter über seine Herkunft gefunden. Neu ist
 die die Person aus diesem Chat öffnen kann, nach derselben Regel wie beim
 Aufruf. Die Verwaltung des Mandanten bekommt alle Sichten, die übrigen mit
 Grund. Der Chat baut daraus die Suchhilfe im Feld „Sicht“.
+
+## Deutsche Zusammenfassung (0.13)
+
+Das Gateway hat eine zweite Seite **`/me` für die Person** (RFC-0095 Stufe
+1, Rolle `user`): Sie zeigt die eigenen Aufrufe der letzten 30 Tage, also
+die, die die Plattform getragen hat (Verfahren A, P, I). Schlüsselaufrufe
+erscheinen nie, Aufrufe mit Anmeldung am Anmeldedienst erst, wenn die
+Plattform die Kennung aus dem Realm mitgibt. Jeder Fehler steht in Worten
+da, mit dem, der abgelehnt hat, und einem Hinweis, was man tun kann. Der
+Satz entsteht nur aus Codes. Dafür bekommt jede Messzeile zwei Spalten,
+`status` (HTTP-Nummer) und `door` (Gateway, Plattform, Destination,
+Server). Freier Text kommt nicht hinzu, §10 bleibt wörtlich wahr. Dasselbe
+gibt es als JSON unter `/me/v1/calls`.
