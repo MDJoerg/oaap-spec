@@ -2,7 +2,8 @@
 
 - **Status:** **Accepted (2026-11-19)** — Jörg: "Alles wie empfohlen,
   schreib das RFC", after going through the points in conversation.
-  D1–D11 decided as recommended. Nothing built.
+  D1–D11 decided as recommended. **Stage 1 built** (2026-11-19,
+  vorgaenge 0.8.0, not pushed); §10.
 - **Date:** 2026-11-19
 - **Authors:**
   - Jörg: the wishes, from working the first real case `V-2026-0001` in
@@ -304,6 +305,28 @@ Spec changes: none in `oaap-spec/spec` (the case app has no capability
 spec of its own yet; RFC-0061 is its contract). RFC-0061 gets a pointer
 to this RFC at §2.2 and §6. The READMEs of `vorgaenge` and the chat
 follow.
+
+## 10. Stage 1, built (2026-11-19)
+
+`vorgaenge` 0.8.0.
+
+- **Built:**
+  - `Who.may` gives the `tenant_admin` every activity except `hand_over`.
+  - Queue members (`handler`, `clearing`) in a table of the app, kept on
+    „Bereiche“ by the `tenant_admin` (or `admin`), with a log „Zuletzt
+    geändert“.
+  - The hint on a case names members, `tenant_admin` and "Rollen &
+    Rechte".
+- **Decided while building:** the app has no directory of the tenant's
+  users; only "Rollen & Rechte" holds that key, with its own consent at
+  install. So members are chosen from the people who have opened the app
+  once (`people`: user id, name, user name, last seen). The page says so.
+- **Measured locally:** `test_app.py` 102/102 (15 new; baits: no handover
+  by the `tenant_admin`, a member of `jira` cannot act in `partner`,
+  members cannot add members, an unknown person cannot be added), the
+  other three test files green. Looked at in the browser behind a proxy
+  with platform headers: create a queue, add a member, the log.
+- **Not measured:** a node.
 
 ## Zusammenfassung auf Deutsch
 
