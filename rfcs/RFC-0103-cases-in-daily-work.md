@@ -2,8 +2,9 @@
 
 - **Status:** **Accepted (2026-11-19)** — Jörg: "Alles wie empfohlen,
   schreib das RFC", after going through the points in conversation.
-  D1–D11 decided as recommended. **Stage 1 built** (2026-11-19,
-  vorgaenge 0.8.0, not pushed); §10.
+  D1–D11 decided as recommended. **Stage 1 built** (vorgaenge 0.8.0,
+  in `bec`), §10. **Stage 2 built** (vorgaenge 0.9.0, chat 0.14.0,
+  mcp-gateway 0.26.0, not pushed), §11.
 - **Date:** 2026-11-19
 - **Authors:**
   - Jörg: the wishes, from working the first real case `V-2026-0001` in
@@ -328,6 +329,43 @@ follow.
   with platform headers: create a queue, add a member, the log.
 - **Not measured:** a node.
 
+## 11. Stage 2, built (2026-11-19)
+
+`vorgaenge` 0.9.0, chat 0.14.0, mcp-gateway 0.26.0.
+
+- **Built:**
+  - `/platform/feedback/mine` returns per own case `url`, `object`,
+    `title`, `updated`, `mark`; without `numbers` all own cases (at most
+    200, newest first).
+  - `POST /platform/feedback/mine/<number>/accept` and `…/reopen` (a
+    comment required), only from the reporter (404 for everyone else);
+    the same rule on the case page, as two buttons.
+  - Column `mark` on the case (`accepted`, `no_response`, empty); closing
+    through the status form no longer offered to the reporter, a handler's
+    closing leaves the mark empty, reopening empties it.
+  - Closing without response after `VORGAENGE_ACCEPT_DAYS` (default 14),
+    checked with the retention run every six hours.
+  - Chat: dots in the tree, link in a new tab, the two buttons; after an
+    answer the chat tells the gateway `outcome`; the gateway counts
+    „davon Lösung passt“ per revision.
+- **Decided while building:**
+  - The link has no scheme (`//host/v/N`): behind an edge
+    `OAAP_INSTANCE_NAMES` says `http`, the browser sees `https`.
+  - "Without reaction" means no entry at all since the answer
+    (`updated`); a comment by the reporter restarts the 14 days.
+  - The chat's view „Vorgänge“ (D9) stays with stage 4, as planned.
+  - `waiting_reporter` is red in the chat already; the status itself
+    comes with stage 3.
+- **Measured locally:**
+  - `vorgaenge` `test_app.py` 123/123 (21 new; baits 5, 6, 7), the
+    other three test files green.
+  - `test_chat.py` 190/190, `test_markdown.js` 27/27.
+  - `test_gateway.py` 548/548 and the other six gateway tests.
+  - In the browser against a stand-in of the platform: a green dot for an
+    answered case, the link, „Passt nicht“ asks for a comment, „Lösung
+    passt“ turns both dots grey and the chat keeps `outcome: accepted`.
+- **Not measured:** a node.
+
 ## Zusammenfassung auf Deutsch
 
 Aus dem ersten echten Vorgang in bec, mit allen Empfehlungen von Jörg am
@@ -368,6 +406,8 @@ Aus dem ersten echten Vorgang in bec, mit allen Empfehlungen von Jörg am
 
 **Stufen:**
 1. Rechte im kleinen Mandanten.
-2. Rückweg in den Chat.
+2. Rückweg in den Chat. Gebaut am 19.11. (§11): Punkte im Baum, Link,
+   „Lösung passt / Passt nicht“ im Chat und in Vorgänge, nach 14 Tagen
+   ohne Rückmeldung zu.
 3. Arbeit im Vorgang.
 4. Listen und Reiter.
