@@ -288,21 +288,27 @@ In `oaap-docs/szenarien/profile/ki-arbeitsplatz.json`, next to
 - **Steps, in this order:**
   1. `tenant.create`, `tenant.face`, `address.ensure`, `tenant.policy`
      (first login = role `user`).
-  2. `app.install` from the store: `help` as `{label}-hilfe`,
-     `mcp-gateway` as `{label}-werkzeuge`, `ai-gateway` as
-     `{label}-modelle`, `chat` as `{label}-chat`, `vorgaenge` as
-     `{label}-vorgaenge`. No test instances (D4).
-  3. `app.config` `{label}-modelle` `AIGW_MASTER_KEY` `generate: true`.
-  4. `destination.ensure` `docs-origin` → `{label}-hilfe`, target
+  2. `app.install` from the store: `help` as `hilfe`, `mcp-gateway` as
+     `werkzeuge`, `ai-gateway` as `modelle`, `chat` as `chat`,
+     `vorgaenge` as `vorgaenge`. No test instances (D4). Steps name an
+     instance by its name inside the tenant; the platform makes the node
+     key `{label}-hilfe` and so on. The apps know each other only by
+     that key (source list, `X-OAAP-AI-Client`, `X-OAAP-MCP-Client`,
+     gateway list), so the ids in setup items below are keys. Profile
+     2.0.0 named the instances `{label}-hilfe` and got keys
+     `{label}-{label}-hilfe`; `refresh` then found no server (measured
+     with kit1 on oaapx01, 2026-11-19), fixed in 2.1.0.
+  3. `app.config` `modelle` `AIGW_MASTER_KEY` `generate: true`.
+  4. `destination.ensure` `docs-origin` → `hilfe`, target
      `https://codeload.github.com/MDJoerg/oaap-docs`, auth `none`;
-     `app.setup` `{label}-hilfe` `fetch`.
-  5. `app.setup` `{label}-modelle` `supplier`.
+     `app.setup` `hilfe` `fetch`.
+  5. `app.setup` `modelle` `supplier`.
   6. `manual` „Zugangsdaten der Bezugsquelle eintragen“, `done_when`
      `setup.ready` (D5: an own model gateway per tenant; the key of the
      customer is typed by a human).
-  7. `app.setup` `{label}-modelle`: `alias` `standard` → `{model}`;
+  7. `app.setup` `modelle`: `alias` `standard` → `{model}`;
      `client` for `{label}-chat` with `standard`, ceiling `yellow`.
-  8. `app.setup` `{label}-werkzeuge`: `refresh` for `{label}-hilfe`;
+  8. `app.setup` `werkzeuge`: `refresh` for `{label}-hilfe`;
      `server_light` `green` (the help serves public documentation);
      `view` `hilfe` (access `platform`, all reading tools of the help);
      `profile` for `@{label}-chat` with `hilfe`, ceiling `yellow`;
