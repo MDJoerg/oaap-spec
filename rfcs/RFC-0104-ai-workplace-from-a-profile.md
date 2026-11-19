@@ -2,7 +2,8 @@
 
 - **Status:** **Accepted (2026-11-19)** — Jörg: "Alles wie empfohlen,
   Kürzel kit1, schreib das RFC", after going through the points in
-  conversation. D1–D7 decided as recommended. Nothing built.
+  conversation. D1–D7 decided as recommended. **Stage 1 built**
+  (reference 0.1.314, profile `ki-arbeitsplatz` 1.0.0, not pushed), §11.
 - **Date:** 2026-11-19
 - **Authors:**
   - Jörg: the wish to build a tenant with the AI apps from the portal,
@@ -364,6 +365,55 @@ Spec changes:
   here. The guide „Eine Mandantenlandschaft einrichten“ gets „aus dem
   Profil“ as its first way.
 
+## 11. Stage 1, built (2026-11-19)
+
+Reference 0.1.314, profile `ki-arbeitsplatz` 1.0.0 in
+`oaap-docs/szenarien/profile`.
+
+- **Built:**
+  - Step type `destination.ensure` as in §2: the destination through
+    `destination_add` (new argument `secret_later`: a destination that
+    needs a secret is made without one and listed as SECRET MISSING), the
+    binding through `destination_bind`. Both write the tenant's audit log
+    with the build's actor. The `made` items are `destination:<name>` and
+    `binding:<instance>:<need>`; after an interruption the step claims
+    only a destination created after the build started.
+  - The read `destination.secret` for `manual` (§5).
+  - The profile refuses a key `secret`, `password` or `token`, an `auth`
+    outside `none`/`basic`/`bearer`/`header` (no principal propagation:
+    its certificate pin cannot be known in advance), `basic` without
+    `user`, `header` without `header`, and `destination`/`instance` on a
+    `manual` step with another `done_when`.
+  - The portal's build page names the step type.
+  - Profile version 1: the five apps, `AIGW_MASTER_KEY` generated,
+    `docs-origin` and `ki` made by the build, the first administrator,
+    and four `manual` steps with the guide's text for what is set up
+    inside the apps (help fetch, model gateway, MCP gateway, assistant).
+    The address of the model gateway is a parameter `ki_url` in this
+    version; version 2 drops it with `ki`.
+- **§7 answered, by reading `oaap-apps/lib/assistants`:** an assistant
+  with visibility `tenant` is seen by every person of the tenant
+  (`can_see`) and kept only by `tenant_admin` (`can_manage`). That is D6
+  already; `assistant_user` and `assistant_keyuser` are for team
+  assistants with a team as context. So the profile has **no
+  `authz.setup` step**: the assistant „Hilfe“ with visibility `tenant`
+  gives everyone use and the administration care. A team assistant later
+  still needs the templates in „Rollen & Rechte“.
+- **Measured locally (no full reference suite; the Linux runner was not
+  available, Docker was not running):**
+  - `test_tenant_build_destination.py` 30/30 (new).
+  - `test_tenant_build`, `test_tenant_build_apps`, `test_tenant_build_config`,
+    `test_tenant_build_doors`, `test_tenant_build_page`,
+    `test_build_administer`, `test_build_page_details`,
+    `test_profile_versions`, `test_tenant_profile`,
+    `test_tenant_profile_page`, `test_destinations`,
+    `test_destinations_portal`, `test_destinations_admin_portal`,
+    `test_destinations_through`, `test_authz_setup_step`: all pass.
+  - The three profiles in `oaap-docs/szenarien/profile` pass the profile
+    check; `ki-arbeitsplatz` also passes the upload check.
+- **Not measured:** a build on a node. The done-when of stage 1 („a
+  build of version 1 reaches the end on a test node“) is still open.
+
 ## Zusammenfassung auf Deutsch
 
 **Worum es geht:** In `bec` wurde die KI-Landschaft von Hand eingerichtet:
@@ -406,7 +456,10 @@ Zugangsdaten des Anbieters und für die erste Verwaltung.
 **Stufen:**
 
 1. `destination.ensure` und Profil Version 1, noch mit Haltepunkten für
-   alles in den Apps.
+   alles in den Apps. **Gebaut am 19.11.** (Referenz 0.1.314, §11), lokal
+   getestet, noch nicht an einem Knoten. §7 ist geklärt: Ein Assistent
+   „für den Mandanten“ ist schon für alle sichtbar und nur von der
+   Verwaltung pflegbar; das Profil braucht dafür keinen Rechte-Schritt.
 2. Einrichtungstüren, Tür vom Chat zum KI-Gateway, Profil Version 2 mit
    nur noch zwei Haltepunkten; Köder 1–8 halten.
 3. Profil auf `oaapx01`, `kit1` aus dem Portal aufbauen, als Person

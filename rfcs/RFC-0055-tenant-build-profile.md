@@ -98,6 +98,7 @@ the node and says whether the step's result is already there), and a
 | `app.install` | `app install <source> --tenant <label> --channel … --name …` | an instance of that name exists in the tenant with the package's version | `app remove` (without `--purge`) |
 | `authz.setup` | `oaap authz setup --app <app>` (`oaap.core.authorization` 0.4 §2.11): role, collection, mapping and realm group per template; params `app`, optional `only`, `skip`, `groups` (key → path), `names` (key → name) | the plan for that app has nothing left to do | none (nothing deletes) |
 | `app.config` (§16) | `app config set <instance> <key> <value>` (the same function) | the instance's value of that key equals the wish | none: it goes with the instance |
+| `destination.ensure` (RFC-0104 D1) | create an http destination of the tenant (the function behind `destination add`, without a secret) and bind it to an instance (`destination bind`); params `name`, `instance`, `target`, `auth` (`none`, `basic`, `bearer`, `header`), optional `user`, `header`, `need` | the destination exists as wished and is bound to the instance under `need`; one of that name that differs, or a need bound elsewhere, is a conflict | unbind; remove the destination only if this build made it |
 | `manual` | none — a human does it | `done_when` (a read; see below) | none |
 | `backup.check` | none | the tenant is in the node archive | none |
 
@@ -106,7 +107,8 @@ the node and says whether the step's result is already there), and a
 (an account of this tenant holds `tenant_admin`), `confirmed` (a human said
 so with `oaap tenant build confirm`). The build **waits** (state `waiting`)
 until the read is true or a human confirms. The first administrator is the
-known `manual` step (see the open point in §7).
+known `manual` step (see the open point in §7). Since RFC-0104 also `destination.secret` with `destination` and
+`instance`: the destination has its secret (never the value).
 
 ## 3. The build and its state
 
