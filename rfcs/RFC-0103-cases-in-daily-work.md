@@ -5,7 +5,8 @@
   D1–D11 decided as recommended. **Stage 1 built** (vorgaenge 0.8.0,
   in `bec`), §10. **Stage 2 built** (vorgaenge 0.9.0, chat 0.14.0,
   mcp-gateway 0.26.0, in `bec`), §11. **Stage 3 built** (vorgaenge
-  0.10.0, not pushed), §12.
+  0.10.0, not pushed), §12. **Stage 4 built** (vorgaenge 0.11.0,
+  chat 0.15.0, not pushed), §13.
 - **Date:** 2026-11-19
 - **Authors:**
   - Jörg: the wishes, from working the first real case `V-2026-0001` in
@@ -412,6 +413,52 @@ follow.
       without closed and rejected, and no move or role form.
 - **Not measured:** a node.
 
+## 13. Stage 4, built (2026-11-19)
+
+`vorgaenge` 0.11.0, chat 0.15.0. All four stages are built.
+
+- **Built:**
+  - The overview is one list report over everything the person may see:
+    queues and observer queues, cases where the person is responsible or
+    assigned, cases the person was ever involved in, and own reports.
+    - Columns as in §5, the status coloured like the chat's dots.
+    - Filters `view` (`mine`, `assigned`), `queue`, `status` (`open`,
+      `all` or one status), sort `sort=<column>` or `-<column>`, all in
+      the address; a GET form and links in the column headers, no script.
+  - The case page has the tabs of §5 as anchors with CSS. The overview is
+    last in the document and moved to the front with `order`, so
+    `:target ~ #ueberblick` hides it when another tab is chosen. The
+    active tab is highlighted where the browser supports `:has`.
+  - `/platform/feedback/mine` also returns `assigned` (open cases where
+    the person is responsible or assigned), `assigned_url` and
+    `overview_url`; never those cases themselves.
+  - Chat: the view „Vorgänge“ of §6.3, from the same `/mine` call as the
+    dots.
+- **Decided while building:**
+  - Responsible and assigned stay empty in the list for a row the person
+    sees only as reporter, as on the case page (stage 3). Sorting uses the
+    shown value, so the order reveals nothing either.
+  - Former participants find their cases in the overview: they may read
+    them, so the list shows them.
+  - The comment form with the tick stays on „Verlauf“; „Intern“ has its
+    own form that is always internal.
+  - The chat counts as open everything not closed and not rejected, so
+    „beantwortet“ counts until it is accepted.
+  - A case not reported from a conversation (another app) appears in the
+    chat's list without an assistant and without a jump.
+- **Measured locally:**
+  - `test_app.py` 170/170 (23 new).
+  - `test_mcp.py` 35/35, `test_stage2.py` 44/44, `test_node.py` 29/29.
+  - `test_chat.py` 192/192, `test_markdown.js` 27/27.
+  - In the browser behind a stand-in of the platform:
+    - the overview filters and sorts;
+    - the tabs switch, and the reporter has neither „Intern“ nor
+      „Technik“;
+    - the chat's view lists four own reports and counts three open, the
+      filters and the sort work, „2 dir zugeordnet“ links to the overview,
+      and a row opens its conversation.
+- **Not measured:** a node.
+
 ## Zusammenfassung auf Deutsch
 
 Aus dem ersten echten Vorgang in bec, mit allen Empfehlungen von Jörg am
@@ -458,4 +505,5 @@ Aus dem ersten echten Vorgang in bec, mit allen Empfehlungen von Jörg am
 3. Arbeit im Vorgang. Gebaut am 19.11. (§12): verantwortlich und zugewiesen,
    Unterstatus mit Rückfrage, interne Kommentare; frühere Beteiligte lesen
    weiter.
-4. Listen und Reiter.
+4. Listen und Reiter. Gebaut am 19.11. (§13): Übersicht als Listenbericht mit
+   Filtern in der Adresse, Reiter am Vorgang, im Chat die Ansicht „Vorgänge“.
