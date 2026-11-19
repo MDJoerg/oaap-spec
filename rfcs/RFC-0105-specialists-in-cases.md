@@ -1,6 +1,6 @@
 # RFC-0105: Specialists in Cases — AI Agents That Work a Case in the Background
 
-- **Status:** Draft (2026-11-19). D1–D11 open, each with a recommendation.
+- **Status:** Accepted (2026-11-19). D1–D11 decided by Jörg as recommended.
   Nothing built.
 - **Date:** 2026-11-19
 - **Authors:**
@@ -257,6 +257,8 @@ reporter's turn (RFC-0103 §6).
 
 ## 10. Decisions
 
+All eleven decided by Jörg on 2026-11-19 as recommended.
+
 - **D1 Whose rights.** *Recommendation:* the specialist's own agent
   principal (RFC-0067) with assignments only in its queues.
   - Alternative: on behalf of the reporter (delegation with person proof).
@@ -340,7 +342,8 @@ Die Sicht enthält nur die nötigen Werkzeuge, die App läuft mit
 geschlossenem Abfluss, und jeder Aufruf nennt den Spezialisten und bei
 Schreiben die freigebende Person.
 
-**Offene Entscheidungen (D1–D11)**, jeweils mit Empfehlung:
+**Entscheidungen (D1–D11)**, von Jörg am 19.11.2026 alle wie empfohlen
+entschieden:
 - D1: eigene Rechte statt im Auftrag der Meldenden.
 - D2: eigene App `spezialisten` statt Einbau in Vorgänge oder Chat.
 - D3: Abfrage alle 30 s, später Ereignisse über den Broker.
