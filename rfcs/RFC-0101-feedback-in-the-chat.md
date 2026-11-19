@@ -9,7 +9,10 @@
   was measured and what was not. Stage 1 pushed and rolled out in `bec`
   the same day. **Stage 2 built** (2026-11-19, stars, after RFC-0097
   stage 1): mcp-gateway 0.23.0, chat 0.10.0, `oaap.ai.mcp-gateway`
-  0.21.0, `oaap.ai.assistants` 0.5; §3.4.
+  0.21.0, `oaap.ai.assistants` 0.5; §3.4. Stage 2 rolled out in `bec`
+  the same day. **Stage 3 built** (2026-11-19, "not satisfied"): chat
+  0.11.0, vorgaenge 0.6.0, mcp-gateway 0.24.0, `oaap.ai.assistants` 0.6,
+  `oaap.ai.mcp-gateway` 0.22.0; §4.4.
 - **Date:** 2026-11-19
 - **Authors:** Jörg (the wishes: a light per conversation, defaulting to
   "sensitive data"; stars per answer and per conversation, always stored
@@ -250,6 +253,52 @@ The same way carries the two requests of §2.3. Whether the route passes
 a template and its fields today must be read when building; if it does
 not, the route is extended, not bypassed.
 
+### 4.4 Stage 3, built (2026-11-19)
+
+Chat 0.11.0, vorgaenge 0.6.0, mcp-gateway 0.24.0 (only the new field),
+`oaap.ai.assistants` 0.6 §2c, `oaap.ai.mcp-gateway` 0.22.0. Read when
+building (§4.3): the feedback route ends in the app `vorgaenge`; it took
+no template, subkind or queue. It is **extended there, not bypassed** —
+the platform core is unchanged. Decided while building (no new question):
+
+- **No templates yet.** RFC-0061 §6 (templates) is not built. The route
+  takes `subkind` (an id) and `fields` (flat keys, JSON values, at most
+  60 keys and 40,000 bytes), stores them apart from what the gateway
+  attests and shows them as "given by the app's page, not attested". The
+  field list of `chat-answer` is fixed by the chat (chat README). Real
+  templates with required fields come with RFC-0061 stage 4.
+- **The queue** comes from the page: `support_queue` of the assistant
+  (D6), unknown or invalid → the default queue. A reporter can thus only
+  pick where their own case lands.
+- **The answered mark (D11)** reads `GET /platform/feedback/mine?numbers=`
+  on the chat's origin: status only of cases the person reported; a
+  foreign number is absent like an unknown one (bait). The chat keeps the
+  number in the person's history only as a pointer.
+- **The chat builds the case** (`POST api/conv/<id>/unhappy`, no side
+  effect), the browser posts it to `/platform/feedback`. So the rule "no
+  arguments without the tick" lives in one tested function, and the chat
+  still holds no key for cases (§6.5).
+- **Doc pages** are links in the answer that a help tool of the same
+  round delivered (help 0.5 `link`); other links are not listed.
+- **Call ids (D9):** RFC-0098 is a draft, stage 3 not built. The case
+  carries none; the dialog and the case say so and give the round's
+  start and end time instead.
+- "Not satisfied" is offered under every final answer, also of an
+  assistant without revision (D8 is about stars); after 0–2 stars it
+  reads „Nicht zufrieden? An den Support geben“.
+- Retention (RFC-0061 Q6) removes the fields with the reporter's other
+  technical data.
+
+Measured locally: vorgaenge `test_app.py` 77/77 (13 new; bait: Bert
+learns nothing about Anna's case through `/mine`), the other three test
+files green; chat 180/180 (18 new; bait: without the tick per card no
+arguments, results or ids); mcp-gateway 524/524 (2 new). Looked at in
+the browser against the simulated platform: the offer after a low
+rating, the dialog, the case as it arrives, the mark „beantwortet“ after
+reloading; the case the chat built passes the checks of vorgaenge 0.6.0.
+Not measured: a node, the real platform route with `vorgaenge`, dark
+mode, the full reference suite.
+
 ### 3.4 Stage 2, built (2026-11-19)
 
 MCP gateway 0.23.0, chat 0.10.0, `oaap.ai.mcp-gateway` 0.21.0 §3.9c,
@@ -424,7 +473,8 @@ alle mit Ablage an Orten, die es schon gibt:
 
 **Stufen:** 1 Ampel je Gespräch samt Gateway-Kopfzeile und den beiden
 Anfragen. Das geht sofort, ohne andere RFCs. 2 Sterne (nach RFC-0097
-Stufe 1). 3 „Nicht zufrieden“ (Kennungen nach RFC-0098 Stufe 3).
+Stufe 1). 3 „Nicht zufrieden“ (Kennungen nach RFC-0098 Stufe 3; gebaut
+19.11. ohne Kennungen, Vorgänge 0.6.0 nimmt Unterart und Felder an, §4.4).
 4 Auswertung je Revision (mit RFC-0097 Stufe 2). Die automatische
 Bearbeitung durch eine KI ist benannt, kommt aber als eigenes RFC. D1–D11
 hat Jörg am 19.11. wie empfohlen entschieden.

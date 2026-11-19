@@ -1,7 +1,7 @@
 # oaap.ai.assistants — Assistants: a View, a Prompt and a Model Name, Without Rights
 
 - **ID:** `oaap.ai.assistants`
-- **Version:** 0.5 (RFC-0101 stage 2: a person may rate an answer or a conversation with 0–5 stars; the rating names `assistant@rev` and is kept by the gateway that keeps the assistant, §2b. 0.4: RFC-0097 stage 1: assistants **live in the tenant's MCP gateway**, next to the views they name, with numbered revisions, a state `active | inactive` and the usage row's `assistant@rev`; the chat is the runtime; an assistant from the chat's configuration stays as "managed by configuration", §2a; additive for the format. 0.3: field `views`: the chat shows the views of MCP Apps,
+- **Version:** 0.6 (RFC-0101 stage 3: optional field `support_queue`, the queue of the tenant's `vorgaenge` that a "not satisfied" case of this assistant goes to, §2, §2c; additive. 0.5: RFC-0101 stage 2: a person may rate an answer or a conversation with 0–5 stars; the rating names `assistant@rev` and is kept by the gateway that keeps the assistant, §2b. 0.4: RFC-0097 stage 1: assistants **live in the tenant's MCP gateway**, next to the views they name, with numbered revisions, a state `active | inactive` and the usage row's `assistant@rev`; the chat is the runtime; an assistant from the chat's configuration stays as "managed by configuration", §2a; additive for the format. 0.3: field `views`: the chat shows the views of MCP Apps,
   RFC-0075 D2). 0.2 (RFC-0074 stage 3: visibility and confirmation enforced by the
   chat app `apps/chat` 0.2.0, §2; the confirmation reaches the gateway as
   `X-OAAP-Confirmed`, §5). 0.1 (RFC-0074 stage 1: the format, the rule "no rights", the
@@ -55,6 +55,7 @@ As JSON the same object; YAML is shown for reading.
 | `visibility` | `{scope: private}`, `{scope: tenant}`, or `{scope: context, context: {<type>: <id>}}` with exactly one context (`<type>` `^[a-z][a-z0-9_]{0,31}$`, `<id>` 1–64 characters) |
 | `commands` | `true` or `false` |
 | `views` | `true` or `false` (0.3): the chat shows views of MCP Apps for this assistant's tools (RFC-0075 D2); default `false` |
+| `support_queue` | optional (0.6): the id of a queue of the tenant's `vorgaenge` (`^[a-z0-9][a-z0-9-]{0,39}$`) for "not satisfied" cases of this assistant (RFC-0101 D6); absent or unknown there = the tenant's default queue |
 
 - **No rights (D1).** A field that looks like a right — `key`, `api_key`,
   `token`, `secret`, `password`, `roles`, `role`, `on_behalf_of`,
@@ -129,6 +130,22 @@ never part of it.
 - It is kept where the assistant lives, by the MCP gateway
   (`oaap.ai.mcp-gateway` §3.9c). The chat keeps the stars in the person's
   own history, so that the person sees what they gave.
+
+## 2c. "Not satisfied" (0.6, RFC-0101 stage 3)
+
+- From any answer (and from the conversation's menu) a person may hand
+  the answer to the support. The chat pre-fills question and answer; the
+  person edits both and writes what they expected (required).
+- The case is of kind `question`, subkind `chat-answer`, object
+  `{kind: conversation, id}`, and goes to `support_queue` (§2) or the
+  default queue. It carries the circumstances as for a rating (§2b) and,
+  per tool call, name, effect class and outcome; **arguments and results
+  only for the cards the person ticks** (RFC-0101 D10).
+- "The documentation is missing something" adds the help pages the answer
+  linked and a help tool of the round delivered.
+- The case enters only through the attested feedback route of the chat's
+  own origin; the chat holds no key for cases. It keeps the case number in
+  the person's history and reads its status as the person.
 
 ## 3. The exchange file
 
@@ -222,6 +239,16 @@ lesbar, sieht niemand einen Team-Assistenten. Schreibende Werkzeuge laufen nur
 nach Zustimmung; der Chat meldet sie dem Gateway mit `X-OAAP-Confirmed: yes`,
 das Gateway schreibt es in die Messzeile. Mit `commands: true` werden die
 Prompts der Sicht zu `/Befehlen`.
+
+## Deutsche Zusammenfassung (0.6, RFC-0101 Stufe 3)
+
+Neues, freiwilliges Feld `support_queue`: der Bereich der App Vorgänge,
+in den „Nicht zufrieden“ zu diesem Assistenten geht (sonst der Eingang).
+„Nicht zufrieden“ (§2c): Die Person bearbeitet Frage und Antwort, schreibt
+ihre Erwartung und kann „in der Doku fehlt etwas“ ankreuzen. Daraus wird
+ein Vorgang `question`/`chat-answer` mit den Umständen. Argumente und
+Ergebnisse von Werkzeugen gehen nur für angekreuzte Karten mit. Der Weg
+ist nur die bezeugte Feedback-Route.
 
 ## Deutsche Zusammenfassung (0.5, RFC-0101 Stufe 2)
 
