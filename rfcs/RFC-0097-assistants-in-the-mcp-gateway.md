@@ -3,8 +3,9 @@
 - **Status:** Draft (2026-11-19). Direction decided by Jörg in conversation
   on 2026-11-19: "the assistant goes into the gateway as proposed" and
   "an external AI may couple to an assistant over MCP, with permission and
-  only where released". Open decisions D3–D9 below, each with a
-  recommendation. Nothing built.
+  only where released". **D6, D7, D9 decided** (Jörg, 2026-11-19: "Alle
+  wie empfohlen") — the decisions stage 1 needs are complete. Open: D3,
+  D4, D5, D8 (stages 2 and 3), each with a recommendation. Nothing built.
 - **Date:** 2026-11-19
 - **Authors:** Jörg (the questions: where are assistants stored; revisions,
   upload/download, evaluation, support; an external AI coupled to the
@@ -173,13 +174,13 @@ What stays different from the chat:
 - **D5 Package kind `assistant` in the catalog.** *Recommendation:* yes,
   in stage 3; the view it names travels as a dependency by name, never as
   content.
-- **D6 Revisions kept.** *Recommendation:* all revisions that a usage row
+- **D6 Revisions kept.** *Decided (Jörg, 2026-11-19, as recommended):* all revisions that a usage row
   of the retention window names, plus the last 20; older ones compacted.
-- **D7 `CHAT_ASSISTANT`.** *Recommendation:* stays as a fallback for a chat
+- **D7 `CHAT_ASSISTANT`.** *Decided (Jörg, 2026-11-19, as recommended):* stays as a fallback for a chat
   without a gateway, shown as "managed by configuration".
 - **D8 Path of the channel.** *Recommendation:* `/mcp/a/<assistant>`; a
   rename of the assistant keeps the old path as an alias for 30 days.
-- **D9 Several chats, one gateway.** *Recommendation:* assistants belong to
+- **D9 Several chats, one gateway.** *Decided (Jörg, 2026-11-19, as recommended):* assistants belong to
   the gateway, not to a chat; a chat may be limited to a list of
   assistants by the tenant (field on the chat instance).
 
@@ -220,5 +221,10 @@ Das bringt:
   am Assistenten), denn die Daten gehen an ein fremdes Modell. Ein
   geschlossener Mandant öffnet nie einen Kanal. Stufe 1 ist nur lesend.
 
-RFC-0074 D2 („Assistenten liegen im Chat“) wird damit abgelöst. Offen sind
-D3–D9, alle mit Empfehlung.
+RFC-0074 D2 („Assistenten liegen im Chat“) wird damit abgelöst. Am 19.11.
+hat Jörg D6, D7 und D9 wie empfohlen entschieden, damit steht alles, was
+Stufe 1 braucht. Revisionen bleiben, solange eine Nutzungszeile auf sie
+zeigt, dazu immer die letzten 20 (D6). `CHAT_ASSISTANT` bleibt als Rückfall,
+gekennzeichnet als „verwaltet über die Konfiguration“ (D7). Assistenten
+gehören dem Gateway, der Mandant kann einen Chat auf eine Liste beschränken
+(D9). Offen sind noch D3, D4, D5 und D8 für die Stufen 2 und 3.
