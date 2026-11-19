@@ -1,7 +1,7 @@
 # oaap.core.identity — Identity & Roles
 
 - **ID:** `oaap.core.identity`
-- **Version:** 0.6.9 (a seventh header **`X-OAAP-User-Idp`**: the person's binding at the tenant's OIDC identity provider as `<issuer> <sub>`, empty without one -- on the one list, so stripped, copied and kept out of the log like the others, 2.14, reference 0.1.307, RFC-0095 D2). 0.6.8 (**every node has its assertion key**: made at installation, on every update and at every app installation, never replaced -- 2.11, reference 0.1.302). 0.6.7 (**the discovery door**: `/verify?discover=` passes a gateway's catalog requests to a source without a person, the body parsed as JSON, the app seeing the gateway's machine principal -- 2.12.1, RFC-0073 §16, reference 0.1.300). 0.6.6 (**a client-sent `X-OAAP-Groups`/`X-OAAP-Tenant` is
+- **Version:** 0.6.10 (the via check of 2.13 also for `oaap.ai.client:<chat>`, RFC-0104 stage 2). 0.6.9 (a seventh header **`X-OAAP-User-Idp`**: the person's binding at the tenant's OIDC identity provider as `<issuer> <sub>`, empty without one -- on the one list, so stripped, copied and kept out of the log like the others, 2.14, reference 0.1.307, RFC-0095 D2). 0.6.8 (**every node has its assertion key**: made at installation, on every update and at every app installation, never replaced -- 2.11, reference 0.1.302). 0.6.7 (**the discovery door**: `/verify?discover=` passes a gateway's catalog requests to a source without a person, the body parsed as JSON, the app seeing the gateway's machine principal -- 2.12.1, RFC-0073 §16, reference 0.1.300). 0.6.6 (**a client-sent `X-OAAP-Groups`/`X-OAAP-Tenant` is
   stripped** on every app route, 2.6; 0.6.5: **a bearer that is not ours** goes to the app when a
   session comes with it, 2.3, I-44; 0.6.4: **a chat acts as the person**, procedure A,
   RFC-0074 stage 1: `/verify?via=`, 2.13, and procedure I takes the
@@ -729,6 +729,13 @@ audit log for each session opened (`initialize`) and for every refusal —
 subject the source, actor the gateway principal; never the body.
 
 ### 2.13 A chat acts as the person: procedure A (0.6.4, RFC-0074 stage 1)
+
+Since 0.6.10 (RFC-0104 stage 2) the same check also answers
+`via=oaap.ai.client:<chat>`, the door to the tenant's model gateway
+(`oaap.apps.runtime` 2.39): the key must then be limited to exactly
+`oaap.ai.client:<chat>` (an MCP client key does not open it, nor the
+other way round), and the audit word is `ai.via` instead of `mcp.via`.
+Everything else below holds unchanged for both kinds.
 
 A verify call with `via=oaap.mcp.client:<chat>` comes only from a via door
 `oaap.apps.runtime` 2.32.3 writes on the chat's own site (the parameter is

@@ -4,6 +4,8 @@
   Kürzel kit1, schreib das RFC", after going through the points in
   conversation. D1–D7 decided as recommended. **Stage 1 built**
   (reference 0.1.314, profile `ki-arbeitsplatz` 1.0.0, not pushed), §11.
+  **Stage 2 built** (reference 0.1.315, mcp-gateway 0.27.0, ai-gateway
+  0.10.0, help 0.7.0, chat 0.16.0, profile 2.0.0, not pushed), §12.
 - **Date:** 2026-11-19
 - **Authors:**
   - Jörg: the wish to build a tenant with the AI apps from the portal,
@@ -121,34 +123,56 @@ A new step type of RFC-0055 §2:
 
 ```yaml
 setup:
-  path: /oaap/setup        # on the internal endpoint, like /oaap/assets
-  items: [view, profile, assistant, server_light, refresh]   # what the app can set up
+  path: /oaap/setup        # a local path under one of the app's routes
 ```
 
-- **The node calls the instance** on its internal endpoint (RFC-0087
-  §8.2), never through the public route:
-  - `GET <path>` — what the app can set up and, per kind, what is
-    present.
-  - `POST <path>` with `{"v": 1, "items": [{"kind": …, "id": …, …}]}` —
-    the wished state.
-- **Who is asking.** The call carries an assertion of the platform
-  (`oaap.core.identity`) for the build's actor, addressed to the
-  instance, with the claim `oaap/setup: true`. An app accepts a setup
-  call only with that claim and only for the actor's tenant. From
-  outside, `/oaap/*` lies behind `admin` anyway; the claim is the second
-  lock, because identity issues it only to the build engine.
-- **The answer per item:** `present` (already as wished), `made`
-  (created now), `conflict` (something of that id exists and differs;
-  the sentence says what), `refused` (the app does not allow it; the
-  sentence says why). The app never overwrites what a human made: a
-  difference is a conflict, and the build stops there.
-- **Idempotent.** The same POST twice gives `made` then `present`. This
-  is what RFC-0055's check needs: `app.setup`'s check is the same POST
-  with `"dry": true`, which changes nothing and answers what it would do.
-- **Undo:** an item that answered `made` is recorded in the build's
-  `made` list; `app.setup`'s undo sends `{"remove": [ids]}`, and the app
-  removes only items it made for a setup call, never one a human changed
-  since (it answers `conflict`).
+- **What the instance gets:** `OAAP_SETUP_KEY`, a random value the
+  platform makes at install and keeps in the instance's environment
+  (like the other platform-owned variables, 2.8). It never leaves the
+  platform: no page shows it, no profile names it.
+- **The node calls the instance** through the gateway's internal
+  listener (`gateway:8099/s/<instance>` → the declared path), which
+  answers the platform network only, never through a public route. The
+  call is made from inside the identity container, with the body on
+  standard input, so the key appears in no process list.
+- **Who is asking (changed while building stage 2):** the call carries
+  `Authorization: Bearer <OAAP_SETUP_KEY>` and `X-OAAP-Setup-Actor:
+  <who started the build>` (for the app's own audit). The first draft
+  said: an assertion of the platform with a claim `oaap/setup`. But an
+  app cannot check the platform's assertion — it is an HMAC with a key
+  only platform services hold, and apps trust the headers the platform
+  sets instead (that is how procedure A works). A per-instance key the
+  platform alone holds gives the same two locks: from outside the path
+  lies behind the app's route, and without the key nobody passes, a
+  `tenant_admin` included. An app ignores every identity header on its
+  setup path. Without `OAAP_SETUP_KEY` in its environment it refuses
+  every call.
+- **Calls:**
+  - `GET <path>` → `{"v": 1, "kinds": [...]}`: what the app can set up.
+  - `GET <path>?kind=<k>&id=<id>` → `{"v": 1, "kind", "id", "state":
+    "present" | "absent", "ready": true | false, "note"}`. `ready` is
+    what the read `setup.ready` (§5) asks.
+  - `POST <path>` with `{"v": 1, "dry": false, "items": [{"kind": …,
+    "id": …, …}]}` — the wished state, item after item.
+  - `POST <path>` with `{"v": 1, "remove": [{"kind": …, "id": …}]}` —
+    the undo.
+  - The answer is `200` with `{"v": 1, "results": [{"kind", "id",
+    "result", "note"}]}`, one per item, in order; `400` for a malformed
+    body; `403` without the key.
+- **The result per item:** `present` (already as wished), `made`
+  (created now), `would_make` (with `dry`), `conflict` (something of that
+  id exists and differs; the note says what), `refused` (the app does
+  not allow it; the note says why), and for `remove`: `removed` or
+  `gone`. The app never overwrites what a human made: a difference is a
+  conflict, and the build stops there.
+- **No secrets:** an item with a field `key`, `token`, `secret`,
+  `password` or `credentials` is `refused`.
+- **Idempotent.** The same POST twice gives `made` then `present`.
+  `app.setup`'s check is the same POST with `"dry": true`.
+- **What the app remembers:** for each item it made, who (the actor),
+  when, and a digest of the wished item. `remove` removes an item only
+  while it is still as setup made it; one a human changed since is a
+  `conflict` and stays.
 
 ### 3.2 The step type
 
@@ -159,28 +183,37 @@ setup:
 ### 3.3 What each app offers
 
 - **`mcp-gateway`:**
-  - `refresh` — read the platform sources now (what „Quellen jetzt
-    einlesen“ does), then the catalog of a named server. The catalog of a
-    platform source is read with the actor's assertion, as the operator
-    page does (mcp-gateway 0.7.2).
-  - `server_light` — the light of a server.
-  - `view` — name, accesses (`platform`, `signin`, `key`), the tools:
-    either a list or `{"server": …, "effect": "read"}` for all reading
-    tools of a server.
-  - `profile` — group (`@<chat>`), views, ceiling.
-  - `assistant` — id, title, view, gateway, model name, greeting,
-    visibility (`tenant`). A first revision `@1` (RFC-0097).
+  - `{"kind": "refresh", "id": <server>}` — read the platform sources
+    now (what „Quellen jetzt einlesen“ does), then the server's catalog
+    through the discovery door (no person needed). `present` when the
+    server exists and its catalog has tools; never a conflict; nothing
+    to remove.
+  - `{"kind": "server_light", "id": <server>, "light": "green" |
+    "yellow" | "red"}` — a server's light. Setup may change it only from
+    the `red` every new server starts with; another light set by a human
+    is a conflict.
+  - `{"kind": "view", "id": <name>, "accesses": ["platform", …],
+    "tools": {"server": <s>, "effect": "read"}}` — a view; `tools` may
+    instead be a list of `{"server", "tool"}`.
+  - `{"kind": "profile", "id": <label>, "group": "@<chat>", "views":
+    [...], "ceiling": "yellow"}` — an access profile.
+  - `{"kind": "assistant", "id": <id>, "title", "view", "gateway",
+    "model", "greeting", "visibility": "tenant"}` — an assistant, first
+    revision `@1` (RFC-0097).
 - **`ai-gateway`:**
-  - `supplier` — name, address up to `/v1`, light. **Never the
-    credentials:** those a human types on the gateway's own page (§5,
-    read `setup.ready`).
-  - `alias` — a model name, the supplier and the supplier's model id.
-  - `client` — the grant of §4 for an instance: model names, ceiling,
-    personal-data flag, budget, rate.
-- **`help`:** `fetch` — fetch the documentation now (what „Jetzt holen“
-  does) once `docs-origin` is assigned.
-- **`chat`:** nothing in this RFC. Its roles come from `authz.setup`, its
-  assistants from the MCP gateway, its model gateway from §4.
+  - `{"kind": "supplier", "id": <name>, "url": "https://…/v1", "light"}`
+    — a supplier **without** credentials; a human types those on the
+    gateway's page. `ready` is true when credentials are stored and the
+    supplier's test answers.
+  - `{"kind": "alias", "id": <model name>, "supplier": <name>, "model":
+    <the supplier's model id>}` — a model name.
+  - `{"kind": "client", "id": <chat instance>, "aliases": [...],
+    "ceiling": "yellow", "personal_data": false}` — the grant of §4.
+- **`help`:** `{"kind": "fetch", "id": "docs"}` — fetch the
+  documentation now (what „Jetzt holen“ does). `present` when documents
+  from `docs-origin` are there.
+- **`chat`:** nothing in this RFC. Its assistants come from the MCP
+  gateway, its model gateway from §4.
 
 ## 4. The chat at its model gateway without a key (D3, stage 2)
 
@@ -203,6 +236,15 @@ The same shape as procedure A for the MCP gateway (`oaap.apps.runtime`
   (`via=oaap.ai.client:<chat>`). Two credentials, both required: the
   chat's client key and the person's act assertion. The door strips both
   and sets `X-OAAP-AI-Client: <chat>` itself.
+- **What the chat sends:** to `<via>/chat/completions` and
+  `<via>/models`, `Authorization: Bearer <OAAP_AI_CLIENT_KEY>` and
+  `X-OAAP-Act-Assertion: <the X-OAAP-User-Assertion it received for this
+  person's request>` — exactly what it sends at an MCP via door.
+- **What the model gateway gets:** `X-OAAP-AI-Client`, `X-OAAP-User-Id`
+  and `X-OAAP-User-Assertion`, set by the platform; never the chat's key.
+  Only all three together count as a call through the door (the
+  platform strips the two identity headers on the gateway's public
+  `/v1`), as for the MCP gateway's procedure A.
 - **The client grant in the model gateway.** A row of kind `client` in
   `keys`, label = the chat instance's name, without a digest. A call
   that arrives through the via door is authorised by that row: its model
@@ -224,9 +266,10 @@ The same shape as procedure A for the MCP gateway (`oaap.apps.runtime`
 
 RFC-0055's `manual` steps wait on a read. Two new reads:
 
-- `destination.secret` (`name`, `instance`) — the destination has a
+- `destination.secret` (`destination`, `instance`) — the destination has a
   secret. Never its value.
-- `setup.ready` (`instance`, `kind`, `id`) — the instance's setup door
+- `setup.ready` (`instance`, `kind`, `item`; `item` because `id` is the
+  step's own id) — the instance's setup door
   says the item is ready. For an `ai-gateway` `supplier` that means:
   credentials stored and the supplier's test answered.
 
@@ -291,10 +334,9 @@ Each names the bait a test uses.
    `ki-arbeitsplatz` with credentials entered; `grep` of the profile, the
    build state and the tenant's audit log for the supplier key finds
    nothing.
-2. The setup door accepts only the platform's setup assertion for its own
-   tenant. Bait: a POST with a person's assertion of the tenant
-   (`tenant_admin`) → refused; with the setup claim for another tenant →
-   refused.
+2. The setup door accepts only its own instance's setup key (§3.1).
+   Bait: a POST with a person's identity headers (`tenant_admin`) and no
+   key → refused; with the setup key of another instance → refused.
 3. The setup door never overwrites what a human made. Bait: a view
    `hilfe` changed by hand, then the build continued → `conflict`, the
    view unchanged.
@@ -414,6 +456,82 @@ Reference 0.1.314, profile `ki-arbeitsplatz` 1.0.0 in
 - **Not measured:** a build on a node. The done-when of stage 1 („a
   build of version 1 reaches the end on a test node“) is still open.
 
+## 12. Stage 2, built (2026-11-19)
+
+Reference 0.1.315 (`oaap.apps.runtime` 0.2.72, `oaap.core.identity`
+0.6.10), mcp-gateway 0.27.0, ai-gateway 0.10.0, help 0.7.0, chat 0.16.0,
+profile `ki-arbeitsplatz` 2.0.0.
+
+- **Built, platform:**
+  - Manifest 0.18: `setup.path`, `ai_client.use`, `ai_gateway.serve`.
+  - `OAAP_SETUP_KEY` per instance with `setup`; the internal listener's
+    `handle /s/<name>`; `setup_call` from inside the identity container
+    with key and body on standard input.
+  - Step type `app.setup` (check = dry POST, do = POST, `made` items
+    `setup:<instance>:<kind>:<id>`, undo = `remove`; an item a human
+    changed since answers `conflict` and stays, the rollback goes on) and
+    the read `setup.ready`. The profile refuses secret-named fields in
+    items, unknown parameters and empty lists; parameters fill text,
+    lists and objects inside items.
+  - The via machinery of RFC-0074 is now one set of functions with two
+    kinds (`mcp`, `ai`); identity's via check takes both prefixes, audit
+    word `ai.via`. `OAAP_AI_CLIENT_KEY` follows the instance like the MCP
+    client key.
+- **Built, apps (by three helpers working in parallel on one contract,
+  §3.1, then checked here):**
+  - mcp-gateway: setup door with `refresh`, `server_light`, `view`,
+    `profile`, `assistant`, all through the functions the operator pages
+    use.
+  - ai-gateway: setup door with `supplier`, `alias`, `client`; the client
+    grant is a `keys` row of kind `client` that no bearer value can ever
+    find; a call through the door counts only with all three headers;
+    usage rows carry the grant, never the person (O1).
+  - help: setup door with `fetch` (the same call as „Jetzt holen“); a new
+    route `/oaap` with role `admin`.
+  - chat: `ai_client`; the order of §4 (`ki` wins, else the one gateway,
+    else `CHAT_AI_GATEWAY`); „Einrichtung prüfen“ names the way and says
+    „im KI-Gateway fehlt die Freigabe für diesen Chat“ on a 403.
+- **Profile version 2:** two human steps left (first administrator,
+  supplier credentials, the latter with `setup.ready`); `ki_url` and the
+  destination `ki` are gone. New: `CHAT_DEFAULT_LIGHT` is set to the
+  supplier's light, because a green conversation could not use a yellow
+  supplier such as Anthropic.
+- **Changed while building:**
+  - The setup call is authorised by `OAAP_SETUP_KEY`, not by an assertion
+    with a claim (§3.1 says why: apps cannot check the platform's
+    assertion).
+  - `setup.ready` names the item `item`, not `id`.
+- **Decided by the apps where §3 left room** (all within the contract):
+  - mcp-gateway stops a real POST at the first conflict and answers the
+    rest `refused` („nicht ausgeführt“); ai-gateway and help answer every
+    item. The build stops either way.
+  - An undone profile label or assistant cannot be made again under the
+    same id (the gateway's ledger keeps revoked labels and revisions);
+    a second build after a rollback needs other ids or a fresh instance.
+  - An undone supplier with credentials a human entered stays.
+  - A failed help fetch answers `refused` with the reason.
+  - A grant that has usage is revoked, not deleted.
+- **Measured locally (no full reference suite; Docker was not running,
+  so no Linux runner):**
+  - Reference: `test_ai_via_setup.py` 51/51 (new: manifest 0.18, the
+    chat's site with list and door, bait 8, the internal listener,
+    identity with both credentials (bait 4) and `ai.via`, `app.setup`
+    and `setup.ready`, the key only on stdin, bait 1 in a profile);
+    `test_mcp_via`, `test_instance_keys` (with the new key), and 24
+    further tests of builds, destinations, profiles, doors and manifests
+    pass. `test_mail_node` fails with or without this change (file mode
+    0600 on Windows).
+  - Apps: mcp-gateway `test_setup.py` 48/48 (baits 2, 3), test_gateway
+    548/548 (one known race on the first run); ai-gateway `test_setup.py`
+    97/97 (baits 2, 3, 5, 6, 7), its six other tests unchanged green;
+    help `test_setup.py` 27/27 and its three other tests; chat
+    `test_chat.py` 213/213, `test_markdown.js` 27/27; `check-store.py`
+    and `check-shared.py` clean.
+  - Profile version 2 passes the profile and the upload check.
+- **Not measured:** anything on a node — no build of `kit1`, no real
+  call through the internal listener or the new door, no supplier.
+  That is stage 3.
+
 ## Zusammenfassung auf Deutsch
 
 **Worum es geht:** In `bec` wurde die KI-Landschaft von Hand eingerichtet:
@@ -461,7 +579,12 @@ Zugangsdaten des Anbieters und für die erste Verwaltung.
    „für den Mandanten“ ist schon für alle sichtbar und nur von der
    Verwaltung pflegbar; das Profil braucht dafür keinen Rechte-Schritt.
 2. Einrichtungstüren, Tür vom Chat zum KI-Gateway, Profil Version 2 mit
-   nur noch zwei Haltepunkten; Köder 1–8 halten.
+   nur noch zwei Haltepunkten; Köder 1–8 halten. **Gebaut am 19.11.**
+   (Referenz 0.1.315, mcp-gateway 0.27.0, ai-gateway 0.10.0, help 0.7.0,
+   chat 0.16.0, §12), lokal getestet. Geändert beim Bauen: Der
+   Einrichtungsaufruf weist sich mit einem Schlüssel je Instanz aus,
+   den nur die Plattform kennt, statt mit einer Zusicherung — Apps
+   können die Zusicherung der Plattform nicht prüfen.
 3. Profil auf `oaapx01`, `kit1` aus dem Portal aufbauen, als Person
    ausprobieren. Ausrollen und Pushen wie immer nur auf Jörgs Wort.
 

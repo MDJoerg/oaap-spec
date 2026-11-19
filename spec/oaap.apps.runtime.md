@@ -1,7 +1,7 @@
 # oaap.apps.runtime — App Runtime
 
 - **ID:** `oaap.apps.runtime`
-- **Version:** 0.2.71 (every instance is told **`OAAP_PORTAL_URL`**: its own page in the portal, as the tenant's administration reaches it -- 2.38, reference 0.1.308). 0.2.70 (every instance is told **`OAAP_IDENTITY_HEADERS`**: the identity headers this platform sets and strips everywhere else, so an app can tell which ones it may believe -- 2.37, reference 0.1.307). 0.2.69 (**an app brings its documentation**: manifest 0.17 `docs:` (help products: folder, title, language, audience, readers, folder → document type, media) and `docs_sources: {read: true}`; the node copies exactly the declared folders at every install, update, promotion and removal into the tenant's documentation directory and mounts it read-only at `/oaap/docs` into the tenant's instances that declare `docs_sources` -- 2.36, RFC-0094 stage 1). 0.2.68 (**an app signs in itself through its tenant's realm**: manifest 0.16 `identity.oidc_client` {redirect_paths, groups_claim}; once a connector made the client (`oaap.core.tenant` 2.9.2) the instance gets `OAAP_OIDC_ISSUER`, `OAAP_OIDC_CLIENT_ID`, `OAAP_OIDC_CLIENT_SECRET`, record `oidc_idp` -- 2.35, RFC-0091 stage 3). 0.2.67 (**the discovery door**: a consuming gateway's site carries, next to each door of procedure I, `/platform/mcp/discover/<source>`, which passes only the catalog requests without a person; the body goes to identity as one header -- 2.32.5, RFC-0073 §16, reference 0.1.300). 0.2.66 (**the tested package into the catalog**: `catalog-put` hands an instance's retained package to a package catalog of the node through its inbox, not released; **`visible_to`** on a catalog entry limits it to named tenants, judged by the host on every resolution -- 2.6, RFC-0050 §9, reference 0.1.295). 0.2.65 (**a declared health path the app never built** (404/405) is not the app's verdict: the probe asks its home page, and an answer below 400 there is *reachable*, the missing path named; install says so at once -- 2.11, reference 0.1.294). 0.2.64 (**an app MAY declare an `assets` door** (manifest 0.15): it names its assets -- model names, sources -- and how they hang together, and the node asks it for the fleet status document -- 2.34, RFC-0087 §8.2). 0.2.63 (**a tunnel app MAY declare a `link_state` door** (manifest 0.14): the node asks it how its tunnel and its targets are, for the fleet status document -- 2.33, RFC-0087 §8.1). 0.2.62 (**a config key MAY declare `file: true`**: its value is a file, stored as one base64 line, and the portal offers an upload -- 2.8; **a tunnel (`tun`, 2.23) is confirmed in the store** by a `server_admin`'s tick naming the app, besides `--confirm-tun` -- RFC-0060 stage 4). 0.2.61 (**promotion from a Git test instance** by its recorded commit -- 2.14.1). 0.2.60 (**a build that upgrades OS packages is built without the layer cache**, and "unchanged" compares the package lists -- 2.31.1, RFC-0071 §16; **a portal tick confirms a widening** by the fingerprint of exactly the reported lines -- 2.14, I-43). 0.2.59 (**a second kind of generated value, `vapid`**, and a build step may generate into an empty key -- 2.8, RFC-0079). 0.2.58 (**the envelope rule on every way in**: directory and
+- **Version:** 0.2.72 (manifest 0.18, RFC-0104 stage 2: **`setup`** -- a tenant build sets an app up through its door, `OAAP_SETUP_KEY`, the internal listener `gateway:8099/s/<name>`; **`ai_client`/`ai_gateway`** -- a chat reaches its tenant's model gateway without a key, `/platform/ai/gateways` and a via door per gateway, 2.39, reference 0.1.315). 0.2.71 (every instance is told **`OAAP_PORTAL_URL`**: its own page in the portal, as the tenant's administration reaches it -- 2.38, reference 0.1.308). 0.2.70 (every instance is told **`OAAP_IDENTITY_HEADERS`**: the identity headers this platform sets and strips everywhere else, so an app can tell which ones it may believe -- 2.37, reference 0.1.307). 0.2.69 (**an app brings its documentation**: manifest 0.17 `docs:` (help products: folder, title, language, audience, readers, folder → document type, media) and `docs_sources: {read: true}`; the node copies exactly the declared folders at every install, update, promotion and removal into the tenant's documentation directory and mounts it read-only at `/oaap/docs` into the tenant's instances that declare `docs_sources` -- 2.36, RFC-0094 stage 1). 0.2.68 (**an app signs in itself through its tenant's realm**: manifest 0.16 `identity.oidc_client` {redirect_paths, groups_claim}; once a connector made the client (`oaap.core.tenant` 2.9.2) the instance gets `OAAP_OIDC_ISSUER`, `OAAP_OIDC_CLIENT_ID`, `OAAP_OIDC_CLIENT_SECRET`, record `oidc_idp` -- 2.35, RFC-0091 stage 3). 0.2.67 (**the discovery door**: a consuming gateway's site carries, next to each door of procedure I, `/platform/mcp/discover/<source>`, which passes only the catalog requests without a person; the body goes to identity as one header -- 2.32.5, RFC-0073 §16, reference 0.1.300). 0.2.66 (**the tested package into the catalog**: `catalog-put` hands an instance's retained package to a package catalog of the node through its inbox, not released; **`visible_to`** on a catalog entry limits it to named tenants, judged by the host on every resolution -- 2.6, RFC-0050 §9, reference 0.1.295). 0.2.65 (**a declared health path the app never built** (404/405) is not the app's verdict: the probe asks its home page, and an answer below 400 there is *reachable*, the missing path named; install says so at once -- 2.11, reference 0.1.294). 0.2.64 (**an app MAY declare an `assets` door** (manifest 0.15): it names its assets -- model names, sources -- and how they hang together, and the node asks it for the fleet status document -- 2.34, RFC-0087 §8.2). 0.2.63 (**a tunnel app MAY declare a `link_state` door** (manifest 0.14): the node asks it how its tunnel and its targets are, for the fleet status document -- 2.33, RFC-0087 §8.1). 0.2.62 (**a config key MAY declare `file: true`**: its value is a file, stored as one base64 line, and the portal offers an upload -- 2.8; **a tunnel (`tun`, 2.23) is confirmed in the store** by a `server_admin`'s tick naming the app, besides `--confirm-tun` -- RFC-0060 stage 4). 0.2.61 (**promotion from a Git test instance** by its recorded commit -- 2.14.1). 0.2.60 (**a build that upgrades OS packages is built without the layer cache**, and "unchanged" compares the package lists -- 2.31.1, RFC-0071 §16; **a portal tick confirms a widening** by the fingerprint of exactly the reported lines -- 2.14, I-43). 0.2.59 (**a second kind of generated value, `vapid`**, and a build step may generate into an empty key -- 2.8, RFC-0079). 0.2.58 (**the envelope rule on every way in**: directory and
   Git installs too, the report reaches the portal, I-43, 2.14). 0.2.57 (**a second origin for the views of MCP Apps**,
   manifest 0.13 `ui_sandbox`, 2.32.4, RFC-0075). 0.2.56 (**a chat acts at its tenant's gateways as the person**,
   RFC-0074 stage 1: manifest 0.12 `mcp_client: {use: true}`, the list
@@ -2699,6 +2699,45 @@ as with `OAAP_CARE_URL`.
   portal (the MCP gateway's sign-in tab: card MCP, „Anmeldung
   einrichten“). Without it, the app names the way in words.
 
+### 2.39 The setup door and the model way without a key (0.2.72, manifest 0.18, RFC-0104 stage 2)
+
+```yaml
+setup:
+  path: /oaap/setup      # a local path under one of the app's routes, not /
+ai_client:
+  use: true              # a chat: reach the tenant's model gateways
+ai_gateway:
+  serve: true            # a model gateway: be one of them
+```
+
+- **`setup`.** The instance gets `OAAP_SETUP_KEY`, random, made once at
+  install, kept in its environment, never shown, dropped when the
+  manifest drops `setup`, not carried over to a reinstalled instance.
+  The gateway's internal listener (2.11, `:8099`, platform network only)
+  carries `handle /s/<name>` → the declared path, query kept. A tenant
+  build calls it from inside the identity container with key and body
+  on standard input: `Authorization: Bearer <OAAP_SETUP_KEY>`,
+  `X-OAAP-Setup-Actor: <who>`. The calls and answers are RFC-0104 §3.1;
+  the build steps are `app.setup` and the read `setup.ready` (RFC-0055
+  §2). An app ignores identity headers on its setup path and refuses
+  every call without the key.
+- **`ai_client` / `ai_gateway`.** The same machinery as 2.32.3, a second
+  kind: `OAAP_AI_CLIENT_KEY` (scope `oaap.ai.client:<name>`, minted,
+  renewed, reissued and retired like `OAAP_MCP_CLIENT_KEY`) and
+  `OAAP_AI_CLIENT_URL` (`…/platform/ai/gateways` on the chat's own
+  site); the list names the instances of the same tenant on this node
+  with `ai_gateway`, not a rehearsal; the door `/platform/ai/via/<gw>/*`
+  is rewritten to `/v1/` at the gateway, asks identity with
+  `via=oaap.ai.client:<chat>` (`oaap.core.identity`: the same check as
+  procedure A, audit word `ai.via`), strips `Authorization` and
+  `X-OAAP-Act-Assertion` and sets `X-OAAP-AI-Client: <chat>` itself. The
+  site marker carries `ai:<digest>`, so a model gateway that comes or
+  goes rewrites the chat's site.
+- **What the model gateway believes:** only `X-OAAP-AI-Client`,
+  `X-OAAP-User-Id` and `X-OAAP-User-Assertion` together, because the
+  platform strips the two identity headers on its public `/v1`
+  (`oaap.ai.gateway`: client grants).
+
 ## 3. Configuration
 
 - Level-1 port range (default 8100–8199, expert-configurable;
@@ -3024,6 +3063,21 @@ as with `OAAP_CARE_URL`.
 tests 1–11 on the reference platform. 0.2 target: tests 12–16 with the
 pilot CRM's test instance and its AI coding agent as the first real
 remote deployer.
+
+## Deutsche Zusammenfassung (2.39, v0.2.72 — Einrichtungstür und KI-Gateway ohne Schlüssel, Manifest 0.18, RFC-0104 Stufe 2)
+
+- **`setup`:** Eine App erklärt eine Einrichtungstür. Die Plattform gibt
+  ihr einen Einrichtungsschlüssel (`OAAP_SETUP_KEY`), den nur sie kennt,
+  und ruft die Tür beim Mandantenaufbau über den internen Listener des
+  Gateways auf (`gateway:8099/s/<instanz>`), aus dem Identity-Container,
+  den Schlüssel nur auf der Standardeingabe. Die App legt an, was der
+  Aufbau wünscht, und überschreibt nie Handarbeit.
+- **`ai_client`/`ai_gateway`:** Der Chat erreicht das KI-Gateway seines
+  Mandanten wie das MCP-Gateway: Liste `/platform/ai/gateways`, je
+  Gateway eine Tür `/platform/ai/via/<gw>/` → `/v1/`, zwei Nachweise
+  (Client-Schluessel des Chats und Zusicherung der Person). Das
+  KI-Gateway bekommt nie einen Schlüssel, nur die Person und den Namen
+  des Chats, und erlaubt nach seiner Freigabe für diesen Chat.
 
 ## Deutsche Zusammenfassung (2.11, v0.2.65 — ein fehlender Health-Pfad)
 
