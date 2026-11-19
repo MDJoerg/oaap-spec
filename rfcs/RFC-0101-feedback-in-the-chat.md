@@ -1,9 +1,9 @@
 # RFC-0101: Feedback in the Chat — the Conversation's Light, Stars per Answer, and "Not Satisfied" as a Case
 
-- **Status:** Draft (2026-11-19). Wishes by Jörg from the first real chat
-  test in tenant `bec` (I-62 W1–W3, 2026-11-18). Jörg: "RFC-0101 entwerfen"
-  (2026-11-19), building on RFC-0097 and RFC-0098. Open decisions D1–D11
-  below, each with a recommendation. Nothing built.
+- **Status:** **Accepted (2026-11-19)** — Jörg: "D1–D11 wie empfohlen".
+  Wishes by Jörg from the first real chat test in tenant `bec` (I-62
+  W1–W3, 2026-11-18); drafted the same day on his word, building on
+  RFC-0097 and RFC-0098. Nothing built.
 - **Date:** 2026-11-19
 - **Authors:** Jörg (the wishes: a light per conversation, defaulting to
   "sensitive data"; stars per answer and per conversation, always stored
@@ -275,37 +275,37 @@ not, the route is extended, not bypassed.
 
 ## 7. Decisions
 
-- **D1 Scale.** *Recommendation:* 0–5 stars per answer and per
+- **D1 Scale.** *Decided (Jörg, 2026-11-19, as recommended):* 0–5 stars per answer and per
   conversation, as Jörg wished; 0 means "useless", not "no rating".
-- **D2 Where ratings live.** *Recommendation:* in the MCP gateway next to
+- **D2 Where ratings live.** *Decided (Jörg, 2026-11-19, as recommended):* in the MCP gateway next to
   the revisions (§3.3). Alternatives: in the chat (lost when a second
   chat uses the same assistant, RFC-0097 D9) or as cases (a case is work
   to clear; a star is not).
-- **D3 The person in a rating.** *Recommendation:* no name or user id;
+- **D3 The person in a rating.** *Decided (Jörg, 2026-11-19, as recommended):* no name or user id;
   `who` is an HMAC of the user id with a per-gateway secret, enough to
   change one's own rating and to count persons, not enough to name them.
   `/me` finds one's own ratings by recomputing it.
-- **D4 Text with a rating.** *Recommendation:* only with the tick;
+- **D4 Text with a rating.** *Decided (Jörg, 2026-11-19, as recommended):* only with the tick;
   readable by the same readers; kept 180 days, then the text is removed
   and the rating stays.
-- **D5 Default light.** *Recommendation:* `green` for every new
+- **D5 Default light.** *Decided (Jörg, 2026-11-19, as recommended):* `green` for every new
   conversation, as Jörg wished; a tenant setting may set `yellow` as the
   default (demo, training); `red` is never a default.
-- **D6 Queue of a "not satisfied" case.** *Recommendation:* a new
+- **D6 Queue of a "not satisfied" case.** *Decided (Jörg, 2026-11-19, as recommended):* a new
   optional assistant field `support_queue` (in `oaap.ai.assistants`, with
   RFC-0097's revisions), else the tenant's default queue.
-- **D7 `X-OAAP-Light` in both gateways.** *Recommendation:* yes, in stage
+- **D7 `X-OAAP-Light` in both gateways.** *Decided (Jörg, 2026-11-19, as recommended):* yes, in stage
   1; a few lines each, and the light stops being a promise only the
   browser keeps.
-- **D8 Ratings before RFC-0097.** *Recommendation:* no ratings until
+- **D8 Ratings before RFC-0097.** *Decided (Jörg, 2026-11-19, as recommended):* no ratings until
   assistants have revisions; a star that names a prompt nobody can read
   again measures nothing. W1 (stage 1) does not wait.
-- **D9 Call ids without RFC-0098 stage 3.** *Recommendation:* the case
+- **D9 Call ids without RFC-0098 stage 3.** *Decided (Jörg, 2026-11-19, as recommended):* the case
   travels without ids; time and `assistant@rev` already narrow the rows,
   and the dialog says the ids are missing because the tenant logs `lean`.
-- **D10 Tool arguments in a case.** *Recommendation:* off by default, per
+- **D10 Tool arguments in a case.** *Decided (Jörg, 2026-11-19, as recommended):* off by default, per
   card a tick (§4.1).
-- **D11 Mark for an answered case in the chat.** *Recommendation:* yes,
+- **D11 Mark for an answered case in the chat.** *Decided (Jörg, 2026-11-19, as recommended):* yes,
   read with the person's session from `vorgaenge`; no notification beyond
   what RFC-0061 already sends.
 
@@ -359,5 +359,5 @@ alle mit Ablage an Orten, die es schon gibt:
 Anfragen. Das geht sofort, ohne andere RFCs. 2 Sterne (nach RFC-0097
 Stufe 1). 3 „Nicht zufrieden“ (Kennungen nach RFC-0098 Stufe 3).
 4 Auswertung je Revision (mit RFC-0097 Stufe 2). Die automatische
-Bearbeitung durch eine KI ist benannt, kommt aber als eigenes RFC. Offen
-sind D1–D11, alle mit Empfehlung.
+Bearbeitung durch eine KI ist benannt, kommt aber als eigenes RFC. D1–D11
+hat Jörg am 19.11. wie empfohlen entschieden.
