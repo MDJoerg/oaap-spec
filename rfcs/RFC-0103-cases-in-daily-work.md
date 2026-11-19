@@ -4,7 +4,8 @@
   schreib das RFC", after going through the points in conversation.
   D1–D11 decided as recommended. **Stage 1 built** (vorgaenge 0.8.0,
   in `bec`), §10. **Stage 2 built** (vorgaenge 0.9.0, chat 0.14.0,
-  mcp-gateway 0.26.0, not pushed), §11.
+  mcp-gateway 0.26.0, in `bec`), §11. **Stage 3 built** (vorgaenge
+  0.10.0, not pushed), §12.
 - **Date:** 2026-11-19
 - **Authors:**
   - Jörg: the wishes, from working the first real case `V-2026-0001` in
@@ -366,6 +367,51 @@ follow.
     passt“ turns both dots grey and the chat keeps `outcome: accepted`.
 - **Not measured:** a node.
 
+## 12. Stage 3, built (2026-11-19)
+
+`vorgaenge` 0.10.0. The chat needs no change: it already shows
+`waiting_reporter` as red and every other open status as yellow.
+
+- **Built:**
+  - Columns `responsible` and `assignee` on the case. A table `involved`
+    keeps everyone who was ever responsible or assigned.
+  - Rules in one place (`app.py`):
+    - `handles` (queue, observer queues, ever involved) reads internal
+      entries;
+    - `is_assignee` adds comment and status;
+    - `can_set_roles` = `may(triage)` on the case's queue.
+  - Responsible must pass `may(triage)` for the queue, checked against
+    the target person's list membership and grants.
+  - Moving empties responsible and keeps assigned.
+  - The four sub-statuses of §3 with the transitions of `in_progress`.
+    The reporter's next public comment on `waiting_reporter` moves the
+    case back to `in_progress`.
+  - Column `internal` on entries. The tick is on by default for handlers.
+    The filter is applied on the page and at the MCP door (`get_case`).
+    The `comment_case` tool defaults to internal for handlers.
+- **Decided while building:**
+  - An assignee may not reject either: rejecting ends a case like closing.
+  - Former participants may not comment: "never change access".
+  - Role changes are internal entries. The reporter sees neither the line
+    „Verantwortlich / Zugewiesen“ nor its history.
+  - An ended case (closed, rejected) gets no new responsible or assignee.
+  - The responsible list on the page offers the queue's listed members.
+    Grant holders cannot be listed, because the app has no directory; they
+    pass the check when chosen, but cannot be chosen from the list.
+- **Measured locally:**
+  - `test_app.py` 148/148 (25 new; baits 3, 4, 8).
+  - `test_mcp.py` 36/36 (bait 4 at the MCP door).
+  - `test_stage2.py` 45/45, `test_node.py` 30/30.
+  - In the browser behind a stand-in of the platform, as three persons:
+    - the `tenant_admin` sets responsible and assigned, writes an internal
+      comment and asks the reporter;
+    - the reporter sees neither the internal comment nor the roles, reads
+      „Rückfrage an dich“ with the way to answer, and her comment moves the
+      case back to „in Arbeit“;
+    - the assignee is offered comment (internal ticked) and the statuses
+      without closed and rejected, and no move or role form.
+- **Not measured:** a node.
+
 ## Zusammenfassung auf Deutsch
 
 Aus dem ersten echten Vorgang in bec, mit allen Empfehlungen von Jörg am
@@ -409,5 +455,7 @@ Aus dem ersten echten Vorgang in bec, mit allen Empfehlungen von Jörg am
 2. Rückweg in den Chat. Gebaut am 19.11. (§11): Punkte im Baum, Link,
    „Lösung passt / Passt nicht“ im Chat und in Vorgänge, nach 14 Tagen
    ohne Rückmeldung zu.
-3. Arbeit im Vorgang.
+3. Arbeit im Vorgang. Gebaut am 19.11. (§12): verantwortlich und zugewiesen,
+   Unterstatus mit Rückfrage, interne Kommentare; frühere Beteiligte lesen
+   weiter.
 4. Listen und Reiter.
