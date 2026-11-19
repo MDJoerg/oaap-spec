@@ -12,7 +12,9 @@
   0.21.0, `oaap.ai.assistants` 0.5; §3.4. Stage 2 rolled out in `bec`
   the same day. **Stage 3 built** (2026-11-19, "not satisfied"): chat
   0.11.0, vorgaenge 0.6.0, mcp-gateway 0.24.0, `oaap.ai.assistants` 0.6,
-  `oaap.ai.mcp-gateway` 0.22.0; §4.4.
+  `oaap.ai.mcp-gateway` 0.22.0; §4.4. Stage 3 rolled out in `bec`, with a
+  `vorgaenge` instance, the same day. **Stage 4 built** (2026-11-19,
+  with RFC-0097 stage 2): mcp-gateway 0.25.0, chat 0.12.0; §4.5.
 - **Date:** 2026-11-19
 - **Authors:** Jörg (the wishes: a light per conversation, defaulting to
   "sensitive data"; stars per answer and per conversation, always stored
@@ -298,6 +300,24 @@ rating, the dialog, the case as it arrives, the mark „beantwortet“ after
 reloading; the case the chat built passes the checks of vorgaenge 0.6.0.
 Not measured: a node, the real platform route with `vorgaenge`, dark
 mode, the full reference suite.
+
+### 4.5 Stage 4, built (2026-11-19)
+
+Evaluation per assistant and revision, built together with RFC-0097 stage
+2 (§6a there; `oaap.ai.mcp-gateway` §3.9d).
+
+- **Per revision:** number of ratings, distribution of 0–5, share of 0–2,
+  persons rating, number of "not satisfied" cases, and the counts from
+  the usage rows. Two revisions of one assistant show separate
+  distributions and case counts: measured with a stand-in, rev 2 with
+  stars and one case and rev 1 with none.
+- **Case count (decided while building):**
+  - The gateway cannot read `vorgaenge`. So the chat, after
+    `/platform/feedback` returned a number, tells the gateway
+    `POST …/<id>/cases {rev, number}`.
+  - The gateway keeps only HMACs, so a case counts once.
+  - If that call fails, the case still exists; only the count misses it.
+- Cases sent before chat 0.12.0 are not counted (`V-2026-0001` in `bec`).
 
 ### 3.4 Stage 2, built (2026-11-19)
 

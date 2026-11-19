@@ -8,7 +8,10 @@
   D4, D5, D8 (stages 2 and 3), each with a recommendation. **Stage 1
   built** (2026-11-19, not pushed, not rolled out): mcp-gateway 0.22.0,
   chat 0.9.0, `oaap.ai.assistants` 0.4, `oaap.ai.mcp-gateway` 0.20.0; §6
-  records what was measured and what was not.
+  records what was measured and what was not. Stage 1 pushed and rolled
+  out in `bec` the same day. **Stage 2 built** (2026-11-19, with RFC-0101
+  stage 4, needs none of the open decisions): mcp-gateway 0.25.0, chat
+  0.12.0, `oaap.ai.mcp-gateway` 0.23.0; §6a.
 - **Date:** 2026-11-19
 - **Authors:** Jörg (the questions: where are assistants stored; revisions,
   upload/download, evaluation, support; an external AI coupled to the
@@ -239,6 +242,35 @@ team assistant (bec 2, oaap-test 1, all `tenant`), so nothing is lost.
   node; the operator's page of the gateway does not list assistants yet
   (stage 2, evaluation tab); export/import against the gateway only
   through the chat's routes.
+
+## 6a. Stage 2, built (2026-11-19)
+
+- **Evaluation** per assistant and revision (`oaap.ai.mcp-gateway`
+  §3.9d):
+  - from the usage rows: calls, refusals, errors and persons (counted);
+  - with RFC-0101: stars and "not satisfied" cases.
+  - It is shown on a new operator tab „Assistenten“ and, for whoever
+    manages an assistant or is `tenant_admin`, in the chat ("Auswertung"
+    on the assistant's card).
+- **Revision diff:** on the same tab and in the chat's dialog.
+- **Export of a chosen revision** from the operator tab. The exchange
+  file carries `owner: "-"`, because the format requires the field.
+  Import was already there (stage 1); now measured with an exported file:
+  a missing view is refused with its name, an existing one imports as
+  rev 1 with the importer as owner.
+- **Decided while building:**
+  - The operator page applies the shared visibility rule with the
+    viewer's own person. Another person's private assistant is neither
+    listed nor counted there; a count would reveal that it exists.
+  - Stars and cases follow the readers of RFC-0101 §3.3.
+- **Measured locally:** gateway 545/545 (21 new). Baits: a `tenant_admin`
+  does not read the evaluation of another person's private assistant;
+  Bert neither compares nor exports it, and on the operator page it does
+  not appear. Chat 185/185 (5 new). The chat's dialog was looked at in
+  the browser against the stand-in platform.
+- **Not measured:** a node; the operator tab in a browser (only its HTML
+  in the tests); "a second gateway" literally — the import ran into the
+  same gateway under a new id.
 
 ## Zusammenfassung auf Deutsch
 
