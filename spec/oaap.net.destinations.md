@@ -1,7 +1,7 @@
 # oaap.net.destinations — Reaching Outward Without Holding the Key
 
 - **ID:** `oaap.net.destinations`
-- **Version:** 0.12.1 (**the propagation grant survives a redeploy** with its binding -- §2.2, test 7; an update had dropped it, measured on oaapx01 2026-11-18). 0.12 (**a need MAY declare `any: true`** -- the app uses any number of the tenant's `http` destinations, each bound under its own name; the portal offers the binding -- §2.2; an AI gateway's suppliers, RFC-0060 stage 2). 0.11 (a `server_admin` may hand the authoring of destinations to
+- **Version:** 0.13 (**principal propagation in the portal** -- added on the page *Destinationen* in two steps, the server certificate read, shown and pinned only when the person confirms what they compared; by `server_admin`, and under 2.7.1 by the `tenant_admin`; the binding on the instance page carries the grant "carries the signed-in person" -- §2.7, §2.7.1, §2.9 item 7, tests 22-23; L22, mandantenlandschaft bec 2026-11-18). 0.12.1 (**the propagation grant survives a redeploy** with its binding -- §2.2, test 7; an update had dropped it, measured on oaapx01 2026-11-18). 0.12 (**a need MAY declare `any: true`** -- the app uses any number of the tenant's `http` destinations, each bound under its own name; the portal offers the binding -- §2.2; an AI gateway's suppliers, RFC-0060 stage 2). 0.11 (a `server_admin` may hand the authoring of destinations to
   the `tenant_admin` of ONE tenant: https targets on public addresses only, and only
   what they made -- §2.7.1, `oaap.core.tenant` 1.7). 0.10 (destinations are added,
   given a secret and removed in the portal as well, by `server_admin` -- §2.7). 0.9
@@ -285,7 +285,7 @@ authentication.
   `bearer` or `header`, set a secret, remove an unbound one; queued, judged
   again by the host from the actor's own record, the same functions and
   checks as the CLI; the secret travels only in the request file and into the
-  secret store; principal propagation stays on the CLI). A `tenant_admin`
+  secret store; since 0.13 also `principal_propagation`, §2.7.2). A `tenant_admin`
   reads their own tenant's list on that page, without forms. RFC-0033 §1.1 gives this to the
   tenant's `tenant_admin` as well. That part waits until the check in
   2.1 happens at connection time rather than at creation (§4). Before
@@ -328,7 +328,7 @@ With the right, that `tenant_admin`:
 - **adds** a destination of kind `http` with a **`direct` `https://`** target
   only -- no `http://`, no `tcp`, no `via`, no `through`, not the name `mail`
   (that is the mailbox, 2.11), authentication `none`, `basic`, `bearer` or
-  `header` (principal propagation stays on the CLI);
+  `header`, and since 0.13 `principal_propagation` (§2.7.2);
 - whose host **resolves to public addresses only** at save: global, outside
   every range the container runtime manages. A name that does not resolve is
   refused. The platform check of 2.1 applies as well;
@@ -359,6 +359,49 @@ Both the switch and every act under it stand in the tenant's log (`tenant.allow`
 `tenant.disallow`, `destination.*` with the person). The host judges every
 request again from the actor's own record (2.7): the portal's buttons are not
 the boundary.
+
+#### 2.7.2 Principal propagation in the portal (0.13)
+
+The page *Destinationen* adds a `principal_propagation` destination (2.9) with
+the same function and checks as `oaap destination add --auth
+principal_propagation`. The pin (2.9 item 2) is the one thing a page could make
+too easy, so it is two requests:
+
+1. **Read.** The person names the `https` target; the host reads the
+   certificate the target presents now, without trusting it, and answers with
+   its SHA-256, subject, issuer and end of validity. **Nothing is stored.**
+   The read is a connection too: the target passes the same refusals as an
+   add (2.1; for a `tenant_admin` 2.7.1) before it is made, so the page is no
+   probe of the node's own networks.
+2. **Pin.** The page shows those facts and asks the person to compare the
+   fingerprint with what the target's administrator sees (SAP: `STRUST`, the
+   SSL server PSE's own certificate) and to **tick that they did**. Only then
+   does the second request carry the fingerprint; the host reads the
+   certificate again and stores the destination only if it is still the one the
+   person saw. A target that changed in between is refused, and the person
+   starts again.
+
+The claim rules, the name check, the certificate lifetime and the sentence
+"checked by hand that only administrators edit the claim" are fields of the
+same form, with the CLI's defaults (`sap_user`, `sap`, 10 minutes, empty). The
+read of who may edit the claim (2.9 item 6) runs at the pin, as on the CLI;
+a sentence written by hand is recorded with the person's name.
+
+**A `tenant_admin` under 2.7.1** may add such a destination as well:
+`direct` `https` target on public addresses, as for every target they write.
+Why this may open: the certificate is pinned, so a name that later turns inward
+meets a handshake that fails against the pin -- a stronger answer than 2.7.1's
+name check; the issuing CA is the tenant's own (2.9 item 3), and the target
+believes it only after its administrator imported it; the claim check runs
+unchanged. What the `tenant_admin` gains is what the realm already gave them:
+they maintain `sap_user` for the people of their tenant.
+
+The page lists such a destination with its pinned fingerprint (first 16
+characters) and the claim rules, never the certificate itself. Once the tenant
+has one, the page hands out what the target's administrator needs -- the
+public half of the tenant's CA and a sample certificate of it for a name (one
+hour, no key; 2.9 item 3) -- to the `server_admin` and to the tenant's own
+`tenant_admin`, with or without the right of 2.7.1: both are public.
 
 ### 2.8 Through a tunnel app (0.4, RFC-0060 D4/D5)
 
@@ -470,7 +513,13 @@ tenant's issuing CA and maps the certificate to its own user.
    `principal_propagation` destination only with `--propagate`
    (`oaap destination bind <instance> <dest> --propagate`), recorded
    and audited separately; a binding without it is answered 403 with
-   the reason. On every other destination the assertion header is
+   the reason. **Since 0.13 the portal grants it too**: on the instance page a
+   binding of a `principal_propagation` destination shows whether it carries
+   the person and offers to grant or withdraw that, by `server_admin` or the
+   `tenant_admin` of the instance's tenant (the same people who bind, 2.7);
+   the bind form offers the grant when such a destination is among the
+   choices. The host judges the role again and writes the same audit line as
+   the CLI. On every other destination the assertion header is
    **stripped** like the identity headers — it never leaves the node.
 8. **Nothing is kept between calls**: no connection is reused, no
    cookie is stored by the client, `Cookie`/`Authorization` of the app
@@ -681,11 +730,26 @@ internal and not an operator setting.
     allow <label> destinations`): an `https` target on a public address is
     added with `author: tenant_admin`; `http://`, `tcp`, `via:`, a name that
     resolves to a private or container-runtime address, one that does not
-    resolve, the name `mail` and principal propagation are refused with a
-    sentence. The `tenant_admin` sets the secret of and removes their own
+    resolve and the name `mail` are refused with a
+    sentence (principal propagation since 0.13: test 22). The `tenant_admin` sets the secret of and removes their own
     destination, not the operator's; another tenant stays closed; a plain
     user stays out. Switched off: the destination stays, the `tenant_admin`
     can no longer change it.
+
+22. (0.13) The portal's first request for a `principal_propagation`
+    destination stores nothing and answers with the fingerprint; the second
+    without the ticked comparison, or with a fingerprint the target no longer
+    presents, is refused and stores nothing; with both, the destination is
+    stored pinned, with the claim rules and the result of the claim check, and
+    the tenant log names the person. A `tenant_admin` without the right of
+    2.7.1 is refused; with it, a public `https` target is stored with `author:
+    tenant_admin`, a private one is refused. A claim the person may edit is
+    refused as on the CLI.
+23. (0.13) Binding a `principal_propagation` destination from the portal with
+    the grant stores it on the instance (`propagate`); withdrawing it removes
+    only the grant, not the binding; asking for the grant on any other
+    destination is refused. A plain user and another tenant's `tenant_admin`
+    are refused.
 
 ## 6. Dependencies
 
@@ -936,3 +1000,23 @@ oaapi01 hinter dem Connector. Die Anmeldung ergänzt die Plattform.
 übersteht jetzt ein Update der App, so wie die Bindung selbst. Vorher fiel sie
 beim Update weg, und das MCP-Gateway in bec bekam 403 (gemessen auf oaapx01 am
 18.11.).
+
+## Deutsche Zusammenfassung (Nachtrag 0.13 — Person durchreichen im Portal, L22)
+
+Eine Destination mit **Principal Propagation** (die angemeldete Person kommt als
+kurzlebiges Zertifikat beim Ziel an, etwa in SAP) lässt sich jetzt auch im Portal
+anlegen, nicht nur an der Kommandozeile. Das Pinnen des Serverzertifikats bleibt
+ein bewusster Schritt: Zuerst liest die Plattform das Zertifikat und zeigt
+Fingerabdruck, Inhaber, Aussteller und Ablauf -- gespeichert wird nichts. Erst
+wenn die Person ankreuzt, dass sie den Fingerabdruck mit dem Administrator des
+Ziels verglichen hat (SAP: STRUST), wird angelegt; die Plattform liest das
+Zertifikat dabei noch einmal und lehnt ab, wenn es sich geändert hat.
+
+Auch die **Verwaltung des Mandanten** darf das, wenn der Server-Admin ihr das
+Anlegen von Destinationen erlaubt hat (2.7.1). Das ist vertretbar, weil das
+Zertifikat gepinnt ist, die Zertifizierungsstelle dem Mandanten gehört und das
+Ziel ihr erst vertraut, wenn dessen Administrator sie importiert.
+
+Auf der Instanzseite zeigt die Zuordnung einer solchen Destination, ob sie die
+Person trägt, und bietet an, das zu erlauben oder zurückzunehmen -- bisher ging
+das nur mit `oaap destination bind … --propagate`.
