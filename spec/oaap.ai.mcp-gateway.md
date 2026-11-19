@@ -1,7 +1,7 @@
 # oaap.ai.mcp-gateway — Tool Servers Behind One Keyed Endpoint per View
 
 - **ID:** `oaap.ai.mcp-gateway`
-- **Version:** 0.18.0 (the operator's page says what `*`/`/pfad` and `@<chat>`/`@*` stand for, and a profile whose groups do not fit the view's way is told which group to write instead of being told to switch on the other way, §2.3 (L12); the light warning names the server that sets the view's light, uses the colour words and both remedies, §2.3 (L13); the sign-in tab says the `tenant_admin` may set sign-in up, §2.2 (L4)). 0.17.0 (the **groups** of an access profile can be changed on the operator's page, checked before anything changes, §2.3 (L11); the sign-in tab links the instance's page in the portal from `OAAP_PORTAL_URL` (runtime 2.38) and says the `MCPGW_*` fields stay empty when the platform sets sign-in up, §2.2 (L1, L5)). 0.16.1 (L29: the catalog of a procedure-U server is read by the operator without an assertion, and a person with a stored credential may read the **first** list from `/me`, §3.12). 0.16.0 (procedure U also as **`basic`**: the person enters user (e.g. e-mail) and token separately, the gateway sends `Authorization: Basic base64(user:token)` -- what Atlassian Cloud's MCP server asks for, §3.12). 0.15.0 (RFC-0095 stage 3: **readiness** -- `GET /mcp/_readiness?view=` through the via door tells a chat per server whether the view is set up for the person (`ready`, `needs_credential`, `credential_rejected`, `not_for_you`), `/me/v1/readiness`; D2: `/me` and procedure U also for calls signed in at the realm, when the platform names the person's realm id and promises the header, §1b). 0.14.0 (RFC-0095 stage 2: **procedure U**, §3.12 -- a server where every person brings their own credential; entered on `/me`, write only, sealed in the vault bound to the person, sent only with that person's calls; refused before anything goes out when missing; the operator counts and deletes, never reads). 0.13.1 (an old row refused/destination without a door does not guess who refused, §1a). 0.13.0 (RFC-0095 stage 1: **`/me`**, the person's own page -- their usage rows of the last 30 days, a refusal in words with who refused, §1a; usage rows gain two structured columns **`status`** and **`door`**, §9. 0.12.0: servers can be **renamed**, §3.11 -- catalog and entries follow, a source server is found by its origin; `GET /mcp/_views` lists the views a person carried by a chat can open, all of them with reasons for the tenant's administration, §3.9a. 0.11.0: views can be **copied and renamed**, §5.4 -- a rename moves the keys and profiles that name the view; entries can be **assigned in bulk**: a set of catalog entries per view in one step, same approval per entry, §5.1. 0.10.0: RFC-0066 for the gateway: **procedure P**, §3.10 -- a person carried by a chat of the platform reaches a backend such as SAP as themselves, through a destination with principal propagation; `destination:<need>/<path>`, §3.1). 0.9.0 (RFC-0073 §16: the catalog of a platform source is read without a person at the platform's discovery door -- only the lists, as the gateway's machine principal; calls stay bound to a person, §3.7). 0.8.0 (RFC-0075 stage 1: views of MCP Apps are read, pinned by
+- **Version:** 0.19.0 (a request may carry `X-OAAP-Light`, an additional ceiling for that request that can tighten the key's or profile's ceiling and never loosen it; a view worse than it is refused with `403` and a sentence; checked on every request, also inside a session; usage rows record it, §3.3, §9, RFC-0101; additive. 0.18.0: the operator's page says what `*`/`/pfad` and `@<chat>`/`@*` stand for, and a profile whose groups do not fit the view's way is told which group to write instead of being told to switch on the other way, §2.3 (L12); the light warning names the server that sets the view's light, uses the colour words and both remedies, §2.3 (L13); the sign-in tab says the `tenant_admin` may set sign-in up, §2.2 (L4)). 0.17.0 (the **groups** of an access profile can be changed on the operator's page, checked before anything changes, §2.3 (L11); the sign-in tab links the instance's page in the portal from `OAAP_PORTAL_URL` (runtime 2.38) and says the `MCPGW_*` fields stay empty when the platform sets sign-in up, §2.2 (L1, L5)). 0.16.1 (L29: the catalog of a procedure-U server is read by the operator without an assertion, and a person with a stored credential may read the **first** list from `/me`, §3.12). 0.16.0 (procedure U also as **`basic`**: the person enters user (e.g. e-mail) and token separately, the gateway sends `Authorization: Basic base64(user:token)` -- what Atlassian Cloud's MCP server asks for, §3.12). 0.15.0 (RFC-0095 stage 3: **readiness** -- `GET /mcp/_readiness?view=` through the via door tells a chat per server whether the view is set up for the person (`ready`, `needs_credential`, `credential_rejected`, `not_for_you`), `/me/v1/readiness`; D2: `/me` and procedure U also for calls signed in at the realm, when the platform names the person's realm id and promises the header, §1b). 0.14.0 (RFC-0095 stage 2: **procedure U**, §3.12 -- a server where every person brings their own credential; entered on `/me`, write only, sealed in the vault bound to the person, sent only with that person's calls; refused before anything goes out when missing; the operator counts and deletes, never reads). 0.13.1 (an old row refused/destination without a door does not guess who refused, §1a). 0.13.0 (RFC-0095 stage 1: **`/me`**, the person's own page -- their usage rows of the last 30 days, a refusal in words with who refused, §1a; usage rows gain two structured columns **`status`** and **`door`**, §9. 0.12.0: servers can be **renamed**, §3.11 -- catalog and entries follow, a source server is found by its origin; `GET /mcp/_views` lists the views a person carried by a chat can open, all of them with reasons for the tenant's administration, §3.9a. 0.11.0: views can be **copied and renamed**, §5.4 -- a rename moves the keys and profiles that name the view; entries can be **assigned in bulk**: a set of catalog entries per view in one step, same approval per entry, §5.1. 0.10.0: RFC-0066 for the gateway: **procedure P**, §3.10 -- a person carried by a chat of the platform reaches a backend such as SAP as themselves, through a destination with principal propagation; `destination:<need>/<path>`, §3.1). 0.9.0 (RFC-0073 §16: the catalog of a platform source is read without a person at the platform's discovery door -- only the lists, as the gateway's machine principal; calls stay bound to a person, §3.7). 0.8.0 (RFC-0075 stage 1: views of MCP Apps are read, pinned by
   content and approved with their tool, §4.3). 0.7.3 (views, effect class and light of a key or profile can be
   changed without revoking it; a `403` names its reason; sources can be read in
   on demand, §2.3, §3.6). 0.7.2 (RFC-0074 stage 3: the usage row records `confirmed`,
@@ -347,6 +347,20 @@ only if the view's light is not worse than the key's light
 unknown one. The gateway enforces the light on what it **sends**
 (arguments); results flow into the client's model, which the gateway
 does not see (RFC-0065 §9.3) — the operator page says so.
+
+### 3.3a A ceiling per request (0.19, RFC-0101)
+
+A request may carry **`X-OAAP-Light: green | yellow | red`** — the light
+of the conversation the person chose in the chat (`oaap.ai.gateway` §7,
+"A ceiling per request"). It tightens the ceiling of the key or profile
+for this request and never loosens it. After the key or profile has been
+checked (§2.3), a view whose light (§3.3) is worse than the requested
+light is refused with **`403`** and a sentence naming both lights and the
+server that sets the view's light — the requester may open the view, so
+the sentence reveals nothing new. The check runs on **every** request,
+also inside an open session: a person who switches the conversation to
+`green` gets the very next call refused. An unknown value is refused with
+`400`. The usage row records the requested light (§9).
 
 ### 3.4 Credentials
 
@@ -1010,7 +1024,9 @@ one of `gateway`, `platform`, `destination`, `server`, empty for `ok`;
 (`oaap.ai.gateway` §5). For procedure A also the chat, the assistant and
 (0.7.2) **`confirmed`**: `yes` when the chat sent `X-OAAP-Confirmed: yes`
 — the person confirmed this call in the chat (RFC-0074 §5.6). It is the
-chat's statement, recorded for review, never a permission.
+chat's statement, recorded for review, never a permission. (0.19) **`light`**:
+the light a request asked for with `X-OAAP-Light` (§3.3a), empty without —
+a word from a fixed list, no content.
 
 - A read through a **template** records the template, never the URI the
   client filled in: values stand in it.
@@ -1579,3 +1595,14 @@ nennt die Farben auf Deutsch, den Server, der die Ampel der Sicht bestimmt,
 und beide Wege (Profil höher stellen oder Server niedriger einstufen, wenn er
 harmloser ist). **L4:** Der Reiter „Anmeldung“ sagt, dass ab Plattform
 0.1.309 auch der `tenant_admin` die Anmeldung einrichtet.
+
+## Deutsche Zusammenfassung (0.19, RFC-0101 Stufe 1)
+
+Eine Anfrage darf `X-OAAP-Light: green|yellow|red` mitschicken, die Ampel,
+die die Person im Chat für ihr Gespräch gewählt hat. Sie verschärft die
+Decke von Schlüssel oder Profil für diese Anfrage und lockert sie nie. Ist
+die Sicht röter (ihr schlechtester Server), kommt 403 mit einem Satz, der
+beide Farben und den Server nennt. Geprüft wird bei jeder Anfrage, auch
+innerhalb einer Sitzung. Ein unbekannter Wert wird mit 400 abgelehnt. Die
+Messzeile hält die verlangte Farbe in der Spalte `light` fest (§10 bleibt
+wahr).

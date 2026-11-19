@@ -3,7 +3,10 @@
 - **Status:** **Accepted (2026-11-19)** — Jörg: "D1–D11 wie empfohlen".
   Wishes by Jörg from the first real chat test in tenant `bec` (I-62
   W1–W3, 2026-11-18); drafted the same day on his word, building on
-  RFC-0097 and RFC-0098. Nothing built.
+  RFC-0097 and RFC-0098. **Stage 1 built** (2026-11-19, not pushed, not
+  rolled out): chat 0.8.0, ai-gateway 0.9.0, mcp-gateway 0.21.0,
+  `oaap.ai.gateway` 0.6.0, `oaap.ai.mcp-gateway` 0.19.0; §9 records what
+  was measured and what was not.
 - **Date:** 2026-11-19
 - **Authors:** Jörg (the wishes: a light per conversation, defaulting to
   "sensitive data"; stars per answer and per conversation, always stored
@@ -124,7 +127,9 @@ promise only the browser keeps is a weak one. Therefore:
   it can tighten the key's ceiling, never loosen it. The AI gateway
   refuses an alias whose path is worse (also after a failover: a
   failover to a worse light fails, as it does for the key today); the
-  MCP gateway answers a view that is worse like an unknown one. Both
+  MCP gateway refuses a view that is worse with `403` and a sentence
+  naming both lights (built so in stage 1: the requester may open the
+  view, so the sentence reveals nothing, and the chat can show it). Both
   record the light the request carried in the usage row (a word from a
   fixed list, not content).
 
@@ -322,6 +327,36 @@ Spec changes: `oaap.ai.assistants` (field `support_queue`, ratings
 record), `oaap.ai.mcp-gateway` (§3.3 request ceiling `X-OAAP-Light`,
 §3.9b ratings with RFC-0097, §9 column `light`), `oaap.ai.gateway` (§7
 request ceiling), chat README.
+
+## 9. Stage 1, built (2026-11-19)
+
+- **ai-gateway 0.9.0:** `X-OAAP-Light` as a ceiling per request on
+  `/v1/chat/completions` (and every inference path) and `/v1/models`;
+  `503 conversation_light` with both lights; `400 bad_light`; usage
+  column `light`. 13 new checks in `test_gateway.py` (283/283), among them
+  the bait: `red` on a `yellow` key does not reach a red alias.
+- **mcp-gateway 0.21.0:** the same on every MCP request after the key or
+  profile check; `403` with a sentence naming both lights and the server;
+  checked inside an open session too; usage column `light`. 7 new checks
+  in `test_gateway.py` (455/455), bait: `red` on a profile with ceiling
+  `green` stays refused.
+- **chat 0.8.0:** light per conversation (default `green`,
+  `CHAT_DEFAULT_LIGHT` may say `yellow`, never `red`), sent with every
+  model turn and every call at the door; worse only with `sure: true`
+  and the sentence; the changes in the person's own history (`lights`);
+  `GET api/light` with the lights of model and view as the gateways
+  report them and the key's ceiling (`/v1/usage`); the warning without a
+  path, sending blocked, the three ways of §2.3; the two requests posted
+  from the browser to `/platform/feedback` (kind `idea`/`question`,
+  object `{kind: assistant, id}`, the circumstances as text — the route
+  takes no template fields, and stage 1 needs none). 19 new checks in
+  `test_chat.py` (132/132). Looked at in a browser against the stand-in
+  platform: the warning, the light dialog (red disabled above the key's
+  ceiling, the sentence required), the request dialog and the case it
+  posts, a yellow conversation that then runs, the narrow layout.
+- **Not measured:** on a node, against the real `vorgaenge` route and
+  real gateways; dark mode; the operator's pages do not show the new
+  `light` column yet.
 
 ## Zusammenfassung auf Deutsch
 

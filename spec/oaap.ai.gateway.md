@@ -1,7 +1,7 @@
 # oaap.ai.gateway — AI Supply Behind One Keyed Endpoint
 
 - **ID:** `oaap.ai.gateway`
-- **Version:** 0.5.3 (a key that names aliases it can never reach under its ceiling is still issued, but the operator is told so, at issuing, at changing the aliases and in the key list, §7 (L14); a supplier that is always stripped of sampling parameters stores that, §4.2 (L15) -- reference app 0.8.1). 0.5.2 (the aliases of a valid key **may be changed** without a
+- **Version:** 0.6.0 (a request may carry `X-OAAP-Light`, an additional ceiling for that request only that can tighten the key's ceiling and never loosen it -- the light a person chose for a chat conversation, RFC-0101; usage rows record it, §7, §9 test 12; additive. 0.5.3: a key that names aliases it can never reach under its ceiling is still issued, but the operator is told so, at issuing, at changing the aliases and in the key list, §7 (L14); a supplier that is always stripped of sampling parameters stores that, §4.2 (L15) -- reference app 0.8.1). 0.5.2 (the aliases of a valid key **may be changed** without a
   new secret, audited old → new, effective from the next request; light and
   release stay as issued, §2; additive. 0.5.1: a supplier may be marked to receive no sampling
   parameters, §4.2; additive. 0.5: keys may expire; keys issued for a cohort of a
@@ -361,6 +361,31 @@ so** when issuing, when the aliases are changed and in the key list,
 naming the alias and the reason. `/v1/models` already leaves such an
 alias out.
 
+### A ceiling per request (0.6, RFC-0101)
+
+A request may carry **`X-OAAP-Light: green | yellow | red`** — the light
+the person behind a client chose for what they are about to send (in the
+chat: the light of the conversation, default `green` for "sensitive and
+personal data"). It is an **additional ceiling for this request only**:
+
+- the ceiling of the request is the stricter of the key's ceiling and
+  the header (`green` on a `yellow` key is `green`; `red` on a `yellow`
+  key stays `yellow`) — the header can only refuse more, never allow
+  more;
+- a request whose alias has no target under the request's ceiling, while
+  the key alone would have one, is refused with `503` and the code
+  `conversation_light`, naming both lights; failover never crosses the
+  request's ceiling, exactly as for the key's;
+- `GET /v1/models` with the header lists only the aliases reachable
+  under it, each with the light it would get;
+- an unknown value is refused with `400` (`bad_light`), never ignored —
+  whoever asks for a ceiling must not continue silently without it;
+- the usage row records the requested light (`light`, empty without the
+  header): a word from a fixed list, no content (§6).
+
+The header is the client's statement, not an attestation. It protects
+the person from a mistake; the key's ceiling remains the control.
+
 ### What the consumer must be able to see
 
 The consumer must be able to see **the light of the alias it is using
@@ -429,6 +454,13 @@ which is the only form of it that survives daily use.
     removed alias answers `400` with the permitted ones, the audit log
     names old and new; an unknown alias or a revoked key is refused and
     nothing changes.
+
+12. With `X-OAAP-Light: green` a key with ceiling `yellow` gets `503`
+    (`conversation_light`) for an alias that only reaches `yellow`, and the
+    supplier is not called; the same request with `green` to a green alias
+    succeeds and its usage row records `light = green`; **bait:** `red` on
+    a key with ceiling `yellow` does not reach a red alias; an unknown
+    value is `400` (0.6).
 
 ## 10. Dependencies
 
@@ -603,3 +635,14 @@ Ausstellen, beim Ändern der Modellnamen und in der Schlüsselliste, mit Name
 und Grund. Bei Anthropic ist „temperature/top_p nicht weitergeben“ fest an;
 das wird jetzt auch so gespeichert -- vorher kippte das Speichern den Wert,
 weil der Browser ein gesperrtes Feld nicht mitschickt.
+
+### Nachtrag 0.6 (Deutsch, RFC-0101 Stufe 1)
+
+Eine Anfrage darf `X-OAAP-Light: green|yellow|red` mitschicken. Das ist eine
+**zusätzliche Decke nur für diese Anfrage**, die Ampel, die die Person im Chat
+für ihr Gespräch gewählt hat. Es gilt die strengere aus Schlüssel und
+Kopfzeile. Die Kopfzeile kann also nur mehr ablehnen, nie mehr erlauben.
+Sperrt nur die Ampel des Gesprächs, antwortet das Gateway mit 503
+`conversation_light` und nennt beide Farben. `/v1/models` zeigt dann nur die
+erreichbaren Namen. Ein unbekannter Wert wird mit 400 abgelehnt. Die
+Messzeile hält die verlangte Farbe fest (Spalte `light`, kein Inhalt).
