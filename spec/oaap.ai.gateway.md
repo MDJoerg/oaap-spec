@@ -1,7 +1,7 @@
 # oaap.ai.gateway — AI Supply Behind One Keyed Endpoint
 
 - **ID:** `oaap.ai.gateway`
-- **Version:** 0.5.2 (the aliases of a valid key **may be changed** without a
+- **Version:** 0.5.3 (a key that names aliases it can never reach under its ceiling is still issued, but the operator is told so, at issuing, at changing the aliases and in the key list, §7 (L14); a supplier that is always stripped of sampling parameters stores that, §4.2 (L15) -- reference app 0.8.1). 0.5.2 (the aliases of a valid key **may be changed** without a
   new secret, audited old → new, effective from the next request; light and
   release stay as issued, §2; additive. 0.5.1: a supplier may be marked to receive no sampling
   parameters, §4.2; additive. 0.5: keys may expire; keys issued for a cohort of a
@@ -218,6 +218,10 @@ log.
   default. The gateway removes exactly these fields on the way out and
   touches nothing else — it is a property of the supplier, not of the
   request, and it is not a look into the content (§6).
+  (0.5.3, L15) For a supplier where the gateway always strips them
+  (Anthropic), the setting is shown as fixed and **stored as on** -- a
+  fixed form field is not submitted, and saving must not turn the stored
+  value off.
 
 ## 5. Metering: each gateway keeps its own books
 
@@ -346,6 +350,16 @@ light exists in both directions:
 Without this, a gateway becomes a laundry: put one in front of an
 external provider, label it `green`, and every consumer downstream is
 lied to by construction. The rule costs nothing and closes that.
+
+### A key that can never reach an alias (0.5.3, L14)
+
+When a key names aliases explicitly and every target of one of them lies
+above the key's ceiling (or is `red` for a key cleared for personal
+data), the key can never use that alias. The gateway still issues the
+key -- the operator may raise a supplier's light later -- but it **says
+so** when issuing, when the aliases are changed and in the key list,
+naming the alias and the reason. `/v1/models` already leaves such an
+alias out.
 
 ### What the consumer must be able to see
 
@@ -580,3 +594,12 @@ bleibt. Die Prüfspur nennt alt und neu, die Änderung gilt ab der nächsten
 Anfrage. Ampel und Freigabe für personenbezogene Daten bleiben, wie beim
 Ausstellen entschieden. Anlass: bec am 18.11., ein neuer Modellname war dem
 Schlüssel des Chats nicht erlaubt (L26).
+
+### Nachtrag 0.5.3 (Deutsch, L14/L15)
+
+Nennt ein Schlüssel Modellnamen, die er wegen seiner Obergrenze nie
+erreicht, wird er weiter ausgestellt, aber das Gateway sagt es: beim
+Ausstellen, beim Ändern der Modellnamen und in der Schlüsselliste, mit Name
+und Grund. Bei Anthropic ist „temperature/top_p nicht weitergeben“ fest an;
+das wird jetzt auch so gespeichert -- vorher kippte das Speichern den Wert,
+weil der Browser ein gesperrtes Feld nicht mitschickt.
