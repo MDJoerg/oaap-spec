@@ -169,6 +169,8 @@ the clearing role, not to every handler.
 
 ### 2.2 What this costs today
 
+> **2026-11-19:** RFC-0103 D1/D2 — the `tenant_admin` works every queue (the build had checked the app role `admin` instead), and members per queue are kept in the app; grants add.
+
 - **Only the `tenant_admin` assigns queue members**, in "Rollen & Rechte".
   A trainer cannot add a co-trainer to "Mannschaft mB" until `may_grant`
   is built (RFC-0045 §4, not enforced). For a first tenant this is
@@ -366,6 +368,8 @@ The same shape serves the node operator (`mgmt` on oaapx02) and the
 platform itself: different tenants, the same inbox.
 
 ## 6. Templates for internal cases and workflows
+
+> **2026-11-19:** statuses gain fixed sub-statuses of `in_progress` and a mark `accepted`/`no_response` on closing (RFC-0103 D4, D10, D11).
 
 No BPMN, no workflow engine (HVP said so explicitly on 2026-09-19, and
 the platform agrees). A **template** is a small declarative record:
