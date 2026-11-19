@@ -6,7 +6,10 @@
   RFC-0097 and RFC-0098. **Stage 1 built** (2026-11-19, not pushed, not
   rolled out): chat 0.8.0, ai-gateway 0.9.0, mcp-gateway 0.21.0,
   `oaap.ai.gateway` 0.6.0, `oaap.ai.mcp-gateway` 0.19.0; §9 records what
-  was measured and what was not.
+  was measured and what was not. Stage 1 pushed and rolled out in `bec`
+  the same day. **Stage 2 built** (2026-11-19, stars, after RFC-0097
+  stage 1): mcp-gateway 0.23.0, chat 0.10.0, `oaap.ai.mcp-gateway`
+  0.21.0, `oaap.ai.assistants` 0.5; §3.4.
 - **Date:** 2026-11-19
 - **Authors:** Jörg (the wishes: a light per conversation, defaulting to
   "sensitive data"; stars per answer and per conversation, always stored
@@ -246,6 +249,35 @@ not used: it would make the chat able to file cases in anyone's name.
 The same way carries the two requests of §2.3. Whether the route passes
 a template and its fields today must be read when building; if it does
 not, the route is extended, not bypassed.
+
+### 3.4 Stage 2, built (2026-11-19)
+
+MCP gateway 0.23.0, chat 0.10.0, `oaap.ai.mcp-gateway` 0.21.0 §3.9c,
+`oaap.ai.assistants` 0.5 §2b. Decided while building (consequences of
+D2–D4, no new question):
+
+- The per-gateway secret for `who` is a file `/data/ratings.key`; it is
+  in the instance's backup like the database. Lost, old ratings can no
+  longer be replaced by their author, they still count.
+- The conversation id never reaches the gateway in the clear; it is part
+  of the `slot` HMAC that makes "the same place" replaceable.
+- The model's light is the AI gateway's word **at the time of rating**
+  (the chat asks `/v1/models`); model alias and conversation light are
+  those **of the answer**, kept in the history from the round.
+- A `tenant_admin` reads the ratings of every assistant they can see,
+  not of another person's private one (it stays "unknown", §6.2).
+- A revision a rating names is not compacted (D8 consequence).
+- "Not satisfied" for 0–2 stars comes with stage 3; `/me` (RFC-0095)
+  does not list ratings yet — the route `GET /mcp/_assistants/_ratings`
+  is there for it.
+
+Measured locally: gateway 522/522 (27 new; baits: arguments and results
+sent by a chat are not stored, Bert's rating of Anna's private assistant
+gets 404 like an unknown one, a manager of A reads nothing of B, a
+`tenant_admin` does not read another person's private assistant), chat
+162/162 (13 new; bait: a rating the gateway refuses leaves no star in the
+history). Looked at in the browser against the simulated platform. Not
+measured: a node; the full reference suite.
 
 ## 5. Later, named
 

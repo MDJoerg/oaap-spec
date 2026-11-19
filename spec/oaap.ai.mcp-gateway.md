@@ -1,7 +1,7 @@
 # oaap.ai.mcp-gateway — Tool Servers Behind One Keyed Endpoint per View
 
 - **ID:** `oaap.ai.mcp-gateway`
-- **Version:** 0.20.0 (RFC-0097 stage 1: **assistants** live here with revisions, read and written by a person carried by a chat through the via door at `/mcp/_assistants`, visibility by the shared rule and the gateway's own authorization object `assistant`; the usage row records `assistant_rev`, §3.9b, §9; additive. 0.19.0: a request may carry `X-OAAP-Light`, an additional ceiling for that request that can tighten the key's or profile's ceiling and never loosen it; a view worse than it is refused with `403` and a sentence; checked on every request, also inside a session; usage rows record it, §3.3, §9, RFC-0101; additive. 0.18.0: the operator's page says what `*`/`/pfad` and `@<chat>`/`@*` stand for, and a profile whose groups do not fit the view's way is told which group to write instead of being told to switch on the other way, §2.3 (L12); the light warning names the server that sets the view's light, uses the colour words and both remedies, §2.3 (L13); the sign-in tab says the `tenant_admin` may set sign-in up, §2.2 (L4)). 0.17.0 (the **groups** of an access profile can be changed on the operator's page, checked before anything changes, §2.3 (L11); the sign-in tab links the instance's page in the portal from `OAAP_PORTAL_URL` (runtime 2.38) and says the `MCPGW_*` fields stay empty when the platform sets sign-in up, §2.2 (L1, L5)). 0.16.1 (L29: the catalog of a procedure-U server is read by the operator without an assertion, and a person with a stored credential may read the **first** list from `/me`, §3.12). 0.16.0 (procedure U also as **`basic`**: the person enters user (e.g. e-mail) and token separately, the gateway sends `Authorization: Basic base64(user:token)` -- what Atlassian Cloud's MCP server asks for, §3.12). 0.15.0 (RFC-0095 stage 3: **readiness** -- `GET /mcp/_readiness?view=` through the via door tells a chat per server whether the view is set up for the person (`ready`, `needs_credential`, `credential_rejected`, `not_for_you`), `/me/v1/readiness`; D2: `/me` and procedure U also for calls signed in at the realm, when the platform names the person's realm id and promises the header, §1b). 0.14.0 (RFC-0095 stage 2: **procedure U**, §3.12 -- a server where every person brings their own credential; entered on `/me`, write only, sealed in the vault bound to the person, sent only with that person's calls; refused before anything goes out when missing; the operator counts and deletes, never reads). 0.13.1 (an old row refused/destination without a door does not guess who refused, §1a). 0.13.0 (RFC-0095 stage 1: **`/me`**, the person's own page -- their usage rows of the last 30 days, a refusal in words with who refused, §1a; usage rows gain two structured columns **`status`** and **`door`**, §9. 0.12.0: servers can be **renamed**, §3.11 -- catalog and entries follow, a source server is found by its origin; `GET /mcp/_views` lists the views a person carried by a chat can open, all of them with reasons for the tenant's administration, §3.9a. 0.11.0: views can be **copied and renamed**, §5.4 -- a rename moves the keys and profiles that name the view; entries can be **assigned in bulk**: a set of catalog entries per view in one step, same approval per entry, §5.1. 0.10.0: RFC-0066 for the gateway: **procedure P**, §3.10 -- a person carried by a chat of the platform reaches a backend such as SAP as themselves, through a destination with principal propagation; `destination:<need>/<path>`, §3.1). 0.9.0 (RFC-0073 §16: the catalog of a platform source is read without a person at the platform's discovery door -- only the lists, as the gateway's machine principal; calls stay bound to a person, §3.7). 0.8.0 (RFC-0075 stage 1: views of MCP Apps are read, pinned by
+- **Version:** 0.21.0 (RFC-0101 stage 2: **ratings** -- 0–5 stars per answer or conversation, stored next to the assistant's revisions with the circumstances, the person only as an HMAC with a key of this gateway, text only with the person's tick, read by whoever manages the assistant and the `tenant_admin`, §3.9c; revisions a rating names are not compacted; additive. 0.20.0: RFC-0097 stage 1: **assistants** live here with revisions, read and written by a person carried by a chat through the via door at `/mcp/_assistants`, visibility by the shared rule and the gateway's own authorization object `assistant`; the usage row records `assistant_rev`, §3.9b, §9; additive. 0.19.0: a request may carry `X-OAAP-Light`, an additional ceiling for that request that can tighten the key's or profile's ceiling and never loosen it; a view worse than it is refused with `403` and a sentence; checked on every request, also inside a session; usage rows record it, §3.3, §9, RFC-0101; additive. 0.18.0: the operator's page says what `*`/`/pfad` and `@<chat>`/`@*` stand for, and a profile whose groups do not fit the view's way is told which group to write instead of being told to switch on the other way, §2.3 (L12); the light warning names the server that sets the view's light, uses the colour words and both remedies, §2.3 (L13); the sign-in tab says the `tenant_admin` may set sign-in up, §2.2 (L4)). 0.17.0 (the **groups** of an access profile can be changed on the operator's page, checked before anything changes, §2.3 (L11); the sign-in tab links the instance's page in the portal from `OAAP_PORTAL_URL` (runtime 2.38) and says the `MCPGW_*` fields stay empty when the platform sets sign-in up, §2.2 (L1, L5)). 0.16.1 (L29: the catalog of a procedure-U server is read by the operator without an assertion, and a person with a stored credential may read the **first** list from `/me`, §3.12). 0.16.0 (procedure U also as **`basic`**: the person enters user (e.g. e-mail) and token separately, the gateway sends `Authorization: Basic base64(user:token)` -- what Atlassian Cloud's MCP server asks for, §3.12). 0.15.0 (RFC-0095 stage 3: **readiness** -- `GET /mcp/_readiness?view=` through the via door tells a chat per server whether the view is set up for the person (`ready`, `needs_credential`, `credential_rejected`, `not_for_you`), `/me/v1/readiness`; D2: `/me` and procedure U also for calls signed in at the realm, when the platform names the person's realm id and promises the header, §1b). 0.14.0 (RFC-0095 stage 2: **procedure U**, §3.12 -- a server where every person brings their own credential; entered on `/me`, write only, sealed in the vault bound to the person, sent only with that person's calls; refused before anything goes out when missing; the operator counts and deletes, never reads). 0.13.1 (an old row refused/destination without a door does not guess who refused, §1a). 0.13.0 (RFC-0095 stage 1: **`/me`**, the person's own page -- their usage rows of the last 30 days, a refusal in words with who refused, §1a; usage rows gain two structured columns **`status`** and **`door`**, §9. 0.12.0: servers can be **renamed**, §3.11 -- catalog and entries follow, a source server is found by its origin; `GET /mcp/_views` lists the views a person carried by a chat can open, all of them with reasons for the tenant's administration, §3.9a. 0.11.0: views can be **copied and renamed**, §5.4 -- a rename moves the keys and profiles that name the view; entries can be **assigned in bulk**: a set of catalog entries per view in one step, same approval per entry, §5.1. 0.10.0: RFC-0066 for the gateway: **procedure P**, §3.10 -- a person carried by a chat of the platform reaches a backend such as SAP as themselves, through a destination with principal propagation; `destination:<need>/<path>`, §3.1). 0.9.0 (RFC-0073 §16: the catalog of a platform source is read without a person at the platform's discovery door -- only the lists, as the gateway's machine principal; calls stay bound to a person, §3.7). 0.8.0 (RFC-0075 stage 1: views of MCP Apps are read, pinned by
   content and approved with their tool, §4.3). 0.7.3 (views, effect class and light of a key or profile can be
   changed without revoking it; a `403` names its reason; sources can be read in
   on demand, §2.3, §3.6). 0.7.2 (RFC-0074 stage 3: the usage row records `confirmed`,
@@ -582,6 +582,32 @@ Every save is an audit entry (`assistant.save`, `.import`, `.migrate`,
 row names, plus the last 20; older revisions are compacted — number,
 time and author stay, the text goes. `_assistants` can never be a view's
 name (§5).
+
+### 3.9c Ratings (0.21, RFC-0101 stage 2)
+
+A person rates an answer or a whole conversation with 0–5 stars
+(`oaap.ai.assistants` §2b). The chat sends the rating through the via
+door as that person; the same routes and the same visibility as §3.9b.
+
+| route | answer |
+|---|---|
+| `POST /mcp/_assistants/<id>/ratings` | `{rev, scope: answer\|conversation, round, conversation, stars: 0–5\|null, model, model_light, light, view, gateway, tools: [{name, effect, outcome}], ms, text?: {question, answer}}`; `404` for an assistant the person may not see, as for none; `rev` must exist; the same person, conversation, scope and round replace; `stars: null` withdraws |
+| `GET /mcp/_assistants/<id>/ratings` | per revision: count, distribution of 0–5, share of 0–2, number of persons; and the latest 500 ratings without the person — for whoever manages it and the `tenant_admin` (only among assistants they can see) |
+| `GET /mcp/_assistants/_ratings` | the person's own ratings |
+
+- **The person** is stored only as `who` = HMAC-SHA256 of the user id
+  with a key of this gateway (`/data/ratings.key`, 32 bytes, 0600,
+  created on first use). The conversation id is stored only inside a
+  second HMAC (`slot`, with scope and round). Enough to replace one's own
+  rating and to count persons, not enough to name them.
+- **No content without the tick.** The gateway stores only the fields
+  above; of `tools` only name, effect class and outcome. Arguments or
+  results a chat sends anyway are dropped. `text` (at most 8,000
+  characters each) only when the person ticked „Frage und Antwort
+  mitgeben“; after 180 days the text goes and the rating stays.
+- **Retention of revisions** (§3.9b, D6) also keeps every revision a
+  rating names.
+- Ratings are a record of their own; §10 stays true for usage rows.
 
 ### 3.10 Procedure P: a person through a destination into the backend (0.10, RFC-0066)
 
@@ -1635,6 +1661,18 @@ beide Farben und den Server nennt. Geprüft wird bei jeder Anfrage, auch
 innerhalb einer Sitzung. Ein unbekannter Wert wird mit 400 abgelehnt. Die
 Messzeile hält die verlangte Farbe in der Spalte `light` fest (§10 bleibt
 wahr).
+
+## Deutsche Zusammenfassung (0.21, RFC-0101 Stufe 2)
+
+Sterne liegen jetzt im Gateway, neben den Revisionen der Assistenten
+(§3.9c). Ein Chat schickt sie über die via-Tür als die Person: 0 bis 5
+Sterne je Antwort oder Gespräch, mit den Umständen (Revision, Modell,
+Ampel, Sicht, je Werkzeug Name, Wirkung, Ausgang, Dauer). Die Person steht
+nur als HMAC mit einem Schlüssel des Gateways darin. Dieselbe Person an
+derselben Stelle ersetzt ihre Bewertung, `null` zieht sie zurück. Text
+gibt es nur mit Haken und nach 180 Tagen nicht mehr. Lesen dürfen, wer den
+Assistenten pflegt, und der tenant_admin. Jede Person sieht ihre eigenen.
+Eine Revision, die eine Bewertung nennt, wird nicht verdichtet.
 
 ## Deutsche Zusammenfassung (0.20, RFC-0097 Stufe 1)
 

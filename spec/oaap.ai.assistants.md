@@ -1,7 +1,7 @@
 # oaap.ai.assistants — Assistants: a View, a Prompt and a Model Name, Without Rights
 
 - **ID:** `oaap.ai.assistants`
-- **Version:** 0.4 (RFC-0097 stage 1: assistants **live in the tenant's MCP gateway**, next to the views they name, with numbered revisions, a state `active | inactive` and the usage row's `assistant@rev`; the chat is the runtime; an assistant from the chat's configuration stays as "managed by configuration", §2a; additive for the format. 0.3: field `views`: the chat shows the views of MCP Apps,
+- **Version:** 0.5 (RFC-0101 stage 2: a person may rate an answer or a conversation with 0–5 stars; the rating names `assistant@rev` and is kept by the gateway that keeps the assistant, §2b. 0.4: RFC-0097 stage 1: assistants **live in the tenant's MCP gateway**, next to the views they name, with numbered revisions, a state `active | inactive` and the usage row's `assistant@rev`; the chat is the runtime; an assistant from the chat's configuration stays as "managed by configuration", §2a; additive for the format. 0.3: field `views`: the chat shows the views of MCP Apps,
   RFC-0075 D2). 0.2 (RFC-0074 stage 3: visibility and confirmation enforced by the
   chat app `apps/chat` 0.2.0, §2; the confirmation reaches the gateway as
   `X-OAAP-Confirmed`, §5). 0.1 (RFC-0074 stage 1: the format, the rule "no rights", the
@@ -114,6 +114,22 @@ the authorization object `assistant` (RFC-0045). A chat:
 The exchange file (§3) stays the same; `rev`, `state` and `manage` are
 never part of it.
 
+## 2b. Ratings (0.5, RFC-0101 stage 2)
+
+- A person may give **0–5 stars** to an answer (the model's final text of
+  a round) and to a whole conversation; 0 means "useless", not "no
+  rating". The last rating counts; it can be withdrawn.
+- Only answers of an assistant **with a revision** can be rated (RFC-0101
+  D8): a rating names `assistant@rev`. An assistant managed by
+  configuration (§2a) has none, so it is not rated.
+- The rating carries the circumstances of the answer as they were then
+  (model alias, the conversation's light, view, per tool call name,
+  effect class and outcome), **never** arguments, results or names.
+  Question and answer travel only with the person's tick.
+- It is kept where the assistant lives, by the MCP gateway
+  (`oaap.ai.mcp-gateway` §3.9c). The chat keeps the stars in the person's
+  own history, so that the person sees what they gave.
+
 ## 3. The exchange file
 
 ```json
@@ -206,6 +222,15 @@ lesbar, sieht niemand einen Team-Assistenten. Schreibende Werkzeuge laufen nur
 nach Zustimmung; der Chat meldet sie dem Gateway mit `X-OAAP-Confirmed: yes`,
 das Gateway schreibt es in die Messzeile. Mit `commands: true` werden die
 Prompts der Sicht zu `/Befehlen`.
+
+## Deutsche Zusammenfassung (0.5, RFC-0101 Stufe 2)
+
+Antworten und ganze Gespräche bekommen 0 bis 5 Sterne (0 heißt
+„unbrauchbar“). Bewertbar ist nur, was ein Assistent mit Revision gesagt
+hat; die Bewertung nennt `assistant@rev` und die Umstände von damals, nie
+Argumente, Ergebnisse oder Namen. Frage und Antwort reisen nur mit Haken.
+Gespeichert wird im MCP-Gateway, neben den Revisionen; der Chat behält die
+Sterne im Verlauf der Person.
 
 ## Deutsche Zusammenfassung (0.4, RFC-0097 Stufe 1)
 
