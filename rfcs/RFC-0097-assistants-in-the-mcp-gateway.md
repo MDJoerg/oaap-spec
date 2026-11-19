@@ -5,7 +5,10 @@
   "an external AI may couple to an assistant over MCP, with permission and
   only where released". **D6, D7, D9 decided** (Jörg, 2026-11-19: "Alle
   wie empfohlen") — the decisions stage 1 needs are complete. Open: D3,
-  D4, D5, D8 (stages 2 and 3), each with a recommendation. Nothing built.
+  D4, D5, D8 (stages 2 and 3), each with a recommendation. **Stage 1
+  built** (2026-11-19, not pushed, not rolled out): mcp-gateway 0.22.0,
+  chat 0.9.0, `oaap.ai.assistants` 0.4, `oaap.ai.mcp-gateway` 0.20.0; §6
+  records what was measured and what was not.
 - **Date:** 2026-11-19
 - **Authors:** Jörg (the questions: where are assistants stored; revisions,
   upload/download, evaluation, support; an external AI coupled to the
@@ -196,6 +199,47 @@ Spec changes: `oaap.ai.assistants` 0.4 (fields `rev`, `state`, `channel`;
 "lives in the MCP gateway"), `oaap.ai.mcp-gateway` (§3.9b assistants, §2.4
 channel route, §9 column `assistant_rev`).
 
+## 6. Stage 1, built (2026-11-19)
+
+Found while building, decided in passing (consequence of D1/D9, no new
+question): the grants for team assistants are **the gateway's own** — it
+declares the authorization object `assistant` with the same templates the
+chat declares; the platform answers `effective` only for the asking app,
+so the chat's assignments cannot be read by the gateway. No tenant had a
+team assistant (bec 2, oaap-test 1, all `tenant`), so nothing is lost.
+
+- **Shared rule:** `oaap-apps/lib/assistants` (check, visibility, `Who`,
+  `may_in`), copies in `apps/chat` and `apps/mcp-gateway`, guarded by
+  `check-shared.py`; both Dockerfiles copy it.
+- **mcp-gateway 0.22.0:** tables `assistants` and `assistant_revisions`,
+  the routes of `oaap.ai.mcp-gateway` §3.9b, audit entries, compaction
+  (D6), `X-OAAP-Assistant: <id>@<rev>` parsed into `assistant` and the new
+  usage column `assistant_rev`, manifest with the authorization object.
+  39 new checks in `test_gateway.py` (494/494), among them the baits: a
+  private assistant of a second person neither listed nor found by id, a
+  `token` field refused, a team assistant invisible without a grant and
+  for everybody when grants are unreadable, a referenced revision
+  surviving compaction while an unreferenced older one is compacted.
+- **chat 0.9.0:** assistants from the default gateway as the person; the
+  old file stays in use until a `tenant_admin` presses "Ins MCP-Gateway
+  übernehmen" (owners kept, file renamed); afterwards a marker file keeps
+  the chat from ever falling back to the file (bait: a save while the
+  gateway is down lands nowhere, not in the file); `<id>@<rev>` at the
+  door, `rev` on the model's answer in the history (for RFC-0101 stage 2);
+  inactive assistants not offered and a running conversation says so;
+  `CHAT_ASSISTANTS_ONLY` (D9); `CHAT_ASSISTANT` stays "verwaltet über die
+  Konfiguration" (D7); cards show "Fassung n", "deaktiviert",
+  "Deaktivieren/Aktivieren". 17 new checks in `test_chat.py` (149/149).
+  Looked at in a browser against the stand-in platform: the migration
+  card, the migrated assistant with "Fassung 1", deactivating. Found
+  there and fixed: the light chip of 0.8.0 showed on the assistants page
+  (`display` overrode `hidden`).
+- **Not measured:** chat against a real gateway (both sides tested
+  against stand-ins of the other, same contract written in both); on a
+  node; the operator's page of the gateway does not list assistants yet
+  (stage 2, evaluation tab); export/import against the gateway only
+  through the chat's routes.
+
 ## Zusammenfassung auf Deutsch
 
 Heute liegt ein Assistent als Datei in der Chat-Instanz und wird beim
@@ -227,4 +271,7 @@ Stufe 1 braucht. Revisionen bleiben, solange eine Nutzungszeile auf sie
 zeigt, dazu immer die letzten 20 (D6). `CHAT_ASSISTANT` bleibt als Rückfall,
 gekennzeichnet als „verwaltet über die Konfiguration“ (D7). Assistenten
 gehören dem Gateway, der Mandant kann einen Chat auf eine Liste beschränken
-(D9). Offen sind noch D3, D4, D5 und D8 für die Stufen 2 und 3.
+(D9). Offen sind noch D3, D4, D5 und D8 für die Stufen 2 und 3. Stufe 1 ist
+am 19.11. gebaut (mcp-gateway 0.22.0, chat 0.9.0, §6). Die Team-Rechte
+erklärt das Gateway selbst, weil die Plattform Rechte nur der fragenden App
+nennt.

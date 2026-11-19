@@ -1,14 +1,14 @@
 # oaap.ai.assistants — Assistants: a View, a Prompt and a Model Name, Without Rights
 
 - **ID:** `oaap.ai.assistants`
-- **Version:** 0.3 (field `views`: the chat shows the views of MCP Apps,
+- **Version:** 0.4 (RFC-0097 stage 1: assistants **live in the tenant's MCP gateway**, next to the views they name, with numbered revisions, a state `active | inactive` and the usage row's `assistant@rev`; the chat is the runtime; an assistant from the chat's configuration stays as "managed by configuration", §2a; additive for the format. 0.3: field `views`: the chat shows the views of MCP Apps,
   RFC-0075 D2). 0.2 (RFC-0074 stage 3: visibility and confirmation enforced by the
   chat app `apps/chat` 0.2.0, §2; the confirmation reaches the gateway as
   `X-OAAP-Confirmed`, §5). 0.1 (RFC-0074 stage 1: the format, the rule "no rights", the
   exchange file; how a chat acts as the person is procedure A,
   `oaap.core.identity` 2.13 and `oaap.ai.mcp-gateway` §3.9)
 - **Status:** draft
-- **RFC:** [RFC-0074](../rfcs/RFC-0074-assistants.md) (Accepted 2026-11-08, D1–D7)
+- **RFC:** [RFC-0074](../rfcs/RFC-0074-assistants.md) (Accepted 2026-11-08, D1–D7; D2 superseded by [RFC-0097](../rfcs/RFC-0097-assistants-in-the-mcp-gateway.md))
 - **Maturity:** stages 1–3 built and measured on `oaap-test` (2026-11-08): test
   page (24/24), chat app 0.1.0 with a real local model (23/23), chat app 0.2.0
   with assistants, visibility and confirmation at the gateway (26/26), tenant
@@ -80,6 +80,40 @@ As JSON the same object; YAML is shown for reading.
   as `/name …`; the prompt's text becomes the person's message. Prompts are
   read through the same door and the same person as tools.
 
+## 2a. Where assistants live (0.4, RFC-0097 stage 1)
+
+An assistant's definition lives in the tenant's **MCP gateway**
+(`oaap.ai.mcp-gateway` §3.9b), not in a chat. The gateway keeps the record
+of §2 and adds what only it assigns:
+
+- `rev` — the revision, an integer the gateway assigns on every save
+  (n+1), never the writer; every revision stays readable until it is
+  compacted;
+- `state` — `active` (offered), `inactive` (shown to whoever manages it,
+  not offered in a chat), `deleted` (gone for everybody; the revisions
+  stay under the retention rule);
+- retention (D6): every revision a usage row still names, plus the last
+  20; older ones are **compacted** — number, time and author stay, the
+  text goes.
+
+Visibility (§2, `private` / `context` / `tenant`) is enforced by the
+gateway with the same rule the chat used, now in a shared reading
+(`oaap-apps/lib/assistants`), and with the gateway's own declaration of
+the authorization object `assistant` (RFC-0045). A chat:
+
+- reads the assistants a person may use from the gateway, as that person;
+- sends `X-OAAP-Assistant: <id>@<rev>` with every call, so the usage row
+  names the revision that spoke;
+- moves its old file into the gateway once, by a `tenant_admin`, owners
+  kept, the file renamed, not deleted; until then nothing changes;
+- never falls back to its file once its assistants live in the gateway;
+- keeps an assistant from its configuration (`CHAT_ASSISTANT`) as
+  "managed by configuration", without revisions (D7);
+- may be limited by the tenant to a list of assistants (D9).
+
+The exchange file (§3) stays the same; `rev`, `state` and `manage` are
+never part of it.
+
 ## 3. The exchange file
 
 ```json
@@ -131,8 +165,14 @@ never keeps one beyond the request that brought it.
    contexts, extra fields on `tenant`) is refused; `private` and `tenant` pass.
 6. An exchange file with a duplicate `id` or without `v` is refused.
 
-The reference reading is `oaap-lab/assistent-probe/assistants.py` with
-`test_assistants.py`.
+7. (0.4) A save in the gateway creates revision n+1 and revision n stays
+   readable; `rev` sent by the writer is refused; a person without the
+   grant neither sees nor saves (bait: a private assistant of a second
+   person never appears, also not by id); a field like `token` is refused;
+   a revision a usage row names survives compaction.
+
+The reference reading is `oaap-apps/lib/assistants` (copies in `apps/chat`
+and `apps/mcp-gateway`), tested in both apps.
 
 ## 7. Dependencies
 
@@ -166,3 +206,19 @@ lesbar, sieht niemand einen Team-Assistenten. Schreibende Werkzeuge laufen nur
 nach Zustimmung; der Chat meldet sie dem Gateway mit `X-OAAP-Confirmed: yes`,
 das Gateway schreibt es in die Messzeile. Mit `commands: true` werden die
 Prompts der Sicht zu `/Befehlen`.
+
+## Deutsche Zusammenfassung (0.4, RFC-0097 Stufe 1)
+
+Ein Assistent liegt jetzt im **MCP-Gateway** des Mandanten, neben den
+Sichten, die er nennt, nicht mehr in der Datei eines Chats. Jedes Speichern
+ergibt eine neue Revision. Die Nummer vergibt das Gateway, alte Revisionen
+bleiben lesbar. Verdichtet wird erst, was keine Messzeile mehr nennt und
+nicht zu den letzten 20 gehört. Dann bleiben Nummer, Zeit und wer, der Text
+geht. Zustände sind aktiv, inaktiv (nicht angeboten) und gelöscht. Die
+Sichtbarkeit prüft das Gateway mit derselben Regel wie bisher der Chat
+(gemeinsames Modul) und mit einem eigenen Rechteobjekt `assistant`. Der
+Chat liest die Assistenten als die Person und meldet `id@rev` an jeder Tür.
+Seine alte Datei übernimmt ein tenant_admin einmal; die Besitzer bleiben,
+die Datei wird umbenannt. Danach fällt der Chat nie mehr still auf sie
+zurück. `CHAT_ASSISTANT` bleibt als Rückfall erhalten, und ein Chat kann
+auf eine Liste von Assistenten beschränkt werden.
