@@ -2,8 +2,10 @@
 
 - **Status:** **Accepted (2026-11-19)** — Jörg: "D1–D8 wie empfohlen".
   **Stage 1 built** (reference 0.1.312, spec `oaap.net.destinations` 0.14,
-  2026-11-19), tested against a local TLS target; not yet measured against a4h
-  (needs the user `OAAP_CHECK` there). Stage 2 (schedule) open.
+  2026-11-19), tested against a local TLS target and **measured against a4h** on oaapx01
+  (2026-11-19): without the user, links 1–3 held and mapping broke with 401;
+  with `OAAP_CHECK` created there, all five held (`start_up` 200, `id` =
+  `OAAP_CHECK`). Stage 2 (schedule) open.
 - **Date:** 2026-11-19
 - **Authors:** Jörg (the need: L23 of the bec landscape, 2026-11-18 — the
   certificate login into a4h depended on a parameter set only in RZ11;
@@ -153,6 +155,11 @@ the distribution list of RFC-0080; an unchanged result sends nothing.
    list, message on change.
 
 ## 6. Open questions to measure
+
+**Measured on a4h, 2026-11-19:** `/sap/bc/ui2/start_up` answers 200 with
+`id` = `OAAP_CHECK` for the test user as created there; the ICM accepted the
+tenant's CA in the handshake (link 3). The user type that was used and a
+refused handshake against SAP's ICM were not observed.
 
 - Which SAP user type `OAAP_CHECK` needs for a certificate login over
   HTTP without a dialog (expected: type "Service" or "System"; measure on
