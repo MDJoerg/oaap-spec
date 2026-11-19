@@ -1,6 +1,9 @@
 # RFC-0096: Checking the Propagation Chain — a Test Login Without a Person
 
-- **Status:** Draft (2026-11-19), D1–D8 open
+- **Status:** **Accepted (2026-11-19)** — Jörg: "D1–D8 wie empfohlen".
+  **Stage 1 built** (reference 0.1.312, spec `oaap.net.destinations` 0.14,
+  2026-11-19), tested against a local TLS target; not yet measured against a4h
+  (needs the user `OAAP_CHECK` there). Stage 2 (schedule) open.
 - **Date:** 2026-11-19
 - **Authors:** Jörg (the need: L23 of the bec landscape, 2026-11-18 — the
   certificate login into a4h depended on a parameter set only in RZ11;

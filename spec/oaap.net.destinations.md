@@ -1,7 +1,7 @@
 # oaap.net.destinations — Reaching Outward Without Holding the Key
 
 - **ID:** `oaap.net.destinations`
-- **Version:** 0.13 (**principal propagation in the portal** -- added on the page *Destinationen* in two steps, the server certificate read, shown and pinned only when the person confirms what they compared; by `server_admin`, and under 2.7.1 by the `tenant_admin`; the binding on the instance page carries the grant "carries the signed-in person" -- §2.7, §2.7.1, §2.9 item 7, tests 22-23; L22, mandantenlandschaft bec 2026-11-18). 0.12.1 (**the propagation grant survives a redeploy** with its binding -- §2.2, test 7; an update had dropped it, measured on oaapx01 2026-11-18). 0.12 (**a need MAY declare `any: true`** -- the app uses any number of the tenant's `http` destinations, each bound under its own name; the portal offers the binding -- §2.2; an AI gateway's suppliers, RFC-0060 stage 2). 0.11 (a `server_admin` may hand the authoring of destinations to
+- **Version:** 0.14 (**the chain test** -- `oaap destination check` and the portal's "Kette prüfen" log in to a propagation target as the reserved test user `OAAP_CHECK`, never a person, and say which link of the chain breaks, without showing the answer -- §2.9 item 10, tests 24-27; RFC-0096 stage 1, L23). 0.13 (**principal propagation in the portal** -- added on the page *Destinationen* in two steps, the server certificate read, shown and pinned only when the person confirms what they compared; by `server_admin`, and under 2.7.1 by the `tenant_admin`; the binding on the instance page carries the grant "carries the signed-in person" -- §2.7, §2.7.1, §2.9 item 7, tests 22-23; L22, mandantenlandschaft bec 2026-11-18). 0.12.1 (**the propagation grant survives a redeploy** with its binding -- §2.2, test 7; an update had dropped it, measured on oaapx01 2026-11-18). 0.12 (**a need MAY declare `any: true`** -- the app uses any number of the tenant's `http` destinations, each bound under its own name; the portal offers the binding -- §2.2; an AI gateway's suppliers, RFC-0060 stage 2). 0.11 (a `server_admin` may hand the authoring of destinations to
   the `tenant_admin` of ONE tenant: https targets on public addresses only, and only
   what they made -- §2.7.1, `oaap.core.tenant` 1.7). 0.10 (destinations are added,
   given a secret and removed in the portal as well, by `server_admin` -- §2.7). 0.9
@@ -531,6 +531,35 @@ tenant's issuing CA and maps the certificate to its own user.
    its answer. The target's own refusal (a locked or unknown user) is
    passed on as the target's answer; the platform does not guess a
    reason.
+10. **The chain test (0.14, RFC-0096 stage 1).** `oaap destination check
+    <name> --tenant <t>` and the button "Kette prüfen" on the portal page
+    log in to the target **as the reserved test user `OAAP_CHECK`** -- the
+    same name on every node, never chosen per destination or per call, never
+    a person, and without an assertion. The service that holds the CA issues
+    a certificate `O=OAAP, OU=<tenant label>, CN=OAAP_CHECK` with the SAN URI
+    `urn:oaap:check` (no person's UUID), valid one minute and kept nowhere;
+    it runs in that service through the node's own channel (`docker exec`),
+    **not through any route** an instance could reach, so no app can borrow
+    the test user. It makes **one GET** to the destination's check path
+    (`auth.check_path`; when none is stored, `/sap/bc/ui2/start_up` for
+    `name_check: sap`, else none) with no cookie, no reuse, no redirect, and
+    reports each link in order, stopping at the first that breaks:
+    `reach` (TCP within 15 s), `pin` (the presented certificate is the pinned
+    one -- else the new fingerprint is shown and no certificate is issued),
+    `ca` (the target accepts the certificate in the handshake), `mapping`
+    (the answer is not 401), `user` (2xx, and where the answer is JSON with an
+    `id`, that `id` is `OAAP_CHECK`; another user is reported without its
+    name). Without a check path the test ends after `mapping`, `user` "not
+    checked". The target's answer is read only for that `id` and is **never**
+    shown, returned or stored. Every test is audited
+    (`destination.propagation.check`: who, serial, each link's state). It may
+    be started by `server_admin` and the tenant's `tenant_admin` -- the people
+    who see the pin and load the CA (2.7.2); the check path changes with the
+    destination (2.7, 2.7.1) and is validated: one path below the target,
+    starting with `/`, printable, without `..` or `#`. The command exits 1
+    when a link breaks. The target's administrator creates `OAAP_CHECK`
+    **without any authorisation**; the rule that maps the tenant's
+    certificates by CN maps it without a rule of its own.
 
 ### 2.10 A closed instance (0.6, RFC-0068 stage 2)
 
@@ -750,6 +779,26 @@ internal and not an operator setting.
     only the grant, not the binding; asking for the grant on any other
     destination is refused. A plain user and another tenant's `tenant_admin`
     are refused.
+24. (0.14) Against a TLS target that asks for a client certificate: all links
+    hold when it trusts the tenant's CA and answers 200 with `id` =
+    `OAAP_CHECK`; the certificate reads `CN=OAAP_CHECK,OU=<tenant>,O=OAAP`,
+    SAN `urn:oaap:check`, at most a minute (plus the minute back), issued by
+    the tenant's CA; the request is one GET to the check path without a
+    cookie.
+25. (0.14) Each break stops the test there: target down -> `reach`; another
+    certificate than the pin -> `pin`, with the new fingerprint and no
+    certificate issued; another tenant's CA trusted -> `ca`; 401 ->
+    `mapping`; 403 or another user -> `user`, the other user unnamed; no
+    check path -> `user` "not checked".
+26. (0.14) The target's answer appears neither in the result, nor in the audit
+    line, nor on the page; every test writes one audit line with the serial.
+    A destination without propagation is refused.
+27. (0.14) The portal's request: the tenant's `tenant_admin` may start it
+    without the right of 2.7.1, a plain user and another tenant's
+    `tenant_admin` may not; changing the check path of the operator's
+    destination is refused to a `tenant_admin`, of their own (2.7.1)
+    allowed; a bad path is refused and nothing is tested. The connect
+    service has no route for the test.
 
 ## 6. Dependencies
 
@@ -1000,6 +1049,22 @@ oaapi01 hinter dem Connector. Die Anmeldung ergänzt die Plattform.
 übersteht jetzt ein Update der App, so wie die Bindung selbst. Vorher fiel sie
 beim Update weg, und das MCP-Gateway in bec bekam 403 (gemessen auf oaapx01 am
 18.11.).
+
+## Deutsche Zusammenfassung (Nachtrag 0.14 — Kettentest, RFC-0096 Stufe 1, L23)
+
+Ob die Kette einer Destination „Person durchreichen“ hält, prüft jetzt
+`oaap destination check <name> --tenant <t>` oder der Knopf **„Kette prüfen“**
+auf der Seite Destinationen. Der Test meldet sich am Ziel als der reservierte
+Prüfbenutzer **`OAAP_CHECK`** an -- nie als eine Person, ohne Zusicherung --
+mit einem Zertifikat der CA des Mandanten (SAN `urn:oaap:check`, eine Minute
+gültig), macht einen GET auf den Prüfpfad (SAP: `/sap/bc/ui2/start_up`) und
+meldet je Glied, ob es hält: erreichbar, Serverzertifikat = Pin, CA vertraut,
+Zuordnung (kein 401), Benutzer. Die Antwort des Ziels wird nie gezeigt oder
+gespeichert. Der Test läuft in connect per `docker exec`, nicht über eine
+Route -- keine App kann den Prüfbenutzer ausleihen. Starten dürfen
+server_admin und der tenant_admin des Mandanten; den Prüfpfad ändert, wer die
+Destination ändern darf. Jeder Test steht im Protokoll. Im Ziel wird
+`OAAP_CHECK` **ohne jede Berechtigung** angelegt.
 
 ## Deutsche Zusammenfassung (Nachtrag 0.13 — Person durchreichen im Portal, L22)
 
