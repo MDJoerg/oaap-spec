@@ -1,6 +1,7 @@
 # RFC-0115: A Tenant's Own Domain
 
-- **Status:** Draft (2026-11-20). D1–D9 open.
+- **Status:** **Accepted (2026-11-20)** — Jörg: „Wie empfohlen“ for D1–D9.
+  Nothing built yet; stage 0 (the measurement) comes first.
 - **Date:** 2026-11-20
 - **Authors:**
   - Jörg (the need, 2026-11-20): the tenant `bec` on `oaapx01` has the
@@ -199,6 +200,8 @@ keeps working.
 
 ## 9. Decisions
 
+All nine decided by Jörg on 2026-11-20 as recommended.
+
 - **D1 Who binds a domain.** *Recommendation:* only the `server_admin`
   (CLI, later a page); a `tenant_admin` asks through a request to the
   operator (RFC-0109 requests).
@@ -269,7 +272,7 @@ Anmelde-Cookie nur für den Knotennamen gilt.
 **Für bec jetzt schon möglich:** DNS einrichten, `bec.brandeis.de` und
 `*.bec.brandeis.de` als A-Eintrag auf die Adresse von oaapx01.
 
-**Entscheidungen D1–D9 (offen), jeweils mit Empfehlung:**
+**Entscheidungen D1–D9: am 20.11.2026 von Jörg wie empfohlen entschieden („Wie empfohlen“):**
 - D1: Nur der Betreiber bindet eine Domain; der tenant_admin fragt per
   Anfrage.
 - D2: Nachweis über DNS (Domain und ein Zufallsname darunter).
