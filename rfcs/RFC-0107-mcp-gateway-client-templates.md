@@ -1,6 +1,9 @@
 # RFC-0107: Client Templates in the MCP Gateway
 
-- **Status:** Draft (2026-11-20). D1–D10 are open. Nothing is built.
+- **Status:** **Accepted (2026-11-20)** — Jörg: "Angenommen. Los" (D1–D10 as
+  recommended). **Both stages built the same day** in one release:
+  `mcp-gateway` 0.28.0, `oaap.ai.mcp-gateway` 0.26.0, `ai-gateway` 0.11.1;
+  not deployed. See §7.
 - **Date:** 2026-11-20
 - **Authors:**
   - Jörg: idea I-57, 2026-11-17. A view of the MCP gateway should give a
@@ -278,6 +281,42 @@ On `/me` ("Meine Werkzeuge"), a new box "In meinem Werkzeug einrichten":
 - **D10 Both stages in one release.** *Recommendation:* yes, as with
   RFC-0106. Spec `oaap.ai.mcp-gateway` 0.26.0, reference `mcp-gateway`
   0.28.0, AI gateway 0.11.1 (engine from `gwcore`, no visible change).
+
+## 7. Built (2026-11-20)
+
+- **`gwcore/fill.py`** (in `oaap-apps/lib`, copied into both gateways by
+  `check-shared.py`): text placeholders, whole-value placeholders, `OMIT`,
+  `check_names`, `load_dir`. The AI gateway's `templates.py` now only says
+  what its names mean; its 92 template and property tests pass unchanged.
+- **MCP gateway 0.28.0:** `clientfiles.py`, `templates/claude-code.json`,
+  `vscode.json` and `opencode.json`. The tab "Vorlagen", the link in the key
+  box, the sign-in tab's `.mcp.json` from the Claude Code template,
+  `/mcp/_client-config` and `/me/client-config` with the box "In meinem
+  Werkzeug einrichten".
+- **Deviation from §3.1:** MCP gateway keys have no expiry date, so the
+  "expired key" case does not exist. A key that only opens views a tool
+  cannot reach gets `409` with the reasons.
+- **Deviation from §3.2:** readiness's rule (§1b) is for persons carried by
+  a chat and matches `@<chat>` groups. On `/me` the gateway does not know
+  the person's groups at the realm: the platform gives apps no groups
+  (`oaap.core.identity` §2). The box therefore lists the sign-in views that
+  some access profile opens, says "alle mit Anmeldung" for a profile with
+  `*`, and for other profiles says that the sign-in decides. Nothing secret
+  is in such a file, and the realm and the gateway still check every call.
+- **Tests:**
+  - `test_templates.py` 54/54 (new).
+  - `lib/test_gwcore.py` 21/21.
+  - mcp-gateway: `test_gateway` 547/548. The one failure, "Report zählt
+    jede Zeile", fails the same way without this change.
+  - mcp-gateway: setup 48, signin 28, compose 54, argcheck 29, sources and
+    platform settings green.
+  - ai-gateway: props 92, gateway 283, setup 108 (after two Windows socket
+    aborts), assets 27.
+  - `check-shared` and `check-store` green.
+  - Targeted tests only; the full suite was not run.
+- **Not measured yet:** a generated file in a real Claude Code against a
+  view (key way, on `oaap-test`); opencode and VS Code with the key file;
+  which redirect VS Code sends for a sign-in.
 
 ## Deutsche Zusammenfassung
 
