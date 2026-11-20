@@ -5,7 +5,9 @@
   extended: SAP SSO, §12; new D10 requests as cases, §13; new D11 where it
   shows, §7), Jörg: "Ja, wie empfohlen" for D1–D3, D6, D7, D9–D11.
   **Stage 1 built the same day** (reference 0.1.323, `oaap.core.tenant`
-  1.12, recipe `hilfe-assistent` 1.0.0), measured on oaap-test; see §14.
+  1.12, recipe `hilfe-assistent` 1.0.0), measured on oaap-test and as a
+  preview on `pxx`; see §14. **D12 decided and built** (Jörg: "Gateway
+  holt zurück"): mcp-gateway 0.29.0, `oaap.ai.mcp-gateway` 0.27.0; §15.
 - **Date:** 2026-11-20
 - **Authors:**
   - Jörg, 2026-11-20, in the tenant `pxx` on oaapx01: help, MCP gateway,
@@ -583,3 +585,55 @@ Morgen:
 Vorschau wählt die vier Instanzen selbst und zeigt überall „vorhanden“.
 Die Handarbeit vom Morgen entspricht also genau dem Rezept. Gestartet
 wurde kein Lauf.
+
+## 15. D12, built (2026-11-20, mcp-gateway 0.29.0)
+
+Jörg, 2026-11-20: "Gateway holt zurück".
+
+- The setup door of the MCP gateway brings back an access profile that is
+  revoked or an assistant that is deleted **when it removed them itself**.
+  The proof is the gateway's audit trail, not the door's memory: the last
+  `key.revoke` of that label, or the assistant's last change, was by
+  `setup:…`. That also covers what mcp-gateway 0.28.0 removed before this
+  version existed.
+- The profile is valid again with the wished groups, views, ceiling and
+  effect class (`profile.revive`); the assistant gets a new active revision,
+  the earlier ones stay (`assistant.revive`). A dry run says `would_make`
+  with "Holt zurück, was die Einrichtung selbst entfernt hat."
+- What a human revoked or deleted stays a `conflict`, now with "nicht von
+  der Einrichtung" in its note; a **key** never comes back.
+- `oaap.ai.mcp-gateway` 0.27.0, §3.9e. Tests: `test_setup.py` 61/61 (new:
+  dry, bring back, present afterwards, remove and bring back again, a
+  human's revoke and delete stay, a key never), `test_gateway` 548,
+  `test_sources` 30, `test_templates` 54, `test_signin` 28,
+  `check-store.py` and `check-shared.py` clean.
+- **Measured on oaap-test**, tenant `rzt` (where the run after the undo had
+  stopped, finding B): `rzt-werkzeuge` updated from the local tree to 0.29.0;
+  the preview says "wird angelegt" for all four steps, profile and assistant
+  with "Holt zurück"; the run is done; the next preview says "vorhanden"
+  everywhere. The audit trail shows `key.revoke` by `setup:oaap-admin` (by
+  0.28.0 in the morning), then `profile.revive` and `assistant.revive`.
+- The AI gateway needed nothing: its client `rzt-chat`, removed by the same
+  undo, was made again without a conflict.
+
+**Not done:** push, the catalogue's 0.29.0 on other nodes (pxx-tools stays
+0.28.0 until Jörg says so); `rzt-werkzeuge` on oaap-test now has the local
+folder `~/mcpgw-0.29.0` as its source.
+
+## Deutsche Zusammenfassung (D12 gebaut)
+
+Entschieden: **Das Gateway holt zurück** (mcp-gateway 0.29.0). Die
+Einrichtungstür holt ein Zugangsprofil oder einen Assistenten zurück, wenn
+sie es selbst entfernt hat. Den Beweis liefert die Prüfspur des Gateways;
+das gilt auch für das, was 0.28.0 heute Morgen entfernt hat.
+
+- Was ein Mensch widerrufen oder gelöscht hat, bleibt ein Konflikt.
+- Ein Schlüssel kommt nie zurück.
+
+Gemessen auf oaap-test im Mandanten rzt, wo der Lauf nach dem Rückgängig
+angehalten hatte: Die Vorschau sagt „Holt zurück“, der Lauf ist fertig, und
+danach steht überall „vorhanden“. Tests: 61/61 in der Einrichtungstür, die
+übrigen Gateway-Tests grün.
+
+Noch nicht geschehen: Push, und das Update von pxx-tools (bleibt auf 0.28.0
+bis zu deinem Wort).
