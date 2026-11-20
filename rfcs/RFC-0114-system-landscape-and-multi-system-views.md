@@ -1,7 +1,8 @@
 # RFC-0114: System Landscape and Multi-System Views in the MCP Gateway
 
-- **Status:** **Draft (2026-11-20)** — D1–D10 open. Nothing built,
-  nothing measured for this RFC. The facts in §1 were read the same day
+- **Status:** **Accepted (2026-11-20)** — Jörg: "Wie empfohlen" for
+  D1–D10. Nothing built, nothing measured for this RFC; stage 1 on
+  Jörg's word. The facts in §1 were read the same day
   in `oaap.ai.mcp-gateway` 0.29.0 and `mcp-gateway` 0.31.0.
 - **Date:** 2026-11-20
 - **Authors:** Jörg (the need, 2026-11-20, while setting up SAP SSO for a
@@ -177,7 +178,7 @@ which system?" or to prefer a role.
 - S5: A system's light is never looser than the light of any of its
   servers.
 
-## 7. Decisions
+## 7. Decisions (Jörg, 2026-11-20: all as recommended)
 
 - **D1 — Words.** Recommended: *Zielsystem* / *Systemlandschaft* in
   German, *target system* / *system landscape* in English.
@@ -251,7 +252,7 @@ Werkzeugs, und der Chat muss aus Namen raten.
 - **SSO:** je System eigene Destination und eigener Fingerabdruck (wie das
   Rezept es anlegt); der SAP-Benutzer kann je System verschieden sein.
 
-**Offene Entscheidungen:** D1 die Wörter (Empfehlung *Zielsystem* /
+**Entschieden (Jörg, 20.11.: „Wie empfohlen“):** D1 die Wörter (Empfehlung *Zielsystem* /
 *Systemlandschaft*), D2 Systemwahl über ein Argument (Empfehlung) oder je
 System ein Werkzeug, D3 wo die Liste lebt (Empfehlung: erst im Gateway),
 D4 feste Rollen, D5 Ampel je System aus der Rolle, D6 erst nur Werkzeuge,
