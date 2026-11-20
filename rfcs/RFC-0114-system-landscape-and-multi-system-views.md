@@ -1,8 +1,8 @@
 # RFC-0114: System Landscape and Multi-System Views in the MCP Gateway
 
 - **Status:** **Accepted (2026-11-20)** — Jörg: "Wie empfohlen" for
-  D1–D10. Nothing built, nothing measured for this RFC; stage 1 on
-  Jörg's word. The facts in §1 were read the same day
+  D1–D10. **Stage 1 built** (Jörg: "Stufe 1 bauen"): mcp-gateway
+  0.32.0, `oaap.ai.mcp-gateway` 0.30.0 §5.5; see §10. The facts in §1 were read the same day
   in `oaap.ai.mcp-gateway` 0.29.0 and `mcp-gateway` 0.31.0.
 - **Date:** 2026-11-20
 - **Authors:** Jörg (the need, 2026-11-20, while setting up SAP SSO for a
@@ -263,3 +263,37 @@ D10 Assistenten unverändert.
 **Stufe 1:** Landschaft, Multi-System-Sicht für Werkzeuge mit Systemwahl,
 Ampel je System, Protokoll je System; gemessen in bec mit a4h und
 abap2025.
+
+## 10. Stage 1, built (2026-11-20, mcp-gateway 0.32.0)
+
+- **Landscape**: tables `systems`, `system_servers`; operator tab
+  *Systemlandschaft* (create, change, delete; servers by checkbox);
+  `app.py system set|list|remove`; setup kind `system`.
+- **Multi-system view**: `views.reference`, `view_systems`,
+  `system_items`; on a view's page "Zur Multi-System-Sicht machen", the
+  systems with role, state, light, "Weiteres System", and the matrix
+  tool × system with *Für <system> freigeben* for *abweichend*;
+  `app.py view multi|system-add|system-remove|system-approve|systems`.
+- **Protocol**: the `system` argument (enum, description with title, role,
+  SID, client), routing with the system's held text, the tool `systeme`,
+  per-call light, the usage column `system`.
+- Tests: new `test_landscape.py` (34: two paper "SAP systems" with the same
+  service, one changed tool, one missing; enum, routing without the
+  argument, refusals before anything goes out, approval per system, light
+  by ceiling, deactivation, `systeme` without address, setup kind, CLI,
+  page, an ordinary view unchanged); unchanged green `test_gateway.py`
+  548, `test_setup.py` 80, `test_templates.py` 54, `test_sources.py`.
+- Measured on oaap-test (`rzt-werkzeuge` built as 0.32.0 from the working
+  tree): the image builds and runs; a system `probe` with the server
+  `rzt-hilfe`; a fact named `password` refused; a copy of the view `hilfe`
+  made a multi-system view -- its tools carry `system` with
+  "probe = Probe Entwicklung (Entwicklung, SID PRB, Mandant 001)", the
+  matrix says *Referenz*; cleaned up afterwards.
+- **Not measured**: two real SAP systems -- in `bec` with `a4h` and
+  `abap2025` on Jörg's word.
+
+**Deutsch:** Stufe 1 ist gebaut (MCP-Gateway 0.32.0): Systemlandschaft mit
+Reiter, Multi-System-Sicht mit Abgleich und Freigabe je System, im Chat
+jedes Werkzeug einmal mit `system`, das Werkzeug `systeme`, Ampel je
+Aufruf, das System in der Messzeile. Gemessen auf oaap-test; die Messung
+mit zwei echten SAP-Systemen folgt in bec.
