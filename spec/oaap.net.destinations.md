@@ -1,7 +1,7 @@
 # oaap.net.destinations — Reaching Outward Without Holding the Key
 
 - **ID:** `oaap.net.destinations`
-- **Version:** 0.14 (**the chain test** -- `oaap destination check` and the portal's "Kette prüfen" log in to a propagation target as the reserved test user `OAAP_CHECK`, never a person, and say which link of the chain breaks, without showing the answer -- §2.9 item 10, tests 24-27; RFC-0096 stage 1, L23). 0.13 (**principal propagation in the portal** -- added on the page *Destinationen* in two steps, the server certificate read, shown and pinned only when the person confirms what they compared; by `server_admin`, and under 2.7.1 by the `tenant_admin`; the binding on the instance page carries the grant "carries the signed-in person" -- §2.7, §2.7.1, §2.9 item 7, tests 22-23; L22, mandantenlandschaft bec 2026-11-18). 0.12.1 (**the propagation grant survives a redeploy** with its binding -- §2.2, test 7; an update had dropped it, measured on oaapx01 2026-11-18). 0.12 (**a need MAY declare `any: true`** -- the app uses any number of the tenant's `http` destinations, each bound under its own name; the portal offers the binding -- §2.2; an AI gateway's suppliers, RFC-0060 stage 2). 0.11 (a `server_admin` may hand the authoring of destinations to
+- **Version:** 0.15 (a pinned server certificate that a CA issued is the trust anchor as a self-signed one is -- the handshake no longer fails with CERTIFICATE_VERIFY_FAILED, and the chain test names the platform's side when it does, 2.9 item 2; found with abap2025 in `bec`, reference 0.1.330). 0.14 (**the chain test** -- `oaap destination check` and the portal's "Kette prüfen" log in to a propagation target as the reserved test user `OAAP_CHECK`, never a person, and say which link of the chain breaks, without showing the answer -- §2.9 item 10, tests 24-27; RFC-0096 stage 1, L23). 0.13 (**principal propagation in the portal** -- added on the page *Destinationen* in two steps, the server certificate read, shown and pinned only when the person confirms what they compared; by `server_admin`, and under 2.7.1 by the `tenant_admin`; the binding on the instance page carries the grant "carries the signed-in person" -- §2.7, §2.7.1, §2.9 item 7, tests 22-23; L22, mandantenlandschaft bec 2026-11-18). 0.12.1 (**the propagation grant survives a redeploy** with its binding -- §2.2, test 7; an update had dropped it, measured on oaapx01 2026-11-18). 0.12 (**a need MAY declare `any: true`** -- the app uses any number of the tenant's `http` destinations, each bound under its own name; the portal offers the binding -- §2.2; an AI gateway's suppliers, RFC-0060 stage 2). 0.11 (a `server_admin` may hand the authoring of destinations to
   the `tenant_admin` of ONE tenant: https targets on public addresses only, and only
   what they made -- §2.7.1, `oaap.core.tenant` 1.7). 0.10 (destinations are added,
   given a secret and removed in the portal as well, by `server_admin` -- §2.7). 0.9
@@ -474,7 +474,11 @@ tenant's issuing CA and maps the certificate to its own user.
    platform then trusts **that certificate and nothing else** for this
    target — no public CA, no host-name match. A weak key (fewer than
    2048 bits RSA) is accepted only for a pinned certificate and is
-   shown as a warning; verification is never switched off.
+   shown as a warning; verification is never switched off. (0.15) This
+   holds for a certificate a CA **issued** (e.g. SAPNetCA_G2) as for a
+   self-signed one: the pinned certificate itself is the trust anchor
+   (OpenSSL `PARTIAL_CHAIN`), its issuer is never trusted -- another
+   certificate of the same CA fails the handshake.
 3. **One issuing CA per tenant**, made on demand by the service that
    uses it, kept like a destination secret (0600, mounted into that one
    service, not in the backup — a lost CA is replaced and imported
@@ -1085,3 +1089,11 @@ Ziel ihr erst vertraut, wenn dessen Administrator sie importiert.
 Auf der Instanzseite zeigt die Zuordnung einer solchen Destination, ob sie die
 Person trägt, und bietet an, das zu erlauben oder zurückzunehmen -- bisher ging
 das nur mit `oaap destination bind … --propagate`.
+
+## Deutsche Zusammenfassung (0.15 — gepinnte Zertifikate, die eine CA ausgestellt hat)
+
+Ein Serverzertifikat, das eine CA ausgestellt hat (z. B. SAPNetCA_G2),
+wird gepinnt wie ein selbstsigniertes: Genau dieses Zertifikat ist der
+Anker, sein Aussteller nie. Bisher scheiterte der Verbindungsaufbau mit
+einem solchen Server, und der Kettentest meldete das fälschlich als
+fehlendes Vertrauen beim Ziel.
