@@ -1,7 +1,7 @@
 # oaap.ai.gateway — AI Supply Behind One Keyed Endpoint
 
 - **ID:** `oaap.ai.gateway`
-- **Version:** 0.7.0 (**built from a profile**: a setup door with the kinds `supplier`, `alias` and `client`, and a grant of kind `client` that authorises a chat of the platform through the via door without a key, the person never recorded; a grant may carry the context `tenant`, §7a, RFC-0104; additive, reference ai-gateway 0.10.1). 0.6.0 (a request may carry `X-OAAP-Light`, an additional ceiling for that request only that can tighten the key's ceiling and never loosen it -- the light a person chose for a chat conversation, RFC-0101; usage rows record it, §7, §9 test 12; additive. 0.5.3: a key that names aliases it can never reach under its ceiling is still issued, but the operator is told so, at issuing, at changing the aliases and in the key list, §7 (L14); a supplier that is always stripped of sampling parameters stores that, §4.2 (L15) -- reference app 0.8.1). 0.5.2 (the aliases of a valid key **may be changed** without a
+- **Version:** 0.8.0 (**model properties and client templates**: four properties per alias -- `tools`, `vision`, `context`, `output` -- set or unknown, never guessed, the weakest of the alias's targets, each with its origin; in `/v1/models` as `oaap_*` and through the setup door; client files built from templates as data, the key only as a placeholder, and a self-service path `/v1/oaap/client-config`, §3.1, §3.2, §9 tests 15-17, RFC-0106; additive, reference ai-gateway 0.11.0). 0.7.0 (**built from a profile**: a setup door with the kinds `supplier`, `alias` and `client`, and a grant of kind `client` that authorises a chat of the platform through the via door without a key, the person never recorded; a grant may carry the context `tenant`, §7a, RFC-0104; additive, reference ai-gateway 0.10.1). 0.6.0 (a request may carry `X-OAAP-Light`, an additional ceiling for that request only that can tighten the key's ceiling and never loosen it -- the light a person chose for a chat conversation, RFC-0101; usage rows record it, §7, §9 test 12; additive. 0.5.3: a key that names aliases it can never reach under its ceiling is still issued, but the operator is told so, at issuing, at changing the aliases and in the key list, §7 (L14); a supplier that is always stripped of sampling parameters stores that, §4.2 (L15) -- reference app 0.8.1). 0.5.2 (the aliases of a valid key **may be changed** without a
   new secret, audited old → new, effective from the next request; light and
   release stay as issued, §2; additive. 0.5.1: a supplier may be marked to receive no sampling
   parameters, §4.2; additive. 0.5: keys may expire; keys issued for a cohort of a
@@ -145,6 +145,67 @@ mapping is the operator's configuration, not the consumer's business.
   refused with the list of aliases it may use — a wrong model name is
   a configuration mistake, and configuration mistakes deserve an
   answer that fixes them.
+
+### 3.1 Properties of an alias (0.8, RFC-0106)
+
+A client needs facts about a model that the consumer rarely knows.
+An alias carries four **properties**:
+
+| Property | Meaning |
+|---|---|
+| `tools` | the model answers tool calls in the OpenAI form |
+| `vision` | the model takes images in a request |
+| `context` | the context window in tokens: input and output together |
+| `output` | the most tokens the model produces in one answer |
+
+- Each property is **set or unknown**. Unknown is a value of its own; a
+  gateway MUST NOT fill it in by guess.
+- Properties are kept per **target** (supplier and the supplier's model
+  name). An alias has, per property, **the weakest value of its targets**:
+  `false` if any target says `false`, otherwise unknown if any target is
+  unknown; for numbers the smallest, but only when every target is known.
+  A client must be able to rely on the value whichever target answers --
+  the rule of the light (§7) applied to capability.
+- Every value carries its **origin**: `supplier` (read from the
+  supplier's model list, only fields the supplier really returned; a
+  missing word in a capability list is not a `false`), `test` (a tool-call
+  test, below) or `operator`. A local runtime that says nothing in its
+  model list MAY be asked on its own description path (Ollama
+  `/api/show`); a value the runtime does not serve -- a model's trained
+  context length where the runtime serves a smaller window -- is not
+  taken. A value from the operator is **never
+  overwritten** by a later probe or test; what they report differently is
+  shown beside it, to take or leave.
+- The **tool-call test** runs only on the operator's click: per target
+  one small request offering one harmless tool and asking to call it. A
+  tool call in the answer is `true`, a plain answer `false`, a refusal
+  naming the tools field `false`; any other failure sets nothing. It is
+  not metered by this gateway; the supplier counts it.
+- `GET /v1/models` adds, per alias and **only when set**, `oaap_tools`,
+  `oaap_vision`, `oaap_context`, `oaap_output`. The setup door (§7a) takes
+  them on an `alias` item as values of the operator; it does not
+  overwrite a different value an operator set (`conflict`), and they do
+  not count towards the item's digest.
+
+### 3.2 Client files from templates (0.8, RFC-0106)
+
+- A gateway MAY build the configuration file of a client tool (for
+  example VS Code, opencode) for a set of aliases: picked by hand, or
+  **derived from a key** -- then exactly the aliases `/v1/models` gives
+  that key.
+- A **template is data**, not code: the client's format version it was
+  checked against and the date, the file name, where it goes, and the
+  document with placeholders for the gateway's address, the alias and the
+  four properties. An unknown property is left out with its field; the
+  tool then uses its own default, and the gateway says which were
+  unknown.
+- **The key is never in the file**, on any path: the template carries the
+  tool's own placeholder (an input variable, an environment variable)
+  and a sentence where the key comes from.
+- **Self-service:** `GET /v1/oaap/client-config?target=<tool>` with a key
+  returns the file for that key's aliases. It reads nothing the key could
+  not read through `/v1/models`; the key that asked is not copied into
+  the answer. An unknown tool is `400` with the list of tools.
 
 ## 4. Suppliers, and chains
 
@@ -529,6 +590,17 @@ manifest (`oaap.apps.runtime` 2.39).
     and, if set, its `tenant`; **bait:** `X-OAAP-AI-Client` alone, or a
     grant's digest sent as bearer, gets `403`; the person's id is found
     nowhere on disk (0.7).
+15. An alias over two targets reports the weakest value per property in
+    `/v1/models`; an unknown property is absent; **bait:** a missing word
+    in a supplier's capability list does not become `false` (0.8).
+16. An operator value survives a probe that reports differently, and the
+    report is shown beside it; the tool-call test sets `true` for a tool
+    call, `false` for a plain answer, nothing for a failure, and creates
+    no usage row (0.8).
+17. A client file derived from a key lists exactly that key's aliases of
+    `/v1/models`; **bait:** neither the key that asked, nor any other key,
+    nor a supplier credential appears in any file or page built by §3.2
+    (0.8).
 
 ## 10. Dependencies
 
@@ -736,3 +808,18 @@ es **ohne API-Schlüssel**.
 - **Mandant an der Freigabe:** Das optionale Feld `tenant` setzt den
   Kontext „Mandant“. Dann steht er in jeder Messzeile des Chats. Ohne das
   Feld steht dort `default`, so wie bei kit1 am 19.11. gemessen.
+
+### Nachtrag 0.8 (Deutsch, RFC-0106)
+
+- **Eigenschaften je Modellname:** Werkzeuge, Bilder, Kontextfenster (Ein-
+  und Ausgabe zusammen) und größte Ausgabe. Gesetzt oder unbekannt, nie
+  geraten; bei mehreren Zielen das schwächste. Herkunft je Wert: Quelle,
+  Test oder Betreiber; ein Betreiberwert wird nie überschrieben. Der Test
+  „Werkzeugaufruf probieren“ läuft nur auf Klick. `/v1/models` zeigt die
+  gesetzten Werte als `oaap_*`, die Einrichtungstür nimmt sie an.
+- **Vorlagen für Clients:** Die Konfigurationsdatei eines Werkzeugs (VS
+  Code, opencode) aus einem Schlüssel oder von Hand gewählten Modellnamen;
+  Vorlagen sind Daten mit geprüfter Formatfassung. Der Schlüssel steht nie
+  in der Datei. Mit dem eigenen Schlüssel holt man sich die Datei selbst
+  über `/v1/oaap/client-config`.
+

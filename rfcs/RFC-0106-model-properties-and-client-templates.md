@@ -1,7 +1,9 @@
 # RFC-0106: Model Properties and Client Templates in the AI Gateway
 
-- **Status:** Draft (2026-11-20). From idea I-56 (Jörg, 2026-11-17). Open
-  decisions D1–D12 below, each with a recommendation. Nothing built.
+- **Status:** **Accepted (2026-11-20)** — Jörg: "Wie empfohlen" (D1–D12
+  as recommended). From idea I-56 (Jörg, 2026-11-17). **Both stages built
+  the same day** in one release, `ai-gateway` 0.11.0, `oaap.ai.gateway`
+  0.8.0 (§3.1, §3.2), not deployed; see §7.
 - **Date:** 2026-11-20
 - **Authors:** Jörg (the requirement: whoever wants to use the gateway's
   models in VS Code maintains `chatLanguageModels.json` by hand; a tab
@@ -82,7 +84,7 @@ This RFC adds two things, in two stages:
 |---|---|---|
 | `tools` | the model answers tool calls in the OpenAI form | `true` |
 | `vision` | the model takes images in a request | `false` |
-| `context` | tokens the model accepts as input | `128000` |
+| `context` | the context window: input and output tokens together (§7) | `128000` |
 | `output` | tokens the model produces at most per answer | `8192` |
 
 Each property is **set or unknown**. Unknown is a value of its own: it is
@@ -259,6 +261,50 @@ consumer talks to the gateway it holds a key for.
   the template's `unknown` rule; the generated VS Code and opencode files
   are valid JSON and are **loaded by the real client** once, by Jörg, on
   his machine (the client's own check is the measurement, not ours).
+
+## 7. Built (2026-11-20)
+
+- **One release for both stages:** `ai-gateway` 0.11.0 and
+  `oaap.ai.gateway` 0.8.0 instead of 0.11/0.12 and 0.8/0.9 -- built in
+  one go, nothing gained by two versions.
+- **Correction of §2.1:** `context` is the **context window** (input and
+  output together), not the input alone. It is what suppliers report
+  (`context_length`, `context_window`) and what both first clients take:
+  VS Code `contextWindow` (it derives its input limit as window minus
+  output) and opencode `limit.context`.
+- **Formats read from the clients' own documentation on 2026-11-20:** VS
+  Code `chatLanguageModels.json` is an array of providers with `vendor:
+  customendpoint`, `apiKey: ${input:…}`, per model the full URL including
+  `/chat/completions`; opencode's current form is `providers.<id>` with
+  `package: @opencode/ai/providers/openai-compatible`, `env` for the key,
+  `settings.baseURL` with `/v1`, per model `capabilities.tools`,
+  `capabilities.input` (`["text", "image"]`) and `limit.context`/`output`.
+- **An emptied operator value** means unknown, and the next report of the
+  supplier counts again -- clearing is "forget what I said", not "keep it
+  unknown against the supplier".
+- **Measured on `oaap-test` (2026-11-20, `aigw-test` staged as 0.11.0):**
+  Ollama's `/v1/models` names only `id`, `object`, `created`, `owned_by`
+  -- no property at all. Its own path `/api/show` says more:
+  `capabilities` (`["completion", "tools"]`, `["tools", "thinking",
+  "completion"]`) and `model_info.<arch>.context_length` (32768, 262144).
+  The gateway therefore asks `/api/show` for targets of a supplier whose
+  list says `owned_by: library` and about which nothing is recorded yet,
+  and takes `tools`/`vision` from it -- but a `context` **only** from an
+  explicit `num_ctx` in the model's parameters: `context_length` is what
+  the model could do, not what Ollama serves (it serves its own, often
+  much smaller `num_ctx`); taking it would be a guess (D3). Live result:
+  both Ollama targets `tools: true (supplier)`, `/v1/models` carries
+  `oaap_tools: true`, the self-service path returns both files, neither
+  holds the key or `sk-oaap-`. The Groq supplier there answered `403`
+  (Cloudflare), so no hosted supplier's list was measured.
+- **Not measured yet:** a hosted supplier's model list (Groq, Anthropic,
+  OpenRouter on oaapx01), and the generated files loaded by the real
+  tools (Jörg).
+- Tests: `test_props.py` 92/92 (properties, tool-call test, setup door,
+  templates, self-service, no key in any output); `test_gateway` 283,
+  `test_setup` 108 (its version check had been stale since 0.10.1 and now
+  reads the app's version), `test_assets`, `test_catalog`, `test_report`,
+  `test_supply`, `test_cohort` green.
 
 ## Zusammenfassung auf Deutsch
 
