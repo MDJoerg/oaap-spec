@@ -1,6 +1,9 @@
 # RFC-0109: Setup Recipes — Small Wizards for a Tenant That Already Exists
 
-- **Status:** Draft (2026-11-20). D1–D9 open.
+- **Status:** Draft (2026-11-20). First discussion with Jörg the same day:
+  D4 decided (stage 2), D5 changed (the operator releases, §5), D8
+  extended (SAP SSO, §12), new D10 (requests to the operator as cases,
+  §13) and D11 (where it shows, §7). D1–D3, D6, D7, D9–D11 open.
 - **Date:** 2026-11-20
 - **Authors:**
   - Jörg, 2026-11-20, in the tenant `pxx` on oaapx01: help, MCP gateway,
@@ -140,7 +143,9 @@ Rules:
   The placeholder `{tenant}` is the tenant's label and is always there.
 - The **step vocabulary is the profile's**, minus everything that creates
   or shapes the tenant: no `tenant.create`, `tenant.face`, `tenant.policy`,
-  `address.*`, `idp.*`. `app.install` is allowed (§3).
+  `address.*`, `idp.provision`. `app.install` is allowed (§3). Steps that
+  work *inside* a realm the tenant already has (such as an attribute or a
+  client scope, §12) are new step types of stage 3.
 - The checks of RFC-0055 and RFC-0079 apply unchanged: known keys only,
   no secrets (`SECRET_WORDS`), versions, history per checksum.
 - A recipe lives where the node's profiles live, in its own folder
@@ -179,9 +184,17 @@ answer it for the kinds they offer.
 
 ## 5. Who may run a recipe
 
+Jörg, 2026-11-20: "das sollte der server_admin/Betreiber erlauben.
+Danach soll der tenant_admin sowas selbst hinbekommen."
+
 - **server_admin**: any recipe, any tenant.
-- **tenant_admin**: any recipe, **own tenant only**, when every step passes
-  the tenant-scope check:
+- **The operator releases** a recipe for tenants, the way a catalogue
+  entry is released ("Sichtbar für: alle | pxx, bec"). A recipe nobody
+  released is visible only to the server_admin. A release names the
+  recipe's id and a version range; a new major version needs a new
+  release.
+- **tenant_admin**: a **released** recipe, **own tenant only**, without
+  asking anyone, when every step passes the tenant-scope check:
   - `app.setup` on an instance of this tenant — the platform calls the
     door, the person never sees the setup key;
   - `app.config` with a non-secret key the manifest declares;
@@ -189,6 +202,8 @@ answer it for the kinds they offer.
   - `app.install` from a catalogue this tenant may see.
   A step outside that scope makes the whole recipe refuse **before** the
   preview, with the step named.
+- A tenant_admin who needs a recipe that is not released, or a step
+  outside the scope, **asks the operator** (§13).
 - Every run is a line in the tenant's log with the person, the recipe,
   its version and checksum, and what was made.
 
@@ -207,11 +222,24 @@ A second run of the same recipe with the same values is a preview with
 only *vorhanden* — that is how a person checks that everything is still in
 place.
 
-## 7. Where it shows
+## 7. Where it shows (D11)
 
-- Tenant context, page **Einrichten**: the recipes whose needs this tenant
-  meets, each with "Was fehlt noch?" (its preview, read only) and
-  "Einrichten".
+Jörg asked: under "Aufbau" in the tenant view? Today "Aufbau" (`/aufbau`)
+is a **node** page in the side-bar group "Betrieb", shown only to whoever
+may build (`can_build`, server_admin). A tenant_admin never sees it, and
+it is about making tenants, not about living in one. So:
+
+- **Tenant view, new side-bar entry "Einrichten"** (`/einrichten`), group
+  "Betrieb", right after "Instanzen", shown to tenant_admin and
+  server_admin in a tenant's context. It lists:
+  - the recipes released for this tenant whose needs it meets, each with
+    "Was fehlt noch?" (its preview, read only) and "Einrichten";
+  - the runs of this tenant (state, who, when, "Rückgängig");
+  - the open requests to the operator and their state (§13), with a
+    button "Beim Betreiber anfragen".
+- **Node view, page "Aufbau"** (server_admin): a second list beside the
+  profiles — the recipes of the node, their versions, **"Freigeben für"**
+  per recipe, and the incoming requests of all tenants.
 - On an instance's page: "Einrichten…" lists the recipes that need this
   app.
 - After a build, the build page links to *Einrichten* for later changes.
@@ -240,20 +268,32 @@ place.
 - **D3 — Missing app.** Recommended: stop by default; install only when
   the recipe says `"install": true` for that need.
 - **D4 — Values from the app (`setup_item`) and the setup-door read
-  `GET ?kind=`.** Recommended: yes, in stage 2; stage 1 takes typed values.
-- **D5 — tenant_admin may run recipes.** Recommended: yes, own tenant,
-  with the scope check of §5. Open fact to check in stage 1: whether a
-  tenant_admin may create a destination today; if not,
-  `destination.ensure` stays server_admin until a decision.
+  `GET ?kind=`.** **Decided (Jörg, 2026-11-20): stage 2**; stage 1 takes
+  typed values.
+- **D5 — tenant_admin may run recipes.** **Changed by Jörg
+  (2026-11-20):** the operator releases a recipe for tenants; after that
+  the tenant_admin runs it alone, own tenant, with the scope check of §5.
+  Open fact for stage 1: a tenant_admin may already make a destination
+  with principal propagation in the portal (L22, reference 0.1.311); to
+  check whether the same holds for `auth: none` and from the CLI path a
+  recipe uses.
 - **D6 — Preview is mandatory.** Recommended: yes; there is no "run"
   without a preview of the same values in the same minute.
 - **D7 — Undo.** Recommended: yes, like a build, per run.
 - **D8 — First recipes.** Recommended: `hilfe-assistent` (§2),
   `chat-am-ki-gateway` (only the client), `hilfe-doku` (only
   destination + fetch). They live in `oaap-docs/szenarien/rezepte/`.
+  **Jörg, 2026-11-20: also "SAP SSO einrichten"** — §12, stage 3.
 - **D9 — Profiles use recipes.** Recommended: later (stage 3): a profile
   step `recipe.apply` so `ki-arbeitsplatz` is made of the same pieces a
   tenant_admin can repeat.
+- **D10 — Requests to the operator as cases (§13).** Recommended: the
+  platform writes the request as a case into a cases instance the
+  operator names in the default tenant; the tenant needs no connection of
+  its own; without such an instance, a message to the node owner.
+- **D11 — Where it shows (§7).** Recommended: "Einrichten" in the tenant
+  view for tenant_admin, recipes and releases on "Aufbau" for the
+  operator — not recipes under "Aufbau".
 
 ## 10. Stages and tests
 
@@ -263,12 +303,16 @@ place.
   installed by hand → preview lists *wird angelegt*, run, second preview
   lists only *vorhanden*, undo, a human-changed item survives undo. Then
   on `pxx` (Jörg's word): preview must say *vorhanden* everywhere.
-- **Stage 2 — portal and app read.** Page *Einrichten*, instance link,
-  `setup_item` and `light` parameters, `GET ?kind=` in help, ai-gateway,
-  mcp-gateway; tenant_admin runs. Test: a tenant_admin of tenant A cannot
-  name an instance of tenant B (S2), cannot run a recipe with an
-  out-of-scope step (S5); the model list shows no credential (S4).
-- **Stage 3 — more recipes, `recipe.apply` in profiles.**
+- **Stage 2 — portal, releases and app read.** Page *Einrichten*,
+  recipes and "Freigeben für" on *Aufbau*, instance link, `setup_item`
+  and `light` parameters, `GET ?kind=` in help, ai-gateway, mcp-gateway;
+  tenant_admin runs released recipes. Test: a tenant_admin of tenant A
+  cannot name an instance of tenant B (S2), cannot run an unreleased
+  recipe or one with an out-of-scope step (S5); the model list shows no
+  credential (S4).
+- **Stage 3 — requests and SAP SSO.** Requests to the operator (§13);
+  recipe `sap-sso` with its new step types (§12); `recipe.apply` in
+  profiles.
 
 ## 11. Out of scope
 
@@ -276,7 +320,90 @@ place.
 - Recipes across tenants or nodes.
 - A recipe editor in the portal; recipes are files, like profiles.
 
+## 12. Recipe "SAP SSO einrichten" (D8, stage 3)
+
+The chain the tenant `bec` runs today (person in the chat → MCP gateway
+→ SAP system as that person, RFC-0065/0066, measured with the chain test
+of RFC-0096) was made by hand in about fifteen steps, half of them in the
+SAP system. A recipe cannot do the SAP half, but it can **lead through
+it** and check each link:
+
+| # | Step | Kind |
+|---|---|---|
+| 1 | Realm of the tenant: attribute `sap_user` (editable by admins only), client scope `sap` on the platform client | new step type `idp.claim` (inside an existing realm) |
+| 2 | Destination with principal propagation to the SAP system: target, user claim, name check `sap` | `destination.ensure` with `auth: principal_propagation` — today excluded from profiles because the server certificate must be pinned |
+| 3 | Pin the SAP server certificate: the platform reads the fingerprint, a human compares and confirms | `manual`, done_when `destination.pinned` (new read) |
+| 4 | SAP side: import the platform's issuing certificate (STRUST), rule-based mapping (CERTRULE, RZ10 `login/certificate_mapping_rulebased=1`), check user `OAAP_CHECK` without roles | `manual` steps with the text of the SAP-Basis checklist (oaap-docs, L23), done_when `destination.check` (new read: the chain test passes) |
+| 5 | Bind the destination to the MCP gateway with `--propagate`; server, view, profile | `destination.bind` (new) and `app.setup` |
+| 6 | Assistant in the chat for the SAP view | `app.setup` (assistant) |
+
+Parameters: the SAP system's address, its SAP client, the view's name.
+Values that are secrets (none here; the platform's issuing key never
+leaves the node) stay out, as everywhere.
+
+Because steps 1–3 reach outside the apps, this recipe is
+**server_admin-only until released** like every other, and its release
+is the moment the operator says "this tenant may connect its own SAP
+system".
+
+## 13. Requests to the operator (D10, stage 3)
+
+Jörg, 2026-11-20: in a multi-tenant landscape not every tenant_admin is
+known; a tenant_admin should be able to **request services from the
+operator** — "eine Art Ticket-Prozess" — through the node's cases,
+perhaps in the default tenant, or connected from the tenant.
+
+Design:
+
+- The operator names **one cases instance** (app `vorgaenge`) in the
+  default tenant as the node's **request inbox** (node setting, portal
+  page "Aufbau").
+- On *Einrichten*, a tenant_admin presses **"Beim Betreiber anfragen"**:
+  for an unreleased recipe, a refused step, or free text ("wir brauchen
+  SAP SSO für unser System X").
+- **The platform** writes the case, not the tenant: through the cases
+  app's own door, as the platform, with the tenant, the person's display
+  name, the recipe, the values and the preview attached. The tenant needs
+  no destination, no key and no account in the default tenant; the
+  request carries nothing the tenant did not type or the preview did not
+  show.
+- The operator works the case as any other: asks back in the case,
+  **releases** the recipe for that tenant (§5) or runs it himself, and
+  closes it. The release links to the case.
+- The tenant_admin sees the state and the operator's replies **on
+  *Einrichten*** (the platform reads them back), not in the default
+  tenant.
+- Without a request inbox: the request goes as a message to the node
+  owner (RFC-0080 lists), and the state on *Einrichten* says so.
+
+Alternative (not recommended now): the tenant's own cases instance
+connected to the operator's. That needs a connection between two
+tenants' instances, which the platform does not have today; the platform
+as the writer keeps the tenant boundary simple.
+
+Open fact for stage 3: whether `vorgaenge` can take a case from the
+platform (door, identity of the writer) or needs a small addition.
+
 ## Deutsche Zusammenfassung
+
+**Stand nach der ersten Besprechung (20.11.):**
+
+- D4: Werte aus der App kommen in Stufe 2 (entschieden).
+- D5, geändert: Der **Betreiber gibt ein Rezept frei** („Freigeben für:
+  alle | pxx, bec“). Danach führt der tenant_admin es selbst aus.
+- D8: Dazu kommt das Rezept **„SAP SSO einrichten“** (§12, Stufe 3). Es
+  führt durch die SAP-Seite (STRUST, CERTRULE, RZ10, OAAP_CHECK) und
+  prüft jedes Glied mit dem Kettentest.
+- Neu D10: **Anfragen an den Betreiber als Vorgang** (§13). Die
+  Plattform schreibt die Anfrage in eine Vorgangs-Instanz des
+  Betreibers im Mandanten default. Der Mandant braucht dafür keine
+  eigene Verbindung. Antworten und Stand sieht der tenant_admin unter
+  „Einrichten“.
+- Neu D11: **Wo im Portal** (§7). „Aufbau“ ist eine Knotenseite für den
+  Betreiber, die ein tenant_admin nicht sieht. Deshalb bekommt die
+  Mandantensicht einen eigenen Eintrag „Einrichten“, unter „Betrieb“
+  nach „Instanzen“. Unter „Aufbau“ verwaltet der Betreiber die Rezepte,
+  Freigaben und eingehenden Anfragen.
 
 **Anlass:** In pxx auf oaapx01 standen Hilfe, MCP-Gateway, KI-Gateway und
 Chat, aber ohne Aufbau — also ohne die Einstellungen, die das Profil
@@ -310,7 +437,8 @@ bestehenden Mandanten:
 Erstes Rezept: **„Hilfe-Assistent im Chat“**, genau das, was pxx gebraucht
 hat. Später setzen sich Profile aus Rezepten zusammen.
 
-**Offene Entscheidungen D1–D9**, je mit Empfehlung:
+**Entscheidungen D1–D9 im ersten Entwurf**, je mit Empfehlung (Stand
+nach der Besprechung: siehe oben):
 
 - D1: Rezept als eigene Art neben Profilen.
 - D2: Instanzen wählbar, eine vorgewählt.
