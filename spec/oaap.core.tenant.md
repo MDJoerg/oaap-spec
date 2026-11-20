@@ -1,7 +1,7 @@
 # oaap.core.tenant — Account and Tenant, the Boundary of Belonging
 
 - **ID:** `oaap.core.tenant`
-- **Version:** 1.11 (a gateway's sign-in clients, 2.9.1, may be requested by the `tenant_admin` of the instance's tenant too, not only by the operator: the request chooses nothing -- L4, reference 0.1.309). 1.10 (the client of an app: an app that declares `identity.oidc_client` (manifest 0.16) gets ONE confidential client `oaap-app-<instance>` in its tenant's space, made by the connector on an operator's request, disabled at removal -- 2.9.2, conformance test 31, RFC-0091 stage 3). 1.9 (a platform role per realm group: `role_map`, written by `server_admin`, only `guest`, `partner`, `user`, synced at every provider login for the roles it gave and never for hand-given ones -- 2.8.1, conformance test 30, RFC-0091 stage 2). 1.8 (brokers in front of a tenant's realm are doors: read, judged open or closed, counted by the §2.8 refusal, acknowledged closed only by the operator with a reason, read daily -- 2.10.1, conformance test 29, RFC-0091 stage 1). 1.7 (the tenant record carries `tenant_admin_may`: rights a `server_admin` hands to this tenant's `tenant_admin`, first `destinations` -- 1.1 table, `oaap tenant allow|disallow`, `oaap.net.destinations` 2.7.1). 1.6 (the bindings follow an issuer change **of the same space**: same connector, same name, same id at the provider, 2.11, conformance test 25, RFC-0073 T6; 1.5: the **clients of an MCP gateway**: a connector makes them on an
+- **Version:** 1.12 (setup recipes: a short list of a profile's steps, without those that create or shape a tenant, run by the operator against a tenant that EXISTS; its needs name apps and resolve to that tenant's instances only; a preview first, a conflict stops before anything happens; runs `r-...` beside the builds, undo per run, log `tenant.recipe.*` -- 2.13, conformance test 32, RFC-0109 stage 1). 1.11 (a gateway's sign-in clients, 2.9.1, may be requested by the `tenant_admin` of the instance's tenant too, not only by the operator: the request chooses nothing -- L4, reference 0.1.309). 1.10 (the client of an app: an app that declares `identity.oidc_client` (manifest 0.16) gets ONE confidential client `oaap-app-<instance>` in its tenant's space, made by the connector on an operator's request, disabled at removal -- 2.9.2, conformance test 31, RFC-0091 stage 3). 1.9 (a platform role per realm group: `role_map`, written by `server_admin`, only `guest`, `partner`, `user`, synced at every provider login for the roles it gave and never for hand-given ones -- 2.8.1, conformance test 30, RFC-0091 stage 2). 1.8 (brokers in front of a tenant's realm are doors: read, judged open or closed, counted by the §2.8 refusal, acknowledged closed only by the operator with a reason, read daily -- 2.10.1, conformance test 29, RFC-0091 stage 1). 1.7 (the tenant record carries `tenant_admin_may`: rights a `server_admin` hands to this tenant's `tenant_admin`, first `destinations` -- 1.1 table, `oaap tenant allow|disallow`, `oaap.net.destinations` 2.7.1). 1.6 (the bindings follow an issuer change **of the same space**: same connector, same name, same id at the provider, 2.11, conformance test 25, RFC-0073 T6; 1.5: the **clients of an MCP gateway**: a connector makes them on an
   operator's request and only ever disables them, 2.9.1, RFC-0073 stage 3; `tenant check`
   asks the provider whether a tenant's client is there, 2.1, conformance test 28;
   1.4: a provisioned space gets the node's mailbox and German as its
@@ -1166,6 +1166,41 @@ rule does not do: a person can copy out what they can read, a public route serve
 the app serves, a cooperating instance can pass data on, an off-site backup leaves the
 node, and the gateway cannot tell what a request carries.
 
+### 2.13 Setup recipes (1.12, RFC-0109)
+
+A **profile** (RFC-0055) builds a NEW tenant; on an existing one its first
+step meets the tenant as a conflict. A **recipe** does a few of the same
+steps in a tenant that already exists -- the settings a build would have
+made for apps that were installed by hand.
+
+- **Format** `oaap.tenant-recipe/1`: `id`, `version`, `title`,
+  `description`, `needs`, `params`, `steps`; any other field is refused.
+- **Steps**: `app.config`, `destination.ensure`, `app.setup`, `manual`,
+  `backup.check` -- never `tenant.create`, `tenant.face`, `tenant.policy`,
+  `address.*`, `idp.*`, `authz.setup`. An app is installed only through a
+  need with `install: true`, never by a step.
+- **Needs** name apps (`{"app": "<catalogue id>"}`). Each need `n` becomes
+  two values the node sets: `{n}`, the instance's name in the tenant, and
+  `{n_key}`, its key on the node; `{tenant}` is the tenant's label. The
+  instance is one of **this tenant's** instances of that app -- given by
+  name or key, or pre-selected when there is exactly one. Anything else is
+  refused, including an instance of another tenant named by its key. A
+  missing app stops the recipe unless the need says `install: true`.
+- **Preview**: every step's check (the setup doors answer their dry run)
+  as present / absent / conflict. A **run** is preceded by the same
+  preview; a conflict or a step that cannot be read stops it before
+  anything happens, and no run is recorded.
+- **Runs** are build states with id `r-<time>-<label>` and `kind: recipe`
+  in their own folder; one open run per tenant; two runs in the same
+  second get distinct ids. Undo removes what THAT run made, in reverse;
+  what an app keeps by its own rule stays.
+- **Log**: `tenant.recipe.step|done|rollback` in the default tenant's log
+  and the tenant's own.
+- **Who**: `server_admin` (CLI as root: `oaap tenant recipe list |
+  preview | run | runs | show | continue | confirm | rollback`). The
+  release of a recipe for a tenant and runs by its `tenant_admin` follow
+  in RFC-0109 stage 2.
+
 ### 2.5 Resolution rules
 
 Two rules, and the difference between them is the whole safety
@@ -1528,6 +1563,16 @@ On a node with one tenant: none that anyone can observe, exactly as in
     confidential one keeps its other redirect URIs. A provider named by hand, a rehearsal or an
     instance without the declaration is refused. Removal and `--off` disable the client and
     delete nothing; the three variables leave the instance and a kept `instance.env`.
+
+32. **A setup recipe** (1.12). A recipe with a `tenant.create`, `idp.*` or `app.install`
+    step, a parameter named like a need's key, an unknown field or a secret in a setup item
+    is refused whole. In a tenant with one instance of each needed app the preview names
+    them and every step as absent; the run is done, a second preview says present for every
+    step, a second run makes nothing. Naming another tenant's instance (by key) or an
+    instance of another app is refused; a tenant with two instances of an app asks which; a
+    tenant without the app stops. A conflict in the preview refuses the run and records
+    none. Undoing the first run removes exactly what it made; the log says
+    `tenant.recipe.*`. A `tenant_admin` is refused in stage 1.
 
 ## 5. Dependencies
 
@@ -2189,3 +2234,23 @@ Die beiden Clients eines MCP-Gateways (2.9.1) darf jetzt auch der
 Der Auftrag nennt nur Instanz und an/aus: Konnektor, Realm und Client-Namen
 stehen fest, das Geheimnis des Konnektors bleibt beim Betreiber. Der Host
 prüft Rolle und Mandant noch einmal.
+
+## Deutsche Zusammenfassung (1.12 — Rezepte für einen bestehenden Mandanten)
+
+Ein Profil baut einen neuen Mandanten. Ein **Rezept** erledigt einige
+derselben Schritte in einem Mandanten, den es schon gibt, zum Beispiel die
+Einstellungen für Apps, die von Hand installiert wurden (RFC-0109, Stufe 1).
+
+- **Erlaubte Schritte:** Konfiguration, Destination, Einrichtungstür,
+  manuell, Sicherung. Nie Mandant anlegen oder formen und nie Anmeldedienst.
+  Eine App installiert ein Rezept nur, wenn sein Bedarf `install: true` sagt.
+- **Bedarfe nennen Apps.** Der Knoten setzt `{n}` (Name der Instanz) und
+  `{n_key}` (Schlüssel). Es zählen nur Instanzen **dieses** Mandanten; eine
+  einzige ist vorgewählt. Eine fremde Instanz wird abgelehnt, auch über
+  ihren Schlüssel.
+- **Erst die Vorschau.** Ein Konflikt hält den Lauf an, bevor etwas
+  geschieht, und es entsteht kein Lauf.
+- **Läufe** heißen `r-…` und liegen neben den Aufbauten. Rückgängig nimmt
+  nur, was dieser Lauf anlegte. Das Protokoll sagt `tenant.recipe.*`.
+- **Wer darf:** In Stufe 1 nur der Betreiber, über die Kommandozeile.
+  Freigabe und tenant_admin folgen in Stufe 2.

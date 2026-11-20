@@ -4,7 +4,8 @@
   same day (D4 stage 2, D5 changed: the operator releases, §5; D8
   extended: SAP SSO, §12; new D10 requests as cases, §13; new D11 where it
   shows, §7), Jörg: "Ja, wie empfohlen" for D1–D3, D6, D7, D9–D11.
-  Nothing built.
+  **Stage 1 built the same day** (reference 0.1.323, `oaap.core.tenant`
+  1.12, recipe `hilfe-assistent` 1.0.0), measured on oaap-test; see §14.
 - **Date:** 2026-11-20
 - **Authors:**
   - Jörg, 2026-11-20, in the tenant `pxx` on oaapx01: help, MCP gateway,
@@ -462,3 +463,115 @@ nach der Besprechung: siehe oben):
    (muss überall „vorhanden“ sagen).
 2. Portalseite „Einrichten“ und Lesetür in den drei Apps.
 3. Weitere Rezepte, Profile nutzen Rezepte.
+
+## 14. Stage 1, built (2026-11-20, reference 0.1.323)
+
+**What is there:**
+
+- `platform/services/tenant_recipe.py` (pure): judging a recipe
+  (`recipe_problems`), its profile shape for the engine (`as_profile`:
+  needs and `tenant` become parameters, `install: true` becomes an
+  `app.install` in front), choosing the instances (`resolve_needs`,
+  S2), the preview (`preview`, `preview_blockers`), the tenant_admin
+  scope (`tenant_admin_scope_problems`, on the filled steps, S5 — used
+  from stage 2).
+- `tenant_build`: run ids `r-…` beside `b-…`, log events
+  `tenant.recipe.*` for a run.
+- `appctl`: recipes in `/var/lib/oaap/recipes/`, runs in
+  `data/tenant-recipe-runs/`, history per digest as for profiles;
+  `oaap tenant recipe list | preview <id> --tenant <label> [--param
+  need=<instance>] [--param key=value] | run … | runs | show <run> |
+  continue | confirm | rollback [--yes]`. Root / server_admin only.
+- Need values: `{n}` = the instance's name in the tenant, `{n_key}` = its
+  key on the node (a key is not always `<label>-<name>`, the default
+  tenant has none), `{tenant}` = the label.
+- Recipe `oaap-docs/szenarien/rezepte/hilfe-assistent.json` 1.0.0,
+  parameters `model` (default `standard`) and `ceiling` (default
+  `yellow`).
+- `oaap.core.tenant` 1.12, §2.13, conformance test 32.
+- Tests: `test/test_tenant_recipe.py` 52/52; the build tests unchanged
+  green (test_tenant_build 86, test_profile_versions 32,
+  test_tenant_build_destination 30, _config 12, _apps 50,
+  test_build_rollback_accounts 33, test_tenant_build_doors 41,
+  test_tenant_build_page 71). No full suite.
+
+**Measured on oaap-test** (0.1.323 staged): tenant `rzt` with help,
+mcp-gateway, ai-gateway and chat installed by hand, master keys by hand,
+supplier `openrouter` (red) and model name `chat-default` by hand — the
+state of `pxx` this morning.
+
+| Check | Result |
+|---|---|
+| preview | four steps "wird angelegt", the same notes as the hand-made setup of `pxx` |
+| run | done; destination added and bound, client `rzt-chat`, light, view, profile, assistant made |
+| second preview | all four "vorhanden" |
+| second run | done, nothing made |
+| rollback of the first run | exactly its seven items, in reverse; log `tenant.recipe.rollback` per item |
+| another tenant's instance (`--param chat=vuebung-chat`) | refused, names the tenant's own |
+| unknown tenant / tenant without the apps / two chats | refused, each with its sentence |
+| run after rollback | refused by the preview, no run recorded (finding B) |
+
+**Findings:**
+
+- **A — two runs in one second shared an id** (found by the test): the
+  second state overwrote the first, and with it the first run's undo.
+  Fixed: a taken id gets `-2`, `-3`.
+- **B — undo, then run again, conflicts.** The MCP gateway keeps a
+  revoked access profile and a removed assistant under their id for ever
+  (known since RFC-0104 stage 2); the preview says so and the run does
+  not start. So "Rückgängig" is final for those items today. A fix
+  belongs to the app: its setup door could bring back an entry that the
+  door itself removed (it records its items in `setup_items`). **Open
+  decision for Jörg (D12):** build that in mcp-gateway, or keep undo
+  final and say so on the page.
+- **C — the operator's release already has a home.** The tenant record
+  carries `tenant_admin_may` (`oaap.core.tenant` 1.7, `oaap tenant allow
+  <label> destinations`): rights a server_admin hands to one tenant's
+  tenant_admin. Stage 2 can record a recipe's release there
+  (`recipe:<id>`) instead of a new store. It also answers the open fact
+  of D5: a tenant_admin makes destinations only where the operator
+  allowed `destinations`.
+- **D — the help fetched on its own.** After the destination was bound,
+  the help instance restarted and fetched the documentation itself; the
+  step `hilfe-holen` found it present. Undo leaves the documentation
+  there (the run did not make it).
+
+**Not measured:** the preview on `pxx` (needs 0.1.323 on oaapx01: push and
+update, Jörg's word); an item a human changed surviving undo on the node
+(the app's rule, tested with RFC-0104).
+
+**Left on oaap-test:** tenant `rzt` with its four instances and two runs
+(one rolled back), the recipe in `/var/lib/oaap/recipes/`, the tree
+`~/ref-0.1.323`.
+
+## Deutsche Zusammenfassung (Stufe 1 gebaut)
+
+**Gebaut (Referenz 0.1.323):** Rezepte laufen über die Kommandozeile
+(`oaap tenant recipe preview | run | rollback …`), nur für den Betreiber.
+Sie nutzen dieselbe Aufbau-Maschine und dieselben Schritte wie Profile.
+Das erste Rezept ist „Hilfe-Assistent im Chat“; es liegt in oaap-docs.
+
+**Gemessen auf oaap-test** mit einem Mandanten im Zustand von pxx heute
+Morgen:
+
+- Vorschau: vier Schritte „wird angelegt“.
+- Lauf: fertig.
+- Zweite Vorschau: alles „vorhanden“; ein zweiter Lauf legt nichts an.
+- Rückgängig nimmt genau die sieben Dinge des Laufs zurück.
+- Fremde Instanzen, fehlende Apps und mehrere Chats werden abgelehnt.
+
+**Befunde:**
+
+- A: Zwei Läufe in derselben Sekunde hatten dieselbe Kennung. Behoben.
+- B: Nach dem Rückgängigmachen geht ein neuer Lauf nicht, weil das
+  MCP-Gateway widerrufene Profile und Assistenten für immer unter ihrer
+  Kennung behält. Die Vorschau fängt das ab. **Entscheidung D12:** Das
+  Gateway reaktiviert, was seine Einrichtungstür selbst entfernt hat, oder
+  „Rückgängig“ bleibt für diese Teile endgültig.
+- C: Für die Freigabe durch den Betreiber gibt es schon einen Ort:
+  `tenant_admin_may` am Mandanten (wie `oaap tenant allow … destinations`).
+  Stufe 2 kann Rezept-Freigaben dort eintragen.
+- D: Die Hilfe holt ihre Doku nach dem Zuordnen selbst.
+
+**Noch nicht gemessen:** die Vorschau auf pxx. Dafür braucht es Push und
+Update von oaapx01 auf 0.1.323; das geschieht nur auf dein Wort.
