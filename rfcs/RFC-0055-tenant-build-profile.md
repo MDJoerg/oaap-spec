@@ -2,7 +2,7 @@
 
 - **Status:** **Accepted (2026-10-03)** — Jörg decided the four open questions
   of idea I-33 one by one (§9). **Stages 1–4 built (2026-10-03, §10–§13); profile upload and
-  app choice §14; choosing apps at the start §15 (2026-11-07); configuration values in a build §16 (2026-11-11).**
+  app choice §14; choosing apps at the start §15 (2026-11-07); configuration values in a build §16 (2026-11-11); names an operator sets (`distinct`) and `--purge-accounts` §18 (2026-11-20).**
 - **Date:** 2026-10-03
 - **Authors:** Jörg (the wish: build tenants from portal or app), Claude
   (survey of today's steps, write-up)
@@ -192,6 +192,11 @@ build for the same label). A rule tested at one door is not tested.
   unfinished rollback). Without it the data a removed instance left behind
   keeps the tenant from being removed, and rollback stops there and says why
   (measured, §10).
+- The same for the tenant's **local accounts** (2026-11-20, §18): they are
+  kept unless the operator says they may go: `--purge-accounts` (the
+  tick on the build page, `purge_accounts: true` in the API). Without it a
+  rollback of a build that made the tenant is refused **before it starts**
+  when the tenant has accounts, and names them.
 - A rollback that cannot finish leaves state `failed` with the remaining
   `made` entries, so it can be continued.
 - Nothing is ever removed that this build did not create, even if the label
@@ -596,6 +601,33 @@ Specified in RFC-0079; in short, for the profile language:
   `oaap.apps.runtime` 2.8). It produces a value only into an empty key and
   never replaces one.
 
+## 18. Names an operator sets, and accounts that go with the tenant (2026-11-20, reference 0.1.318)
+
+Found with `kit1` on oaapx01 (RFC-0104, 2026-11-19).
+
+- **`distinct` on a parameter.** A parameter of kind `word` or `text` may
+  name a group: `"distinct": "<group>"`. All parameters of one group must
+  have different values; two that came out the same are a problem before
+  the start, naming both. Made for instance names an operator may change
+  in the form: the profile `ki-arbeitsplatz` 2.2.0 has `name_help`,
+  `name_tools`, `name_models`, `name_chat`, `name_cases` (kind `word`,
+  default the old names, group `instanz`), and every step and setup item
+  derives from them (`{name_help}`, `{label}-{name_help}`), so a changed
+  name reaches every reference without a second place to edit.
+- **`--purge-accounts`.** The first administrator a build waits for is a
+  local account of the tenant, and an account holds the tenant: the
+  rollback of kit1 stopped at the tenant, and the account could not be
+  deleted because it was the last `tenant_admin`. With the operator's
+  word the tenant step now deletes every local account of the tenant
+  first (identity `_delete_tenant_accounts`): only a `server_admin` may,
+  never an account holding `server_admin`, never one with a working API
+  key -- all or nothing, one refusal deletes nobody -- and never the
+  default tenant (an empty reference would mean it). The last-tenant_admin
+  rule does not apply: the tenant goes, nobody is left to manage. Realm
+  persons are not local accounts and stay. Each deleted account writes
+  `user.delete` with "Rückbau des Mandanten" into the tenant log. The
+  preview (`rollback` without `--yes`) names the accounts.
+
 ## Zusammenfassung für Jörg (Deutsch)
 
 **Was das ist:** Ein **Profil** ist eine kleine Datei auf dem Knoten. Sie sagt,
@@ -713,3 +745,18 @@ Parameter), nach dem `app.install`. Er nimmt denselben Weg wie
 `oaap app config set`. Der Wert steht nie in einem Hinweis oder Protokoll.
 Erzeugte Werte (VAPID) sind noch nicht dabei: Ob der Knoten oder die App sie
 erzeugt, klären wir zuerst mit dem App-Autor.
+
+### Nachtrag §18 (Deutsch, 2026-11-20)
+
+- **Wählbare Instanznamen:** Ein Parameter kann `"distinct": "<gruppe>"`
+  tragen. Alle Parameter derselben Gruppe müssen verschiedene Werte haben,
+  sonst lehnt der Start ab. Das Profil `ki-arbeitsplatz` 2.2.0 schlägt die
+  bisherigen Namen vor (`hilfe`, `werkzeuge` …), man kann sie im Formular
+  vor dem Start ändern (z. B. `help`). Alle Bezüge leiten sich daraus ab.
+- **Rückbau mit Konten:** `--purge-accounts` (bzw. der Haken auf der Seite)
+  löscht vor dem Mandanten alle lokalen Konten darin, auch den letzten
+  tenant_admin. Nie einen server_admin, nie ein Konto mit gültigem
+  API-Schlüssel, nie den Standard-Mandanten; alles oder nichts. Personen im
+  Realm bleiben. Ohne Haken lehnt der Rückbau gleich zu Beginn ab und nennt
+  die Konten, statt auf halbem Weg stehen zu bleiben.
+

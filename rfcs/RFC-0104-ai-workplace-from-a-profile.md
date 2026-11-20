@@ -297,7 +297,14 @@ In `oaap-docs/szenarien/profile/ki-arbeitsplatz.json`, next to
      gateway list), so the ids in setup items below are keys. Profile
      2.0.0 named the instances `{label}-hilfe` and got keys
      `{label}-{label}-hilfe`; `refresh` then found no server (measured
-     with kit1 on oaapx01, 2026-11-19), fixed in 2.1.0.
+     with kit1 on oaapx01, 2026-11-19), fixed in 2.1.0. **2.2.0
+     (2026-11-20, Jörg: the operator decides the names before the
+     start):** the five names are parameters `name_help`, `name_tools`,
+     `name_models`, `name_chat`, `name_cases` (kind `word`, default the
+     names above, all in the `distinct` group `instanz`, RFC-0055 §18);
+     every step and setup item derives from them. The `client` item
+     carries `tenant: {label}` (`oaap.ai.gateway` 0.7, ai-gateway 0.10.1),
+     so the chat's usage rows name the tenant instead of `default`.
   3. `app.config` `modelle` `AIGW_MASTER_KEY` `generate: true`.
   4. `destination.ensure` `docs-origin` → `hilfe`, target
      `https://codeload.github.com/MDJoerg/oaap-docs`, auth `none`;

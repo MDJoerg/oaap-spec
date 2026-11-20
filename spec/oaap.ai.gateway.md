@@ -1,7 +1,7 @@
 # oaap.ai.gateway — AI Supply Behind One Keyed Endpoint
 
 - **ID:** `oaap.ai.gateway`
-- **Version:** 0.6.0 (a request may carry `X-OAAP-Light`, an additional ceiling for that request only that can tighten the key's ceiling and never loosen it -- the light a person chose for a chat conversation, RFC-0101; usage rows record it, §7, §9 test 12; additive. 0.5.3: a key that names aliases it can never reach under its ceiling is still issued, but the operator is told so, at issuing, at changing the aliases and in the key list, §7 (L14); a supplier that is always stripped of sampling parameters stores that, §4.2 (L15) -- reference app 0.8.1). 0.5.2 (the aliases of a valid key **may be changed** without a
+- **Version:** 0.7.0 (**built from a profile**: a setup door with the kinds `supplier`, `alias` and `client`, and a grant of kind `client` that authorises a chat of the platform through the via door without a key, the person never recorded; a grant may carry the context `tenant`, §7a, RFC-0104; additive, reference ai-gateway 0.10.1). 0.6.0 (a request may carry `X-OAAP-Light`, an additional ceiling for that request only that can tighten the key's ceiling and never loosen it -- the light a person chose for a chat conversation, RFC-0101; usage rows record it, §7, §9 test 12; additive. 0.5.3: a key that names aliases it can never reach under its ceiling is still issued, but the operator is told so, at issuing, at changing the aliases and in the key list, §7 (L14); a supplier that is always stripped of sampling parameters stores that, §4.2 (L15) -- reference app 0.8.1). 0.5.2 (the aliases of a valid key **may be changed** without a
   new secret, audited old → new, effective from the next request; light and
   release stay as issued, §2; additive. 0.5.1: a supplier may be marked to receive no sampling
   parameters, §4.2; additive. 0.5: keys may expire; keys issued for a cohort of a
@@ -397,6 +397,63 @@ before `red`, and an operator who wants otherwise says so explicitly.
 **Sovereignty is thus what happens when nobody configures anything** —
 which is the only form of it that survives daily use.
 
+## 7a. Built from a profile: the setup door and the grant for a chat (0.7, RFC-0104)
+
+A tenant build (`oaap.core.tenant`, RFC-0055) may set a gateway up, and a
+chat of the same tenant reaches it without an API key. Both are optional
+for an implementation; a gateway that offers them declares them in its
+manifest (`oaap.apps.runtime` 2.39).
+
+### The setup door
+
+- Declared as `setup: {path: <path>}`. The platform calls it with
+  `Authorization: Bearer <OAAP_SETUP_KEY>` -- a value only the platform
+  holds -- and `X-OAAP-Setup-Actor: <who started the build>`, which the
+  gateway writes into its own audit as `setup:<who>`. Without the key the
+  door is `403`, whatever identity headers come with the call; without
+  `OAAP_SETUP_KEY` in its environment, every call is `403`.
+- The calls, results and the "never overwrite what a human made" rule are
+  those of RFC-0104 §3.1 (`present`, `made`, `would_make`, `conflict`,
+  `refused`, `removed`, `gone`). A field named like a secret (`key`,
+  `token`, `secret`, `password`, `credentials`, `credential`, `api_key`)
+  is `refused`: credentials are typed by a human on the gateway's page.
+- Kinds:
+
+| Kind | Item | `ready` |
+|---|---|---|
+| `supplier` | `{"id", "url": "https://…/v1", "light"}`, **without** credentials | credentials stored **and** the supplier's test answers 2xx now |
+| `alias` | `{"id": <model name>, "supplier", "model"}`, exactly one target | the name routes |
+| `client` | `{"id": <chat instance key>, "aliases": [...], "ceiling", "personal_data", "tenant"?}`, the grant below | not revoked, not expired |
+
+- `remove` takes back only what setup made and only while it is still
+  as made (a digest of the item as the gateway read it after making it).
+  A supplier for which a human has stored credentials stays (`conflict`:
+  only a human deletes those); a model name still named by a key or grant
+  that is not revoked stays; a grant that already has usage rows is
+  revoked instead of deleted, so its usage keeps an owner.
+
+### The grant for a chat
+
+- A row of kind `client` in the key table, label = the chat instance's
+  node key, **without** a usable digest: no bearer value matches it, and
+  the key lookup never returns it.
+- A request counts as one through the platform's via door only when all
+  three are present: `X-OAAP-AI-Client` (set by the door), `X-OAAP-User-Id`
+  and `X-OAAP-User-Assertion`. The platform strips the identity headers on
+  the public `/v1`, so `X-OAAP-AI-Client` alone takes the ordinary path
+  over the API key. A client without a usable grant gets the same `403` as
+  an unknown key, and it is not counted as a failed attempt.
+- The grant's model names, ceiling, personal-data release, budget and
+  rate apply exactly as for a key (§2, §7). Its usage rows carry the
+  grant's `key_id` and context like any key's (§5).
+- **The person is never recorded** (§6): it is checked for presence only.
+- **Context `tenant` (0.7).** An optional `tenant` on the `client` item is
+  the grant's context "tenant" and so stands in every usage row of the
+  chat; without it the context is `default`, as for a key issued without
+  one. It is compared only when the item names it, so a grant made before
+  is unchanged. Measured on kit1 (oaapx01, 2026-11-19): without it every
+  row said `default`.
+
 ## 8. Errors
 
 | Situation                          | Answer                                                            |
@@ -461,6 +518,17 @@ which is the only form of it that survives daily use.
     succeeds and its usage row records `light = green`; **bait:** `red` on
     a key with ceiling `yellow` does not reach a red alias; an unknown
     value is `400` (0.6).
+
+13. The setup door without `OAAP_SETUP_KEY` is `403`, also with identity
+    headers of an administrator; with it, the same POST gives `made` then
+    `present`; a `supplier` item with a field `key` is `refused`; a
+    supplier for which a human stored credentials is a `conflict` on
+    `remove` and stays (0.7).
+14. A request through the via door with all three headers is authorised
+    by the chat's grant and its usage row carries the grant's `key_id`
+    and, if set, its `tenant`; **bait:** `X-OAAP-AI-Client` alone, or a
+    grant's digest sent as bearer, gets `403`; the person's id is found
+    nowhere on disk (0.7).
 
 ## 10. Dependencies
 
@@ -646,3 +714,25 @@ Sperrt nur die Ampel des Gesprächs, antwortet das Gateway mit 503
 `conversation_light` und nennt beide Farben. `/v1/models` zeigt dann nur die
 erreichbaren Namen. Ein unbekannter Wert wird mit 400 abgelehnt. Die
 Messzeile hält die verlangte Farbe fest (Spalte `light`, kein Inhalt).
+
+### Nachtrag 0.7 (Deutsch, RFC-0104)
+
+Neuer Abschnitt §7a: Ein Gateway lässt sich beim Aufbau eines Mandanten
+aus einem Profil **einrichten**, und ein Chat desselben Mandanten erreicht
+es **ohne API-Schlüssel**.
+
+- **Einrichtungstür:** Die Plattform ruft sie mit einem Schlüssel, den nur
+  sie hält (`OAAP_SETUP_KEY`). Ohne diesen Schlüssel ist die Tür zu, auch
+  für eine Verwaltung. Sie kennt drei Arten: Bezugsquelle (ohne
+  Zugangsdaten, die tippt ein Mensch), Modellname und Freigabe für einen
+  Chat. Was ein Mensch geändert hat, wird nie überschrieben und beim
+  Rückbau nicht entfernt.
+- **Freigabe für einen Chat:** eine Zeile der Art `client` ohne
+  benutzbaren Schlüsselwert. Ein Aufruf gilt nur dann als einer über die
+  Tür der Plattform, wenn drei Kopfzeilen da sind: Chat, Kennung der
+  Person und ihre Zusicherung. Modellnamen, Ampel, pbD-Freigabe, Budget
+  und Rate wirken wie bei einem Schlüssel. Die Person wird nie
+  gespeichert.
+- **Mandant an der Freigabe:** Das optionale Feld `tenant` setzt den
+  Kontext „Mandant“. Dann steht er in jeder Messzeile des Chats. Ohne das
+  Feld steht dort `default`, so wie bei kit1 am 19.11. gemessen.
