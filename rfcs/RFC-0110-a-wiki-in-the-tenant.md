@@ -1,6 +1,7 @@
 # RFC-0110: A Wiki in the Tenant — a Contract for Knowledge, BookStack as the First Connector
 
-- **Status:** **Draft (2026-11-20)** — D1–D10 open. Nothing built. The
+- **Status:** **Accepted (2026-11-20)** — D1–D10 as recommended (Jörg:
+  "Ja, wie empfohlen"). Nothing built. The
   facts in §1 were measured the same day on oaap-test with a loose probe
   (`oaap-lab/wiki-probe`), not with a package and not through the OAAP
   gateway.
@@ -238,6 +239,8 @@ The index service (I-65) can start after stage 3; it needs `changes`,
 
 ## 8. Decisions for Jörg
 
+**Decided 2026-11-20: D1–D10 as recommended.**
+
 - **D1 — BookStack as the first connector?** *Recommendation: yes.* It
   passed all five measurements; the one gap (F2) closes outside its
   code.
@@ -330,7 +333,8 @@ MCP-Quelle, der Chat findet und zitiert Wiki-Seiten; (3) Schreiben und
 Änderungsereignisse; (4) Spec 0.1; (5) ein zweites Produkt als Probe
 auf den Vertrag.
 
-**Entscheidungen D1–D10**, alle offen, mit Empfehlung: BookStack zuerst
+**Entscheidungen D1–D10**, am 20.11.2026 von Jörg wie empfohlen
+angenommen: BookStack zuerst
 (ja); das Wiki entscheidet allein (ja); Datenbank-Eintrag für die
 Tokens (ja, nur dort, mit Prüfung); Adapter im Paket (ja); Rollen bei
 jedem Aufruf aus der Zusicherung (ja); wer das Wiki nie geöffnet hat,
