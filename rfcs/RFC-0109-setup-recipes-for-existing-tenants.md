@@ -12,6 +12,10 @@
   help 0.8.0, ai-gateway 0.12.0, mcp-gateway 0.30.0, recipe
   `hilfe-assistent` 1.1.0; measured on oaap-test with a `tenant_admin`
   through the real portal page; §16.
+  **Stage 3 built** (Jörg: "Stufe 3 bauen"): reference 0.1.325,
+  vorgaenge 0.12.0, mcp-gateway 0.31.0, recipe `sap-sso` 1.0.0; requests
+  to the operator, the SAP SSO steps, `recipe.apply`, the links of §7;
+  measured on oaap-test; §17.
 - **Date:** 2026-11-20
 - **Authors:**
   - Jörg, 2026-11-20, in the tenant `pxx` on oaapx01: help, MCP gateway,
@@ -748,3 +752,135 @@ Geheimnis.
 **Offen:** der Link „Einrichten…“ auf der Instanzseite und nach einem
 Aufbau, dazu Stufe 3 (Anfragen an den Betreiber als Vorgang, Rezept „SAP
 SSO einrichten“, `recipe.apply` in Profilen).
+
+## 17. Stage 3, built (2026-11-20, reference 0.1.325)
+
+**What is there:**
+
+- **Requests to the operator** (§13, D10). The open fact of §13 is
+  answered: `vorgaenge` takes a case from the platform through the node
+  door it already had (RFC-0069 stage 2) with two additions (0.12.0):
+  `object: request` with `from` (tenant and person; the attestation stays
+  the node's principal), and `op: read` (state and the replies of the
+  people working the case -- never an internal entry, never the node's
+  own, only its own cases). The operator names the inbox
+  (`oaap tenant recipe inbox <instance>|off`, card on *Aufbau*): a
+  production `vorgaenge` of the node's own tenant. A `tenant_admin` asks
+  on *Einrichten* (a recipe of the node -- also an unreleased one -- and/or
+  a text), also straight from a preview that stops; the request carries
+  the values given, the text and the preview as that person saw it.
+  Without an inbox, or when it does not answer: the notification
+  `recipe.request` to the node's lists. Replies are read back every ten
+  minutes and on "Stand holen". A release answers the open requests for
+  that recipe and notes it in their cases. `oaap.core.tenant` 1.14,
+  `oaap.core.updates` 0.10, `oaap.core.notifications` 0.13.
+- **SAP SSO** (§12, D8). New steps, in recipes and profiles:
+  `idp.claim` (connector verb `claims`: attribute editable by
+  administrators only, client scope with mapper, default scope on the
+  platform client -- only added, never removed), `manual` with
+  `done_when: server.compared` (confirmed WITH the fingerprint a human
+  compared; the portal sends the one the node offered, after a tick),
+  `destination.ensure` with `auth: principal_propagation` and `pin_step`
+  (never a fingerprint in a file), `manual` with
+  `done_when: destination.check` (the chain test of RFC-0096), and
+  `destination.bind` with `propagate: "true"` as a step of its own after
+  the chain test. The MCP gateway's setup door gained the kind `server`
+  (only `destination:<binding>[/path]`; mcp-gateway 0.31.0,
+  `oaap.ai.mcp-gateway` 0.29.0). Recipe `sap-sso` 1.0.0 in
+  `oaap-docs/szenarien/rezepte/`: ten steps -- attribute, fingerprint,
+  destination, SAP Basis checklist (STRUST, CERTRULE, RZ10, SICF,
+  `OAAP_CHECK`), chain test, person, server, the persons' SAP users,
+  catalog read by a person, view + profile + assistant.
+  Released, these steps are inside the `tenant_admin`'s scope: the
+  release is the moment the operator says "this tenant may connect its
+  own SAP system" (§12); principal propagation carries no secret.
+- **`recipe.apply`** (D9): a profile step expanded when the profile is
+  read (ids prefixed, needs as instances of the build, `{need_key}` as
+  `{label}-<instance>`, `{tenant}` as `{label}`, values from `with`); a
+  build pins the digest of every recipe file it expanded.
+- **§7 links**: "Einrichten…" on an instance's page (the recipes that
+  need its app, the instance prefilled); a finished build links to the
+  tenant's *Einrichten*. `oaap.core.portal` 0.3.58.
+- **Two rules found while building and measuring:**
+  - A `confirmed` step is asked once per tenant: present when the latest
+    finished run of the recipe confirmed it (else a second preview could
+    never say "everything present" for `sap-sso`).
+  - Behind a `manual` step that still waits, a conflict is `later`
+    ("erst danach prüfbar"), not a blocker -- measured: in the preview of
+    `sap-sso` in `rzt` the view was refused because the server and its
+    catalog only come into being during the run (a person reads it).
+- **A fix of stage 2**: continue and confirm by a `tenant_admin` read the
+  run's values under the wrong key (`values` instead of `params`) and
+  refused at the first placeholder; `hilfe-assistent` has no waiting step,
+  so it never showed. Found by the new test.
+- Tests: new `test_recipe_request.py` (52), `test_recipe_sap_sso.py`
+  (the whole run on a paper node: preview, fingerprint refused/accepted,
+  chain test holding the run, person carried only in its own step,
+  second preview all present, undo), `test_recipe_apply.py`;
+  `test_tenant_recipe_page.py` extended (pinning, instance link);
+  adjusted `test_tenant_build_page.py` (one more form) and
+  `test_tenant_build_destination.py` (principal propagation only with a
+  pin step). Apps: `vorgaenge/test_request.py` (new), mcp-gateway
+  `test_setup.py` 80. In the Linux runner 22 files green. No full suite.
+
+**Measured on oaap-test** (0.1.325 staged; vorgaenge 0.12.0 as the node's
+inbox, rzt-werkzeuge on mcp-gateway 0.31.0; recipes `hilfe-assistent`
+and `sap-sso` in `/var/lib/oaap/recipes`):
+
+| Check | Result |
+|---|---|
+| inbox: none / a test instance of a customer / `vorgaenge` | "no inbox", refused ("the node's own tenant"), set |
+| `oaap tenant recipe request sap-sso --tenant rzt --text …` | case V-2026-0022 in `vorgaenge`: sender "rzt · oaap-admin (über den Knoten oaap-test)", object `request`, attested by `platform:vorgaenge`, the preview's sentence in the text |
+| the same through the real portal page as `tenant_admin` of `rzt` | case V-2026-0023; the text carries "not released for 'rzt'" -- what the page had said to that person |
+| a comment, an internal comment and "answered" by a person in `vorgaenge`, then "Stand holen" | the comment and the answer on *Einrichten*, the internal one not |
+| `oaap tenant allow rzt recipe:sap-sso` | both requests "freigegeben", both cases with the note "Freigegeben für rzt: recipe:sap-sso@1" |
+| spool request past the portal: `tenant_admin` of `rzt` asks for `vuebung` | refused: own tenant only |
+| *Aufbau* as operator | the inbox selection and the open requests of all tenants |
+| kind `server` at rzt-werkzeuge's real door | dry `would_make`, made, again `present`, `ready: false` (no catalog), listed without address, removed |
+| `idp.claim` in the realm `vuebung` (Keycloak 26) | absent → added (attribute, scope, default scope) → present; the destination's own check then reads `sap_user: admin` |
+| `server.compared` against `https://oaap-demo.duckdns.org` | the fingerprint shown; with it confirmed: present |
+| `destination.ensure` with principal propagation | made, pinned to exactly that fingerprint, claim `sap_user`, check path with `sap-client` |
+| chain test | breaks at link 3 ("CA vom Ziel vertraut") with the SAP hint -- as it must against a node that is no SAP system |
+| `destination.bind` with the person, its undo, the destination's undo | carried, taken back (the binding stays), removed |
+| preview of `sap-sso` in `rzt` | `attribut` a conflict (rzt's realm was not made by a connector -- honest), the view `later` |
+
+**Not measured:** the whole recipe against a real SAP system (`bec` on
+oaapx01 has the chain by hand; a run there would meet its hand-made
+objects -- a preview there is read-only and possible on Jörg's word);
+a token carrying `sap_user` (OAAP never touches people; the claim check
+reads the profile, Keycloak's own evaluation needs a person with a value).
+
+**Left on oaap-test:** the request inbox `vorgaenge` (0.12.0 from the
+working tree, `~/apps-s3`), the requests `q-20261120t110847-rzt` and
+`q-20261120t110926-rzt` with cases V-2026-0022/0023, the release
+`recipe:sap-sso@1` for `rzt`, rzt-werkzeuge 0.31.0, in the realm
+`vuebung` the attribute `sap_user`, the client scope `sap` and its default
+assignment (never removed by design); `~/ref-0.1.325`, `~/probe_s3.py`,
+`~/probe_s3_node.py`.
+
+## Deutsche Zusammenfassung (Stufe 3 gebaut)
+
+**Gebaut (Referenz 0.1.325, Vorgänge 0.12.0, MCP-Gateway 0.31.0):**
+
+- **Anfragen an den Betreiber:** Der Betreiber benennt einen Posteingang
+  (Vorgänge im eigenen Mandanten des Knotens). Ein tenant_admin fragt
+  auf „Einrichten“ an – auch direkt aus einer angehaltenen Vorschau. Die
+  Plattform schreibt den Vorgang; der Mandant braucht dort nichts. Ohne
+  Posteingang geht eine Nachricht an den Betreiber. Antworten stehen auf
+  „Einrichten“; eine Freigabe beantwortet die Anfrage.
+- **SAP SSO einrichten:** Rezept `sap-sso` mit neuen Schritten:
+  Attribut und Scope im Anmeldedienst, Fingerabdruck vergleichen und
+  bestätigen, Destination gepinnt, SAP-Basis-Liste, Kettentest, dann erst
+  die Person durchreichen; Server, Sicht, Profil und Assistent im
+  MCP-Gateway.
+- **Rezepte in Profilen** (`recipe.apply`) und die Links „Einrichten…“
+  auf der Instanzseite und nach einem Aufbau.
+
+**Gemessen auf oaap-test:** Anfragen über Kommandozeile und echte Seite
+als echte Vorgänge, Antwort zurückgelesen (ohne Internes), Freigabe mit
+Vermerk im Vorgang, Köder abgelehnt; Attribut und Scope in einem echten
+Keycloak-Realm; Fingerabdruck, gepinnte Destination, Kettentest (bricht
+erwartungsgemäß ohne SAP), Durchreichen und Rückbau.
+
+**Offen:** ein Lauf gegen ein echtes SAP-System (in bec nur auf Jörgs
+Wort; dort ist die Kette von Hand gebaut, die Vorschau würde das zeigen).

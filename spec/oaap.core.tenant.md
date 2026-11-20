@@ -1,7 +1,7 @@
 # oaap.core.tenant — Account and Tenant, the Boundary of Belonging
 
 - **ID:** `oaap.core.tenant`
-- **Version:** 1.13 (setup recipes, stage 2: a value CHOSEN from an app's list (`setup_item`, read through the setup door's `GET ?kind=`), a `light` that follows the chosen item and is never stricter than it can reach; the operator RELEASES a recipe for a tenant (`recipe:<id>@<major>` in `tenant_admin_may`), after which that tenant's `tenant_admin` runs it -- own tenant only, the filled steps inside the scope -- 2.13, conformance test 33, RFC-0109 stage 2). 1.12 (setup recipes: a short list of a profile's steps, without those that create or shape a tenant, run by the operator against a tenant that EXISTS; its needs name apps and resolve to that tenant's instances only; a preview first, a conflict stops before anything happens; runs `r-...` beside the builds, undo per run, log `tenant.recipe.*` -- 2.13, conformance test 32, RFC-0109 stage 1). 1.11 (a gateway's sign-in clients, 2.9.1, may be requested by the `tenant_admin` of the instance's tenant too, not only by the operator: the request chooses nothing -- L4, reference 0.1.309). 1.10 (the client of an app: an app that declares `identity.oidc_client` (manifest 0.16) gets ONE confidential client `oaap-app-<instance>` in its tenant's space, made by the connector on an operator's request, disabled at removal -- 2.9.2, conformance test 31, RFC-0091 stage 3). 1.9 (a platform role per realm group: `role_map`, written by `server_admin`, only `guest`, `partner`, `user`, synced at every provider login for the roles it gave and never for hand-given ones -- 2.8.1, conformance test 30, RFC-0091 stage 2). 1.8 (brokers in front of a tenant's realm are doors: read, judged open or closed, counted by the §2.8 refusal, acknowledged closed only by the operator with a reason, read daily -- 2.10.1, conformance test 29, RFC-0091 stage 1). 1.7 (the tenant record carries `tenant_admin_may`: rights a `server_admin` hands to this tenant's `tenant_admin`, first `destinations` -- 1.1 table, `oaap tenant allow|disallow`, `oaap.net.destinations` 2.7.1). 1.6 (the bindings follow an issuer change **of the same space**: same connector, same name, same id at the provider, 2.11, conformance test 25, RFC-0073 T6; 1.5: the **clients of an MCP gateway**: a connector makes them on an
+- **Version:** 1.14 (setup recipes, stage 3: requests to the operator as cases -- the PLATFORM writes them into the node's request inbox through the cases app's node door, else as a message; new steps `idp.claim` and `destination.bind`, `destination.ensure` with principal propagation pinned to a fingerprint a human confirmed (`manual` with `done_when: server.compared`), the chain test as `done_when: destination.check`; `recipe.apply` in profiles -- 2.13, conformance test 34, RFC-0109 stage 3). 1.13 (setup recipes, stage 2: a value CHOSEN from an app's list (`setup_item`, read through the setup door's `GET ?kind=`), a `light` that follows the chosen item and is never stricter than it can reach; the operator RELEASES a recipe for a tenant (`recipe:<id>@<major>` in `tenant_admin_may`), after which that tenant's `tenant_admin` runs it -- own tenant only, the filled steps inside the scope -- 2.13, conformance test 33, RFC-0109 stage 2). 1.12 (setup recipes: a short list of a profile's steps, without those that create or shape a tenant, run by the operator against a tenant that EXISTS; its needs name apps and resolve to that tenant's instances only; a preview first, a conflict stops before anything happens; runs `r-...` beside the builds, undo per run, log `tenant.recipe.*` -- 2.13, conformance test 32, RFC-0109 stage 1). 1.11 (a gateway's sign-in clients, 2.9.1, may be requested by the `tenant_admin` of the instance's tenant too, not only by the operator: the request chooses nothing -- L4, reference 0.1.309). 1.10 (the client of an app: an app that declares `identity.oidc_client` (manifest 0.16) gets ONE confidential client `oaap-app-<instance>` in its tenant's space, made by the connector on an operator's request, disabled at removal -- 2.9.2, conformance test 31, RFC-0091 stage 3). 1.9 (a platform role per realm group: `role_map`, written by `server_admin`, only `guest`, `partner`, `user`, synced at every provider login for the roles it gave and never for hand-given ones -- 2.8.1, conformance test 30, RFC-0091 stage 2). 1.8 (brokers in front of a tenant's realm are doors: read, judged open or closed, counted by the §2.8 refusal, acknowledged closed only by the operator with a reason, read daily -- 2.10.1, conformance test 29, RFC-0091 stage 1). 1.7 (the tenant record carries `tenant_admin_may`: rights a `server_admin` hands to this tenant's `tenant_admin`, first `destinations` -- 1.1 table, `oaap tenant allow|disallow`, `oaap.net.destinations` 2.7.1). 1.6 (the bindings follow an issuer change **of the same space**: same connector, same name, same id at the provider, 2.11, conformance test 25, RFC-0073 T6; 1.5: the **clients of an MCP gateway**: a connector makes them on an
   operator's request and only ever disables them, 2.9.1, RFC-0073 stage 3; `tenant check`
   asks the provider whether a tenant's client is there, 2.1, conformance test 28;
   1.4: a provisioned space gets the node's mailbox and German as its
@@ -795,6 +795,17 @@ are the club's, not the platform's. This rule SHOULD sit on the path
 every call takes rather than in the absence of a call, because absence
 is not enforceable.
 
+**Claims (1.14, RFC-0109 section 12).** A connector MAY declare the verb
+`claims`: inside a space that already exists it ADDS, each only when
+missing, the attribute the platform propagates (`sap_user` or
+`sap_user_<x>`, editable by administrators only -- the property
+`oaap.net.destinations` 2.9.6 reads before it trusts a claim), a client
+scope that puts that attribute into the ID token under the same name, and
+that scope among the default scopes of the client the tenant's provider
+object names. An attribute the person may edit, or a scope of that name
+that does not carry the attribute, is a conflict and is not changed. The
+verb never removes and never touches a person.
+
 **Nothing is half-made.** The version MUST be checked before anything
 is created, and a refusal MUST name the call, both versions and the way
 forward. An implementation that cannot complete an operation MUST stop
@@ -1232,6 +1243,80 @@ made for apps that were installed by hand.
   withdrawn release does not keep a tenant from removing what a run made)
   and never removes instances. The release is the operator's permission
   for exactly that recipe's steps.
+- **Steps inside a realm and with the person (1.14, RFC-0109 section 12).**
+  - `idp.claim` (`claim`: `sap_user` or `sap_user_<x>`, `scope`, default
+    `sap`) works inside the realm the tenant ALREADY has, through the
+    connector that made it (verb `claims`, 2.9): the
+    attribute (only administrators may edit it), a client scope with a
+    mapper that puts it into the ID token, that scope among the platform
+    client's default scopes. Each part is only ADDED; one that is there
+    and differs is a conflict; nothing is ever removed, so an undo leaves
+    the realm as it is. A realm not made by a connector of this node is a
+    conflict with the sentence that a human sets it in the console.
+  - `manual` with `done_when: server.compared` (`target`): the node reads
+    the target's server certificate and shows its SHA-256; the step is
+    confirmed WITH the fingerprint the human compared, which must equal
+    the one offered; it is present while the target still presents it.
+    A destination of the tenant already pinned to it at that target makes
+    it present at once.
+  - `destination.ensure` with `auth: principal_propagation` names such an
+    EARLIER step in `pin_step` (same `target`) and is pinned to exactly
+    the confirmed fingerprint; optional `claim`, `name_check` (`sap`),
+    `check_path`. Never a fingerprint in a recipe or profile. It binds
+    the instance WITHOUT carrying the person.
+  - `manual` with `done_when: destination.check` (`destination`): the
+    chain test of `oaap.net.destinations` (RFC-0096); waiting, it names
+    the link that breaks.
+  - `destination.bind` (`name`, `destination`, `need`, `propagate`
+    `"true"`/`"false"`): a step of its own, so the person is carried only
+    after the chain test held; undo of a propagation takes back only the
+    propagation.
+  - A `confirmed` step of a recipe is present in a preview or a later
+    run when the latest FINISHED run of that recipe in that tenant
+    confirmed it (a rolled-back run does not count).
+  - Preview: behind a `manual` step that still waits, a conflict of a
+    later step is `later` ("erst danach prüfbar"), not a blocker -- what
+    an app says now may depend on that human; the run checks the step
+    again before it does it.
+  - Scope (1.13) widened: in a released recipe `idp.claim`,
+    `destination.bind` and `destination.ensure` with principal
+    propagation are inside the `tenant_admin`'s scope -- the release is
+    the operator saying "this tenant may connect its own SAP system";
+    principal propagation carries no secret.
+- **Requests to the operator (1.14, RFC-0109 section 13).**
+  - The operator names ONE request inbox: a production instance of the
+    cases app (`vorgaenge`) in the node's own tenant
+    (`oaap tenant recipe inbox <instance>|off`, card on *Aufbau*).
+  - A `tenant_admin` (own tenant, by id) or the operator at a tenant's
+    place asks with a recipe and/or a text (at most 2000 characters);
+    the request carries the recipe, the values given, the text, and the
+    preview **as that person saw it** (its rows, or the sentence that
+    refused it) -- nothing else, and no value under a name with a secret
+    word. At most 10 open requests per tenant.
+  - The PLATFORM writes it as a case through the inbox's node door
+    (principal `platform:<inbox>`, `object: request`, the request id as
+    `ref`, `from` naming tenant and person); the tenant needs no account,
+    key or destination in the node's tenant. Without an inbox, or when it
+    does not answer, the request goes as the notification
+    `recipe.request` to the node's lists (`oaap.core.notifications`).
+  - State and the replies of the people working the case are read back
+    (`op: read`; never an internal comment) at most every ten minutes and
+    on "Stand holen"; the tenant sees them on *Einrichten*.
+  - A release of a recipe for a tenant answers that tenant's open
+    requests for that recipe: they are marked, and their cases get a note.
+  - Log: `tenant.recipe.request`, `tenant.recipe.inbox`.
+- **recipe.apply in profiles (1.14, RFC-0109 D9).** A profile step
+  `recipe.apply` (`recipe`, `needs` as `NEED=INSTANCE[,...]`, `with` as
+  `PARAM=VALUE[,...]`, `when`) is expanded when the profile is read --
+  before the profile's checks -- into the recipe's steps: ids prefixed
+  `<step id>-`, `{need}` the named instance, `{need_key}`
+  `{label}-<instance>`, `{tenant}` the build's `{label}`, parameters from
+  `with` or their defaults (a required one missing is refused). A recipe
+  that installs an app itself (`install: true`) is refused there; a
+  recipe never contains `recipe.apply`. A build keeps the digest of every
+  recipe file it expanded and expands the same file on continue and
+  rollback; a pinned file that is no longer kept refuses with the way
+  (roll back).
 
 ### 2.5 Resolution rules
 
@@ -1617,6 +1702,22 @@ On a node with one tenant: none that anyone can observe, exactly as in
     list; nothing chosen picks the default or the only item; the `light` follows the chosen
     item and a stricter one is refused. The lists of help, ai-gateway and mcp-gateway carry
     only `id`, `title`, `light`, `light_min`, also for a supplier whose credential is set.
+
+34. **Requests and SAP SSO** (1.14). Without an inbox a request goes as `recipe.request` to
+    the node; with one, as a case through the node door whose sender is the person and whose
+    attestation is the node; a `tenant_admin` of B naming A is refused (also as a spool
+    request past the portal); a value named like a secret is refused and nothing sent; an
+    inbox in a customer's tenant or on the test channel is refused; replies are read back
+    without internal comments; a release marks the open requests for that recipe and notes
+    it in their cases. `idp.claim` adds attribute, scope and default scope once and is present
+    afterwards, an attribute the person may edit is a conflict; `server.compared` refuses a
+    confirmation without or with another fingerprint, the destination is pinned to the
+    confirmed one and `principal_propagation` without `pin_step` is refused; the chain test
+    holds the run until it holds; `destination.bind` carries the person only in its own step
+    and its undo takes back only that; the second preview finds everything present;
+    `recipe.apply` expands with prefixed ids and refuses a missing need, a missing required
+    value, an unknown parameter and a recipe that installs; continue uses the pinned recipe
+    file.
 
 ## 5. Dependencies
 
@@ -2315,3 +2416,25 @@ Einstellungen für Apps, die von Hand installiert wurden (RFC-0109, Stufe 1).
   Sonst lehnt der Knoten vor der Vorschau ab und nennt den Schritt.
   Rückgängig geht im eigenen Mandanten immer, auch nach Rücknahme der
   Freigabe.
+
+## Deutsche Zusammenfassung (1.14 — Rezepte, Stufe 3: Anfragen, SAP SSO, Rezepte in Profilen)
+
+- **Anfragen an den Betreiber:** Der Betreiber benennt einen Posteingang
+  (eine Vorgänge-Instanz im eigenen Mandanten des Knotens). Ein
+  `tenant_admin` fragt auf „Einrichten“ an; die **Plattform** schreibt
+  die Anfrage als Vorgang durch die Knotentür der App – der Mandant
+  braucht dort nichts. Mit dabei ist nur, was er eintippte, und die
+  Vorschau, wie er sie sah. Ohne Posteingang geht sie als Nachricht
+  `recipe.request` an den Betreiber. Antworten im Vorgang (nie interne)
+  stehen auf „Einrichten“; eine Freigabe beantwortet die Anfragen nach
+  dem Rezept.
+- **Neue Schritte:** `idp.claim` (Attribut nur für Admins änderbar,
+  Client Scope, Default-Scope – nur hinzufügen, nie löschen), ein
+  Fingerabdruck, den ein Mensch vergleicht und **mit dem Wert** bestätigt
+  (`server.compared`), die Destination mit Principal Propagation, gepinnt
+  auf genau diesen Wert, der Kettentest (`destination.check`) und
+  `destination.bind`, das die Person erst nach dem Kettentest
+  durchreicht.
+- **Rezepte in Profilen:** `recipe.apply` wird beim Lesen des Profils zu
+  den Schritten des Rezepts; der Aufbau merkt sich die Prüfsumme der
+  Rezeptdatei.

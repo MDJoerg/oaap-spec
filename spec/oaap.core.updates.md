@@ -1,7 +1,7 @@
 # oaap.core.updates — Platform Updates
 
 - **ID:** `oaap.core.updates`
-- **Version:** 0.9
+- **Version:** 0.10 (the node door of a cases inbox also carries a tenant's **request to the operator** -- `object: request`, `from` naming tenant and person -- and answers `op: read` with state and replies, never an internal entry, 2.7.6, `oaap.core.tenant` 1.14, RFC-0109 §13; reference vorgaenge 0.12.0). 0.9
 - **Maturity:** draft — accepted by Jörg 2026-08-06 (CLI trigger
   implemented and validated on real hardware); 0.1.1 (2026-08-07)
   updates the reserved portal-trigger role to `server_admin` per
@@ -454,6 +454,18 @@ case numbers travel with the stored plan, so the minute job writes on
 and closes the case it opened — across the reboot. An inbox that does
 not answer never holds the plan: the failure is logged, and the case
 is opened at the plan's next event.
+
+**The same door for requests (0.10, RFC-0109 §13).** The node writes a
+tenant's request to the operator (`oaap.core.tenant` 2.13) through the
+same door of the inbox the operator named: `op: open` with
+`object: request`, the request's id as `ref` (a second open with it
+returns the case), and `from` -- tenant and person as the node's record
+says; the case's sender reads "<from> (über den Knoten <node>)", and its
+attestation stays the node's principal. `op: note` may add a line in the
+same name. `op: read` returns the case's state and the entries of the
+people working it -- comments with text and status changes -- **never an
+internal entry and never the node's own**, and only for a case the node
+opened. Any other `object` is refused.
 
 #### 2.7.8 The event on a broker node (0.6, RFC-0069 stage 4)
 
@@ -1137,3 +1149,11 @@ Das „Nichts geändert"-Versprechen bleibt bestehen, aber es meint jetzt
 präzise, was es meinen sollte: kein Code installiert, kein Image gebaut,
 kein Container neu gestartet. Über den Zustand des **Knotens** hat es
 nie eine Aussage gemacht.
+
+## Deutsche Zusammenfassung (0.10 — Anfragen durch die Knotentür)
+
+Durch dieselbe Tür, durch die der Knoten seinen Neustart als Vorgang
+ankündigt, schreibt er jetzt auch die **Anfrage eines Mandanten an den
+Betreiber** (`object: request`, `from` nennt Mandant und Person) und
+liest mit `op: read` Stand und Antworten zurück – nie interne Einträge,
+nur an eigenen Vorgängen.
