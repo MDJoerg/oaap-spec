@@ -1,7 +1,7 @@
 # oaap.core.portal — Web Portal
 
 - **ID:** `oaap.core.portal`
-- **Version:** 0.3.54 (the button „Anmeldung einrichten“ on the card MCP is shown to everybody who administers the instance -- the `tenant_admin` of its tenant too, not only the `server_admin`; the request chooses nothing, 2.16, `oaap.core.tenant` 1.11, L4). 0.3.53 (the card **MCP** stands **first** on the overview tab, before what the app brings -- it was overlooked at the bottom, 2.16, L7). 0.3.52 (a tile leads a caller whom the instance's root route would refuse to the first route their roles reach -- the MCP gateway's `/me` for a person, RFC-0095 D10; display only, 2.2). 0.3.51 (the instance page offers a binding for a destination need with `any: true` -- one row, a choice of the tenant's unbound http destinations, bound under the destination's own name (`oaap.net.destinations` 0.12); the pages *Destinationen* and *Nachrichten* follow the **place** for a `server_admin` without `?tenant=` (the tenant of the address, not the node's); the card *Tunnel* warns when a target is a host NAME (the client routes IP addresses only, RFC-0060 2.3) and gives a real example; its link to *Destinationen* carries the tenant; **the page *Connector*** sets up keys, connectors and offers on either side for a `server_admin`, the key shown once, and the destination form suggests `via:` targets -- `oaap.net.connector` 0.4 §2.9). 0.3.50 (RFC-0060 stage 4, **the tunnel in the portal**: the store asks a `server_admin` to confirm an app that declares `tun` -- a card with one tick naming the app, carried with name and tenant; a `tenant_admin` is told the operator confirms; a config key with `file: true` gets a **file upload**; an instance that holds a tunnel shows the card **Tunnel** -- standing or not, its targets as `through:<instance>/<target>`; the destination form **suggests** the tunnel targets of the tenant). 0.3.49 (the store's install form takes a **name** for the first instance too (empty = the app id; the name is in the address), and a `server_admin` on a multi-tenant node **chooses the tenant** -- preset to the tenant of the address, else `default`; a `tenant_admin` is told their own; the host judges the choice again like a creation permit's -- and the instance list shows **installs under way** with their state and age, reloading every 15 s -- found while Jörg built `ais` on oaap-demo: three instances landed unannounced in the signed-in user's tenant, and a long install was invisible once the page was left). 0.3.48 (for `server_admin` and `support`, the header shows the node's **name in the fleet** left of the user menu, and the page title reads `<view> | <name> | OAAP` -- a tenant's people see neither, the name is internal, RFC-0082; page titles are separated by `|`). 0.3.47 (the health page's card **Geheimnisdateien**: findings of the daily self-check, refused requests of 24 h per instance -- `oaap.core.gateway` 0.2.22, RFC-0084). 0.3.46 (the tab **Berichte** on *Nachrichten* and the routing column **nur im Bericht** -- `oaap.core.notifications` 2.9, RFC-0083; *Gebremste Anfragen* says how many addresses in how many minutes; the jump marks drop a heading's trailing parenthesis and wrap onto a second row from 900 px instead of scrolling -- 2.7). 0.3.45 (the health page's node table names the node **in the fleet** -- alias, place, tags -- and the `server_admin` changes them there, a spool request `node-identity`, `oaap.core.host` 2.6, RFC-0082 stage 1). 0.3.44 (a page **Sicherung** per tenant, `/tenant/backup`: the tenant's class and last run; its `tenant_admin` sets hour and count of an own archive, the `server_admin` class, reason and ceiling -- linked from *Mandant* and from each row of *Mandanten* -- `oaap.data.backup` 2.7, RFC-0081 stage 2). 0.3.43 (the health page's card *Sicherung* shows the node's **backup class** and whether test instances are left out; the instance page says "nicht im Backup (Test-Instanz)" -- `oaap.data.backup` 2.6, RFC-0081). 0.3.42 (the page *Nachrichten* gets **tabs** -- Postausgang, Verteiler, Benachrichtigungen, Protokoll and, at the node, Mandanten -- and the stage-2 types `instance.down` and `login.locked` appear in its routing -- 2.15, `oaap.core.notifications` 0.2). 0.3.41 (the page *Nachrichten* gets the sections **Verteiler** and **Benachrichtigungen** -- recipient lists with To/Cc/Bcc and a probe, the routing table, the delivery log -- 2.15, RFC-0080, `oaap.core.notifications` 0.1). 0.3.40 (**bulk runs** in the store: "Alle aktualisieren", "Alle getesteten übernehmen", "Alle neu bauen" -- plan first, a protocol, stop at the first failure -- 2.6.1; the store list **remembers its filter** for the way back, the card "Nach Produktiv übernehmen" also for a Git test instance with its commit -- 2.6). 0.3.39 (the store asks before an update **widens a production instance**, one tick under the reported lines -- 2.6, I-43; the card "Abbild" names the open packages for a `server_admin` and answers "will a rebuild help" in plain words -- 2.14, RFC-0071 §16). 0.3.38 (the build pages show a profile's **version**, its **history** with a download per kept file, and the version and digest a build ran -- 2.11, RFC-0079; the button "Erzeugen" also produces a `vapid` key -- `oaap.apps.runtime` 2.8). 0.3.37 (the page *Destinationen* carries the `server_admin`'s switch
+- **Version:** 0.3.55 (the health page in a **tenant's context** -- at a tenant's address for everyone, and for a `tenant_admin` everywhere -- is that tenant's: its instances only, with state, data size, the last hour's traffic, CPU and memory where measured, restarts, the tenant's data size as a daily curve with its change over 7 and 30 days, and its last backup; node-wide values stay at the node's address, 2.5; a `server_admin` **switches tenants** in the header and returns to the node's address from there, 2.18; the instance list's **name opens the instance's own site** in a new window, „Bearbeiten“ the object page, and the address on the instance page opens a new window too, 2.4; the launchpad's **tiles are of equal height** -- three lines of description, „mehr“ unfolds it, 2.2). 0.3.54 (the button „Anmeldung einrichten“ on the card MCP is shown to everybody who administers the instance -- the `tenant_admin` of its tenant too, not only the `server_admin`; the request chooses nothing, 2.16, `oaap.core.tenant` 1.11, L4). 0.3.53 (the card **MCP** stands **first** on the overview tab, before what the app brings -- it was overlooked at the bottom, 2.16, L7). 0.3.52 (a tile leads a caller whom the instance's root route would refuse to the first route their roles reach -- the MCP gateway's `/me` for a person, RFC-0095 D10; display only, 2.2). 0.3.51 (the instance page offers a binding for a destination need with `any: true` -- one row, a choice of the tenant's unbound http destinations, bound under the destination's own name (`oaap.net.destinations` 0.12); the pages *Destinationen* and *Nachrichten* follow the **place** for a `server_admin` without `?tenant=` (the tenant of the address, not the node's); the card *Tunnel* warns when a target is a host NAME (the client routes IP addresses only, RFC-0060 2.3) and gives a real example; its link to *Destinationen* carries the tenant; **the page *Connector*** sets up keys, connectors and offers on either side for a `server_admin`, the key shown once, and the destination form suggests `via:` targets -- `oaap.net.connector` 0.4 §2.9). 0.3.50 (RFC-0060 stage 4, **the tunnel in the portal**: the store asks a `server_admin` to confirm an app that declares `tun` -- a card with one tick naming the app, carried with name and tenant; a `tenant_admin` is told the operator confirms; a config key with `file: true` gets a **file upload**; an instance that holds a tunnel shows the card **Tunnel** -- standing or not, its targets as `through:<instance>/<target>`; the destination form **suggests** the tunnel targets of the tenant). 0.3.49 (the store's install form takes a **name** for the first instance too (empty = the app id; the name is in the address), and a `server_admin` on a multi-tenant node **chooses the tenant** -- preset to the tenant of the address, else `default`; a `tenant_admin` is told their own; the host judges the choice again like a creation permit's -- and the instance list shows **installs under way** with their state and age, reloading every 15 s -- found while Jörg built `ais` on oaap-demo: three instances landed unannounced in the signed-in user's tenant, and a long install was invisible once the page was left). 0.3.48 (for `server_admin` and `support`, the header shows the node's **name in the fleet** left of the user menu, and the page title reads `<view> | <name> | OAAP` -- a tenant's people see neither, the name is internal, RFC-0082; page titles are separated by `|`). 0.3.47 (the health page's card **Geheimnisdateien**: findings of the daily self-check, refused requests of 24 h per instance -- `oaap.core.gateway` 0.2.22, RFC-0084). 0.3.46 (the tab **Berichte** on *Nachrichten* and the routing column **nur im Bericht** -- `oaap.core.notifications` 2.9, RFC-0083; *Gebremste Anfragen* says how many addresses in how many minutes; the jump marks drop a heading's trailing parenthesis and wrap onto a second row from 900 px instead of scrolling -- 2.7). 0.3.45 (the health page's node table names the node **in the fleet** -- alias, place, tags -- and the `server_admin` changes them there, a spool request `node-identity`, `oaap.core.host` 2.6, RFC-0082 stage 1). 0.3.44 (a page **Sicherung** per tenant, `/tenant/backup`: the tenant's class and last run; its `tenant_admin` sets hour and count of an own archive, the `server_admin` class, reason and ceiling -- linked from *Mandant* and from each row of *Mandanten* -- `oaap.data.backup` 2.7, RFC-0081 stage 2). 0.3.43 (the health page's card *Sicherung* shows the node's **backup class** and whether test instances are left out; the instance page says "nicht im Backup (Test-Instanz)" -- `oaap.data.backup` 2.6, RFC-0081). 0.3.42 (the page *Nachrichten* gets **tabs** -- Postausgang, Verteiler, Benachrichtigungen, Protokoll and, at the node, Mandanten -- and the stage-2 types `instance.down` and `login.locked` appear in its routing -- 2.15, `oaap.core.notifications` 0.2). 0.3.41 (the page *Nachrichten* gets the sections **Verteiler** and **Benachrichtigungen** -- recipient lists with To/Cc/Bcc and a probe, the routing table, the delivery log -- 2.15, RFC-0080, `oaap.core.notifications` 0.1). 0.3.40 (**bulk runs** in the store: "Alle aktualisieren", "Alle getesteten übernehmen", "Alle neu bauen" -- plan first, a protocol, stop at the first failure -- 2.6.1; the store list **remembers its filter** for the way back, the card "Nach Produktiv übernehmen" also for a Git test instance with its commit -- 2.6). 0.3.39 (the store asks before an update **widens a production instance**, one tick under the reported lines -- 2.6, I-43; the card "Abbild" names the open packages for a `server_admin` and answers "will a rebuild help" in plain words -- 2.14, RFC-0071 §16). 0.3.38 (the build pages show a profile's **version**, its **history** with a download per kept file, and the version and digest a build ran -- 2.11, RFC-0079; the button "Erzeugen" also produces a `vapid` key -- `oaap.apps.runtime` 2.8). 0.3.37 (the page *Destinationen* carries the `server_admin`'s switch
   that hands authoring to one tenant's `tenant_admin`, and that tenant_admin's form -- 2.17).
   0.3.36 (page *Destinationen*, 2.17). 0.3.35
 - **Maturity:** draft (0.3.35 adds the card **MCP** to the instance page: source and readers, a gateway's sources and its sign-in, and the `server_admin`'s button that has a connector make the gateway's clients -- §2.16, RFC-0073 stage 3; 0.3.34 lets the start form of a build **choose apps** from the store's catalogue, one tick box per app, for a parameter of kind `apps` -- §2.11, RFC-0055 §15; 0.3.33 moves administration out of the header into a **side bar in groups** and gives long pages without tabs **jump marks** -- §2.7, design guidelines 0.2 §5 and 6.2.3; 0.3.32 adds the page **Nachrichten** -- "Postausgang": which mailbox a tenant's realm sends with, the tenant's own mailbox for its `tenant_admin`, the node's for `server_admin` -- §2.15, RFC-0072 stage 2, `oaap.net.destinations` 0.9; 0.3.31 lets the start form of a build install an app that administers its tenant's grants by one tick, which is the operator's confirmation -- §2.11, RFC-0055 §14 item 4; 0.3.30 lets a `server_admin` confirm an app that administers its tenant's grants in the store -- §2.6, `oaap.core.authorization` 0.5.2 §2.10; the card "Abbild" says whether a rebuild can be expected to help -- §2.14; 0.3.29 adds **care at a glance** to the store and the instance list -- an update in the catalogue and open advisories of the image reading, as a filter, a hint line and a badge, plus filters on the instance list -- §2.14; 0.3.28 adds the card **Neustart-Schutz** to the instance page — §2.13, RFC-0069 stage 5, `oaap.core.updates` 0.7 §2.7.2; 0.3.27 adds the node page **Datenträger** — §2.12, specified in `oaap.data.disks` 0.2 §2.6, RFC-0063 stage 2; 0.3.26 adds **profile upload, download and delete** and tick boxes for `bool` parameters on the build pages — §2.11, RFC-0055 §14; 0.3.25 adds **invitations and requests** — the prospect's public form and the operator's list, §2.10, RFC-0055 stage 4; 0.3.24 adds the **tenant build pages** — a wizard over the operator API, §2.9, RFC-0055 stage 3; 0.3.23 shows the **Cohorts menu entry to every
@@ -370,7 +370,25 @@ portal. It therefore differs from every other card:
 
 ### 2.5 Health
 
-- Visible for roles `server_admin` and `support` (the service provider
+- **In a tenant's context the page is that tenant's** (0.3.55). At the
+  address of a tenant (`<label>.<node>`) it is that tenant's page for
+  everyone who may see health there: the `server_admin` and `support` of
+  the node, and the tenant's own `tenant_admin` (a `tenant_admin` of
+  another tenant: 403). A `tenant_admin` sees their own tenant's page at
+  the node's address too. The page shows ONLY the tenant's instances --
+  no other tenant's instance, not their names, not their count -- and:
+  per instance state, data size of the production instance's directory,
+  requests, mean duration, 5xx and bytes out of the last hour over the
+  public addresses, CPU and memory **now** where the instance is among
+  the node's busiest containers, restarts and out-of-memory; for the
+  tenant its data size as a daily curve (the weekly report's ledger,
+  last 90 measured days) with the change over 7 and 30 days, and its last
+  backup. What the node does not measure is said, never shown as 0: a
+  per-instance history of CPU or memory, requests via the LAN. Node-wide
+  values (the machine's CPU, memory, disk, the care band's details) are
+  NOT on this page -- RFC-0051 keeps node metrics apart from tenant data;
+  a `server_admin` finds a link back to the node's health page.
+- At the node's own address: visible for roles `server_admin` and `support` (the service provider
   who looks after this node) — moved from `admin` in v0.3.0 (RFC-0008:
   this is server-internal information, not app-facing), and from
   `partner` to `support` in RFC-0039, which took this node-wide read
@@ -1034,6 +1052,15 @@ with MCP, for everybody who may see the instance page -- (0.3.53, L7) as the
   from anybody else -- another tenant's `tenant_admin` included -- is
   refused there and logged.
 
+### 2.18 Tenant switch in the header (0.3.55)
+
+On a node with more than one tenant and an external name, a
+`server_admin` finds a menu left of the user menu: the node's own address
+first ("Knoten"), then every tenant's place `https://<label>.<node>/`, the
+current one ticked and named on the button. The default tenant's place is
+the node's address and is not listed twice. The menu only links -- every
+page at the target judges the caller again. Nobody else sees it.
+
 ### 2.17 Destinationen (0.3.36, `oaap.net.destinations` 0.10)
 
 A page for the destinations of one tenant. A `tenant_admin` sees their own
@@ -1072,7 +1099,8 @@ configuration is a later stage (2.2).
    the navigation filter is UX only. `server_admin` for instance
    visibility and store **sources**; `server_admin` or `tenant_admin`
    for user management, the instance list and the store **catalogue**
-   (2.6, RFC-0022 §4); `server_admin`/`support` for health. A new
+   (2.6, RFC-0022 §4); `server_admin`/`support` for health, and a
+   tenant's `tenant_admin` for that tenant's health (2.5). A new
    route under an already-guarded area MUST call the same guard: the
    failure mode this is written against is a route added later and
    left open.
@@ -1112,9 +1140,11 @@ configuration is a later stage (2.2).
 5. **User management authorization**: without the `server_admin` role,
    the user-management routes return 403 and the navigation hides the
    entry — holding only `admin` is not sufficient.
-6. **Health authorization**: health is reachable for `server_admin`
-   and `support`, 403 for everyone else (including a user holding only
-   `admin`, and a user holding only `partner`).
+6. **Health authorization**: the node's health is reachable for
+   `server_admin` and `support`, 403 for everyone else (including a user
+   holding only `admin`, and a user holding only `partner`). A tenant's
+   health (2.5) is reachable for those two and the tenant's own
+   `tenant_admin`; it lists none of another tenant's instances.
 7. **Health signal**: stopping an app container (or a core service)
    changes its health row on the next page load; the full-chain
    gateway check fails when the gateway cannot reach identity.
@@ -2011,3 +2041,20 @@ und die beiden Client-Namen ergeben sich aus Mandant und Instanz, das
 Geheimnis des Konnektors verlässt den Knoten nie. Der Host prüft Rolle und
 Mandant noch einmal; ein `tenant_admin` eines anderen Mandanten wird
 abgewiesen und protokolliert.
+
+## Deutsche Zusammenfassung (0.3.55 — Gesundheit je Mandant, Mandantenwechsler, Links, Kacheln)
+
+- **Gesundheit im Kontext eines Mandanten** zeigt nur diesen Mandanten. Das gilt an
+  seiner Adresse für jeden, auch für den Server-Admin, und für den Mandanten-Admin
+  überall. Die Seite zeigt nur seine Instanzen, mit Zustand, Datengröße, Verkehr der
+  letzten Stunde, CPU und Speicher, wo gemessen, und Neustarts. Dazu kommen die
+  Datengröße des Mandanten als Tageskurve mit der Veränderung über 7 und 30 Tage
+  und seine letzte Sicherung. Knotenwerte bleiben an der Adresse des Knotens. Was
+  der Knoten nicht misst, steht als „nicht gemessen“ da.
+- **Mandantenwechsler:** Der Server-Admin wechselt in der Kopfzeile zu jedem
+  Mandanten und zurück zur Adresse des Knotens.
+- **Instanzliste:** Der Name öffnet die Seite der Instanz in einem neuen Fenster,
+  „Bearbeiten“ führt zur Objektseite. Auch die Adresse auf der Instanzseite öffnet
+  ein neues Fenster.
+- **Kacheln:** Alle sind gleich hoch. Die Beschreibung steht in drei Zeilen,
+  „mehr“ klappt sie auf, der Mauszeiger zeigt sie ganz.
