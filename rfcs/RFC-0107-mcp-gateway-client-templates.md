@@ -314,9 +314,30 @@ On `/me` ("Meine Werkzeuge"), a new box "In meinem Werkzeug einrichten":
     aborts), assets 27.
   - `check-shared` and `check-store` green.
   - Targeted tests only; the full suite was not run.
-- **Not measured yet:** a generated file in a real Claude Code against a
-  view (key way, on `oaap-test`); opencode and VS Code with the key file;
-  which redirect VS Code sends for a sign-in.
+- **Measured on `oaap-test` (2026-11-20).** `mcpgw-test` was raised from
+  0.9.3 to 0.28.0, installed from a staged copy (`~/mcpgw-0280`), not from
+  Git.
+  - A measurement key for the views `ref` and `buendel`.
+  - `/mcp/_client-config` through the node's gateway (port 8127, `Host` =
+    the external name): `200` for all three tools, as an attachment with
+    `no-store`. The key's value and `mcp-oaap-` were in none of the files.
+    A wrong key got `401`. Three audit rows `client.config`.
+  - With `url` and `headers` from the generated `.mcp.json`, and
+    `${OAAP_MCP_KEY}` taken from the environment as Claude Code does:
+    `initialize` and `tools/list` answered for both views (8 and 7 tools).
+  - The keys were revoked afterwards. The first three runs did not reach
+    the gateway (the duckdns name lands on the Fritzbox's rebind
+    protection, and on port 80 of the node the name is unknown). Each of
+    those runs revoked its key too: four revoked rows `messung-rfc0107*`.
+- **Not measured yet:**
+  - The real tools: Claude Code is not installed on this computer, so the
+    client side was simulated with curl.
+  - opencode and VS Code with the key file (Jörg).
+  - Which redirect VS Code sends for a sign-in (Jörg).
+- **Seen in passing, not changed:** `endpoint()` always writes `https://`.
+  Behind the platform with TLS that is right; on a LAN port site without
+  TLS the file's address would be wrong. The `claude mcp add` command has
+  had the same rule since 0.3.
 
 ## Deutsche Zusammenfassung
 
