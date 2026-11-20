@@ -2,7 +2,8 @@
 
 - **Status:** Accepted (2026-11-19). D1–D11 decided by Jörg as recommended.
   Stage 0 measured 2026-11-20 (§12); stage 1 built and measured 2026-11-20
-  (§13, `spezialisten` 0.1.0, `vorgaenge` 0.13.0).
+  (§13, `spezialisten` 0.1.0, `vorgaenge` 0.13.0); stage 2 built and measured
+  2026-11-20 (§14, `spezialisten` 0.2.0, `vorgaenge` 0.14.0, `mcp-gateway` 0.34.0).
 - **Date:** 2026-11-19
 - **Authors:**
   - Jörg (the scenario, from SAP work): a user describes a symptom in the
@@ -399,6 +400,67 @@ The secrets stayed in root-only files on the node.
    - the stop button live (unit-tested end to end only);
    - `spezialisten` in a closed tenant.
 
+## 14. Stage 2 built and measured (2026-11-20)
+
+**Built.**
+
+- `mcp-gateway` 0.34.0: `view set --approval required`. In such a view a key reaches a `write`/`execute` tool only with `X-OAAP-Confirmed: yes` and `X-OAAP-Approved-By`.
+  - Without them the gateway refuses with `-32003` and logs `needs_approval` at the door `gateway`.
+  - The usage row names the approving person (`approved_by`).
+  - Views without the setting behave as before.
+- `vorgaenge` 0.14.0:
+  - step kinds `plan` (tool and arguments) and `draft` (an answer to the reporter);
+  - the hash is computed by `vorgaenge`, never taken from the specialist;
+  - the sub-status `waiting_approval`, which never appears in the status form;
+  - „Freigeben/Ablehnen“ and „Veröffentlichen/Verwerfen“ for whoever works the queue. Never the plan's author, never twice, never for a plan whose stored arguments no longer match the hash;
+  - an approved draft becomes a public comment in the specialist's name with the approving person;
+  - after a decision the case is `in_progress` again, and the specialist is due.
+- `spezialisten` 0.2.0:
+  - a tool whose effect is not `read` is only planned. The effect comes from the gateway's `oaap/effect`; without it the tool counts as writing. The run then ends with `needs_approval` and stays responsible;
+  - the next run first executes approved, not yet executed plans of its own, exactly as stored, with both headers, and binds the result to the plan;
+  - a rejected plan is never executed; the model reads approvals and rejections in the history;
+  - `antwort_entwurf` is offered only when the specialist may draft (D5, off by default).
+
+**Tests.**
+
+- Gateway: 562/562, 7 new.
+- `vorgaenge`: all green, 14 new. Baits:
+  - the reporter sees neither the plan nor an unpublished draft;
+  - the reporter cannot approve, and the specialist cannot approve its own plan;
+  - tampered arguments are refused;
+  - a second decision is refused;
+  - the sub-status does not appear in the form.
+- `spezialisten`: 42/42, 16 new. Baits:
+  - injected instructions in the case lead only to a plan, never to a call;
+  - nothing runs before a decision;
+  - an approved plan runs exactly once, with the approving person;
+  - a rejected plan never runs;
+  - a draft is shown only after approval.
+- One mutation was caught: the effect not checked.
+
+**Measured on `oaap-test`** (tenant `vuebung`, test channel). `comment_case` (write) was added to the specialist's view, set to `--approval required`; the specialist's gateway key was raised to `write`.
+
+| Asked | Answer |
+|---|---|
+| The view lists `comment_case` | with `oaap/effect: write` |
+| `comment_case` with the key, no headers / only `X-OAAP-Confirmed` | `-32003`, logged `needs_approval` |
+| A plan written through the agent's door into `V-2026-0011` | accepted; case `waiting_approval`; hash 64 hex characters from `vorgaenge` |
+| The agent itself posts „Freigeben“ | 400 |
+| The tenant administrator approves | 303; the specialist runs ~1 min later |
+| The run | executes exactly the approved `comment_case`; the note appears on `V-2026-0009` as the agent, internal; the step is bound to the plan |
+| Gateway usage row | `comment_case ok approved_by=probe-admin` |
+
+The first attempt executed the approved call against a key still limited to `read`: the gateway refused it on effect. Nothing was written, and the step recorded the refusal.
+
+**Findings.**
+
+1. **Three settings must agree.** The view's `--max-effect write`, its `--approval required` and the key's `--max-effect write`. The setup text of `spezialisten` names all three.
+2. **The local model plans on its own.** After the approved call it planned a second write, through a duplicate view entry the measurement had created by accident. The plan waited, and was rejected. This is the intended behaviour: a weak model can plan nonsense, but it cannot do it.
+3. **The approval is an assertion of `spezialisten` at the gateway, checked in `vorgaenge`.** A key holder could set the headers itself. The binding protection is the hash in `vorgaenge` and the fact that only `spezialisten` holds the key. A signed approval from `vorgaenge` that the gateway verifies would close this. That is open, and it needs a shared key between the two apps.
+4. **Not measured:**
+   - a draft live (unit-tested end to end only);
+   - a light per queue (D9), still open.
+
 ## Zusammenfassung auf Deutsch
 
 Heute arbeitet ein Assistent nur, solange ein Mensch im Chat mit ihm
@@ -468,6 +530,15 @@ die Assistenten-Revision liegt als festgehaltene Kopie im Spezialisten.
 - Auf oaap-test hat ein Spezialist einen neuen Vorgang selbst übernommen, gelesen und ein Werkzeug über seine Sicht gerufen. Das Gateway hat den Aufruf abgelehnt, weil das Modell ein Argument erfunden hatte. Danach hat der Spezialist eine Notiz geschrieben und den Vorgang zurückgegeben.
 - Die meldende Person sah nichts davon.
 - Das kleine lokale Modell taugt inhaltlich nicht. Das Gerüst trägt.
+
+**Stufe 2 gebaut und gemessen (20.11.2026):**
+- Gebaut sind `mcp-gateway` 0.34.0, `vorgaenge` 0.14.0 und `spezialisten` 0.2.0.
+- Ein Spezialist schreibt jetzt nur nach Freigabe. Ein schreibendes Werkzeug legt er als Plan in den Vorgang. Vorgänge bindet den Plan an einen Hash, ein Mensch des Bereichs gibt genau diesen Aufruf frei, und der nächste Lauf führt ihn aus.
+- Das Gateway verlangt in einer Sicht mit `--approval required` die freigebende Person und schreibt sie ins Protokoll.
+- Gemessen auf oaap-test: 11 von 11. Ohne Freigabe lehnt das echte Gateway ab, der Agent kann sich nicht selbst freigeben, und nach der Freigabe lief genau der freigegebene Aufruf.
+- Offen:
+  - eine unterschriebene Freigabe, die das Gateway selbst prüft;
+  - die Ampel je Bereich.
 
 **Stufen:** 0 messen, ob der Schlüssel eines Agenten durch das MCP-Gateway
 trägt (offen seit RFC-0067); 1 lesender Spezialist mit Verlauf und
