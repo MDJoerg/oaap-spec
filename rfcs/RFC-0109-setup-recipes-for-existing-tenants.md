@@ -1,9 +1,10 @@
 # RFC-0109: Setup Recipes — Small Wizards for a Tenant That Already Exists
 
-- **Status:** Draft (2026-11-20). First discussion with Jörg the same day:
-  D4 decided (stage 2), D5 changed (the operator releases, §5), D8
-  extended (SAP SSO, §12), new D10 (requests to the operator as cases,
-  §13) and D11 (where it shows, §7). D1–D3, D6, D7, D9–D11 open.
+- **Status:** **Accepted (2026-11-20)** — after a first discussion the
+  same day (D4 stage 2, D5 changed: the operator releases, §5; D8
+  extended: SAP SSO, §12; new D10 requests as cases, §13; new D11 where it
+  shows, §7), Jörg: "Ja, wie empfohlen" for D1–D3, D6, D7, D9–D11.
+  Nothing built.
 - **Date:** 2026-11-20
 - **Authors:**
   - Jörg, 2026-11-20, in the tenant `pxx` on oaapx01: help, MCP gateway,
@@ -257,7 +258,7 @@ it is about making tenants, not about living in one. So:
 - S5: A tenant_admin cannot widen a recipe: the scope check runs on the
   filled steps, after the placeholders are replaced.
 
-## 9. Decisions
+## 9. Decisions (Jörg, 2026-11-20: D4, D5, D8 as discussed, all others as recommended)
 
 - **D1 — A new kind beside profiles, not a flag on profiles.**
   Recommended: new kind `oaap.tenant-recipe/1`, same engine and step
@@ -385,6 +386,9 @@ Open fact for stage 3: whether `vorgaenge` can take a case from the
 platform (door, identity of the writer) or needs a small addition.
 
 ## Deutsche Zusammenfassung
+
+**Angenommen am 20.11.** („Ja, wie empfohlen“ nach der ersten
+Besprechung). Gebaut ist noch nichts.
 
 **Stand nach der ersten Besprechung (20.11.):**
 
