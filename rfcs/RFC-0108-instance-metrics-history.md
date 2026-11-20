@@ -1,6 +1,8 @@
 # RFC-0108: A History per Instance
 
-- **Status:** Draft (2026-11-20). Decisions D1–D8 are open. Nothing is built.
+- **Status:** **Accepted (2026-11-20)** — Jörg: "Angenommen. Los" (D1–D8 as
+  recommended). **All three stages built the same day**: reference 0.1.322,
+  `oaap.core.portal` 0.3.56, `oaap.core.notifications` 0.12. See §9.
 - **Date:** 2026-11-20
 - **Authors:**
   - Jörg, 2026-11-20: in a tenant's context the health page should show
@@ -169,7 +171,7 @@ without reading 30 rows.
 All charts are drawn like RFC-0051's: server-side SVG, no library,
 nothing loaded from outside.
 
-## 6. Decisions (open)
+## 6. Decisions (Jörg, 2026-11-20: all as recommended)
 
 1. **Which series.** Recommended: all seven in §2. Alternative: only
    `cpu`, `mem` and `disk`, which leaves out traffic and network.
@@ -258,3 +260,39 @@ Die Empfehlungen stehen in §6.
 1. Messen und Speichern.
 2. Mandanten- und Instanzseite.
 3. Rangliste für den Knoten.
+
+## 9. Built (2026-11-20, reference 0.1.322)
+
+- **Stage 1.** `services/instance_metrics.py`: one line per instance and
+  minute from what `traffic.measure` already read (`keep`: the full
+  `docker stats` list, now with `NetIO`, and the minute's tally per host);
+  `du -sk` every 15 minutes, held in between; RFC-0051's tiers through
+  `metrics.rollup/trim/window` (which now take the series as a parameter);
+  `sweep` removes the directories of instances and tenants that are gone.
+  `appctl.instance_metrics_targets()` gives each instance's tenant,
+  containers, hosts, data directory and sleep state. The report ledger gets
+  `bytes.instances` per tenant from the last `du`.
+- **Stage 2.** The tenant health page: CPU, memory and data size from the
+  history (no longer the top-6 snapshot), sparklines of 24 h per row, a
+  link „Verlauf“ that opens the instance's charts with the window buttons,
+  and the tenant's total (CPU, memory, requests) above. The instance page
+  shows the same block on the tab „Diagnose“.
+- **Stage 3.** The node health page: the card „Was kostet am meisten“,
+  top 10 by mean CPU, mean memory and data growth over the chosen window.
+- **Tests:** `test_instance_metrics` (a month on a simulated clock, the
+  sums, network deltas and restarts, sleep = 0, gaps, `du` every 15
+  minutes, removal, the ledger field, `NetIO`, `keep`),
+  `test_portal_navigation` (sparklines, the instance's charts, the tenant
+  total, no value of another tenant, the ranking); 91 test files that touch
+  portal, metrics, traffic or the ledger green.
+
+## Deutsche Zusammenfassung (gebaut)
+
+Angenommen wie empfohlen und am selben Tag gebaut (0.1.322). Der Knoten
+misst jetzt jede Minute je Instanz CPU, Speicher, Netz, Anfragen, Fehler
+und Dauer, alle 15 Minuten die Datengröße. Die Messung nutzt, was der
+Knoten ohnehin liest, nur `du` kommt dazu. Die Gesundheit des Mandanten
+zeigt Minikurven je Instanz und auf Klick die Diagramme, dazu die Summe
+des Mandanten. Die Instanzseite zeigt dieselben Diagramme im Reiter
+„Diagnose“. Die Knotenseite zeigt dem Betreiber, welche Instanzen am
+meisten kosten. Das Berichtsbuch führt die Größe je Instanz täglich.

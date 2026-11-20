@@ -164,7 +164,9 @@ A node that has just been updated has little history; the chart says
 
 ## 9. Out of scope
 
-Alerts and thresholds; a series per container or per instance (stage 5
+Alerts and thresholds; a series per container or per instance (**per
+instance: taken back by RFC-0108**, 2026-11-20 -- an instance is the sum of
+its containers, stored under its tenant; per container stays out) (stage 5
 keeps only the *busiest container* as one series, and the others as a
 snapshot table); a metrics database; long-term storage beyond a month;
 the MQTT sender and its credentials.

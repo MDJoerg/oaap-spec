@@ -1,7 +1,7 @@
 # oaap.core.notifications — Recipient Lists and Notifications
 
 - **ID:** `oaap.core.notifications`
-- **Version:** 0.11 (0.11: `idp.door` -- a broker in front of a tenant's realm is open and was not at the last reading, security, tenant and node, RFC-0091 stage 1, reference 0.1.297; 0.10: `link.down` also for an **external end** whose tunnel app says its tunnel or the target is down -- one matter per end, named `<node>/<instance>/<target>`; its subject says *Verbindung getrennt* instead of *Tunnel getrennt*, RFC-0087 §8.1, reference 0.1.288; 0.9: `Dauer` counts from when the fault began where the condition knows it -- the fleet types -- not from the matter's opening, reference 0.1.287, RFC-0087 finding b; 0.8: the fleet type `link.down` -- a broken tunnel at the hub, one matter per tunnel naming what depends on it, RFC-0087 §6, reference 0.1.285; 0.7: a lock on a name **nobody has** -- an empty one included -- is no longer mailed; it is counted and appears in the node's weekly report as *Fremde Anmeldeversuche*, 2.2.1/2.9; 0.6: the **fleet** types `node.silent`, `bridge.down`,
+- **Version:** 0.12 (the report ledger keeps per tenant and day also `bytes.instances` -- the size of each instance from the history's last `du`, RFC-0108 D3; 0.11: 0.11: `idp.door` -- a broker in front of a tenant's realm is open and was not at the last reading, security, tenant and node, RFC-0091 stage 1, reference 0.1.297; 0.10: `link.down` also for an **external end** whose tunnel app says its tunnel or the target is down -- one matter per end, named `<node>/<instance>/<target>`; its subject says *Verbindung getrennt* instead of *Tunnel getrennt*, RFC-0087 §8.1, reference 0.1.288; 0.9: `Dauer` counts from when the fault began where the condition knows it -- the fleet types -- not from the matter's opening, reference 0.1.287, RFC-0087 finding b; 0.8: the fleet type `link.down` -- a broken tunnel at the hub, one matter per tunnel naming what depends on it, RFC-0087 §6, reference 0.1.285; 0.7: a lock on a name **nobody has** -- an empty one included -- is no longer mailed; it is counted and appears in the node's weekly report as *Fremde Anmeldeversuche*, 2.2.1/2.9; 0.6: the **fleet** types `node.silent`, `bridge.down`,
 `broker.queue`, `node.loss`, `hub.unreachable`, and a closing mail names how
 long the matter lasted, RFC-0085 stage 2; 0.5: `exposure.found` -- an instance hands out a secret file, critical, tenant and node, RFC-0084; 0.4: the **weekly report** -- a daily ledger, one report per scope, delivery `now`/`report` per routing line -- 2.9, RFC-0083; 0.3: `{knoten}` is the node's alias once one is set, `{ort}` its place, the body names both names -- RFC-0082 stage 1)
 - **Maturity:** draft. 0.1 was RFC-0080 stage 1: lists, the catalogue,
@@ -245,7 +245,8 @@ its own tab; an unknown tab word shows the first.
   line of the delivery log, for the node min/mean/max of the metrics (30 min
   tier) and the backup run that finished that day; facts that exist only as
   the current state -- bytes used/free and per tenant (`du`, bounded to
-  120 s), the care reading, the brake's counts per instance (with distinct
+  120 s; per instance in the tenant's line as `bytes.instances`, from the
+  history's last `du`, 0.12, RFC-0108), the care reading, the brake's counts per instance (with distinct
   clients and the busiest minute) -- only for yesterday. The first run on a
   node writes the six days before from what still exists; anything not
   measured is recorded as such, never invented. A tenant's line holds its
