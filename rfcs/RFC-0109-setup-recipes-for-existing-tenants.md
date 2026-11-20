@@ -8,6 +8,10 @@
   1.12, recipe `hilfe-assistent` 1.0.0), measured on oaap-test and as a
   preview on `pxx`; see §14. **D12 decided and built** (Jörg: "Gateway
   holt zurück"): mcp-gateway 0.29.0, `oaap.ai.mcp-gateway` 0.27.0; §15.
+  **Stage 2 built** (Jörg: "Ja, Stufe 2 bauen"): reference 0.1.324,
+  help 0.8.0, ai-gateway 0.12.0, mcp-gateway 0.30.0, recipe
+  `hilfe-assistent` 1.1.0; measured on oaap-test with a `tenant_admin`
+  through the real portal page; §16.
 - **Date:** 2026-11-20
 - **Authors:**
   - Jörg, 2026-11-20, in the tenant `pxx` on oaapx01: help, MCP gateway,
@@ -637,3 +641,110 @@ danach steht überall „vorhanden“. Tests: 61/61 in der Einrichtungstür, die
 
 Noch nicht geschehen: Push, und das Update von pxx-tools (bleibt auf 0.28.0
 bis zu deinem Wort).
+
+## 16. Stage 2, built (2026-11-20, reference 0.1.324)
+
+**What is there:**
+
+- **The list read** (§4) in three apps: `GET ?kind=<kind>` without `id`
+  → `{"v": 1, "kind", "items": [{"id", "title", "light"?,
+  "light_min"?}]}`. help 0.8.0 (`fetch`), ai-gateway 0.12.0 (`supplier`
+  without URL and credential, `alias` with the worst and the best light
+  of its targets, `client` with its ceiling), mcp-gateway 0.30.0
+  (servers with light, views, valid profiles, assistants not deleted).
+  `oaap.apps.runtime` 0.2.74, `oaap.ai.gateway` 0.9.0,
+  `oaap.ai.mcp-gateway` 0.28.0.
+- **Parameter kinds** `setup_item` (`need`, `item_kind`) and `light`
+  (`from`) in `tenant_recipe` (`judge_choices`): a given id must be in
+  the list; nothing given takes the default when listed, else the only
+  item, else "bitte wählen"; an app without the read leaves the typed
+  value standing, with a note. The light follows the item's `light` (the
+  worst it can reach); stricter than `light_min` is refused. For the
+  light the RFC text of §4 said "a worse one than the item needs"; built
+  is the meaning: a ceiling under which the chat could never use the
+  model.
+- **Releases** (§5, finding C): `recipe:<id>@<major>` in
+  `tenant_admin_may`; `oaap tenant allow|disallow <label>
+  recipe:<id>[@<major>]` and the card "Rezepte" on *Aufbau*; log
+  `tenant.recipe.release|unrelease`.
+- **The tenant_admin** runs a released recipe in their own tenant
+  (tenant id from their record), the filled steps inside the scope;
+  continue/confirm need release and scope again, undo only the own
+  tenant and never removes instances. The release is the operator's
+  permission for exactly that recipe's steps -- this answers the open
+  fact of D5: a `destination.ensure` with `auth: none` in a released
+  recipe needs no `destinations` right.
+- **Portal** (`oaap.core.portal` 0.3.57): page *Einrichten*
+  (`/einrichten`, recipe form with "Was fehlt noch?" and "Einrichten",
+  run page with "Rückgängig"), card "Rezepte" with "Freigegeben für" on
+  *Aufbau*; every button a spool request `tenant-recipe`, the host's
+  view `recipe-view.json`.
+- `oaap.core.tenant` 1.13 (2.13, conformance test 33).
+- Recipe `hilfe-assistent` 1.1.0: `model` is a `setup_item` (models /
+  alias, default `standard`), `ceiling` a `light` from `model`.
+- Tests: `test_tenant_recipe.py` 92 (52 of stage 1 + 40), new
+  `test_tenant_recipe_page.py` 35; app tests `help/test_setup.py`,
+  `ai-gateway/test_setup.py` 113, `mcp-gateway/test_setup.py` 67, all
+  green; unchanged green: the build tests of §14, `test_portal_navigation`,
+  `test_nav_view`, `test_destinations_admin_portal`, `test_cli_reference`,
+  app tests (ai-gateway gateway/supply/props/catalog, mcp-gateway
+  gateway/templates, help). In the Linux runner: `test_chain_check`,
+  `test_tenant_recipe`, `test_tenant_recipe_page`,
+  `test_tenant_build_page`. No full suite.
+
+**Measured on oaap-test** (0.1.324 staged; tenant `rzt` with help 0.8.0,
+ai-gateway 0.12.0, mcp-gateway 0.30.0 installed from the working tree; a
+machine principal `rzt-probe-admin` with role `tenant_admin` in `rzt`,
+no password; the portal's own code driven inside the portal container
+with the gateway's headers, the real view file, the real spool and the
+host's worker):
+
+| Check | Result |
+|---|---|
+| CLI preview without a model name | the list from the AI gateway (`chat-default`), chosen as the only one; ceiling red from the model |
+| `--param ceiling=yellow` / `model=gibts-nicht` | refused with the sentence (stricter than the model reaches) / with the list |
+| `oaap tenant allow rzt recipe:hilfe-assistent` | `recipe:hilfe-assistent@1` in the record; view `released_for: [rzt]` |
+| page `/einrichten` as tenant_admin | 200, side-bar entry, the released recipe, the tenant's three runs |
+| "Rückgängig" of the last run | rolled back, log in the name of `rzt-probe-admin (tenant_admin)` |
+| "Was fehlt noch?" | choices `model=chat-default`, `ceiling=red`; three steps *wird angelegt*, the button "Einrichten" with exactly those values |
+| "Einrichten" | run done (the MCP gateway brought its items back, D12) |
+| second "Was fehlt noch?" | all four *vorhanden*, no button |
+| spool request past the portal: tenant_admin of `rzt` names `vuebung` | refused: own tenant only (S2) |
+| spool request: tenant_admin releases | refused: only the server_admin |
+| release taken back | the page says nothing is released; a preview is refused with the way to the operator; released again afterwards |
+| S4: all eight lists of the three apps in `rzt` | only `id`, `title`, `light`, `light_min`; no secret of the instance's environment in the text; the supplier `openrouter` has its credential set |
+
+**Not built in stage 2:** the link "Einrichten…" on an instance's page
+and the link from a finished build to *Einrichten* (§7) -- small, left
+for stage 3 together with the requests; a release for a version range
+other than a major.
+
+**Left on oaap-test:** `rzt` with the three app versions from the
+working tree (sources `~/apps-s2`), the release `recipe:hilfe-assistent@1`,
+the machine principal `rzt-probe-admin` (no key), the run
+`r-20261120t100304-rzt`; `~/ref-0.1.324`, `~/probe_portal.py`,
+`~/probe_s4.py`.
+
+## Deutsche Zusammenfassung (Stufe 2 gebaut)
+
+**Gebaut (Referenz 0.1.324):**
+
+- **Werte aus der App:** Die Einrichtungstüren von Hilfe 0.8.0,
+  KI-Gateway 0.12.0 und MCP-Gateway 0.30.0 nennen ihre Einträge
+  (`GET ?kind=…`): Kennung, Titel, Ampel, nie einen Zugang. Im Rezept
+  `hilfe-assistent` 1.1.0 wählt man den Modellnamen aus dieser Liste, und
+  die Ampel folgt ihm.
+- **Freigabe:** Der Betreiber gibt ein Rezept je Mandant frei
+  (`oaap tenant allow <kürzel> recipe:<id>` oder auf „Aufbau“).
+- **tenant_admin:** führt ein freigegebenes Rezept im eigenen Mandanten
+  aus, auf der neuen Seite **Einrichten** im Portal.
+
+**Gemessen auf oaap-test** mit einem tenant_admin über die echte
+Portalseite: Rückgängig, Vorschau, Einrichten, zweite Vorschau alles
+vorhanden. Abgelehnt wurden ein fremder Mandant, eine Freigabe durch den
+tenant_admin und ein Lauf ohne Freigabe. In den Listen steht kein
+Geheimnis.
+
+**Offen:** der Link „Einrichten…“ auf der Instanzseite und nach einem
+Aufbau, dazu Stufe 3 (Anfragen an den Betreiber als Vorgang, Rezept „SAP
+SSO einrichten“, `recipe.apply` in Profilen).

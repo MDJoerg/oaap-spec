@@ -1,7 +1,7 @@
 # oaap.core.tenant — Account and Tenant, the Boundary of Belonging
 
 - **ID:** `oaap.core.tenant`
-- **Version:** 1.12 (setup recipes: a short list of a profile's steps, without those that create or shape a tenant, run by the operator against a tenant that EXISTS; its needs name apps and resolve to that tenant's instances only; a preview first, a conflict stops before anything happens; runs `r-...` beside the builds, undo per run, log `tenant.recipe.*` -- 2.13, conformance test 32, RFC-0109 stage 1). 1.11 (a gateway's sign-in clients, 2.9.1, may be requested by the `tenant_admin` of the instance's tenant too, not only by the operator: the request chooses nothing -- L4, reference 0.1.309). 1.10 (the client of an app: an app that declares `identity.oidc_client` (manifest 0.16) gets ONE confidential client `oaap-app-<instance>` in its tenant's space, made by the connector on an operator's request, disabled at removal -- 2.9.2, conformance test 31, RFC-0091 stage 3). 1.9 (a platform role per realm group: `role_map`, written by `server_admin`, only `guest`, `partner`, `user`, synced at every provider login for the roles it gave and never for hand-given ones -- 2.8.1, conformance test 30, RFC-0091 stage 2). 1.8 (brokers in front of a tenant's realm are doors: read, judged open or closed, counted by the §2.8 refusal, acknowledged closed only by the operator with a reason, read daily -- 2.10.1, conformance test 29, RFC-0091 stage 1). 1.7 (the tenant record carries `tenant_admin_may`: rights a `server_admin` hands to this tenant's `tenant_admin`, first `destinations` -- 1.1 table, `oaap tenant allow|disallow`, `oaap.net.destinations` 2.7.1). 1.6 (the bindings follow an issuer change **of the same space**: same connector, same name, same id at the provider, 2.11, conformance test 25, RFC-0073 T6; 1.5: the **clients of an MCP gateway**: a connector makes them on an
+- **Version:** 1.13 (setup recipes, stage 2: a value CHOSEN from an app's list (`setup_item`, read through the setup door's `GET ?kind=`), a `light` that follows the chosen item and is never stricter than it can reach; the operator RELEASES a recipe for a tenant (`recipe:<id>@<major>` in `tenant_admin_may`), after which that tenant's `tenant_admin` runs it -- own tenant only, the filled steps inside the scope -- 2.13, conformance test 33, RFC-0109 stage 2). 1.12 (setup recipes: a short list of a profile's steps, without those that create or shape a tenant, run by the operator against a tenant that EXISTS; its needs name apps and resolve to that tenant's instances only; a preview first, a conflict stops before anything happens; runs `r-...` beside the builds, undo per run, log `tenant.recipe.*` -- 2.13, conformance test 32, RFC-0109 stage 1). 1.11 (a gateway's sign-in clients, 2.9.1, may be requested by the `tenant_admin` of the instance's tenant too, not only by the operator: the request chooses nothing -- L4, reference 0.1.309). 1.10 (the client of an app: an app that declares `identity.oidc_client` (manifest 0.16) gets ONE confidential client `oaap-app-<instance>` in its tenant's space, made by the connector on an operator's request, disabled at removal -- 2.9.2, conformance test 31, RFC-0091 stage 3). 1.9 (a platform role per realm group: `role_map`, written by `server_admin`, only `guest`, `partner`, `user`, synced at every provider login for the roles it gave and never for hand-given ones -- 2.8.1, conformance test 30, RFC-0091 stage 2). 1.8 (brokers in front of a tenant's realm are doors: read, judged open or closed, counted by the §2.8 refusal, acknowledged closed only by the operator with a reason, read daily -- 2.10.1, conformance test 29, RFC-0091 stage 1). 1.7 (the tenant record carries `tenant_admin_may`: rights a `server_admin` hands to this tenant's `tenant_admin`, first `destinations` -- 1.1 table, `oaap tenant allow|disallow`, `oaap.net.destinations` 2.7.1). 1.6 (the bindings follow an issuer change **of the same space**: same connector, same name, same id at the provider, 2.11, conformance test 25, RFC-0073 T6; 1.5: the **clients of an MCP gateway**: a connector makes them on an
   operator's request and only ever disables them, 2.9.1, RFC-0073 stage 3; `tenant check`
   asks the provider whether a tenant's client is there, 2.1, conformance test 28;
   1.4: a provisioned space gets the node's mailbox and German as its
@@ -1197,9 +1197,41 @@ made for apps that were installed by hand.
 - **Log**: `tenant.recipe.step|done|rollback` in the default tenant's log
   and the tenant's own.
 - **Who**: `server_admin` (CLI as root: `oaap tenant recipe list |
-  preview | run | runs | show | continue | confirm | rollback`). The
-  release of a recipe for a tenant and runs by its `tenant_admin` follow
-  in RFC-0109 stage 2.
+  preview | run | runs | show | continue | confirm | rollback`; portal
+  page *Einrichten* at a tenant's place, `oaap.core.portal`), and since
+  1.13 the `tenant_admin` of a tenant the recipe is **released** for.
+- **Values from an app (1.13).** A parameter of kind `setup_item`
+  (`need`, `item_kind`) is chosen from the list the need's instance gives
+  through its setup door, `GET ?kind=<item_kind>` without `id` →
+  `{"v": 1, "kind", "items": [{"id", "title", "light"?, "light_min"?}]}`
+  -- ids, short titles and lights, never a credential, a key or an
+  address. A given id must be in the list; without one, the default when
+  listed, else the only item, else the person must choose. An app that
+  answers no list (an older version) leaves the typed value or the
+  default standing, and the preview says so. A parameter of kind `light`
+  with `from: <setup_item>` takes the chosen item's `light` (the worst it
+  can reach) unless one is given; a light stricter than the item's
+  `light_min` is refused, because a chat could never use the item.
+- **Release (1.13).** The operator releases a recipe for ONE tenant:
+  `recipe:<id>@<major>` in the tenant record's `tenant_admin_may` (1.7),
+  set with `oaap tenant allow <label> recipe:<id>[@<major>]` or on the
+  portal page *Aufbau*; without a major, the recipe's current one. A new
+  major version needs a new release. Releasing and taking back are the
+  `server_admin`'s alone and go into the tenant's log
+  (`tenant.recipe.release|unrelease`). There is no release in the
+  node's own tenant.
+- **The tenant_admin (1.13).** Runs a recipe released for **their own**
+  tenant (judged by the tenant id of their record, never by the request)
+  when every **filled** step is inside the scope: `app.setup` on an
+  instance of this tenant, `app.config` with a key the instance's
+  manifest declares as not secret (an undeclared key counts as secret),
+  `destination.ensure` with `auth: none`, `manual`, `backup.check`,
+  `app.install` through a need. A step outside refuses the whole recipe
+  before the preview, naming the step. Continue and confirm need the
+  release and the scope again; undo needs only the own tenant (a
+  withdrawn release does not keep a tenant from removing what a run made)
+  and never removes instances. The release is the operator's permission
+  for exactly that recipe's steps.
 
 ### 2.5 Resolution rules
 
@@ -1572,7 +1604,19 @@ On a node with one tenant: none that anyone can observe, exactly as in
     instance of another app is refused; a tenant with two instances of an app asks which; a
     tenant without the app stops. A conflict in the preview refuses the run and records
     none. Undoing the first run removes exactly what it made; the log says
-    `tenant.recipe.*`. A `tenant_admin` is refused in stage 1.
+    `tenant.recipe.*`. A `tenant_admin` is refused unless the recipe is released (33).
+33. **Releases and values from an app** (1.13). A recipe that is not released is refused
+    to a `tenant_admin` with the way to the operator; released for tenant A, the
+    `tenant_admin` of A gets the preview and the run in A, the `tenant_admin` of B naming A
+    is refused (also as a spool request past the portal), an instance of B cannot be named
+    from A; a filled step outside the scope (`auth` from a parameter set to `basic`, an
+    `app.config` key the manifest does not declare as open) refuses before the preview, while
+    the `server_admin` may run the same; a release for major 1 does not cover 2.0.0; a
+    `tenant_admin` cannot release; after taking the release back no new run starts but the
+    own run can be undone. A `setup_item` value not in the app's list is refused with the
+    list; nothing chosen picks the default or the only item; the `light` follows the chosen
+    item and a stricter one is refused. The lists of help, ai-gateway and mcp-gateway carry
+    only `id`, `title`, `light`, `light_min`, also for a supplier whose credential is set.
 
 ## 5. Dependencies
 
@@ -2254,3 +2298,20 @@ Einstellungen für Apps, die von Hand installiert wurden (RFC-0109, Stufe 1).
   nur, was dieser Lauf anlegte. Das Protokoll sagt `tenant.recipe.*`.
 - **Wer darf:** In Stufe 1 nur der Betreiber, über die Kommandozeile.
   Freigabe und tenant_admin folgen in Stufe 2.
+
+## Deutsche Zusammenfassung (1.13 — Rezepte, Stufe 2: Freigabe und Werte aus der App)
+
+- **Werte aus der App:** Ein Parameter der Art `setup_item` wird aus der
+  Liste gewählt, die die App über ihre Einrichtungstür nennt
+  (`GET ?kind=…` ohne id: Kennung, kurzer Titel, Ampel, nie ein
+  Zugang). Die Ampel (`light`) folgt dem gewählten Modell und darf nie
+  strenger sein als das, was es erreichen kann.
+- **Freigabe:** Der Betreiber gibt ein Rezept für einen Mandanten frei
+  (`recipe:<id>@<Hauptversion>` in `tenant_admin_may`, Kommandozeile
+  `oaap tenant allow <kürzel> recipe:<id>` oder auf „Aufbau“). Eine neue
+  Hauptversion braucht eine neue Freigabe.
+- **tenant_admin:** führt ein freigegebenes Rezept im **eigenen**
+  Mandanten aus, wenn jeder ausgefüllte Schritt in seinem Bereich liegt.
+  Sonst lehnt der Knoten vor der Vorschau ab und nennt den Schritt.
+  Rückgängig geht im eigenen Mandanten immer, auch nach Rücknahme der
+  Freigabe.

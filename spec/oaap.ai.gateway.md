@@ -1,7 +1,7 @@
 # oaap.ai.gateway — AI Supply Behind One Keyed Endpoint
 
 - **ID:** `oaap.ai.gateway`
-- **Version:** 0.8.0 (**model properties and client templates**: four properties per alias -- `tools`, `vision`, `context`, `output` -- set or unknown, never guessed, the weakest of the alias's targets, each with its origin; in `/v1/models` as `oaap_*` and through the setup door; client files built from templates as data, the key only as a placeholder, and a self-service path `/v1/oaap/client-config`, §3.1, §3.2, §9 tests 15-17, RFC-0106; additive, reference ai-gateway 0.11.0). 0.7.0 (**built from a profile**: a setup door with the kinds `supplier`, `alias` and `client`, and a grant of kind `client` that authorises a chat of the platform through the via door without a key, the person never recorded; a grant may carry the context `tenant`, §7a, RFC-0104; additive, reference ai-gateway 0.10.1). 0.6.0 (a request may carry `X-OAAP-Light`, an additional ceiling for that request only that can tighten the key's ceiling and never loosen it -- the light a person chose for a chat conversation, RFC-0101; usage rows record it, §7, §9 test 12; additive. 0.5.3: a key that names aliases it can never reach under its ceiling is still issued, but the operator is told so, at issuing, at changing the aliases and in the key list, §7 (L14); a supplier that is always stripped of sampling parameters stores that, §4.2 (L15) -- reference app 0.8.1). 0.5.2 (the aliases of a valid key **may be changed** without a
+- **Version:** 0.9.0 (the setup door **lists** its items: `GET ?kind=supplier|alias|client` without `id` -- names and lights, an alias with the worst (`light`) and the best (`light_min`) light its targets reach, a grant with its ceiling; never credentials or a supplier's address, §7a, RFC-0109 §4; reference ai-gateway 0.12.0). 0.8.0 (**model properties and client templates**: four properties per alias -- `tools`, `vision`, `context`, `output` -- set or unknown, never guessed, the weakest of the alias's targets, each with its origin; in `/v1/models` as `oaap_*` and through the setup door; client files built from templates as data, the key only as a placeholder, and a self-service path `/v1/oaap/client-config`, §3.1, §3.2, §9 tests 15-17, RFC-0106; additive, reference ai-gateway 0.11.0). 0.7.0 (**built from a profile**: a setup door with the kinds `supplier`, `alias` and `client`, and a grant of kind `client` that authorises a chat of the platform through the via door without a key, the person never recorded; a grant may carry the context `tenant`, §7a, RFC-0104; additive, reference ai-gateway 0.10.1). 0.6.0 (a request may carry `X-OAAP-Light`, an additional ceiling for that request only that can tighten the key's ceiling and never loosen it -- the light a person chose for a chat conversation, RFC-0101; usage rows record it, §7, §9 test 12; additive. 0.5.3: a key that names aliases it can never reach under its ceiling is still issued, but the operator is told so, at issuing, at changing the aliases and in the key list, §7 (L14); a supplier that is always stripped of sampling parameters stores that, §4.2 (L15) -- reference app 0.8.1). 0.5.2 (the aliases of a valid key **may be changed** without a
   new secret, audited old → new, effective from the next request; light and
   release stay as issued, §2; additive. 0.5.1: a supplier may be marked to receive no sampling
   parameters, §4.2; additive. 0.5: keys may expire; keys issued for a cohort of a
@@ -488,6 +488,13 @@ manifest (`oaap.apps.runtime` 2.39).
 
 - `remove` takes back only what setup made and only while it is still
   as made (a digest of the item as the gateway read it after making it).
+- **List (0.9.0, RFC-0109 §4).** `GET ?kind=<kind>` without `id`:
+  `supplier` → `{"id", "title": <name>, "light"}` (no URL: an address can
+  carry a key; no credential); `alias` → `{"id", "title": "<supplier>:<model>, …",
+  "light", "light_min"}` -- the worst and the best light among its
+  reachable targets (`light` is the honest ceiling a recipe suggests;
+  below `light_min` a chat could never use the name); `client` → valid
+  grants `{"id", "light": <ceiling>, "title"}`.
   A supplier for which a human has stored credentials stays (`conflict`:
   only a human deletes those); a model name still named by a key or grant
   that is not revoked stays; a grant that already has usage rows is
@@ -823,3 +830,10 @@ es **ohne API-Schlüssel**.
   in der Datei. Mit dem eigenen Schlüssel holt man sich die Datei selbst
   über `/v1/oaap/client-config`.
 
+## Deutsche Zusammenfassung (0.9.0 — die Einrichtungstür nennt Modellnamen mit Ampel)
+
+`GET ?kind=alias` (ohne id) nennt die Modellnamen mit der schlechtesten
+und der besten Ampel ihrer Ziele, `supplier` die Bezugsquellen mit Ampel
+(ohne Adresse, ohne Zugangsdaten), `client` die gültigen Freigaben mit
+ihrer Obergrenze. Ein Rezept wählt daraus den Modellnamen und schlägt die
+Ampel vor (RFC-0109).
