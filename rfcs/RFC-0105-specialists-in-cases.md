@@ -1,7 +1,7 @@
 # RFC-0105: Specialists in Cases — AI Agents That Work a Case in the Background
 
 - **Status:** Accepted (2026-11-19). D1–D11 decided by Jörg as recommended.
-  Nothing built.
+  Stage 0 measured 2026-11-20 (§12); stage 1 in progress.
 - **Date:** 2026-11-19
 - **Authors:**
   - Jörg (the scenario, from SAP work): a user describes a symptom in the
@@ -302,6 +302,55 @@ All eleven decided by Jörg on 2026-11-19 as recommended.
 | 3 | Consultation, `waiting_consult`, loop limits, lifting approval per tool | two specialists and a person solve a case together (the 4th specialist consultation goes to people; a consulted specialist cannot change the status) |
 | 4 | SAP: a case from `a4h` through machine access, specialist `Analyse`, solution filed in SAP, answer in the chat | the scenario of §9 on `a4h` and `bec` |
 
+## 12. Stage 0 measured (2026-11-20, `oaap-test`, tenant `vuebung`)
+
+**Set-up.** `vuebung-vorgaenge` updated to 0.12.0; queue `analyse` and a test
+case `V-2026-0008` reported by a test person; role and collection
+„Spez Analyse“ from the template `case_handler`; agent principal
+`spez-analyse` with `oaap authz agent-add … --context queue=analyse
+--instance vuebung-vorgaenge --days 14`. In `vuebung-mcpgw` a server entry
+`vorgaenge-spez` with procedure T (`--auth bearer`, the agent key, address
+`http://oaap-gateway-1:8131/mcp`), a view `spez-analyse` (way `key`) with
+`list_cases`, `get_case`, `comment_case`, and a gateway key for that view.
+The secrets stayed in root-only files on the node.
+
+| Path | Result |
+|---|---|
+| Agent key directly at the MCP door of `vorgaenge` | 9/9: `tools/list`; `list_cases scope=queues` shows the case in `analyse` (grant from the assignment); `get_case`; internal `comment_case`; the reporter does **not** see the internal note (bait); a case of another queue stays invisible (bait); no key: 303 to the login; a forged key refused |
+| Through the MCP gateway, procedure T | 8/8: `initialize`; `tools/list` shows exactly the three approved tools; `list_cases`, `get_case` as the agent; `comment_case` arrives as the agent; a tool outside the view refused by the gateway (`unknown_tool`, bait); no key: 401; the agent's platform key at the gateway: 401 (bait) |
+
+**Findings, and what they change for stage 1:**
+
+1. **The way exists; RFC-0065 §5.1 need not change first.** The agent is an
+   ordinary user to `vorgaenge` (role `user`, uid of the agent); its
+   assignment decides what it reads. The run reads and writes the case
+   **directly** at the door of `vorgaenge` with the agent key, not through
+   the gateway.
+2. **Through the gateway the agent is bound to the server entry, not to
+   the caller.** Whoever holds the view's gateway key acts as the agent.
+   Therefore each specialist gets its **own** server entry, view and
+   gateway key, held only by `spezialisten`. Carrying the caller's own
+   principal per call stays open (RFC-0067 §7).
+3. **A key view lets a writing tool through without confirmation.** The
+   gateway logged `comment_case` with procedure T, `confirmed` empty. Stage
+   1 therefore gives a specialist's view `--max-effect read`, so the
+   gateway itself refuses writes; stage 2 adds approved writes
+   (`X-OAAP-Approved-By`) at the gateway.
+4. **The name in the case is the agent's `--label`.** The entries showed
+   „RFC-0105 Stufe 0“ as author. The label of a specialist's agent is its
+   shown name (e.g. „Analyse (KI)“).
+5. **Model access: an AI-gateway key, not `ai_client`.** The `ai_client`
+   door needs a person's assertion like `mcp_client`. `spezialisten` calls
+   the AI gateway's public `/v1` with a key of its own per specialist
+   (deviation from D2's manifest line `ai_client`).
+6. **The assistant revision cannot be read with a key.** The gateway hands
+   `assistant@rev` only to a signed-in person. Stage 1 keeps a pinned copy
+   in the specialist record (`id@rev`, prompt, model; taken from the
+   gateway's export by the administrating person); reading it as that
+   person follows.
+7. `oaap authz agent-add` still wants the full collection id (RFC-0073
+   finding 2), read here from the authorization store.
+
 ## Zusammenfassung auf Deutsch
 
 Heute arbeitet ein Assistent nur, solange ein Mensch im Chat mit ihm
@@ -355,6 +404,16 @@ entschieden:
 - D9: Ampel je Bereich.
 - D10: Name „Spezialist“.
 - D11: Revision je Eintrag festhalten.
+
+**Stufe 0 gemessen (20.11.2026, oaap-test, Mandant vuebung):** Ein Agent mit
+eigenem Schlüssel liest und kommentiert Vorgänge seines Bereichs direkt an
+der Tür von `vorgaenge` (9/9), und über das MCP-Gateway mit Verfahren T
+(8/8). Die meldende Person sieht seine internen Notizen nicht. Folgen für
+Stufe 1: Der Lauf schreibt direkt in `vorgaenge`; jeder Spezialist bekommt
+einen eigenen Server-Eintrag, eine Sicht und einen Gateway-Schlüssel; seine
+Sicht ist nur lesend, weil ein Schlüssel heute ohne Zustimmung schreiben
+kann; das Modell erreicht er mit einem eigenen Schlüssel des KI-Gateways;
+die Assistenten-Revision liegt als festgehaltene Kopie im Spezialisten.
 
 **Stufen:** 0 messen, ob der Schlüssel eines Agenten durch das MCP-Gateway
 trägt (offen seit RFC-0067); 1 lesender Spezialist mit Verlauf und
