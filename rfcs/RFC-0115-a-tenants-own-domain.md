@@ -1,7 +1,8 @@
 # RFC-0115: A Tenant's Own Domain
 
 - **Status:** **Accepted (2026-11-20)** — Jörg: „Wie empfohlen“ for D1–D9.
-  Stage 0 measured 2026-11-20 (§11); nothing built.
+  Stage 0 measured 2026-11-20 (§11); stage 1 built and measured 2026-11-20
+  (§12, reference 0.1.331, `oaap.core.tenant` 1.17).
 - **Date:** 2026-11-20
 - **Authors:**
   - Jörg (the need, 2026-11-20): the tenant `bec` on `oaapx01` has the
@@ -302,6 +303,75 @@ removed afterwards.
    gives certificates on demand for names below it. Not done in stage 0:
    it changes a fleet node.
 
+## 12. Stage 1 built and measured (2026-11-20)
+
+**Built** (reference 0.1.331, `oaap.core.tenant` 1.17 §2.4.1).
+
+- `place.py` holds the judgement once, for portal, identity and `appctl`: `tenant_domain`,
+  `domain_of_host`, `domain_refusal`, `cookie_scope`, `place_host_of`; `host_place` names the tenant
+  for its active domain and no place below it.
+- `appctl`:
+  - `oaap tenant domain <label> [<domain>|check|off|remove]`. The CLI shape differs from §2's
+    sketch (`domain set bec …`): the existing verb takes the label first, and a domain name and the
+    words `check|off|remove` cannot be confused (a domain has dots).
+  - the DNS check compares with the addresses of the node's OWN external name rather than with an
+    address the node believes it has. Directly and behind an edge alike, that name points at the
+    entry the world uses (§2 said "the node's public address").
+  - sites: the place on the domain (the same portal body), every instance of the tenant as
+    `<instance>.<domain>` (from `instance_auto_hosts`, the domain first while canonical), behind an
+    edge `*.<domain>` → 404 (stage 0 finding 3), the http redirect for both;
+  - sandbox origins filtered to the node's names (D6). **Correction:** §3 gave as the reason that a
+    sandbox host would need a second label; it does not (`<instance>--ui.<domain>` is one label). D6
+    holds as decided; extending sandboxes to the domain is a small step for stage 2.
+  - `oaap idp provision` registers `https://<domain>/auth/oidc/callback` too; activation prints that
+    sentence. **Deviation:** §4 said the connector adds it by itself on activation; stage 1 asks the
+    operator to run `provision` again (it adds the missing URI and changes nothing else).
+- identity: the session cookie follows `cookie_scope`; a return address must share the scope of the
+  place; a login from a host below the domain is handed to the domain's place; the logout's return
+  goes to the domain's place.
+- portal: a tile prints `<instance>.<domain>` while the domain is canonical (`instance_view.auto_host`).
+- **D8 narrowed.** Behind an edge the node side needed nothing new (the gateway already writes plain
+  sites with the edge guard), so stage 1 does not refuse a node behind an edge; `check` names the
+  edge's step (`oaap edge add <domain> <node>`), an existing command. What remains of D8 for stage 3:
+  the edge command itself does not check the domain.
+
+**Tests.** `test_tenant_domain.py` (new, 46): place rules, the CLI with a DNS stand-in, the gateway
+file directly and behind an edge, the identity service on the domain. Baits: domains below, above or
+equal to the node's name and overlapping another tenant's are refused; a pending and a switched-off
+domain name nothing and get no site; `check` does not switch an `off` domain back on; the domain's
+cookie never covers the node and the node's never the domain; a return address in another scope is
+refused; no instance of another tenant below the domain. Two mutations caught (the domain ignored in
+`host_place`; the domain's cookie widened to the node). Fifteen neighbouring test files green in the
+Linux runner (`test_tenant_place`, `test_tenant_idp`, `test_login_page_idp`, `test_rename`,
+`test_tenant_boundary`, `test_ui_sandbox`, `test_idp_connector`, `test_edge_trust`, …, `test_cli_reference`).
+
+**Measured on `oaap-test`** (reference 0.1.330 + these changes staged with `stage.sh`, tenant `vuebung`,
+domain `dom0.oaap-demo.duckdns.org`, requests sent from the edge node as the edge forwards them, a
+local test user; everything removed afterwards). 9/9:
+
+| Asked | Stage 0 | Stage 1 |
+|---|---|---|
+| `oaap tenant domain vuebung dom0…` | – | DNS fits (IPv6 and IPv4 as the node's name), active, sites written, the edge step and the provider's URI printed |
+| the provider started on the domain | 404 | 303 to Keycloak, `redirect_uri=https://dom0…/auth/oidc/callback`, cookie `Domain=dom0…` |
+| Keycloak on that request, before / after `oaap idp provision auth --tenant vuebung` | – | 400 / 200 with the login form |
+| `/auth/login` on the domain | the node's login | „Verein Uebung“ with „Mit dem Vereinskonto anmelden“ |
+| an app below the domain, not logged in | the node's login | to the domain's place, `back=` the app |
+| `nix.dom0…` | the node's login | 404 |
+| local login at the domain, then the app below it with the same cookie | one login per name | the app opens, no second login |
+| the place's tiles | – | `https://vorgaenge.dom0…/` |
+| a login on the node's place | – | cookie `Domain=oaap-test.oaap-demo.duckdns.org`, not the domain |
+
+**Findings.**
+
+1. **Re-provisioning touches more than the redirect URI.** `oaap idp provision` also re-wrote the
+   realm's mailbox (the same values). Harmless here; worth a sentence in the activation text, or a
+   narrower `--redirects-only`, before an operator runs it on `bec`.
+2. **Not measured:** a real browser with TLS through an edge route (`oaap edge add` on `oaap-demo`,
+   a fleet node) and a full provider login with a person of the realm. Both belong on the first real
+   domain.
+3. **Not built in stage 1:** the daily re-check of a pending domain (§2), the operator page, mails and
+   help printing the domain (stage 2).
+
 ## Zusammenfassung auf Deutsch
 
 **Worum es geht:** Heute baut der Knoten jeden öffentlichen Namen aus
@@ -354,6 +424,18 @@ Anmelde-Cookie nur für den Knotennamen gilt.
   Knotens statt bei „nichts“.
 - Daraus für Stufe 1: Cookie je Mandanten-Domain, Anmeldung und Anbieter
   auf der Domain, unbekannte Namen darunter mit 404.
+
+**Stufe 1 gebaut und gemessen (20.11.2026, Referenz 0.1.331):**
+- `oaap tenant domain <kürzel> <domain>` bindet die Domain; `check`, `off`, `remove`.
+- Die Domain gilt, sobald sie und ein Zufallsname darunter dorthin zeigen, wohin der Name
+  des Knotens zeigt. Das geht auch hinter einem Edge; dort sagt der Befehl, welche Route
+  der Edge braucht (D8 damit enger als entschieden).
+- Ort, Anmeldung mit Vereins-Knopf und alle Apps des Mandanten antworten unter der Domain,
+  unbekannte Namen darunter mit 404. Das Cookie gilt für die ganze Domain.
+- Der Anbieter kommt auf der Domain zurück; `oaap idp provision` trägt die Adresse in Keycloak ein.
+- Gemessen auf oaap-test: 9 von 9, und Keycloak nimmt die neue Adresse nach `provision` an.
+- Offen: echter Browsertest mit Zertifikat über eine Edge-Route, eine Anbieter-Anmeldung mit
+  einer echten Person, tägliche Nachprüfung, Mails und Hilfe (Stufe 2).
 
 **Stufen:** 0 auf oaap-test messen, was heute bricht (mit einem zweiten
 DuckDNS-Namen); 1 Domain, Namen, Zertifikate, Anmeldung; 2 Chat-Ansichten,

@@ -1,7 +1,7 @@
 # oaap.core.tenant — Account and Tenant, the Boundary of Belonging
 
 - **ID:** `oaap.core.tenant`
-- **Version:** 1.16 (a `manual` step keeps the LINE BREAKS of its text and may `offer` files the page shows next to it -- `ca` (the tenant's CA, SAP: STRUST) and `sample` (a sample certificate, SAP: CERTRULE); recipe `sap-sso` 1.1.0 splits the SAP Basis work into five steps -- 2.13, Jörg on oaapx01, reference 0.1.329). 1.15 (the operator ANSWERS a request -- done or rejected, a rejection with a sentence -- on *Aufbau* or `oaap tenant recipe close`, also without a request inbox; the tenant reads the answer on *Einrichten*; a request that became a case is closed there with the sentence -- 2.13, RFC-0109 §17, Jörg on oaapx01). 1.14 (setup recipes, stage 3: requests to the operator as cases -- the PLATFORM writes them into the node's request inbox through the cases app's node door, else as a message; new steps `idp.claim` and `destination.bind`, `destination.ensure` with principal propagation pinned to a fingerprint a human confirmed (`manual` with `done_when: server.compared`), the chain test as `done_when: destination.check`; `recipe.apply` in profiles -- 2.13, conformance test 34, RFC-0109 stage 3). 1.13 (setup recipes, stage 2: a value CHOSEN from an app's list (`setup_item`, read through the setup door's `GET ?kind=`), a `light` that follows the chosen item and is never stricter than it can reach; the operator RELEASES a recipe for a tenant (`recipe:<id>@<major>` in `tenant_admin_may`), after which that tenant's `tenant_admin` runs it -- own tenant only, the filled steps inside the scope -- 2.13, conformance test 33, RFC-0109 stage 2). 1.12 (setup recipes: a short list of a profile's steps, without those that create or shape a tenant, run by the operator against a tenant that EXISTS; its needs name apps and resolve to that tenant's instances only; a preview first, a conflict stops before anything happens; runs `r-...` beside the builds, undo per run, log `tenant.recipe.*` -- 2.13, conformance test 32, RFC-0109 stage 1). 1.11 (a gateway's sign-in clients, 2.9.1, may be requested by the `tenant_admin` of the instance's tenant too, not only by the operator: the request chooses nothing -- L4, reference 0.1.309). 1.10 (the client of an app: an app that declares `identity.oidc_client` (manifest 0.16) gets ONE confidential client `oaap-app-<instance>` in its tenant's space, made by the connector on an operator's request, disabled at removal -- 2.9.2, conformance test 31, RFC-0091 stage 3). 1.9 (a platform role per realm group: `role_map`, written by `server_admin`, only `guest`, `partner`, `user`, synced at every provider login for the roles it gave and never for hand-given ones -- 2.8.1, conformance test 30, RFC-0091 stage 2). 1.8 (brokers in front of a tenant's realm are doors: read, judged open or closed, counted by the §2.8 refusal, acknowledged closed only by the operator with a reason, read daily -- 2.10.1, conformance test 29, RFC-0091 stage 1). 1.7 (the tenant record carries `tenant_admin_may`: rights a `server_admin` hands to this tenant's `tenant_admin`, first `destinations` -- 1.1 table, `oaap tenant allow|disallow`, `oaap.net.destinations` 2.7.1). 1.6 (the bindings follow an issuer change **of the same space**: same connector, same name, same id at the provider, 2.11, conformance test 25, RFC-0073 T6; 1.5: the **clients of an MCP gateway**: a connector makes them on an
+- **Version:** 1.17 (a tenant's OWN DOMAIN: bound by the operator once DNS points to the node -- the domain and a random name below it resolve where the node's own name does; the domain is the tenant's place, `<instance>.<domain>` each of its instances, below it nothing else; one session cookie per tenant domain; the node's names keep answering -- 2.4.1, RFC-0115 stage 1, reference 0.1.331). 1.16 (a `manual` step keeps the LINE BREAKS of its text and may `offer` files the page shows next to it -- `ca` (the tenant's CA, SAP: STRUST) and `sample` (a sample certificate, SAP: CERTRULE); recipe `sap-sso` 1.1.0 splits the SAP Basis work into five steps -- 2.13, Jörg on oaapx01, reference 0.1.329). 1.15 (the operator ANSWERS a request -- done or rejected, a rejection with a sentence -- on *Aufbau* or `oaap tenant recipe close`, also without a request inbox; the tenant reads the answer on *Einrichten*; a request that became a case is closed there with the sentence -- 2.13, RFC-0109 §17, Jörg on oaapx01). 1.14 (setup recipes, stage 3: requests to the operator as cases -- the PLATFORM writes them into the node's request inbox through the cases app's node door, else as a message; new steps `idp.claim` and `destination.bind`, `destination.ensure` with principal propagation pinned to a fingerprint a human confirmed (`manual` with `done_when: server.compared`), the chain test as `done_when: destination.check`; `recipe.apply` in profiles -- 2.13, conformance test 34, RFC-0109 stage 3). 1.13 (setup recipes, stage 2: a value CHOSEN from an app's list (`setup_item`, read through the setup door's `GET ?kind=`), a `light` that follows the chosen item and is never stricter than it can reach; the operator RELEASES a recipe for a tenant (`recipe:<id>@<major>` in `tenant_admin_may`), after which that tenant's `tenant_admin` runs it -- own tenant only, the filled steps inside the scope -- 2.13, conformance test 33, RFC-0109 stage 2). 1.12 (setup recipes: a short list of a profile's steps, without those that create or shape a tenant, run by the operator against a tenant that EXISTS; its needs name apps and resolve to that tenant's instances only; a preview first, a conflict stops before anything happens; runs `r-...` beside the builds, undo per run, log `tenant.recipe.*` -- 2.13, conformance test 32, RFC-0109 stage 1). 1.11 (a gateway's sign-in clients, 2.9.1, may be requested by the `tenant_admin` of the instance's tenant too, not only by the operator: the request chooses nothing -- L4, reference 0.1.309). 1.10 (the client of an app: an app that declares `identity.oidc_client` (manifest 0.16) gets ONE confidential client `oaap-app-<instance>` in its tenant's space, made by the connector on an operator's request, disabled at removal -- 2.9.2, conformance test 31, RFC-0091 stage 3). 1.9 (a platform role per realm group: `role_map`, written by `server_admin`, only `guest`, `partner`, `user`, synced at every provider login for the roles it gave and never for hand-given ones -- 2.8.1, conformance test 30, RFC-0091 stage 2). 1.8 (brokers in front of a tenant's realm are doors: read, judged open or closed, counted by the §2.8 refusal, acknowledged closed only by the operator with a reason, read daily -- 2.10.1, conformance test 29, RFC-0091 stage 1). 1.7 (the tenant record carries `tenant_admin_may`: rights a `server_admin` hands to this tenant's `tenant_admin`, first `destinations` -- 1.1 table, `oaap tenant allow|disallow`, `oaap.net.destinations` 2.7.1). 1.6 (the bindings follow an issuer change **of the same space**: same connector, same name, same id at the provider, 2.11, conformance test 25, RFC-0073 T6; 1.5: the **clients of an MCP gateway**: a connector makes them on an
   operator's request and only ever disables them, 2.9.1, RFC-0073 stage 3; `tenant check`
   asks the provider whether a tenant's client is there, 2.1, conformance test 28;
   1.4: a provisioned space gets the node's mailbox and German as its
@@ -1330,6 +1330,33 @@ made for apps that were installed by hand.
   rollback; a pinned file that is no longer kept refuses with the way
   (roll back).
 
+### 2.4.1 A tenant's own domain (1.17, RFC-0115)
+
+A tenant record MAY carry `domain: {name, state, canonical, checked, said}`.
+
+- **Binding.** Only the operator binds a domain (`oaap tenant domain <label> <domain>`). Refused: the
+  node's own name or a name below it, a name above it, a name equal to or overlapping another tenant's
+  domain, any domain for the default tenant.
+- **State.** `pending` until the check passes, `active` after it, `off` when the operator switches it
+  off. The check (`oaap tenant domain <label> check`) passes when the domain AND one random name below
+  it resolve to at least one address the node's own external name resolves to. Only an `active`
+  domain names anything.
+- **Names.** An active domain adds `<domain>` (the tenant's place, as `<label>.<node>`) and
+  `<instance>.<domain>` for each of the tenant's instances, never an instance of another tenant.
+  Behind an edge every other name below the domain answers 404; directly it has no certificate.
+  Sandbox origins (oaap.apps.runtime, RFC-0075) stay on the node's names.
+- **Canonical.** While `canonical` is `domain` (the default) the domain names come first wherever
+  the platform prints an address; the node's names keep answering.
+- **Resolution.** A host equal to an active domain names that tenant for everyone (2.5 holds: a
+  pending, switched-off or unknown domain names nothing). A host below it names no place; a login
+  started there is handed to the domain's place.
+- **Session.** A session cookie set at or below an active domain is scoped to that domain, never to
+  the node's name; a return address after a login must lie in the same scope as the place the login
+  happened at.
+- **Provider.** The tenant's provider is started and called back on the domain
+  (`https://<domain>/auth/oidc/callback`). A connector-made client (2.9) gets that redirect URI when
+  the operator provisions again; for any other provider the operator adds it.
+
 ### 2.5 Resolution rules
 
 Two rules, and the difference between them is the whole safety
@@ -2458,6 +2485,18 @@ Jede offene Anfrage kann der Betreiber auf „Aufbau“ (oder mit
 Ablehnung mit einem Satz, warum. Das geht auch ohne Posteingang. Der
 Mandant liest die Antwort auf „Einrichten“; war die Anfrage ein
 Vorgang, wird er mit dem Satz geschlossen.
+
+## Deutsche Zusammenfassung (1.17 — die eigene Domain eines Mandanten)
+
+- Der Betreiber kann einem Mandanten eine eigene Domain geben
+  (`oaap tenant domain bec bec.brandeis.de`). Sie gilt erst, wenn die Domain und ein
+  zufälliger Name darunter auf dieselbe Adresse zeigen wie der Name des Knotens.
+- Dann ist die Domain der Ort des Mandanten (Startseite, Anmeldung mit seinem Anbieter),
+  und `<instanz>.<domain>` ist jede seiner Apps. Sonst antwortet darunter nichts.
+- Das Anmelde-Cookie gilt für die Domain, nie für den Knoten. Die Namen unter dem
+  Knoten antworten weiter; gedruckt wird zuerst die Domain.
+- Der Anbieter kommt auf der Domain zurück; ein vom Connector angelegter Client bekommt
+  die Adresse beim nächsten `oaap idp provision`.
 
 ## Deutsche Zusammenfassung (1.16 — Anleitungen mit Zeilen und Dateien am Schritt)
 
