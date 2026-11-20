@@ -1,7 +1,8 @@
 # RFC-0105: Specialists in Cases — AI Agents That Work a Case in the Background
 
 - **Status:** Accepted (2026-11-19). D1–D11 decided by Jörg as recommended.
-  Stage 0 measured 2026-11-20 (§12); stage 1 in progress.
+  Stage 0 measured 2026-11-20 (§12); stage 1 built and measured 2026-11-20
+  (§13, `spezialisten` 0.1.0, `vorgaenge` 0.13.0).
 - **Date:** 2026-11-19
 - **Authors:**
   - Jörg (the scenario, from SAP work): a user describes a symptom in the
@@ -351,6 +352,53 @@ The secrets stayed in root-only files on the node.
 7. `oaap authz agent-add` still wants the full collection id (RFC-0073
    finding 2), read here from the authorization store.
 
+## 13. Stage 1 built and measured (2026-11-20)
+
+**Built.**
+
+- `spezialisten` 0.1.0 (new app):
+  - the specialist record of §2 (name, `assistant@rev` with a pinned copy of prompt and model, three keys never shown again, limits lower than the tenant's `SPEZ_MAX_*`, active switch);
+  - a poll every 30 s of `GET /api/spez/turn` per active specialist; a case is due when its last entry is not the specialist's own;
+  - the run of §4 with the case as quoted data (`<vorgang>`), tools of the specialist's own read-only view (procedure T) and the model through the AI gateway;
+  - steps written as internal `note`/`tool`/`end`; limits (steps, minutes, runs per case); stop detected before each step and inside a step; give back at the end;
+  - "Prüfen" checks all three counterparts and registers the agent with `vorgaenge`.
+- `vorgaenge` 0.13.0:
+  - the queue setting "Erstbearbeitung" (§3.1, also on move);
+  - the door `/api/spez/` (`turn`, `case/<n>`, `case/<n>/entry`, `case/<n>/give-back`, JSON only); steps only by the responsible party and always internal;
+  - the dark chat collapsed with a „KI“ marker in the tab „Intern“;
+  - the stop button (§5).
+
+  Deviation from §4.1: the run reads and writes the case through this JSON door, not through the MCP tools of `vorgaenge`. Those stay as they are for the chat.
+
+**Tests.**
+
+- `vorgaenge/test_spez.py` (first responder, turn, steps, baits: non-responsible, form, reporter, stop, give back, move).
+- `spezialisten/test_spezialisten.py`, 26/26, end to end against the real `vorgaenge` in its own process behind a fake platform door, a fake MCP gateway and a scripted model.
+  - Baits: reporter text never in the system prompt; a tool outside the view refused; the reporter sees no step; step limit; stop in the middle of a step; a refusing AI gateway; runs per case; a wrong agent key; a key user cannot administer; foreign-origin forms refused.
+- Two mutations were caught (case into the system prompt; steps public).
+- All earlier tests of `vorgaenge` are green.
+
+**Measured on `oaap-test`** (tenant `vuebung`, apps installed from the working tree, test channel):
+
+| Asked | Answer |
+|---|---|
+| „Prüfen“ in `spezialisten` | ✓ agent signed in at `vorgaenge` (its uid), ✓ view with 2 tools (`get_case`, `list_cases`), ✓ model `lokal` reachable with the specialist's AI key |
+| Queue `analyse` set to the specialist, new case `V-2026-0009` reported | the specialist became responsible (internal entry) |
+| Poll and run | the run started 27 s later, 2 model steps, 13 s, end `done` |
+| History of the case | internal: a tool step (`list_cases`, refused **by the gateway** because the model invented an argument not in the approved schema), a note, end, give back; status `triage`, responsible empty |
+| What the reporter sees (`get_case` as the reporter) | only her own entry `created` |
+| Gateway log | `spez-analyse`, `list_cases`, procedure T, `refused` |
+
+**Findings.**
+
+1. **The frame works; the small local model does not.** `lokal` on `oaap-test` invented a tool argument and then wrote a confused note. The run did what it should: the gateway refused, the note was recorded, and the case went back to the people. A real specialist needs a model that handles tools well. That is a choice per specialist; the frame does not change.
+2. **The shown name is the agent's label.** The steps showed „RFC-0105 Stufe 0“, the label of the agent from stage 0 (§12, finding 4). A specialist's agent should be created with its shown name as label.
+3. **No light check yet (§8.5, D9).** The light of the run is the ceiling of the specialist's AI key (green here). A queue setting for the light follows with stage 2.
+4. **Not measured:**
+   - a real research task with a capable model;
+   - the stop button live (unit-tested end to end only);
+   - `spezialisten` in a closed tenant.
+
 ## Zusammenfassung auf Deutsch
 
 Heute arbeitet ein Assistent nur, solange ein Mensch im Chat mit ihm
@@ -414,6 +462,12 @@ einen eigenen Server-Eintrag, eine Sicht und einen Gateway-Schlüssel; seine
 Sicht ist nur lesend, weil ein Schlüssel heute ohne Zustimmung schreiben
 kann; das Modell erreicht er mit einem eigenen Schlüssel des KI-Gateways;
 die Assistenten-Revision liegt als festgehaltene Kopie im Spezialisten.
+
+**Stufe 1 gebaut und gemessen (20.11.2026):**
+- Gebaut sind `spezialisten` 0.1.0 (neue App) und `vorgaenge` 0.13.0 (Erstbearbeitung je Bereich, Tür für den Lauf, dunkler Chat mit KI-Marke, Stopp-Knopf).
+- Auf oaap-test hat ein Spezialist einen neuen Vorgang selbst übernommen, gelesen und ein Werkzeug über seine Sicht gerufen. Das Gateway hat den Aufruf abgelehnt, weil das Modell ein Argument erfunden hatte. Danach hat der Spezialist eine Notiz geschrieben und den Vorgang zurückgegeben.
+- Die meldende Person sah nichts davon.
+- Das kleine lokale Modell taugt inhaltlich nicht. Das Gerüst trägt.
 
 **Stufen:** 0 messen, ob der Schlüssel eines Agenten durch das MCP-Gateway
 trägt (offen seit RFC-0067); 1 lesender Spezialist mit Verlauf und
