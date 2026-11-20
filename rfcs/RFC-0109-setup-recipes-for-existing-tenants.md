@@ -884,3 +884,23 @@ erwartungsgemäß ohne SAP), Durchreichen und Rückbau.
 
 **Offen:** ein Lauf gegen ein echtes SAP-System (in bec nur auf Jörgs
 Wort; dort ist die Kette von Hand gebaut, die Vorschau würde das zeigen).
+
+### 17.1 Addendum: the operator answers (reference 0.1.326)
+
+Jörg, on oaapx01 after his first request (no inbox there): "Als
+server_admin sehe ich die Anfrage, kann aber nichts machen." Without an
+inbox the operator could neither answer nor reject, and a request with
+only a text stayed open for ever (no release answers it). Built: on
+*Aufbau* each open request has an answer field with "Erledigt" and
+"Ablehnen" (a rejection needs a sentence), also `oaap tenant recipe close
+<id> [--reject] --text …`; the answer joins the replies the tenant reads;
+a request that became a case is closed there with the sentence.
+`oaap.core.tenant` 1.15, `oaap.core.portal` 0.3.59. Measured on oaap-test:
+a case-backed request answered "erledigt" through the real page (the case
+V-2026-0022 closed with the sentence, the answer on *Einrichten* of
+`rzt`); without an inbox, a text-only request: "Ablehnen" without a
+sentence refused on the page, with one rejected, the answer listed.
+
+**Deutsch:** Der Betreiber kann jede offene Anfrage auf „Aufbau“
+erledigen oder ablehnen (mit Satz), auch ohne Posteingang; der Mandant
+sieht die Antwort auf „Einrichten“.
