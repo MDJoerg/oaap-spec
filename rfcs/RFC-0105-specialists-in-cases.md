@@ -3,7 +3,8 @@
 - **Status:** Accepted (2026-11-19). D1–D11 decided by Jörg as recommended.
   Stage 0 measured 2026-11-20 (§12); stage 1 built and measured 2026-11-20
   (§13, `spezialisten` 0.1.0, `vorgaenge` 0.13.0); stage 2 built and measured
-  2026-11-20 (§14, `spezialisten` 0.2.0, `vorgaenge` 0.14.0, `mcp-gateway` 0.34.0).
+  2026-11-20 (§14, `spezialisten` 0.2.0, `vorgaenge` 0.14.0, `mcp-gateway` 0.34.0);
+  stage 3 built and measured 2026-11-20 (§15, `spezialisten` 0.3.0, `vorgaenge` 0.15.0).
 - **Date:** 2026-11-19
 - **Authors:**
   - Jörg (the scenario, from SAP work): a user describes a symptom in the
@@ -461,6 +462,65 @@ The first attempt executed the approved call against a key still limited to `rea
    - a draft live (unit-tested end to end only);
    - a light per queue (D9), still open.
 
+## 15. Stage 3 built and measured (2026-11-20)
+
+**Built.**
+
+- `vorgaenge` 0.15.0:
+  - a table `consults` (one question, one answer) and the entry types `consult` and `consult_answer`, both internal;
+  - who may ask: whoever is responsible (a specialist through `/api/spez/case/<n>/consult`, by name), and any person who works the queue (form „Rückfrage stellen“);
+  - who may be asked: the queue's members (the list on „Bereiche“) and every specialist. Never oneself, never the reporter, never a second open question to the same party;
+  - a specialist is whoever uses `/api/spez/turn`; the app records it (`people.specialist`), for the limits and the choice;
+  - the sub-status `waiting_consult`, never in the status form. When the last open question is answered the case returns to `in_progress` by itself, written as „Automatisch“, never in the name of the consulted party;
+  - the consulted party reads the case (internal entries included) while it is open, answers exactly once, and never becomes responsible. It cannot write steps, give back, change the status or ask further;
+  - `turn` lists open questions to the caller with `consult`; a consulted person finds the case under „Meine“ and answers on the case page;
+  - limits (§5): at most 3 consultations of specialists per case, then people only; after 2 answers specialist → specialist in a row since the last person's entry, the next turn belongs to a person.
+- `spezialisten` 0.3.0:
+  - the responsible run gets a tool `rueckfrage` with the names it may ask. A successful question ends the run with `waiting_consult`; a refusal (a limit, an unknown name) goes back to the model as the tool result, so it can ask a person instead;
+  - a consulted run (`Run.consult`) gets its own frame, the question quoted as data, **only the reading tools** of its view, and no draft or question tool. Its single answer ends with the tools it used;
+  - D4: the tenant administrator (not `admin` alone) can list tools a specialist may call without approval. The change is written to the app's audit; the call carries `X-OAAP-Approved-By: Dauerfreigabe <person>` and the case entry names the person;
+  - approver names in headers are percent-encoded (they were sent raw in 0.2.0; a name outside Latin-1 would have broken the run).
+
+**Tests.**
+
+- `vorgaenge`: all green, 30 new in `test_spez.py`. Baits:
+  - a specialist of another queue does not read the case before it is asked, and no longer after it closes;
+  - the reporter is not consultable and sees neither question nor answer;
+  - the consulted party writes no step (note, plan, end), does not give back, does not change the status, does not ask further, answers only once;
+  - only the asked party answers; no second open question to the same party;
+  - the third specialist → specialist question in a row is refused, the fourth consultation of specialists is refused, a person can still be asked.
+- `spezialisten`: 63/63, 21 new. End to end: two specialists and a person solve a case together. Baits:
+  - a writing tool inside a consultation never runs, not even as a plan;
+  - the consulted specialist writes nothing but its answer and is never responsible;
+  - the refused third question reaches the model with its reason; it then asks the person;
+  - nothing runs while the person has not answered;
+  - lifting approval needs the tenant administrator.
+- Two mutations were caught: the reading filter of a consultation removed, the in-a-row limit removed.
+
+**Measured on `oaap-test`** (tenant `vuebung`, test channel, one agent, local model). 24/24; two checks of the script used the wrong display name of the agent (its label is still „RFC-0105 Stufe 0“) and were re-checked by its uid.
+
+| Asked | Answer |
+|---|---|
+| A case in `eingang`, outside the agent's queue: the agent reads it | 404 |
+| The tenant administrator asks the specialist on the case page | `waiting_consult`; the agent's `turn` lists the question; now it reads the case, not responsible, nobody to ask |
+| The specialist's run as consulted party | `answered` after 6 s; exactly one internal entry of the agent; status back to `in_progress` as „Automatisch“; nobody became responsible |
+| Gateway during that run | one `get_case`, refused for its arguments (the local model); no writing call |
+| The agent afterwards: note, give back, second answer | 409 each |
+| The reporter's page | neither question nor answer |
+| The specialist (responsible) asks the reporter / a member of the queue | 409 / `waiting_consult` |
+| The member finds the case under „Meine“; another person answers | yes / 400 |
+| The member answers on the page | `in_progress`; the specialist is due again and runs (`done`) |
+| `comment_case` with `X-OAAP-Approved-By: Dauerfreigabe Jörg Prüf` at the real gateway 0.34 | `ok`; usage row `Dauerfreigabe J%C3%B6rg Pr%C3%BCf` |
+
+**Findings.**
+
+1. **The display name of an agent is its label from `agent-add`.** The agent of stage 0 still shows as „RFC-0105 Stufe 0“. Names in `rueckfrage` and on the page come from there; a specialist should get its final label when the agent is created.
+2. **The local model answers fluently and wrongly.** As consulted party it claimed an earlier case it had not read (its only tool call failed on arguments). The mechanism held: one internal answer, nothing written. Content needs a tool-capable model, as before.
+3. **Not measured live:**
+   - two specialists consulting each other (one agent on `oaap-test`; covered end to end in the tests);
+   - the limits (3 / 2 in a row) against the live app (store rules, unit-tested);
+   - D4 through a model run: the lifted call was made directly with the runner's gateway client.
+
 ## Zusammenfassung auf Deutsch
 
 Heute arbeitet ein Assistent nur, solange ein Mensch im Chat mit ihm
@@ -539,6 +599,15 @@ die Assistenten-Revision liegt als festgehaltene Kopie im Spezialisten.
 - Offen:
   - eine unterschriebene Freigabe, die das Gateway selbst prüft;
   - die Ampel je Bereich.
+
+**Stufe 3 gebaut und gemessen (20.11.2026):**
+- Gebaut sind `vorgaenge` 0.15.0 und `spezialisten` 0.3.0.
+- Rückfragen: Wer verantwortlich ist, fragt einen anderen Spezialisten oder einen Zuständigen des Bereichs. Der Vorgang steht so lange auf „wartet auf Rückmeldung“.
+- Die Befragten lesen den Vorgang, antworten genau einmal und werden nie verantwortlich. Ein befragter Spezialist bekommt nur lesende Werkzeuge.
+- Grenzen: höchstens 3 Rückfragen an Spezialisten je Vorgang; nach 2 Antworten Spezialist zu Spezialist in Folge ist ein Mensch dran.
+- D4: Der tenant_admin kann die Freigabe für einzelne Werkzeuge je Spezialist aufheben; das wird protokolliert.
+- Gemessen auf oaap-test: 24 von 24.
+- Nicht live gemessen: zwei Spezialisten untereinander und die Grenzen. Das decken die Tests ab.
 
 **Stufen:** 0 messen, ob der Schlüssel eines Agenten durch das MCP-Gateway
 trägt (offen seit RFC-0067); 1 lesender Spezialist mit Verlauf und
