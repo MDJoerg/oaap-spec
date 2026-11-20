@@ -536,8 +536,14 @@ state of `pxx` this morning.
   step `hilfe-holen` found it present. Undo leaves the documentation
   there (the run did not make it).
 
-**Not measured:** the preview on `pxx` (needs 0.1.323 on oaapx01: push and
-update, Jörg's word); an item a human changed surviving undo on the node
+**Measured on oaapx01, tenant `pxx`** (2026-11-20, after push and
+`oaap update` 0.1.322 → 0.1.323, Jörg: "Ja, pushen und messen"; recipe
+copied to `/var/lib/oaap/recipes/`): the preview with `model=chat-default`,
+`ceiling=red` picked help, tools, models, chat on its own and said
+"vorhanden" for all four steps — the hand-made setup of the morning is
+exactly what the recipe describes. No run was started.
+
+**Not measured:** an item a human changed surviving undo on the node
 (the app's rule, tested with RFC-0104).
 
 **Left on oaap-test:** tenant `rzt` with its four instances and two runs
@@ -573,5 +579,7 @@ Morgen:
   Stufe 2 kann Rezept-Freigaben dort eintragen.
 - D: Die Hilfe holt ihre Doku nach dem Zuordnen selbst.
 
-**Noch nicht gemessen:** die Vorschau auf pxx. Dafür braucht es Push und
-Update von oaapx01 auf 0.1.323; das geschieht nur auf dein Wort.
+**Auf pxx gemessen** (nach Push und Update von oaapx01 auf 0.1.323): Die
+Vorschau wählt die vier Instanzen selbst und zeigt überall „vorhanden“.
+Die Handarbeit vom Morgen entspricht also genau dem Rezept. Gestartet
+wurde kein Lauf.
