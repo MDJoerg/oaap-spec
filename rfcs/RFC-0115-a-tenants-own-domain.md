@@ -2,7 +2,8 @@
 
 - **Status:** **Accepted (2026-11-20)** — Jörg: „Wie empfohlen“ for D1–D9.
   Stage 0 measured 2026-11-20 (§11); stage 1 built and measured 2026-11-20
-  (§12, reference 0.1.331, `oaap.core.tenant` 1.17).
+  (§12, reference 0.1.331, `oaap.core.tenant` 1.17); live for `bec` on `oaapx01`
+  2026-11-20 (§13, reference 0.1.332).
 - **Date:** 2026-11-20
 - **Authors:**
   - Jörg (the need, 2026-11-20): the tenant `bec` on `oaapx01` has the
@@ -372,6 +373,26 @@ local test user; everything removed afterwards). 9/9:
 3. **Not built in stage 1:** the daily re-check of a pending domain (§2), the operator page, mails and
    help printing the domain (stage 2).
 
+## 13. Live for `bec` on `oaapx01` (2026-11-20, Jörg: „Ja, oaapx01“)
+
+- Backup, then 0.1.331; all 54 public names answered as before, the gateway was not restarted.
+- **Finding:** activating `bec.brandeis.de` made the gateway refuse the reload: `chat.bec.brandeis.de`
+  was already an instance's own name (RFC-0018), and the automatic name was written a second time.
+  The gateway kept its running config; the file on disk was wrong until the domain was switched off a
+  minute later. Nobody saw a change.
+- 0.1.332: an own name keeps its site and the automatic one is left out; if the gateway still refuses,
+  the domain goes back to pending and the files are written without it (two tests, one mutation).
+  Backup, update, names unchanged.
+- `oaap tenant domain bec bec.brandeis.de`: active, „Already an instance's own name: chat.bec.brandeis.de“.
+  `oaap idp provision auth --tenant bec` registered `https://bec.brandeis.de/auth/oidc/callback`
+  (and re-wrote the realm's mailbox with the same values).
+- Measured from the internet, real certificates: `bec.brandeis.de/auth/login` 200 with „Mit dem
+  BEC-Konto anmelden“; `vorgaenge.`, `tools.`, `chat.bec.brandeis.de` 303 to the login; an app's login
+  handed to `https://bec.brandeis.de/auth/oidc/start?back=vorgaenge.bec.brandeis.de`; the provider
+  start goes to Keycloak with the domain's callback and Keycloak shows its login form (200);
+  `nix.bec.brandeis.de` gets no certificate; `bec.oaap.joomp.de` unchanged.
+- Not measured: a person actually logging in through the realm on the domain.
+
 ## Zusammenfassung auf Deutsch
 
 **Worum es geht:** Heute baut der Knoten jeden öffentlichen Namen aus
@@ -436,6 +457,12 @@ Anmelde-Cookie nur für den Knotennamen gilt.
 - Gemessen auf oaap-test: 9 von 9, und Keycloak nimmt die neue Adresse nach `provision` an.
 - Offen: echter Browsertest mit Zertifikat über eine Edge-Route, eine Anbieter-Anmeldung mit
   einer echten Person, tägliche Nachprüfung, Mails und Hilfe (Stufe 2).
+
+**Live für bec auf oaapx01 (20.11.2026, Referenz 0.1.332):** `bec.brandeis.de` zeigt die
+Anmeldung von bec mit „Mit dem BEC-Konto anmelden“, die Apps antworten unter
+`<app>.bec.brandeis.de`, Keycloak nimmt die neue Rücksprungadresse an. Unterwegs lehnte das Gateway
+einmal ab, weil `chat.bec.brandeis.de` schon eigener Name einer App war; behoben in 0.1.332, ohne
+dass jemand etwas bemerkt hat.
 
 **Stufen:** 0 auf oaap-test messen, was heute bricht (mit einem zweiten
 DuckDNS-Namen); 1 Domain, Namen, Zertifikate, Anmeldung; 2 Chat-Ansichten,
