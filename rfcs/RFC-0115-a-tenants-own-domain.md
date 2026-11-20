@@ -1,7 +1,7 @@
 # RFC-0115: A Tenant's Own Domain
 
 - **Status:** **Accepted (2026-11-20)** — Jörg: „Wie empfohlen“ for D1–D9.
-  Nothing built yet; stage 0 (the measurement) comes first.
+  Stage 0 measured 2026-11-20 (§11); nothing built.
 - **Date:** 2026-11-20
 - **Authors:**
   - Jörg (the need, 2026-11-20): the tenant `bec` on `oaapx01` has the
@@ -245,6 +245,63 @@ All nine decided by Jörg on 2026-11-20 as recommended.
 | 2 | Sandbox origins, mails, help, recipes and the MCP gateway's hints print the domain; a page for the operator | the chat on the domain shows an MCP App view; a notification mail links the domain |
 | 3 | Behind an edge; a `tenant_admin` request for a domain; optional redirect of the node's names | a node behind an edge serves a tenant domain |
 
+## 11. Stage 0 measured (2026-11-20, `oaap-test`, tenant `vuebung`)
+
+**Set-up.** `oaap-test` sits behind the edge on `oaap-demo` (10.10.10.75),
+and every name below `oaap-demo.duckdns.org` resolves there, so
+`dom0.oaap-demo.duckdns.org` served as the tenant's domain. The edge was
+not changed: the requests were sent from `oaap-demo` to `oaap-test`
+exactly as the edge forwards them (plain HTTP to port 80, Host
+unchanged, `X-Forwarded-Proto: https`), which passes the edge guard.
+`vuebung-vorgaenge` got the own name `vorgaenge.dom0.oaap-demo.duckdns.org`
+(`oaap app address set`), and a local test user of `vuebung` was created.
+`vuebung` has a provider („Mit dem Vereinskonto anmelden“). Everything was
+removed afterwards.
+
+| Name | Asked | Answer |
+|---|---|---|
+| `vuebung.<node>` (the place) | `GET /auth/login` | the tenant's login: title „Verein Uebung“, the provider button |
+| `vorgaenge.dom0…` (own name) | `GET /` | 303 to `/auth/login?tenant=<vuebung>`, cookie **host-only** |
+| `vorgaenge.dom0…` | `GET /auth/login` | the **node's** login „Anmelden — OAAP“: no tenant title, **no provider button** |
+| `vorgaenge.dom0…` | `GET /auth/oidc/start` | **404**: the tenant's provider cannot be started there |
+| `vorgaenge.dom0…` | local login, forced password change, `GET /` and `/neu` | 303, 303, then the app (200), cookie host-only |
+| `vuebung.<node>` | local login | cookie `Domain=oaap-test.oaap-demo.duckdns.org`: it does not reach `vorgaenge.dom0…` |
+| the session of `vorgaenge.dom0…` sent to `vuebung.<node>` | `GET /` | 200: the server accepts a session on any host; only the browser keeps it apart |
+| `dom0…` (the domain's apex, no site) | `GET /` | 303 to the **node's** login |
+| `chat.dom0…` (no own name) | `GET /` | 303 to the **node's** login |
+| `vuebung.<node>` | `GET /auth/oidc/start` | to the provider, `redirect_uri=https://vuebung.<node>/auth/oidc/callback` |
+
+**Findings.**
+
+1. **A member with only the tenant's provider cannot log in on an own
+   name at all.** The page shows the node's login without the provider
+   button, even with `?tenant=` in the address, and the provider's start
+   is 404. Only local accounts of the node get in. For `bec`, whose
+   people log in through their provider, an alias is useless for apps
+   with login.
+2. **One login per name.** On an own name the session cookie is
+   host-only, so every alias needs its own login, and a login on the
+   node's names does not carry over. The cookie widening of §4 is the
+   fix.
+3. **Names without a site reach the node's login.** The apex of the
+   domain and any name below it that is no instance get a 303 to the
+   node's generic login page, not nothing. Behind an edge that is the
+   catch-all on port 80; nothing is leaked, but it is the wrong door, and
+   §7.3 (fail closed) must hold for the domain from stage 1 on: a site
+   for `*.<domain>` that answers unknown names with 404.
+4. **A session is not bound to a host.** The server accepted the alias's
+   session on the place. That is no privilege gain (same person, same
+   tenant checks), but stage 1 should decide whether a session made on a
+   tenant domain is refused on other hosts (a bait test either way).
+5. **The app is told `http://` names behind an edge.** `oaap app address
+   show` prints `OAAP_INSTANCE_NAMES` as `http://…` while the CLI says
+   „still reachable at https://…“. Apps that build absolute links from
+   this list would link plain HTTP; to check in stage 1.
+6. **For a real browser test** with TLS, the edge on `oaap-demo` needs a
+   route for the domain (`oaap edge add <domain> <oaap-test>`), which
+   gives certificates on demand for names below it. Not done in stage 0:
+   it changes a fleet node.
+
 ## Zusammenfassung auf Deutsch
 
 **Worum es geht:** Heute baut der Knoten jeden öffentlichen Namen aus
@@ -284,6 +341,19 @@ Anmelde-Cookie nur für den Knotennamen gilt.
 - D7: Feste Basisadressen von Apps ändert der Betreiber selbst.
 - D8: Knoten hinter einem Edge erst in Stufe 3.
 - D9: Eine Domain je Mandant.
+
+**Stufe 0 gemessen (20.11.2026):**
+- Auf oaap-test mit `dom0.oaap-demo.duckdns.org` als Domain des Mandanten
+  vuebung, ohne den Edge zu ändern.
+- Wer nur das Vereinskonto hat, kommt über einen eigenen Namen gar nicht
+  hinein: Dort steht die Anmeldung des Knotens ohne Vereins-Knopf, und
+  der Start des Anbieters liefert 404.
+- Mit einem lokalen Konto geht es, aber das Cookie gilt nur für genau
+  diesen einen Namen: jede App eine eigene Anmeldung.
+- Namen ohne eigene Seite unter der Domain landen bei der Anmeldung des
+  Knotens statt bei „nichts“.
+- Daraus für Stufe 1: Cookie je Mandanten-Domain, Anmeldung und Anbieter
+  auf der Domain, unbekannte Namen darunter mit 404.
 
 **Stufen:** 0 auf oaap-test messen, was heute bricht (mit einem zweiten
 DuckDNS-Namen); 1 Domain, Namen, Zertifikate, Anmeldung; 2 Chat-Ansichten,
