@@ -1,7 +1,8 @@
 # RFC-0117: Assistant Templates and a Wizard for the Tenant Admin
 
 - **Status:** **Accepted (2026-11-21)** — D1–D10 as recommended (Jörg: "Wie empfohlen").
-  Nothing built, nothing measured.
+  **Stage 1 built and measured 2026-11-21 (§10):** reference 0.1.336, `oaap.core.tenant`
+  1.20, templates `hilfe-assistent` 1.2.0, `recherche` 1.1.0, `assistent-leer` 1.0.0.
   The facts in §1 were read the same day in `tenant_recipe.py`, `tenant_build.py`,
   `appctl.py`, the portal (`recipe_view.py`, `/einrichten`), `lib/assistants`,
   `mcp-gateway` (`books.py`, `app.py`) and `chat` (`app.py`, `page.html`).
@@ -258,6 +259,74 @@ placed by the operator wins.
   liegen noch im Chat — übernehmen", because otherwise they stay invisible to the
   gateway (seen on oaap-test, `vuebung-chat`).
 
+## 10. Stage 1 — built and measured (2026-11-21)
+
+**Built (reference 0.1.336, `oaap.core.tenant` 1.20 §2.13):**
+
+- `tenant_recipe.py`: top keys `offers`, `card`; param kind `prose` (engine: `text` with
+  `multiline`, line breaks and tabs only, `max` up to 8000); `shape`; `offer_problems`
+  (exactly one assistant, card fields, card light at least the highest literal light of
+  the steps, a `prose` value only in an assistant's `greeting`/`system` -- in every
+  recipe); `free_problems` (D4).
+- `appctl.py`: `SHIPPED_RECIPE_DIR` = `recipes/` beside appctl (copied by every update to
+  `/var/lib/oaap/app/recipes`); `tenant_recipe_path` takes the operator's file at the same
+  or a higher version, the shipped one at a higher version; the list joins both folders;
+  the tenant_admin gate lets a free template pass without a release; `recipe-view.json`
+  rows carry `offers`, `card`, `free`, `shipped`.
+- Portal: page **Assistenten** (`/assistenten`, menu entry beside *Einrichten*, same
+  people): cards, *Weiter* or *Freigabe anfragen*; `/assistenten/neu/<id>`: what is needed
+  (instances, the template's description with its preconditions, values without a
+  default), *Anpassen* (the `shape` params, instructions as a large field with "Zurück zur
+  Vorlage"), preview, *Anlegen* -- the same `tenant-recipe` jobs as *Einrichten*. The form
+  of *Einrichten* shows `prose` as a text area too.
+- Templates in `platform/recipes/` (copies in `oaap-docs/szenarien/rezepte/`, test-checked
+  equal): `hilfe-assistent` 1.2.0 (free; title, id, greeting, instructions, model shapeable;
+  the defaults are what 1.1.0 created, so an unchanged tenant shows *vorhanden*),
+  `recherche` 1.1.0 (operator's release), `assistent-leer` 1.0.0 (free, no view).
+
+**Deviations from the text above:**
+
+- **Visibility is not shapeable** (§2, D3): the MCP gateway's setup door creates only
+  tenant-wide assistants; private ones stay the chat's drawer.
+- **No automatic `-2`** (§2, D5): the id is a shapeable field; a taken id shows as
+  *Konflikt* in the preview with the sentence "eine andere Kennung wählen".
+- **Shipped templates are read in place**, not copied to `RECIPE_DIR` (D7): the same
+  effect (an operator's file of the same id wins), without a copy that could go stale.
+- **Free (D4)** is "shipped and unchanged, no install, nothing red, only `app.setup` and
+  `destination.ensure` with a literal address": the help template's fixed docs source is
+  the platform's own, a destination whose address comes from a value is not free.
+- **D10** (move chat-local assistants) moves to stage 2 with the links from chat and
+  gateway.
+
+**Tests:** `test_assistant_templates.py` (engine, D4, D7, the gate, the view) and
+`test_assistant_templates_page.py` (the page) new; the four RFC-0109 test files run
+without the shipped folder (their semantics); 16 files in the Linux runner green.
+
+**Measured on oaap-test** (0.1.336 staged, tenant `rzt`, as its tenant_admin through the
+functions the portal's job calls and the portal pages with the gateway's headers; the
+release `recipe:hilfe-assistent@1` taken for the measurement and given back), 13/13:
+
+1. The page shows Hilfe and Leer with *Weiter*, Recherche with *Freigabe anfragen*; the
+   wizard has the instructions as a text area; Recherche by address: back.
+2. Without a release the tenant_admin previews the shipped Hilfe: all four steps
+   *vorhanden* (1.2.0 meets what 1.1.0 made).
+3. Own id `hilfe-m117`, own title, three-line instructions: only the assistant missing;
+   run done; in the gateway's database title, view `hilfe` and the instructions with their
+   lines.
+4. *Bait:* id `hilfe` with other instructions → *Konflikt* "anders in", nothing
+   overwritten. A control character in the instructions → refused with a sentence.
+   Recherche without release → refused with the way to the operator.
+5. Leer: an assistant without view with the template's multi-line instructions --
+   **after** `rzt-werkzeuge` was raised from 0.32.0 to 0.35.0; with 0.32.0 the preview
+   stopped before anything happened with the old gateway's "view: fehlt." (hence the
+   template's description with its preconditions on the wizard page).
+6. Both runs rolled back: both assistants deleted (revisions stay).
+
+**Not measured:** a click in the browser by a person; a conversation with the new
+assistants in the chat (rzt's chat is 0.17.0; an assistant without view needs 0.18.0).
+**Found:** most tenants of the fleet run an MCP gateway before 0.35.0 -- *Leer* needs the
+app updates first.
+
 ## Deutsche Zusammenfassung
 
 **Frage (Jörg, 21.11.):** Ein Assistent zum Anlegen von Assistenten für den
@@ -282,3 +351,13 @@ dann die Vorlage vorausgefüllt — so kommen Sicht, Profil und Modellfreigabe m
 Mandanten („Als Vorlage speichern“).
 
 **Entscheidungen D1–D10:** am 21.11. wie empfohlen angenommen (§9).
+
+**Stufe 1 gebaut und gemessen (21.11., §10):** Referenz 0.1.336. Portal-Seite
+„Assistenten“ mit Karten und Assistent; Vorlagen Hilfe 1.2.0 und Leer 1.0.0 frei,
+Recherche 1.1.0 mit Freigabe; mehrzeilige Anweisungen (`prose`) nur im Text des
+Assistenten. Auf oaap-test im Mandanten rzt als tenant_admin 13/13: eigener
+Hilfe-Assistent mit dreizeiligen Anweisungen angelegt und zurückgenommen, Konflikt bei
+vergebener Kennung, Recherche ohne Freigabe abgelehnt, Leer nach Update des MCP-Gateways
+auf 0.35.0. Abweichungen: Sichtbarkeit nicht wählbar (nur „ganzer Mandant“), Kennung von
+Hand statt automatisch „-2“, Übernahme der Chat-Assistenten (D10) in Stufe 2. Nicht
+gemessen: Klick im Browser, Gespräch im Chat.
