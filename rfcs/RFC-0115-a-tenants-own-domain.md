@@ -4,7 +4,8 @@
   Stage 0 measured 2026-11-20 (§11); stage 1 built and measured 2026-11-20
   (§12, reference 0.1.331, `oaap.core.tenant` 1.17); live for `bec` on `oaapx01`
   2026-11-20 (§13, reference 0.1.332); stage 2 built and measured 2026-11-21
-  (§14, reference 0.1.333, `oaap.core.tenant` 1.18).
+  (§14, reference 0.1.333, `oaap.core.tenant` 1.18); §15 (Jörg's two wishes, portal and
+  hidden instances) built and measured 2026-11-21 (reference 0.1.334, 1.19).
 - **Date:** 2026-11-20
 - **Authors:**
   - Jörg (the need, 2026-11-20): the tenant `bec` on `oaapx01` has the
@@ -448,6 +449,53 @@ among them `test_migrate`, `test_tenant`, `test_tenant_face`, `test_access_porta
 **Not measured:** a real mail (no event was due), an MCP App view rendered in a browser on the domain
 (needs an edge route on `oaap-demo`).
 
+## 15. The portal, and hiding an instance under the domain (2026-11-21)
+
+**Jörg, after testing `bec.brandeis.de`:** „Das Zuordnen der Domain aus dem Portal für den server_admin:
+am besten in den Mandanteneinstellungen“, and: tenant and instances stay reachable under the node's
+names (yes, D3) -- „dann möchte ich, dass bei einer solchen zugeordneten Sub-Domain einzelne Instanzen
+‚versteckt' werden können. Also nur über die Knoten-Domain-Auflösung zugänglich sind.“
+
+**Decided while building** (no D-number, each the narrow choice):
+
+- Hiding is the server_admin's, like binding (D1): it changes what a tenant publishes under a name the
+  operator bound.
+- A hidden instance keeps an own name (RFC-0018) below the domain: that is an explicit choice, and the
+  answer says how to remove it.
+- The flag stays on the instance when the domain is switched off or removed; it takes effect again
+  under the next domain.
+
+**Built** (reference 0.1.334, `oaap.core.tenant` 1.19).
+
+- Registry field `domain_hidden` on an instance; `instance_auto_hosts` and the portal's `auto_host` leave
+  the domain name out for it. Behind an edge `*.<domain>` answers 404 for it; directly it has no
+  certificate.
+- `instance_set_domain_hidden` (CLI `oaap app address <instance> domain-hide|domain-show`), written to
+  the tenant's log (`instance.domain`).
+- Portal: Mandanten → **Domain** (`/tenant/domain?tenant=<label>`), server_admin only, not for the default
+  tenant. It shows the domain with state and DNS's answer, binds a domain, checks, switches off, removes,
+  and lists the tenant's instances with their name under the domain and under the node and a button to
+  hide or show each.
+- Host worker: actions `tenant-domain` and `instance-domain`, accepted from a server_admin only, judged
+  from the actor's record. `tenant-domain` runs the CLI's own function and answers with its sentences
+  (`_run_captured`), so portal and CLI cannot drift apart.
+
+**Tests.** `test_tenant_domain.py` 78 (17 new): hiding and showing (names, gateway file, portal link, the
+log, unchanged twice, refused without a domain, the CLI), the real worker with a server_admin and a
+tenant_admin (who is refused for both actions, nothing changes), the CLI's sentences as answers, the
+portal page (content; a tenant_admin and the default tenant are sent away). Two mutations caught (the
+worker's role check removed; the flag ignored). Fourteen files green in the Linux runner, among them
+`test_access_portal`, `test_administer_portal`, `test_care_portal`, `test_tenant_face`.
+
+**Measured on `oaap-test`** (staged, tenant `vuebung`, through the node's real queue watcher
+`oaap-deployd.path`; removed afterwards): 5/5 -- the tenant_admin `vuebung.carl` is refused for both
+actions; `oaap-admin` binds `dom0.oaap-demo.duckdns.org` (answer: the CLI's sentences) and hides
+`vorgaenge`; the portal page shows the domain active and `vorgaenge` hidden. From the edge node:
+`vorgaenge.dom0…` 404, `vorgaenge.vuebung.<node>` 303 to the login, `chat.dom0…` 303.
+
+**Not measured:** the page clicked in a browser by a person (rendered inside the portal container with
+the gateway's headers).
+
 ## Zusammenfassung auf Deutsch
 
 **Worum es geht:** Heute baut der Knoten jeden öffentlichen Namen aus
@@ -526,6 +574,15 @@ dass jemand etwas bemerkt hat.
   passt; eine aktive schaltet der Zeitgeber nie ab.
 - Beim Aktivieren nennt der Befehl die Apps, die die neuen Namen erst nach einem Neustart kennen.
 - Gemessen auf oaap-test; nicht gemessen: eine echte Mail und eine Chat-Ansicht im Browser.
+
+**Zwei Wünsche von Jörg, gebaut und gemessen (21.11.2026, Referenz 0.1.334):**
+- Im Portal unter Mandanten → **Domain** ordnet der Server-Admin die Domain zu, prüft, schaltet ab
+  und entfernt sie. Der Knoten nimmt das nur vom Server-Admin an.
+- Auf derselben Seite lässt sich jede App **unter der Domain verbergen**: Sie antwortet dann nur
+  unter dem Namen des Knotens, unter der Domain mit nichts. Auch per CLI:
+  `oaap app address <app> domain-hide` / `domain-show`.
+- Gemessen auf oaap-test über die echte Warteschlange: 5 von 5; von außen 404 unter der Domain,
+  Anmeldung unter dem Knoten.
 
 **Stufen:** 0 auf oaap-test messen, was heute bricht (mit einem zweiten
 DuckDNS-Namen); 1 Domain, Namen, Zertifikate, Anmeldung; 2 Chat-Ansichten,
