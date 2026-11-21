@@ -1,7 +1,9 @@
 # RFC-0116: Web Research as a Platform Source — Search and Read the Web Through the MCP Gateway
 
 - **Status:** **Accepted (2026-11-20)** — D1–D11 as recommended (Jörg:
-  "Wie empfohlen"). Stage 0 measured 2026-11-20/21 (§8). Nothing built. The facts in §1 were read the same day in the
+  "Wie empfohlen"). Stage 0 measured 2026-11-20/21 (§8). **Stage 1 built and measured
+  2026-11-21 (§9):** app `recherche` 0.1.0, recipe `recherche`, `oaap.ai.assistants` 0.7,
+  chat 0.18.0, mcp-gateway 0.35.0, reference 0.1.335 (`OAAP_EGRESS`). The facts in §1 were read the same day in the
   specs, in `chat` (`loop.py`, `app.py`), `lib/assistants`, `ai-gateway`
   (`relay.py`) and in Anthropic's documentation of its OpenAI-compatible
   endpoint.
@@ -366,6 +368,66 @@ settings: defaults plus `formats: [html, json]`, `limiter: false`,
 **Not measured:** a contracted search API; `web_fetch` (stage 1 builds
 it); SearXNG behind a destination of a closed tenant.
 
+## 9. Stage 1 — built and measured (2026-11-21)
+
+**Built.**
+
+- **App `recherche` 0.1.0** (`oaap-apps/apps/recherche`, standard library only): `web_search`
+  over SearXNG behind the destination `search`, `web_fetch` with the rules of §2.3, both
+  `readOnlyHint`. `web_fetch` resolves the name itself, checks **every** address
+  (global only; loopback, private, link-local, reserved, multicast refused; IPv4-in-IPv6
+  judged as IPv4), refuses the node's own addresses (its `OAAP_INSTANCE_NAMES` resolved),
+  and connects to exactly a checked address (Host header and SNI carry the name — no second
+  resolution, no DNS rebinding); every redirect again, at most five. IDN names and non-ASCII
+  paths are encoded. No query, URL or content in any log; counts per day and tool, refusals
+  by reason, on the app's page and `/api/status`. Cache: one hour in memory by URL hash.
+- **`OAAP_EGRESS=closed|open`** (`oaap.apps.runtime` 2.40, reference 0.1.335): written
+  wherever a container is (re)created. `recherche` leaves `web_fetch` out of its catalog when
+  `closed` and refuses a direct call with a sentence (§4.7).
+- **Recipe `recherche`** (`oaap-docs/szenarien/rezepte/recherche.json`): installs the app if
+  needed, binds the search service as `search`, and in the MCP gateway reads the source,
+  makes the view `recherche` (both tools), a **second** access profile of the chat for that
+  view only (`<chat>-recherche`, ceiling red — the gateway finds profiles per view, so the
+  chat's existing profile stays untouched) and the assistant `recherche`. It sets no light:
+  the source stays red (D11).
+- **D9:** `view` optional in `lib/assistants` (copies in chat and mcp-gateway); `gateway` or
+  `views: true` without `view` refused. Chat 0.18.0: no gateway, no tools for such an
+  assistant, setup report and light only for the model; the form allows an empty view.
+  mcp-gateway 0.35.0: the setup door creates such an assistant with a prompt without tools.
+
+**Found while building:** the first container on oaap-test reached no IPv6 host — the app
+now orders IPv4 first and tries the checked addresses in turn (measured: `httpbingo.org`
+answered after the change). `class: backend` is no class of the platform — `service`.
+
+**Tests.** `recherche` 73 (each refusal with a bait listener that must stay silent; the bait
+word in no log; closed and off), chat 235 (8 new for D9), mcp-gateway setup 82 (2 new),
+gateway 562, reference: `test_closed_egress` with `OAAP_EGRESS` closed/open/after opening,
+21 files green in the Linux runner.
+
+**Measured on `oaap-test`** (reference 0.1.335 staged; tenant `vuebung`; a SearXNG on the LAN
+address as in §8; the recipe run through `oaap tenant recipe run`: DONE; a real person
+`vuebung.anna` with a real platform assertion through the chat's own code):
+
+| # | Conformance | Result |
+|---|---|---|
+| 1 | `web_search` through the gateway, hits with URL and engine; the bait word in no log of app or gateway and nowhere in the gateway's storage; the usage row names `web_search` | pass |
+| 2 | green conversation: the gateway refuses the view with 403 and the light sentence; the app saw no search (count); `/api/light` says needs red; switching asks for confirmation (409), then red | pass |
+| 3 | `web_fetch` of `localtest.me` (public name → 127.0.0.1), `10.10.10.96.nip.io`, `10.10.10.96`, `127.0.0.1:8000`, `172.17.0.1`, the node's name, an instance name of the node | each refused with a sentence |
+| 4 | `file://`, port 22 | refused |
+| 6 | `recherche` in the closed tenant `abfl`: `OAAP_EGRESS=closed` in the container, `web_fetch` absent from the catalog, a direct call refused with a sentence, `web_search` without destination says so | pass |
+| 7 | assistant without view stored, setup "ohne Werkzeuge", a real model answers; `gateway` without `view` refused with the sentence | pass |
+| — | a real model (`standard`) in a red conversation calls `web_search` once and answers with a source link | pass |
+
+**Not measured:** a public redirect to a private address on the node (`httpbingo.org` and
+`httpbin.org` refuse automated calls from this address, also to curl — covered by the test
+with a bait listener); a 5 MB body from the internet (test only); the chat page clicked by a
+person. The light sentence in the chat names the red view and its server, not *why*; the
+*why* stands in the tool's description and the recipe assistant's greeting ("Meine
+Suchwörter gehen an einen externen Suchdienst") — no new chat code, as §8.5 proposed.
+The test chat `vuebung-chat` still keeps its assistants in its own file (migration pending)
+and therefore did not list the recipe's tenant assistant; the turn was measured with the
+same assistant stored privately in the chat.
+
 ## Deutsche Zusammenfassung
 
 **Worum es geht:** Jörgs Frage vom 20.11.: Können wir Assistenten bauen,
@@ -411,11 +473,24 @@ ist der wörtliche „Assistent ohne MCP“.
 **Geschlossene Mandanten:** `web_fetch` gibt es dort nicht, `web_search`
 nur über eine erlaubte Destination.
 
-**Stufen:** 0 SearXNG auf oaap-test messen; 1 App, Rezept,
+**Stufen:** 0 SearXNG auf oaap-test messen (erledigt); 1 App, Rezept (erledigt),
 Beispielassistent, `view` freiwillig; 2 Regel „nur lesend“ im Gateway;
 3 Such-API mit Vertrag als zweiter Weg, PDF-Text.
 
 **Entscheidungen D1–D11:** am 20.11. wie empfohlen angenommen (§7).
+
+**Stufe 1 gebaut und gemessen (§9, 21.11.2026):** App `recherche` 0.1.0 mit `web_search`
+(SearXNG hinter der Destination `search`) und `web_fetch` (sperrt jede Adresse im eigenen
+Netz und des eigenen Knotens, verbindet sich nur mit der geprüften Adresse, prüft jede
+Umleitung neu, nimmt IPv4 zuerst). Die Plattform sagt jeder Instanz `OAAP_EGRESS=closed|open`
+(Referenz 0.1.335); im geschlossenen Mandanten fehlt `web_fetch`. Rezept `recherche` legt in
+einem Lauf Destination, Sicht, ein eigenes Zugangsprofil des Chats (bis rot) und den
+Assistenten an. `view` ist freiwillig (Chat 0.18.0, MCP-Gateway 0.35.0). Auf oaap-test mit
+einer echten Person: grünes Gespräch → 403 mit Ampelsatz, rot nur mit Bestätigung, Suche und
+Seitenabruf gehen, jede innere Adresse wird abgelehnt, das Köderwort steht in keinem
+Protokoll, ein echtes Modell sucht und antwortet mit Quellenlink. Nicht gemessen: eine
+öffentliche Umleitung auf eine private Adresse am Knoten (fremde Dienste sperren
+automatische Abrufe; im Test abgedeckt) und der Klick im Browser.
 
 **Stufe 0 gemessen (§8):** SearXNG auf oaap-test antwortet im JSON-Format
 in etwa einer halben Sekunde (32 von 32 Anfragen). In der Standardeinstellung

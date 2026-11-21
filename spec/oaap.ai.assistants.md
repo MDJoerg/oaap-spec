@@ -1,7 +1,7 @@
 # oaap.ai.assistants — Assistants: a View, a Prompt and a Model Name, Without Rights
 
 - **ID:** `oaap.ai.assistants`
-- **Version:** 0.6 (RFC-0101 stage 3: optional field `support_queue`, the queue of the tenant's `vorgaenge` that a "not satisfied" case of this assistant goes to, §2, §2c; additive. 0.5: RFC-0101 stage 2: a person may rate an answer or a conversation with 0–5 stars; the rating names `assistant@rev` and is kept by the gateway that keeps the assistant, §2b. 0.4: RFC-0097 stage 1: assistants **live in the tenant's MCP gateway**, next to the views they name, with numbered revisions, a state `active | inactive` and the usage row's `assistant@rev`; the chat is the runtime; an assistant from the chat's configuration stays as "managed by configuration", §2a; additive for the format. 0.3: field `views`: the chat shows the views of MCP Apps,
+- **Version:** 0.7 (RFC-0116 D9: **`view` is optional** -- an assistant without a view talks without tools: the chat asks no MCP gateway, sends the model no tools, and a tool call the model invents reaches no door; `gateway` without `view`, and `views: true` without `view`, are refused with a sentence, §2; additive. 0.6: RFC-0101 stage 3: optional field `support_queue`, the queue of the tenant's `vorgaenge` that a "not satisfied" case of this assistant goes to, §2, §2c; additive. 0.5: RFC-0101 stage 2: a person may rate an answer or a conversation with 0–5 stars; the rating names `assistant@rev` and is kept by the gateway that keeps the assistant, §2b. 0.4: RFC-0097 stage 1: assistants **live in the tenant's MCP gateway**, next to the views they name, with numbered revisions, a state `active | inactive` and the usage row's `assistant@rev`; the chat is the runtime; an assistant from the chat's configuration stays as "managed by configuration", §2a; additive for the format. 0.3: field `views`: the chat shows the views of MCP Apps,
   RFC-0075 D2). 0.2 (RFC-0074 stage 3: visibility and confirmation enforced by the
   chat app `apps/chat` 0.2.0, §2; the confirmation reaches the gateway as
   `X-OAAP-Confirmed`, §5). 0.1 (RFC-0074 stage 1: the format, the rule "no rights", the
@@ -50,8 +50,8 @@ As JSON the same object; YAML is shown for reading.
 | `id` | `^[a-z0-9][a-z0-9-]{0,47}$`, unique within one chat instance |
 | `title`, `greeting`, `system`, `owner` | non-empty strings of at most 80 / 500 / 8000 / 64 characters; `greeting` optional |
 | `model` | `^[a-z0-9][a-z0-9._:-]{0,63}$` — a name the tenant's AI gateway maps (`oaap.ai.gateway`, RFC-0064 stage 2). The tenant decides what `standard` means; the default rule is **local first** (D3) |
-| `view` | `^[a-z0-9][a-z0-9-]{0,47}$`, the name of a view (`oaap.ai.mcp-gateway` §5) |
-| `gateway` | optional, an instance name; without it the chat uses its tenant's only gateway and refuses when there are several |
+| `view` | optional (0.7), `^[a-z0-9][a-z0-9-]{0,47}$`, the name of a view (`oaap.ai.mcp-gateway` §5). Absent: the assistant has no tools, no commands and no views of MCP Apps |
+| `gateway` | optional, an instance name; without it the chat uses its tenant's only gateway and refuses when there are several. Only with `view` (0.7): `gateway` without `view` is refused — who names a gateway believes the assistant has tools there |
 | `visibility` | `{scope: private}`, `{scope: tenant}`, or `{scope: context, context: {<type>: <id>}}` with exactly one context (`<type>` `^[a-z][a-z0-9_]{0,31}$`, `<id>` 1–64 characters) |
 | `commands` | `true` or `false` |
 | `views` | `true` or `false` (0.3): the chat shows views of MCP Apps for this assistant's tools (RFC-0075 D2); default `false` |
@@ -62,6 +62,13 @@ As JSON the same object; YAML is shown for reading.
   `principal`, `scopes`, `scope`, `grants` — is **refused with a sentence**,
   not ignored: who writes it believes it works.
 - **Unknown fields are refused** in 0.1.
+- **Without a view (0.7, RFC-0116 D9).** An assistant without `view` talks
+  without tools — the literal "assistant without MCP" (writing help,
+  explanations). The chat asks no MCP gateway for it, sends the model no
+  tools, and a tool call the model invents anyway is answered "this tool does
+  not exist in this view" without reaching any door. Its setup report checks
+  only the model; its light is the model's. `views: true` without `view` is
+  refused like `gateway` without `view`.
 - **Visibility (D4)** is read by the chat app against
   `oaap.core.authorization`: *private* — only the owner; *context* —
   everyone with an assignment in that context, created by a key user of it;
@@ -191,12 +198,16 @@ never keeps one beyond the request that brought it.
 1. The example of §2 is valid; without `greeting`/`commands` too.
 2. Each field of the "rights" list is refused with the sentence of D1; an
    unknown field is refused.
-3. Each required field missing is refused.
+3. Each required field missing is refused (`view` is no longer required, 0.7).
 4. `model` as an address (`http://…`), with a space, empty or capitalised is
    refused.
 5. Every malformed `visibility` (unknown scope, context missing, empty, two
    contexts, extra fields on `tenant`) is refused; `private` and `tenant` pass.
 6. An exchange file with a duplicate `id` or without `v` is refused.
+8. (0.7) An assistant without `view` is stored; a conversation with it reaches
+   the model without tools, and an invented tool call reaches no door (bait:
+   the gateway's door records nothing); with `gateway` but without `view` it
+   is refused with a sentence.
 
 7. (0.4) A save in the gateway creates revision n+1 and revision n stays
    readable; `rev` sent by the writer is refused; a person without the
@@ -239,6 +250,13 @@ lesbar, sieht niemand einen Team-Assistenten. Schreibende Werkzeuge laufen nur
 nach Zustimmung; der Chat meldet sie dem Gateway mit `X-OAAP-Confirmed: yes`,
 das Gateway schreibt es in die Messzeile. Mit `commands: true` werden die
 Prompts der Sicht zu `/Befehlen`.
+
+## Deutsche Zusammenfassung (0.7, RFC-0116 D9)
+
+`view` ist freiwillig. Ein Assistent ohne Sicht spricht ohne Werkzeuge: der Chat
+fragt kein MCP-Gateway, schickt dem Modell keine Werkzeuge, und ein erfundener
+Werkzeugaufruf erreicht keine Tür. `gateway` ohne `view` (und `views: true`
+ohne `view`) wird mit einem Satz abgelehnt.
 
 ## Deutsche Zusammenfassung (0.6, RFC-0101 Stufe 3)
 
