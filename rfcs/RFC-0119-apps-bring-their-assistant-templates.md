@@ -1,6 +1,6 @@
 # RFC-0119: Apps Bring Their Own Assistant Templates
 
-- **Status:** Draft (2026-11-21) — D1–D11 open.
+- **Status:** **Accepted (2026-11-21)** — D1–D11 as recommended (Jörg: "Wie empfohlen").
   The facts in §1 were read the same day in `platform/recipes/hilfe-assistent.json`,
   `appctl.py` (`docs_publish_instance`, `SHIPPED_RECIPE_DIR`, `tenant_recipe_path`), the
   manifests of `oaap-apps/apps/*/oaap-app.yaml`, `oaap.ai.mcp-gateway` 0.35 §3.9e and
@@ -272,6 +272,8 @@ or names its exception in the manifest comment `# design: no-assistant-template 
 
 ## 10. Decisions
 
+*Accepted 2026-11-21: D1–D11 as recommended.*
+
 - **D1 — An app ships templates in its package, declared in the manifest — not served at
   runtime by its MCP door?** *Recommendation: package.* What is copied is what was tested
   with the app, the node can check it once at install, and it works without a running
@@ -344,7 +346,7 @@ aus dem geprüften Paket.
 3. Schreibende Werkzeuge mit Freigabe nach RFC-0105, MCP-Prompts, Vorlagen über mehrere
    Apps, eine Vorlage für den Zwilling.
 
-**Offene Entscheidungen D1–D11 (§10)**, alle mit Empfehlung. Die wichtigsten:
+**Entscheidungen D1–D11 (§10):** am 21.11. wie empfohlen angenommen. Die wichtigsten:
 - D1: aus dem Paket, nicht zur Laufzeit von der MCP-Tür
 - D3/D4: eng, nur lesend
 - D5: keine Ampel durch die App selbst
