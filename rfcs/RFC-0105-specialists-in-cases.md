@@ -5,6 +5,8 @@
   (§13, `spezialisten` 0.1.0, `vorgaenge` 0.13.0); stage 2 built and measured
   2026-11-20 (§14, `spezialisten` 0.2.0, `vorgaenge` 0.14.0, `mcp-gateway` 0.34.0);
   stage 3 built and measured 2026-11-20 (§15, `spezialisten` 0.3.0, `vorgaenge` 0.15.0).
+  Signed approval and the light per queue (D9) built and measured 2026-11-21 (§16,
+  `mcp-gateway` 0.39.0, `vorgaenge` 0.16.0, `spezialisten` 0.4.0). Stage 4 (SAP) open.
 - **Date:** 2026-11-19
 - **Authors:**
   - Jörg (the scenario, from SAP work): a user describes a symptom in the
@@ -521,6 +523,70 @@ The first attempt executed the approved call against a key still limited to `rea
    - the limits (3 / 2 in a row) against the live app (store rules, unit-tested);
    - D4 through a model run: the lifted call was made directly with the runner's gateway client.
 
+## 16. Signed approval and the light per queue (2026-11-21)
+
+Closes finding 3 of §14 and D9 (§8.5).
+
+**Built.**
+
+- `mcp-gateway` 0.39.0 (`oaap.ai.mcp-gateway` 0.35.0 §5.6 -- where the setting of 0.34 is
+  now written down too): view setting `approval = signed` with an **approval key**
+  (`oaap-fk-…`, sealed, never shown again). A writing call of a key needs
+  `X-OAAP-Approval`, an HMAC-SHA256 signed approval; the gateway checks signature, tool,
+  SHA-256 of the arguments, expiry (at most 30 days) and uses each approval exactly once
+  (`approvals_used`). The usage row names the person from the approval. A shared key, not
+  a key pair: the standard library offers no production-grade signature, and both apps
+  are the tenant's own; the key never leaves the two apps (a file 0600 in `vorgaenge`,
+  the vault in the gateway).
+- `vorgaenge` 0.16.0:
+  - every approval of a planned call carries `token` -- signed with the instance's approval
+    key, `jti` = `<instance>:<case id>:<plan>`, valid 7 days; a rejection and a draft carry
+    none;
+  - *Bereiche → Freigabeschlüssel* (only the `tenant_admin`): the key with instructions for
+    the gateway, *Neu erzeugen* (old approvals stop working; logged);
+  - **D9:** per queue *Ampel für Spezialisten* (`""` = none of its own, green, yellow, red;
+    only the `tenant_admin`, logged); the specialist's door returns it as `queue_light`.
+- `spezialisten` 0.4.0: an approved plan is executed with `X-OAAP-Approval` next to the
+  headers of stage 2; the queue's light goes as `X-OAAP-Light` to the MCP gateway and the
+  AI gateway (both take it as a ceiling, RFC-0101 -- tighten only).
+
+**Deviation (D9):** the RFC said "default: the tenant's local rule". A queue without a
+light of its own sends no `X-OAAP-Light`; the ceilings of the specialist's keys apply --
+which the tenant sets. The queue's light can only tighten them.
+
+**Tests.** mcp-gateway `test_signed_approval` 20 new (without key, wrong key form, sealed
+and never shown; refusals without approval, with only the headers of stage 2, another key,
+another tool, other arguments, expired, altered -- nothing sent; one valid approval one
+call, the person from the approval; a second use refused; read needs none; back to
+`required`); `test_compose` caught the module missing in the Dockerfile; all other gateway
+tests green. `vorgaenge` `test_spez_signed` 17 new (light only by the `tenant_admin`, read
+by the run; key only for the `tenant_admin`, file 0600; the approval verified with the
+gateway's own module, another tool or other arguments fail; a rejection unsigned;
+rotation invalidates); all other tests green. `spezialisten` end to end: the executed call
+carries the approval, which the gateway's module accepts, and `X-OAAP-Light: green` reaches
+both gateways; 65/65.
+
+**Measured on `oaap-test`** (tenant `vuebung`, test channel, `vuebung-mcpgw` 0.39.0,
+`vuebung-vorgaenge` 0.16.0, `vuebung-spezialisten` 0.4.0, the setup of §14/§15), 15/15:
+
+| Asked | Answer |
+|---|---|
+| *Freigabeschlüssel* as `tenant_admin` / as a reporter | shown / 403 |
+| View `spez-analyse` `--approval signed`, key through stdin | `freigabe=signed`; the key not in clear text in the database |
+| `comment_case` with only `X-OAAP-Confirmed` and `X-OAAP-Approved-By` | `-32003` |
+| Queue `analyse` light green | set; the case shows `queue_light: green` to the run |
+| Plan through the agent's door, approved by the `tenant_admin` | approval with `token` |
+| The specialist's next run | exactly the approved `comment_case`, no error; gateway usage `ok, approved_by=probe-admin, light=green`; the approval in `approvals_used` |
+| The same approval again, directly with the view's key | `-32003` „schon benutzt“ |
+| AI gateway during the run | two requests with light `green` |
+
+The queue's light was set back to none afterwards; the view stays `signed`.
+
+**Not measured:** an alias stronger than the queue's light refused live (the local alias
+is green; the AI gateway's refusal is tested in its own suite); a key rotation live.
+
+**Open:** stage 4 (SAP, §9) -- needs `a4h`/`bec` and Jörg.
+
 ## Zusammenfassung auf Deutsch
 
 Heute arbeitet ein Assistent nur, solange ein Mensch im Chat mit ihm
@@ -614,3 +680,12 @@ trägt (offen seit RFC-0067); 1 lesender Spezialist mit Verlauf und
 Zurückgeben; 2 Schreiben mit Freigabe, Antwortentwurf an die Meldenden;
 3 Anfragen an andere Spezialisten und Menschen; 4 das SAP-Szenario auf
 `a4h` und `bec`.
+
+**Unterschriebene Freigabe und Ampel je Bereich (21.11., §16):** Vorgänge 0.16 unterschreibt
+jede Freigabe eines geplanten Aufrufs mit seinem Freigabeschlüssel. Das MCP-Gateway 0.39 prüft
+sie in einer Sicht mit `--approval signed` selbst -- genau dieser Aufruf, genau einmal. Wer nur
+den Schlüssel der Sicht hat, kann sich keine Freigabe mehr ausstellen. Ein Bereich bekommt eine
+Ampel für Spezialisten. Spezialisten 0.4 schickt sie an beide Gateways, die dann nur bis zu
+dieser Farbe arbeiten. Ohne eigene Ampel gelten die Decken der Schlüssel (Abweichung von D9:
+„die Regel des Mandanten“ ist die Decke, die er seinen Schlüsseln gibt). Auf oaap-test 15/15.
+Offen: Stufe 4 mit SAP.
