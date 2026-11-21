@@ -323,3 +323,18 @@ apps with data (D6), the twin only where business objects exist plus picker, ope
 guidelines' blue (D9).
 
 **Entscheidung (21.11.):** Jörg hat D1–D9 „wie empfohlen“ entschieden.
+
+## Built after the decision
+
+- **2026-11-21, P6 part "the twin as an MCP source":** `oaap.data.twin` 0.9 §2.16,
+  reference 0.1.341. Every MCP gateway of a tenant on a node with the profile `store`
+  finds the source `twin` with three read tools (`twin_types`, `twin_search`,
+  `twin_object`), carried as the signed-in person; red until approved. Measured on
+  `oaap-test`: source list, discovery door (3 tools), refusals without a person, the
+  three tools against the real twin (13/13). Not yet measured: one call of a person all
+  the way through a gateway view into the twin. Still open from P6: the picker in
+  `app.js` and `data_model.object_types[].open`.
+
+**Nachtrag (21.11.):** Der Zwilling ist jetzt eine MCP-Quelle (oaap.data.twin 0.9,
+Referenz 0.1.341), gemessen auf oaap-test. Noch nicht gemessen ist ein Aufruf einer Person
+durch eine Gateway-Sicht. Aus P6 offen: Zwillings-Auswahl im Rahmenskript und `open`.

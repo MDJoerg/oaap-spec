@@ -1,7 +1,7 @@
 # oaap.data.twin — The Digital Twin
 
 - **ID:** `oaap.data.twin`
-- **Version:** 0.8 (0.8: the list searches and pages -- `q` matches words in the title, `offset` skips rows; an app's list report no longer reads all and cuts at 500, §2.6a, RFC-0118 P6, reference 0.1.340; 0.7: `GET /twin/objects?type=` -- an app lists every object of a type it is bound to, §2.6a, RFC-0085 §10, reference 0.1.293; 0.6: the read `affected` -- what depends on a fleet object, §2.10a, RFC-0087 §6, reference 0.1.285; 0.5: the write rules in one module shared by the API and the platform's own writer; an unchanged **relation** writes nothing either, and a group PUT that changes nothing records no event -- §2.15; the person-facing type list answers `semantic_iri` -- `oaap.data.model` 0.2 §2.9; RFC-0085 amendment A2)
+- **Version:** 0.9 (0.9: the twin as an MCP source -- every MCP gateway of the tenant finds the source `twin` with three read tools, carried as the signed-in person, §2.16, RFC-0118 P6, reference 0.1.341; 0.8: the list searches and pages -- `q` matches words in the title, `offset` skips rows; an app's list report no longer reads all and cuts at 500, §2.6a, RFC-0118 P6, reference 0.1.340; 0.7: `GET /twin/objects?type=` -- an app lists every object of a type it is bound to, §2.6a, RFC-0085 §10, reference 0.1.293; 0.6: the read `affected` -- what depends on a fleet object, §2.10a, RFC-0087 §6, reference 0.1.285; 0.5: the write rules in one module shared by the API and the platform's own writer; an unchanged **relation** writes nothing either, and a group PUT that changes nothing records no event -- §2.15; the person-facing type list answers `semantic_iri` -- `oaap.data.model` 0.2 §2.9; RFC-0085 amendment A2)
 - **Maturity:** draft
 - **Based on:** RFC-0033 §6 / D10 (0.4 adds the remote reader, §2.14:
   a reader on another node, reached through a tunnel,
@@ -573,6 +573,61 @@ as the group was created). Found 2026-11-14 while building the fleet's
 writer, which repeats the same relations every half minute; the
 counter-check without the correction is red (`test_fleet_twin.py`).
 
+### 2.16 The twin as an MCP source (0.9, RFC-0118 P6 / D7)
+
+An assistant should see the tenant's objects -- a customer, a project, a
+machine -- the way a person in the portal's twin browser sees them, and
+nothing more. The twin is not an app instance, so it does not declare
+`mcp:` (RFC-0073); the platform names it instead.
+
+**The source.** On a node with the profile `store`, the source list of
+every consuming MCP gateway (`mcp_sources: {read: true}`, not a
+rehearsal, RFC-0073 D2) names one more source, `twin`
+(`app: "oaap.data.twin"`, `channel: "platform"`), with a door and a
+discovery door on the gateway's own site like every other source
+(RFC-0073 §4, §16). Its `address` is the door as well: the twin takes no
+agent key (procedure T), so a call without a person is refused. If an
+instance of the same tenant is itself called `twin` and declares a door,
+that instance is the source of that name and the platform twin is not
+listed -- one name, one source. The gateway treats the twin like any
+other source: red until the operator approves tools into a view
+(RFC-0065 D9).
+
+**The door.** Exactly the blocks of RFC-0073 (`/verify?act=` resp.
+`?discover=` with the gateway's sources key and, at the door, the
+person's credential), with these values: roles `admin, keyuser,
+tenant_admin, user` (the readers of §2.12), no visibility group, the
+gateway's tenant, target `twin:8000`, path `/mcp`. After `forward_auth`
+the block **sets** `X-OAAP-Twin-Tenant` to the gateway's tenant id --
+overwriting whatever the client sent. That header is the tenant the twin
+reads; it never comes from the body. `/mcp` is not under `/twin/*`, so the
+public route never reaches it; only these blocks do.
+
+**The service.** `POST /mcp` on `twin`: JSON-RPC over Streamable HTTP,
+JSON answers only, no session (the shape of every OAAP app door). Without
+`X-OAAP-Twin-Tenant` -- 403. `initialize`, `ping`, `tools/list`,
+`prompts/list` and `resources/list` answer anyone the door let through
+(the discovery door lets only these through, as the gateway's machine
+principal). `tools/call` needs a **person**: `X-OAAP-User` set and not a
+machine principal (`instance:`, `remote:`), and one of the reader roles;
+otherwise the result is an error sentence (`isError: true`), never data.
+
+| Tool | Arguments | Answer |
+|---|---|---|
+| `twin_types` | -- | the tenant's active types: `key`, `kind`, `title`, `semantic_iri` where defined |
+| `twin_search` | `q` (words in the title), `type` (optional), `offset` | at most 50 objects `{id, type, title, owner}`, ordered by title, merged-away aliases excluded, `more: true` when there is a next page; `q` as §2.6a (every word, `%`/`_` literal) |
+| `twin_object` | `id` (`urn:oaap:obj:<uuid>` or the bare uuid), `at` (optional date, §2.8) | as §2.12's object page: header, every group with attributes, relations (each target with its title) and activities, `merged_aliases` |
+
+All three are read-only (`readOnlyHint: true`), and their descriptions
+are fixed -- a changed description locks a tool in the gateway until it
+is approved again. There is no writing tool: writing into the twin stays
+with an app's own credential (§2.5/§2.7) and the portal (§2.12).
+
+What a person may see through the twin is what §2.12 already grants:
+every reader of the tenant sees its whole twin. An assistant adds no
+reach of its own -- the call is the person's (RFC-0073 §4), and the
+gateway's view decides which of the three tools the assistant has at all.
+
 ## 3. Configuration
 
 - `apps/twin-secrets.json` (`0600`, root and the `twin` container's
@@ -925,6 +980,23 @@ ihn wegen der Netz-Isolation (RFC-0016) sonst gar nicht erreichen. Das
 Schema-Passwort (RFC-0031 §7: „einmal gezeigt, nie einer App, nur
 `oaap.data.twin`") liegt in einer Datei, die ausschließlich dieser
 Container lesend mountet.
+
+## Deutsche Zusammenfassung (0.9)
+
+Der Zwilling wird eine MCP-Quelle. Auf einem Knoten mit dem Profil
+`store` findet jedes MCP-Gateway eines Mandanten in seiner Quellenliste
+zusätzlich die Quelle `twin`. Sie hat eine Tür auf der Seite des Gateways
+wie jede App-Quelle, und die Tür trägt die angemeldete Person durch
+identity. Der Mandant kommt aus einer Kopfzeile, die nur diese Tür setzt.
+
+Drei Lesewerkzeuge:
+- `twin_types`: die Objekttypen.
+- `twin_search`: Suche im Titel, wahlweise je Typ, 50 je Seite.
+- `twin_object`: ein Objekt mit Gruppen, Beziehungen (mit Titeln) und Aktivitäten.
+
+Ohne Person gibt es nur den Katalog. Schreiben geht über MCP nicht.
+Wie jede Quelle ist der Zwilling im Gateway rot, bis der Betreiber
+Werkzeuge in eine Sicht freigibt.
 
 ## Deutsche Zusammenfassung (0.8)
 
