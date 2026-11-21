@@ -3,7 +3,8 @@
 - **Status:** **Accepted (2026-11-20)** — Jörg: „Wie empfohlen“ for D1–D9.
   Stage 0 measured 2026-11-20 (§11); stage 1 built and measured 2026-11-20
   (§12, reference 0.1.331, `oaap.core.tenant` 1.17); live for `bec` on `oaapx01`
-  2026-11-20 (§13, reference 0.1.332).
+  2026-11-20 (§13, reference 0.1.332); stage 2 built and measured 2026-11-21
+  (§14, reference 0.1.333, `oaap.core.tenant` 1.18).
 - **Date:** 2026-11-20
 - **Authors:**
   - Jörg (the need, 2026-11-20): the tenant `bec` on `oaapx01` has the
@@ -393,6 +394,60 @@ local test user; everything removed afterwards). 9/9:
   `nix.bec.brandeis.de` gets no certificate; `bec.oaap.joomp.de` unchanged.
 - Not measured: a person actually logging in through the realm on the domain.
 
+## 14. Stage 2 built and measured (2026-11-21)
+
+**Read first: where the platform prints a place.** Besides the two composers of stage 1, three places
+built `<label>.<node>` by hand: the link in notification mails (`appctl.notify_link`), the address in
+the tenant's face (`place.theme_of`, shown on the login page and in the portal), and the portal's
+„Einrichten“ link after a build. The server_admin's tenant menu keeps the node's names on purpose: the
+operator's session lives there, a domain has its own cookie (D4).
+
+**Built** (reference 0.1.333, `oaap.core.tenant` 1.18).
+
+- `place.canonical_place_host`: the place as printed -- the domain while canonical. Mails, the face and
+  the portal's link read it.
+- Portal, the tenant's health page: „Adresse“ (the printed place) and „Eigene Domain“ with its state,
+  when it was checked and, while not active, what DNS said. That is the page for the operator and the
+  tenant administrator; the CLI stays the door that changes it (D1).
+- `oaap tenant domains` and the timer `oaap-domain-check` (daily 04:50, `migrate.sh` and `install.sh`):
+  a pending domain becomes active once its DNS fits; an active one is checked and written down, never
+  switched off by the timer (a DNS hiccup must not take an address away); a refused reload takes the
+  activated domains back to pending, as `check` does.
+- Activation names every instance of the tenant with `sudo oaap app restart <key>`: an app learns the
+  new names (`OAAP_INSTANCE_NAMES`, domain first) only when its container is recreated, and the platform
+  does not restart a tenant's apps on its own.
+- **Not changed, on purpose:**
+  - `OAAP_INSTANCE_NAMES` says `http://` behind an edge (stage 0 finding 5): RFC-0043 §2.1 defines it as
+    the scheme the gateway serves; the browser-facing variant is `OAAP_UI_SANDBOX_ORIGINS` (always https).
+  - Sandbox origins stay on the node's names (D6). The sandbox site's `frame-ancestors` already lists the
+    instance's domain name, so a chat on the domain may frame its views from the node's name.
+  - Recipes and the MCP gateway's connection hints build their URLs from the request's host or from
+    `OAAP_INSTANCE_NAMES`; they follow without a change.
+- Help (RFC-0078/0094) prints no absolute place address; nothing to change.
+
+**Tests.** `test_tenant_domain.py` 61 (13 new): the printed place, the face, the mail link, the restart
+list, the daily check (waits quietly, activates when DNS fits, never switches an active domain off), the
+timer in both scripts, the portal's link, health facts and tile on the domain. Two mutations caught (the
+timer switching off; the printed place ignoring the domain). Eighteen files green in the Linux runner,
+among them `test_migrate`, `test_tenant`, `test_tenant_face`, `test_access_portal`, `test_notify`,
+`test_portal_navigation`.
+
+**Measured on `oaap-test`** (0.1.332 + these changes staged, tenant `vuebung`, domain
+`dom0.oaap-demo.duckdns.org`; removed afterwards):
+
+| Asked | Answer |
+|---|---|
+| `migrate.sh` through `stage.sh` | timer `oaap-domain-check` enabled, next run 04:50 |
+| `oaap tenant domain vuebung dom0…` | active; the 14 instances listed with `oaap app restart` |
+| `notify_link(vuebung, "/health")` | `https://dom0.oaap-demo.duckdns.org/health` |
+| `instance.env` of the chat | `OAAP_INSTANCE_NAMES=http://chat.dom0…,http://chat.vuebung.<node>` (domain first) |
+| the chat's sandbox site | `frame-ancestors https://chat.dom0… https://chat.vuebung.<node> …` |
+| `systemctl start oaap-domain-check` | exit 0; `checked` and DNS's answer written |
+| `/health` on the domain as a tenant administrator (test account) | 200: „Adresse dom0…“, „Eigene Domain dom0… · aktiv“ |
+
+**Not measured:** a real mail (no event was due), an MCP App view rendered in a browser on the domain
+(needs an edge route on `oaap-demo`).
+
 ## Zusammenfassung auf Deutsch
 
 **Worum es geht:** Heute baut der Knoten jeden öffentlichen Namen aus
@@ -463,6 +518,14 @@ Anmeldung von bec mit „Mit dem BEC-Konto anmelden“, die Apps antworten unter
 `<app>.bec.brandeis.de`, Keycloak nimmt die neue Rücksprungadresse an. Unterwegs lehnte das Gateway
 einmal ab, weil `chat.bec.brandeis.de` schon eigener Name einer App war; behoben in 0.1.332, ohne
 dass jemand etwas bemerkt hat.
+
+**Stufe 2 gebaut und gemessen (21.11.2026, Referenz 0.1.333):**
+- Mails, die Adresse auf Anmeldeseite und Portal und der Link „Einrichten“ nennen die Domain.
+- Die Gesundheitsseite des Mandanten zeigt Adresse und Domain mit Zustand.
+- Eine wartende Domain prüft der Knoten jeden Morgen um 04:50 und schaltet sie frei, sobald DNS
+  passt; eine aktive schaltet der Zeitgeber nie ab.
+- Beim Aktivieren nennt der Befehl die Apps, die die neuen Namen erst nach einem Neustart kennen.
+- Gemessen auf oaap-test; nicht gemessen: eine echte Mail und eine Chat-Ansicht im Browser.
 
 **Stufen:** 0 auf oaap-test messen, was heute bricht (mit einem zweiten
 DuckDNS-Namen); 1 Domain, Namen, Zertifikate, Anmeldung; 2 Chat-Ansichten,
