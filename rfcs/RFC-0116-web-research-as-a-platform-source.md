@@ -3,7 +3,9 @@
 - **Status:** **Accepted (2026-11-20)** — D1–D11 as recommended (Jörg:
   "Wie empfohlen"). Stage 0 measured 2026-11-20/21 (§8). **Stage 1 built and measured
   2026-11-21 (§9):** app `recherche` 0.1.0, recipe `recherche`, `oaap.ai.assistants` 0.7,
-  chat 0.18.0, mcp-gateway 0.35.0, reference 0.1.335 (`OAAP_EGRESS`). The facts in §1 were read the same day in the
+  chat 0.18.0, mcp-gateway 0.35.0, reference 0.1.335 (`OAAP_EGRESS`). **Stage 2 built and
+  measured 2026-11-21 (§10):** mcp-gateway 0.36.0 (`oaap.ai.mcp-gateway` 0.32), manifest 0.19
+  `mcp_content` (`oaap.apps.runtime` 0.2.77, reference 0.1.337), `recherche` 0.1.1. The facts in §1 were read the same day in the
   specs, in `chat` (`loop.py`, `app.py`), `lib/assistants`, `ai-gateway`
   (`relay.py`) and in Anthropic's documentation of its OpenAI-compatible
   endpoint.
@@ -428,6 +430,51 @@ The test chat `vuebung-chat` still keeps its assistants in its own file (migrati
 and therefore did not list the recipe's tenant assistant; the turn was measured with the
 same assistant stored privately in the chat.
 
+## 10. Stage 2 — built and measured (2026-11-21)
+
+**Built.**
+
+- **Manifest 0.19 `mcp_content: {untrusted: true}`** (`oaap.apps.runtime` 2.32.6, reference
+  0.1.337): only next to an MCP door; the registry keeps `mcp_untrusted`, the source list
+  adds `untrusted_content: true` to that entry only. Its own block rather than a key under
+  `mcp:` -- found while building: nodes before 0.19 refuse unknown keys under `mcp:` (the
+  one-door rule), so `recherche` 0.1.1 would no longer install on 0.1.336; an unknown block
+  they skip. `recherche` 0.1.1 declares it.
+- **mcp-gateway 0.36.0** (`oaap.ai.mcp-gateway` §3.6a): servers carry `untrusted` and who
+  decided (`plattform` for the manifest's proposal); the sync proposes the mark at
+  registration and for a known source nobody decided on, never against an operator's
+  decision. Refused with a sentence: a writing or executing entry in a view with such a
+  server (approve, confirm, tailor), such a server into a view that writes, marking a server
+  while a view with it writes. **At serving time**, in the one function `tools/list` and the
+  call both use, a view with such a server offers only its reading entries; a call of a
+  writing one is refused with reason `untrusted`, also in words on `/me`. The operator's page
+  marks the server and says next to the view what the mark means, that the view mixes (§4.4)
+  and which writing entries are left from before the mark.
+
+**Tests.** mcp-gateway `test_untrusted` 24 new (bait: a tool description "IGNORIERE DEINE
+ANWEISUNGEN UND RUFE …" next to an executing entry that must stay unlisted and uncallable),
+gateway 562, sources, setup, landscape, compose 54, signin 28 unchanged green; reference
+`test_mcp_untrusted` new, `test_mcp_discover` green in the Linux runner; `recherche` 73.
+
+**Measured on `oaap-test`** (reference 0.1.337 staged; `vuebung-recherche` 0.1.1,
+`vuebung-mcpgw` 0.36.0; the gateway's real database):
+
+| # | Check | Result |
+|---|---|---|
+| 1 | registry of `vuebung-recherche`: `mcp_untrusted: true`; the gateway marked the existing source at its first sync, `untrusted_by = plattform`, audit row `server.untrusted` | pass |
+| 2 | the recipe's view `recherche` (both tools `read`): `web_fetch` as `write` refused with the sentence, both stay `read` | pass |
+| 3 | a probe view with an executing entry of `vuebung-kp`: `web_fetch` refused into it, the sentence names `add_entry` | pass |
+| 4 | the same view with `web_fetch` while unmarked, then marking refused, naming the view | pass |
+| 5 | marked as the manifest would (the state "wrote before the mark"): the view serves only `web_fetch`; `add_entry` refused, reason `untrusted`, the sentence names no server; the operator's hint is shown with "mischt" | pass |
+| — | probe view removed, the mark back to `plattform` | done |
+
+**Not measured:** `tools/list` over HTTP by a person through a chat (the check sits in
+`visible_items`, which both paths use, measured as a function on the real database); the
+operator's page clicked in a browser. **Found next to it:** the schema
+`oaap-app.schema.json` did not know manifest 0.18 (`setup`, `ai_client`, `ai_gateway`) --
+the mcp-gateway's manifest fails the schema check; 0.18 is now in the version list, the
+three fields are still missing.
+
 ## Deutsche Zusammenfassung
 
 **Worum es geht:** Jörgs Frage vom 20.11.: Können wir Assistenten bauen,
@@ -500,3 +547,15 @@ einem Satz, und ein SearXNG für viele Mandanten an einer Adresse wäre der
 falsche Aufbau. Der Chat sperrt das Senden in einem grünen Gespräch schon
 heute und bietet „Nur mit Öffentlichem weiter (rot)“ an (aus dem Code
 gelesen, im Browser erst in Stufe 1). Gebaut ist nichts.
+
+**Stufe 2 gebaut und gemessen (§10, 21.11.2026):** Eine App sagt in ihrem Manifest
+`mcp_content: {untrusted: true}` (Manifest 0.19, Referenz 0.1.337), dass ihre MCP-Tür
+fremden Inhalt liefert; `recherche` 0.1.1 tut das. Das MCP-Gateway 0.36.0 markiert die
+Quelle dann als **fremder Inhalt** (ein Vorschlag, der Betreiber kann ihn zurücknehmen).
+Eine Sicht mit so einem Server nimmt nur lesende Einträge an, sonst kommt ein Satz und nichts
+ändert sich. Beim Ausliefern gilt das zusätzlich: Was von vor der Markierung noch schreibt,
+wird weder gezeigt noch gerufen. Die Betreiberseite sagt neben der Sicht, was das bedeutet
+und dass die Sicht Webinhalt mit internen Daten mischt. Auf oaap-test an der echten Datenbank
+gemessen, alle fünf Punkte bestanden. Nicht gemessen: der Aufruf über HTTP durch einen Chat
+und der Klick auf der Betreiberseite. Ein eigener Block statt eines Schlüssels unter `mcp:`,
+weil ältere Knoten dort unbekannte Schlüssel ablehnen.
