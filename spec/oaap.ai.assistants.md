@@ -1,7 +1,7 @@
 # oaap.ai.assistants — Assistants: a View, a Prompt and a Model Name, Without Rights
 
 - **ID:** `oaap.ai.assistants`
-- **Version:** 0.7 (RFC-0116 D9: **`view` is optional** -- an assistant without a view talks without tools: the chat asks no MCP gateway, sends the model no tools, and a tool call the model invents reaches no door; `gateway` without `view`, and `views: true` without `view`, are refused with a sentence, §2; additive. 0.6: RFC-0101 stage 3: optional field `support_queue`, the queue of the tenant's `vorgaenge` that a "not satisfied" case of this assistant goes to, §2, §2c; additive. 0.5: RFC-0101 stage 2: a person may rate an answer or a conversation with 0–5 stars; the rating names `assistant@rev` and is kept by the gateway that keeps the assistant, §2b. 0.4: RFC-0097 stage 1: assistants **live in the tenant's MCP gateway**, next to the views they name, with numbered revisions, a state `active | inactive` and the usage row's `assistant@rev`; the chat is the runtime; an assistant from the chat's configuration stays as "managed by configuration", §2a; additive for the format. 0.3: field `views`: the chat shows the views of MCP Apps,
+- **Version:** 0.8 (RFC-0117 stage 2: an entry of an exchange file MAY carry **`from`** -- `recipe:<id>@<major>`, the template the setup door made it from; a statement for the import, never part of the assistant: a gateway strips it on import and save, §3). 0.7 (RFC-0116 D9: **`view` is optional** -- an assistant without a view talks without tools: the chat asks no MCP gateway, sends the model no tools, and a tool call the model invents reaches no door; `gateway` without `view`, and `views: true` without `view`, are refused with a sentence, §2; additive. 0.6: RFC-0101 stage 3: optional field `support_queue`, the queue of the tenant's `vorgaenge` that a "not satisfied" case of this assistant goes to, §2, §2c; additive. 0.5: RFC-0101 stage 2: a person may rate an answer or a conversation with 0–5 stars; the rating names `assistant@rev` and is kept by the gateway that keeps the assistant, §2b. 0.4: RFC-0097 stage 1: assistants **live in the tenant's MCP gateway**, next to the views they name, with numbered revisions, a state `active | inactive` and the usage row's `assistant@rev`; the chat is the runtime; an assistant from the chat's configuration stays as "managed by configuration", §2a; additive for the format. 0.3: field `views`: the chat shows the views of MCP Apps,
   RFC-0075 D2). 0.2 (RFC-0074 stage 3: visibility and confirmation enforced by the
   chat app `apps/chat` 0.2.0, §2; the confirmation reaches the gateway as
   `X-OAAP-Confirmed`, §5). 0.1 (RFC-0074 stage 1: the format, the rule "no rights", the
@@ -164,6 +164,14 @@ Each entry must be valid by §2, and no `id` may occur twice. A chat app
 imports such a file only as a whole: one invalid entry refuses the file,
 with the sentences naming the entry by index.
 
+**`from` (0.8, RFC-0117 stage 2).** An entry MAY carry
+`"from": "recipe:<id>@<major>"` -- the template (`oaap.core.tenant` 2.13) the
+setup door created the assistant from. It is written by an export, read by the
+portal's import ("Aus Datei"), which reopens that template pre-filled, and is
+**never part of the assistant**: a gateway strips it on import and on save, it
+gives no right and changes no behaviour. Any other value is refused with a
+sentence.
+
 ## 4. How a chat acts as the person
 
 Not part of the format, specified where it happens:
@@ -292,3 +300,11 @@ Seine alte Datei übernimmt ein tenant_admin einmal; die Besitzer bleiben,
 die Datei wird umbenannt. Danach fällt der Chat nie mehr still auf sie
 zurück. `CHAT_ASSISTANT` bleibt als Rückfall erhalten, und ein Chat kann
 auf eine Liste von Assistenten beschränkt werden.
+
+## Deutsche Zusammenfassung (0.8, RFC-0117 Stufe 2)
+
+Eine Austauschdatei darf je Assistent `from: recipe:<vorlage>@<hauptversion>`
+tragen: die Vorlage, aus der die Einrichtung ihn gemacht hat. Der Export
+schreibt es, der Import im Portal („Aus Datei“) öffnet damit die Vorlage
+vorausgefüllt. Zum Assistenten selbst gehört es nie; das Gateway streift es
+beim Import und Speichern ab.

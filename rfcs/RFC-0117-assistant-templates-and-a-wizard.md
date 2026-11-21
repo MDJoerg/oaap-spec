@@ -3,6 +3,8 @@
 - **Status:** **Accepted (2026-11-21)** — D1–D10 as recommended (Jörg: "Wie empfohlen").
   **Stage 1 built and measured 2026-11-21 (§10):** reference 0.1.336, `oaap.core.tenant`
   1.20, templates `hilfe-assistent` 1.2.0, `recherche` 1.1.0, `assistent-leer` 1.0.0.
+  **Stage 2 built and measured 2026-11-21 (§11):** reference 0.1.338, `oaap.core.tenant` 1.21,
+  `oaap.ai.assistants` 0.8, mcp-gateway 0.37.0, chat 0.19.0.
   The facts in §1 were read the same day in `tenant_recipe.py`, `tenant_build.py`,
   `appctl.py`, the portal (`recipe_view.py`, `/einrichten`), `lib/assistants`,
   `mcp-gateway` (`books.py`, `app.py`) and `chat` (`app.py`, `page.html`).
@@ -327,6 +329,60 @@ assistants in the chat (rzt's chat is 0.17.0; an assistant without view needs 0.
 **Found:** most tenants of the fleet run an MCP gateway before 0.35.0 -- *Leer* needs the
 app updates first.
 
+## 11. Stage 2 — built and measured (2026-11-21)
+
+**Built.**
+
+- **The run names its template** (`oaap.apps.runtime` 2.39, reference 0.1.338): every setup
+  call of a recipe run carries `X-OAAP-Setup-Recipe: <id>@<major>` -- a header, not a field
+  of the item: a gateway before 0.37 skips the header but would refuse an unknown field.
+- **mcp-gateway 0.37.0** (`oaap.ai.mcp-gateway` 0.33): an assistant the call makes or finds
+  present remembers the template (column `origin`, no revision). Export and the list for a
+  chat name it as `from: recipe:<id>@<major>` (`oaap.ai.assistants` 0.8); `from` on import
+  and save is stripped, never stored in the assistant. The page *Assistenten* links the
+  portal's templates for a `tenant_admin`.
+- **Portal** (`oaap.core.tenant` 1.21): card *Aus Datei* on the page *Assistenten*; a file
+  (512 KB, 20 assistants) shows per assistant its way -- with `from` and a template the
+  person may start at the same major, *Vorlage öffnen* posts the wizard pre-filled (only the
+  `shape` parameters the template's assistant item takes `id`, `title`, `greeting`,
+  `system`, `model` from; the host writes that map into `recipe-view.json`); otherwise a
+  sentence. Nothing is stored before *Anlegen*.
+- **chat 0.19.0**: *Aus Vorlage …* beside *+ Neuer Assistent* for a `tenant_admin`, to the
+  portal's page (from `OAAP_PORTAL_URL`).
+
+**Deviations from the text above:**
+
+- **Import without `from` stays where it was** (§4): the portal does not store assistants;
+  its sentence points to the chat or the MCP gateway, whose import already refuses an
+  assistant whose view is missing (§6.5 held before this stage; measured again in the
+  gateway's tests).
+- **D10** needed nothing new: the chat has offered *Ins MCP-Gateway übernehmen* to the
+  `tenant_admin` since chat 0.9.0; the portal page says where.
+
+**Tests.** Reference `test_assistant_import` 33 new, `test_assistant_templates(_page)` green
+(Linux runner); mcp-gateway `test_setup` 89 (6 new: header, `from` in export, present gets
+the origin, `dry` remembers nothing, a broken header is ignored, `from` as an item field
+refused), `test_gateway` 568 (6 new: import and save strip `from`, a broken `from`, the list
+names it, `oaap.ai.assistants` 0.8); chat 238 (3 new).
+
+**Measured on `oaap-test`** (0.1.338 staged, tenant `rzt`, `rzt-werkzeuge` 0.37.0, as its
+tenant_admin through the job the portal calls and the portal's pages), 8/8:
+
+1. Template *Leer* run with own id, title and three-line instructions: done.
+2. The gateway remembered `assistent-leer@1` from the header, revision 1, no `from` in the
+   assistant.
+3. The export names `from: recipe:assistent-leer@1`.
+4. *Aus Datei* with that export: *Vorlage öffnen* for Leer, the instructions with their lines.
+5. The same entry without `from` and a missing view: the sentence naming the view, no template.
+6. *Vorlage öffnen*: the wizard pre-filled with title, id and instructions.
+7. The preview with the file's values: every step *present*.
+8. Rolled back: the assistant deleted.
+
+**Not measured:** a click in the browser by a person; the import into a **second** tenant
+that then creates the view (the same template run as in stage 1, conformance 5 by
+construction); the chat's link in a running chat (tested in `test_chat`, rzt's chat is
+0.17.0).
+
 ## Deutsche Zusammenfassung
 
 **Frage (Jörg, 21.11.):** Ein Assistent zum Anlegen von Assistenten für den
@@ -361,3 +417,14 @@ vergebener Kennung, Recherche ohne Freigabe abgelehnt, Leer nach Update des MCP-
 auf 0.35.0. Abweichungen: Sichtbarkeit nicht wählbar (nur „ganzer Mandant“), Kennung von
 Hand statt automatisch „-2“, Übernahme der Chat-Assistenten (D10) in Stufe 2. Nicht
 gemessen: Klick im Browser, Gespräch im Chat.
+
+**Stufe 2 gebaut und gemessen (21.11., §11):** Ein Rezeptlauf nennt der Einrichtungstür
+seine Vorlage (Kopfzeile `X-OAAP-Setup-Recipe`, Referenz 0.1.338). Das MCP-Gateway 0.37.0
+merkt sich das am Assistenten; Export und Liste für den Chat nennen es als `from`. Im Portal
+liest „Aus Datei“ eine exportierte Datei: Mit `from` öffnet „Vorlage öffnen“ den Assistenten
+vorausgefüllt, sonst kommt ein Satz. Gespeichert wird erst mit „Anlegen“. Der Chat 0.19.0
+und die Gateway-Seite haben für den tenant_admin den Link „Aus Vorlage …“. Auf oaap-test in
+rzt 8/8: angelegt, Herkunft gemerkt, `from` im Export, Datei vorausgefüllt, Vorschau
+„vorhanden“, zurückgenommen. Abweichungen: Ein Import ohne `from` läuft weiter über Chat
+oder Gateway, die eine fehlende Sicht ablehnen. D10 gibt es im Chat schon seit 0.9.0. Nicht
+gemessen: Klick im Browser, Import in einen zweiten Mandanten, der Link im laufenden Chat.
