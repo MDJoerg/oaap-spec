@@ -1,6 +1,7 @@
 # RFC-0117: Assistant Templates and a Wizard for the Tenant Admin
 
-- **Status:** Draft (2026-11-21) — D1–D10 open. Nothing built, nothing measured.
+- **Status:** **Accepted (2026-11-21)** — D1–D10 as recommended (Jörg: "Wie empfohlen").
+  Nothing built, nothing measured.
   The facts in §1 were read the same day in `tenant_recipe.py`, `tenant_build.py`,
   `appctl.py`, the portal (`recipe_view.py`, `/einrichten`), `lib/assistants`,
   `mcp-gateway` (`books.py`, `app.py`) and `chat` (`app.py`, `page.html`).
@@ -225,7 +226,9 @@ placed by the operator wins.
 | **2** | Export `from`, import in the wizard; links from chat and gateway | §7 lines 5–6 |
 | **3** | "Als Vorlage speichern" (tenant templates); further templates (Vorgänge, SAP with RFC-0114 views) | a tenant template used twice |
 
-## 9. Decisions (open)
+## 9. Decisions
+
+*Accepted 2026-11-21: D1–D10 as recommended.*
 
 - **D1 — The wizard lives in the portal, not in the MCP gateway or the chat?**
   *Recommendation: portal.* A template touches several apps (help, ai-gateway,
@@ -278,4 +281,4 @@ dann die Vorlage vorausgefüllt — so kommen Sicht, Profil und Modellfreigabe m
 **Stufen:** 1 Seite + drei Vorlagen; 2 Export/Import; 3 eigene Vorlagen des
 Mandanten („Als Vorlage speichern“).
 
-**Entscheidungen D1–D10:** offen, Empfehlungen in §9.
+**Entscheidungen D1–D10:** am 21.11. wie empfohlen angenommen (§9).
