@@ -5,7 +5,8 @@
   (§12, reference 0.1.331, `oaap.core.tenant` 1.17); live for `bec` on `oaapx01`
   2026-11-20 (§13, reference 0.1.332); stage 2 built and measured 2026-11-21
   (§14, reference 0.1.333, `oaap.core.tenant` 1.18); §15 (Jörg's two wishes, portal and
-  hidden instances) built and measured 2026-11-21 (reference 0.1.334, 1.19).
+  hidden instances) built and measured 2026-11-21 (reference 0.1.334, 1.19); stage 3 in part
+  (§16: a `tenant_admin` asks for a domain) built and measured 2026-11-21 (reference 0.1.339, 1.22).
 - **Date:** 2026-11-20
 - **Authors:**
   - Jörg (the need, 2026-11-20): the tenant `bec` on `oaapx01` has the
@@ -496,6 +497,52 @@ actions; `oaap-admin` binds `dom0.oaap-demo.duckdns.org` (answer: the CLI's sent
 **Not measured:** the page clicked in a browser by a person (rendered inside the portal container with
 the gateway's headers).
 
+## 16. Stage 3, in part: a `tenant_admin` asks for a domain (2026-11-21)
+
+**What was left of stage 3** (§10): behind an edge; a `tenant_admin` request for a domain; an optional
+redirect of the node's names.
+
+- **Behind an edge** needs nothing new: stage 1 found the node side complete (§12, D8 narrowed), and §15
+  measured from the edge node (`chat.<domain>` 303, a hidden instance 404). What D8 still names -- the
+  edge command does not check the domain -- stays open: the edge would have to ask the node, a door
+  across nodes for a check the node already makes.
+- **The redirect** of the node's names stays open, on purpose: D3 keeps them answering because MCP
+  clients, OIDC clients and stored recipe addresses use them. A switch is cheap to build and expensive
+  to undo for whoever relied on it; it waits until a tenant asks.
+- **The request** is built.
+
+**Built** (reference 0.1.339, `oaap.core.tenant` 1.22).
+
+- `tenant_domain_request`: a `tenant_admin` of a tenant without a domain asks for one -- judged by the
+  rules of `domain set` (`place.domain_refusal`), refused for another tenant, the default tenant, a
+  tenant that has a domain and while one request for a domain is open. DNS is checked at once
+  (`domain_dns_check`) and its sentence opens the request's text. It is a request of RFC-0109 §13
+  (`values: {domain}`): a case in the operator's inbox, else a message; its state on *Einrichten*.
+  The case says how to bind (portal *Mandanten → Domain* or `oaap tenant domain <label> <domain>`),
+  not how to release a recipe.
+- Portal: on the tenant's health page, for the `tenant_admin` only, *Beim Betreiber anfragen* (domain,
+  an optional note) while the tenant has no domain, the requested domain while one is open; the host job
+  `domain-request` (action `tenant-recipe`, the actor's own tenant).
+- When a domain becomes active (`check`, `set`, the portal, the daily check), the platform answers its
+  open requests: done, „Die Domain … ist gebunden und aktiv.“, the case closed with that sentence.
+
+**Tests.** `test_tenant_domain.py` 97 (19 new): five refusals (other tenant, default tenant, a tenant
+with a domain, below the node, below another tenant's domain), the request with the domain and the DNS
+sentence, the case text naming the binding, a second request refused (also through the portal's job),
+the view naming the domain, activation answering the request, the portal's card for the `tenant_admin`
+only, the form, the job with the actor's own tenant, a server_admin refused. Thirteen files green in the
+Linux runner, among them `test_recipe_request`, `test_tenant_request_page`, `test_tenant_recipe_page`,
+`test_recipe_sap_sso`, `test_access_portal`.
+
+**Measured on `oaap-test`** (0.1.339 staged, tenant `vuebung` as its `tenant_admin` through the job the
+portal calls, the node's real inbox `vorgaenge`), 9/9: a name below the node refused; the request
+became case `V-2026-0024` with „DNS beim Anfragen: passt“; a second one refused; the portal's view names
+it; the case's text names `sudo oaap tenant domain vuebung dom0.oaap-demo.duckdns.org` and no recipe;
+`oaap tenant domain vuebung dom0…` made it active and the request was done by itself; the case closed
+with „Die Domain … ist gebunden und aktiv.“; the domain removed again.
+
+**Not measured:** the card clicked in a browser.
+
 ## Zusammenfassung auf Deutsch
 
 **Worum es geht:** Heute baut der Knoten jeden öffentlichen Namen aus
@@ -588,3 +635,9 @@ dass jemand etwas bemerkt hat.
 DuckDNS-Namen); 1 Domain, Namen, Zertifikate, Anmeldung; 2 Chat-Ansichten,
 Mails, Hilfe, Rezepte; 3 Edge, Anfrage des Mandanten, Umleitung der
 alten Namen.
+
+**Stufe 3, zum Teil (21.11., §16):** Ein tenant_admin fragt auf der Gesundheitsseite eine eigene Domain
+beim Betreiber an. Geprüft wird wie beim Binden, das DNS gleich mit. Die Anfrage landet im Posteingang
+des Betreibers und schließt sich selbst, sobald die Domain aktiv ist. Auf oaap-test 9/9. Hinter einem
+Edge braucht der Knoten nichts Neues. Offen bleiben mit Absicht: die Prüfung im Edge-Befehl und die
+Umleitung der Knotennamen auf die Domain (D3, erst wenn ein Mandant sie will).
