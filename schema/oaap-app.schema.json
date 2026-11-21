@@ -492,6 +492,55 @@
       }
     },
     {
+      "$comment": "Same rule for the 0.18 fields: 'setup', 'ai_client' and 'ai_gateway' only in a manifest declaring at least 0.18 (RFC-0104 stage 2).",
+      "if": {
+        "properties": {
+          "oaap_manifest": {
+            "enum": [
+              "0.1",
+              "0.2",
+              "0.3",
+              "0.4",
+              "0.5",
+              "0.6",
+              "0.7",
+              "0.8",
+              "0.9",
+              "0.10",
+              "0.11",
+              "0.12",
+              "0.13",
+              "0.14",
+              "0.15",
+              "0.16",
+              "0.17"
+            ]
+          }
+        }
+      },
+      "then": {
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "setup"
+              ]
+            },
+            {
+              "required": [
+                "ai_client"
+              ]
+            },
+            {
+              "required": [
+                "ai_gateway"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
       "$comment": "Same rule for the 0.19 field: 'mcp_content' only in a manifest declaring at least 0.19 (RFC-0116 stage 2).",
       "if": {
         "properties": {
@@ -551,7 +600,7 @@
         "0.18",
         "0.19"
       ],
-      "$comment": "MAJOR.MINOR. A new MINOR only adds; a new MAJOR is the only thing a node may refuse (RFC-0012 §8.2). Deliberately not the semver 0.x reading, where the minor would carry breaking changes. 0.2 adds app.class. 0.3 adds data_model/contributes/consumes (oaap.data.model 0.1 §2.2, RFC-0031 §5) and the data_models artefact shape (§2.8). 0.4 adds the 'launchpad' section (RFC-0036). 0.5 adds the 'destinations' section (oaap.net.destinations 0.1, RFC-0033 stage 1). 0.6 adds the 'authorization' section (oaap.core.authorization 0.1, RFC-0045 stages 1-2). 0.7 adds services.<name>.shm (oaap.apps.runtime 2.20). 0.8 adds services.<name>.tun (oaap.apps.runtime 2.23, RFC-0060). 0.9 adds the 'cases' section (cases.submit: an app's backend opens a case in its tenant, oaap.apps.runtime 2.24, RFC-0061 §3.2). 0.10 adds the 'care' section (care.rebuild: self | release -- the author's promise that a rebuild on a fresh base changes nothing but the base, oaap.apps.runtime 2.31, RFC-0071 §15). 0.11 adds 'mcp' (one MCP door, a local path under one of the app's routes) and 'mcp_sources' (a gateway app reads the MCP sources of its tenant), oaap.apps.runtime 2.32, RFC-0073; 'openapi' stays reserved and is refused (I-39). 0.12 adds 'mcp_client' (use: true -- a chat app acts at its tenant's MCP gateways as the person speaking to it, procedure A), oaap.apps.runtime 2.32.3, RFC-0074. 0.13 adds 'ui_sandbox' (path: a page the app serves for the views of MCP Apps; the platform gives it a second, cookie-less origin <instance>--ui.<tenant>.<node>), oaap.apps.runtime 2.32.4, RFC-0075. 0.14 adds 'link_state' (path: where the node asks a tunnel app how its tunnel and its targets are -- names and ok/down, never an address), oaap.apps.runtime 2.33, RFC-0087 §8.1. 0.15 adds 'assets' (path: where the node asks an app for its assets -- model names, sources, the destination a source goes through; names and ok/down/idle only), oaap.apps.runtime 2.34, RFC-0087 §8.2. 0.16 adds 'identity' (identity.oidc_client: redirect_paths, groups_claim -- the app asks for its own confidential client in its tenant's realm, made by a connector on an operator's request), oaap.apps.runtime 2.35, oaap.core.tenant 2.9.2, RFC-0091 stage 3. 0.17 adds 'docs' (help products the app brings: folder, title, language, audience, readers, folder -> document type, media) and 'docs_sources' (help reads its tenant's), oaap.apps.runtime 2.36, RFC-0094."
+      "$comment": "MAJOR.MINOR. A new MINOR only adds; a new MAJOR is the only thing a node may refuse (RFC-0012 §8.2). Deliberately not the semver 0.x reading, where the minor would carry breaking changes. 0.2 adds app.class. 0.3 adds data_model/contributes/consumes (oaap.data.model 0.1 §2.2, RFC-0031 §5) and the data_models artefact shape (§2.8). 0.4 adds the 'launchpad' section (RFC-0036). 0.5 adds the 'destinations' section (oaap.net.destinations 0.1, RFC-0033 stage 1). 0.6 adds the 'authorization' section (oaap.core.authorization 0.1, RFC-0045 stages 1-2). 0.7 adds services.<name>.shm (oaap.apps.runtime 2.20). 0.8 adds services.<name>.tun (oaap.apps.runtime 2.23, RFC-0060). 0.9 adds the 'cases' section (cases.submit: an app's backend opens a case in its tenant, oaap.apps.runtime 2.24, RFC-0061 §3.2). 0.10 adds the 'care' section (care.rebuild: self | release -- the author's promise that a rebuild on a fresh base changes nothing but the base, oaap.apps.runtime 2.31, RFC-0071 §15). 0.11 adds 'mcp' (one MCP door, a local path under one of the app's routes) and 'mcp_sources' (a gateway app reads the MCP sources of its tenant), oaap.apps.runtime 2.32, RFC-0073; 'openapi' stays reserved and is refused (I-39). 0.12 adds 'mcp_client' (use: true -- a chat app acts at its tenant's MCP gateways as the person speaking to it, procedure A), oaap.apps.runtime 2.32.3, RFC-0074. 0.13 adds 'ui_sandbox' (path: a page the app serves for the views of MCP Apps; the platform gives it a second, cookie-less origin <instance>--ui.<tenant>.<node>), oaap.apps.runtime 2.32.4, RFC-0075. 0.14 adds 'link_state' (path: where the node asks a tunnel app how its tunnel and its targets are -- names and ok/down, never an address), oaap.apps.runtime 2.33, RFC-0087 §8.1. 0.15 adds 'assets' (path: where the node asks an app for its assets -- model names, sources, the destination a source goes through; names and ok/down/idle only), oaap.apps.runtime 2.34, RFC-0087 §8.2. 0.16 adds 'identity' (identity.oidc_client: redirect_paths, groups_claim -- the app asks for its own confidential client in its tenant's realm, made by a connector on an operator's request), oaap.apps.runtime 2.35, oaap.core.tenant 2.9.2, RFC-0091 stage 3. 0.17 adds 'docs' (help products the app brings: folder, title, language, audience, readers, folder -> document type, media) and 'docs_sources' (help reads its tenant's), oaap.apps.runtime 2.36, RFC-0094. 0.18 adds 'setup' (path: the app's setup door for a tenant build), 'ai_client' (use: true -- a chat reaches its tenant's model gateways) and 'ai_gateway' (serve: true -- be one of them), oaap.apps.runtime 2.39, RFC-0104 stage 2. 0.19 adds 'mcp_content' (untrusted: true -- the MCP door delivers foreign content), oaap.apps.runtime 2.32.6, RFC-0116 stage 2."
     },
     "must_understand": {
       "type": "array",
@@ -746,9 +795,14 @@
           },
           "generate": {
             "enum": [
-              "token"
+              "token",
+              "vapid"
             ],
-            "description": "Only for a key whose value THIS app defines: the portal offers to produce it, as 32 random bytes in url-safe base64 (alphabet [A-Za-z0-9_-], no padding) — a value the platform's line-based env file and ';'-separated lists can carry. Do NOT declare it on a key that holds somebody else's credential."
+            "description": "Only for a key whose value THIS app defines: the portal offers to produce it, as 32 random bytes in url-safe base64 (alphabet [A-Za-z0-9_-], no padding) — a value the platform's line-based env file and ';'-separated lists can carry. Do NOT declare it on a key that holds somebody else's credential. 'vapid' (RFC-0079, oaap.apps.runtime 2.8): a Web Push key pair, generated the same way."
+          },
+          "file": {
+            "type": "boolean",
+            "description": "oaap.apps.runtime 2.8 (0.2.62): the value is the content of a file, stored and handed to the container as one base64 line; the portal offers an upload (at most 256 kB). The app decodes."
           }
         }
       }
@@ -1251,7 +1305,8 @@
           },
           "purpose": {
             "type": "string",
-            "maxLength": 200
+            "maxLength": 300,
+            "description": "A sentence for the operator binding the destination. The runtime cuts nothing; 300 is an authoring limit."
           },
           "env": {
             "type": "object",
@@ -1365,6 +1420,40 @@
       "additionalProperties": false,
       "properties": {
         "use": {
+          "type": "boolean"
+        }
+      }
+    },
+    "setup": {
+      "type": "object",
+      "description": "Manifest 0.18, oaap.apps.runtime 2.39 (RFC-0104 stage 2): the app's setup door, a local path under one of its routes (not /). The instance gets OAAP_SETUP_KEY; a tenant build calls the door through the gateway's internal listener /s/<name>.",
+      "additionalProperties": false,
+      "required": [
+        "path"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^/[A-Za-z0-9._~/-]{1,200}$"
+        }
+      }
+    },
+    "ai_client": {
+      "type": "object",
+      "description": "Manifest 0.18, oaap.apps.runtime 2.39 (RFC-0104 stage 2): 'use: true' asks for a key that opens /platform/ai/gateways and /platform/ai/via/<gateway>/ on the instance's own site -- a chat reaches its tenant's model gateways without a key of its own.",
+      "additionalProperties": false,
+      "properties": {
+        "use": {
+          "type": "boolean"
+        }
+      }
+    },
+    "ai_gateway": {
+      "type": "object",
+      "description": "Manifest 0.18, oaap.apps.runtime 2.39 (RFC-0104 stage 2): 'serve: true' -- the app is a model gateway its tenant's chats reach (ai_client).",
+      "additionalProperties": false,
+      "properties": {
+        "serve": {
           "type": "boolean"
         }
       }

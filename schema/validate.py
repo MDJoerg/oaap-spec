@@ -248,6 +248,28 @@ case("mcp_client.use 'yes' wird abgelehnt", app("0.12", mcp_client={"use": "yes"
 case("ein unbekannter Schluessel in mcp_client wird abgelehnt",
      app("0.12", mcp_client={"use": True, "act": True}), False)
 
+print("\n=== 0.18: setup / ai_client / ai_gateway (oaap.apps.runtime 2.39, RFC-0104) ===")
+case("0.18 mit einer Einrichtungstuer", app("0.18", setup={"path": "/oaap/setup"}), True)
+case("0.18 mit ai_client.use und ai_gateway.serve",
+     app("0.18", ai_client={"use": True}, ai_gateway={"serve": True}), True)
+case("setup braucht Manifest 0.18", app("0.17", setup={"path": "/oaap/setup"}), False)
+case("ai_client braucht Manifest 0.18", app("0.17", ai_client={"use": True}), False)
+case("ai_gateway braucht Manifest 0.18", app("0.17", ai_gateway={"serve": True}), False)
+case("setup ohne path wird abgelehnt", app("0.18", setup={}), False)
+case("setup.path / wird abgelehnt", app("0.18", setup={"path": "/"}), False)
+case("ein unbekannter Schluessel in setup wird abgelehnt",
+     app("0.18", setup={"path": "/oaap/setup", "key": "x"}), False)
+case("ai_client.use 'yes' wird abgelehnt", app("0.18", ai_client={"use": "yes"}), False)
+case("ai_gateway kennt nur serve", app("0.18", ai_gateway={"serve": True, "use": True}), False)
+
+print("\n=== 0.19: mcp_content (oaap.apps.runtime 2.32.6, RFC-0116) ===")
+case("0.19 mit mcp_content.untrusted",
+     app("0.19", mcp={"path": "/mcp"}, mcp_content={"untrusted": True}), True)
+case("mcp_content braucht Manifest 0.19",
+     app("0.18", mcp={"path": "/mcp"}, mcp_content={"untrusted": True}), False)
+case("mcp_content.untrusted 'ja' wird abgelehnt",
+     app("0.19", mcp={"path": "/mcp"}, mcp_content={"untrusted": "ja"}), False)
+
 files = sys.argv[1:]
 if files:
     print("\n=== echte Manifeste ===")
