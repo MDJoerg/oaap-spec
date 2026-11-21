@@ -1,7 +1,7 @@
 # oaap.data.twin — The Digital Twin
 
 - **ID:** `oaap.data.twin`
-- **Version:** 0.7 (0.7: `GET /twin/objects?type=` -- an app lists every object of a type it is bound to, §2.6a, RFC-0085 §10, reference 0.1.293; 0.6: the read `affected` -- what depends on a fleet object, §2.10a, RFC-0087 §6, reference 0.1.285; 0.5: the write rules in one module shared by the API and the platform's own writer; an unchanged **relation** writes nothing either, and a group PUT that changes nothing records no event -- §2.15; the person-facing type list answers `semantic_iri` -- `oaap.data.model` 0.2 §2.9; RFC-0085 amendment A2)
+- **Version:** 0.8 (0.8: the list searches and pages -- `q` matches words in the title, `offset` skips rows; an app's list report no longer reads all and cuts at 500, §2.6a, RFC-0118 P6, reference 0.1.340; 0.7: `GET /twin/objects?type=` -- an app lists every object of a type it is bound to, §2.6a, RFC-0085 §10, reference 0.1.293; 0.6: the read `affected` -- what depends on a fleet object, §2.10a, RFC-0087 §6, reference 0.1.285; 0.5: the write rules in one module shared by the API and the platform's own writer; an unchanged **relation** writes nothing either, and a group PUT that changes nothing records no event -- §2.15; the person-facing type list answers `semantic_iri` -- `oaap.data.model` 0.2 §2.9; RFC-0085 amendment A2)
 - **Maturity:** draft
 - **Based on:** RFC-0033 §6 / D10 (0.4 adds the remote reader, §2.14:
   a reader on another node, reached through a tunnel,
@@ -248,6 +248,13 @@ is honoured (§2.8). A merged-away alias is no row of its own (§2.9). At
 most 500 objects; a longer list says `truncated: true` rather than
 cutting silently. No filter on group or value in 0.7 -- the fleet of a
 few nodes is small, and a query language is a later question.
+
+**Search and pages (0.8, RFC-0118 P6).** `?q=` keeps the objects whose
+title contains every word of it (case-insensitive, at most eight words,
+`%` and `_` taken literally); `?offset=n` skips the first `n` rows of the
+same order. The answer carries `offset`. A list report asks for one page
+at a time and offers "Weitere" while `truncated` is true. Still no filter
+on group or value.
 
 The tenant is the caller's, as everywhere: an app of tenant B bound to
 the same type lists tenant B's objects -- an empty list, never tenant
@@ -918,3 +925,9 @@ ihn wegen der Netz-Isolation (RFC-0016) sonst gar nicht erreichen. Das
 Schema-Passwort (RFC-0031 §7: „einmal gezeigt, nie einer App, nur
 `oaap.data.twin`") liegt in einer Datei, die ausschließlich dieser
 Container lesend mountet.
+
+## Deutsche Zusammenfassung (0.8)
+
+Die Liste der Objekte eines Typs kann jetzt suchen (`q`: alle Wörter im
+Titel) und blättern (`offset`). Damit liest eine App nicht mehr alles und
+schneidet bei 500 ab (RFC-0118 P6).

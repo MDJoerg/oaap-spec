@@ -1,6 +1,6 @@
 # RFC-0118: One Face for All OAAP Apps — Names, Frame, Lists, Help, MCP, Twin
 
-- **Status:** Draft (2026-11-21) — D1–D9 open, for Jörg.
+- **Status:** **Accepted (2026-11-21)** — D1–D9 as recommended (Jörg: "Wie empfohlen").
 - **Date:** 2026-11-21
 - **Authors:** Jörg (the question, 2026-11-21: "design rules for our OAAP apps — header,
   layout, navigation, tabs, tables and filters, embedded OAAP functions, AI; names alike,
@@ -75,7 +75,7 @@ without a page, **W** wrapped third-party product.
 | id | Type | Name today → proposed | Frame | Help | MCP | Twin |
 | --- | --- | --- | --- | --- | --- | --- |
 | chat | A | Chat → **Chat** | own layout, user menu + help in the sidebar | yes | client (stays) | reads through MCP (§9) |
-| vorgaenge | B | Vorgänge → **Vorgänge** | kit (has most of it) | yes | has; add search | consumes Firma/Kontaktperson for "Partner"; contributes open cases on Firma |
+| vorgaenge | B | Vorgänge → **Vorgänge** | kit (has most of it) | yes | has; add search | — for now (correction 2026-11-21: its "Partner" are other tenants' inboxes, not companies; a case naming a Firma is a later feature) |
 | spezialisten | B | Spezialisten → **Spezialisten** | kit | yes | read: list, runs | — |
 | recherche | C | Recherche → **Recherche** | kit | yes | has | — |
 | studio | B | OAAP Studio → **Studio** | kit | has (move `/hilfe` into it) | read: projects, briefing | — |
@@ -259,8 +259,8 @@ to the fleet on Jörg's word.
    description, briefing and `/hilfe` page already say.
 4. **Lists and navigation**: tabs (§6) and lists (§7) per app; inline row forms go.
 5. **MCP**: P7; read tools for every B/C app with data.
-6. **Twin**: P6; vorgaenge "Partner" on the twin's Firma; the four twin apps on picker and
-   search.
+6. **Twin**: P6; the four twin apps on picker and search. (Struck 2026-11-21: "vorgaenge
+   Partner on the twin's Firma" -- the Partner there are other tenants, see §2.)
 
 ## 12. Decisions for Jörg
 
@@ -312,3 +312,14 @@ auseinandergelaufen.
   MCP, Zwilling.
 
 Offen sind D1–D9. Die Empfehlung steht jeweils in der Tabelle in §12.
+
+## Decision record (2026-11-21)
+
+Jörg decided D1–D9 on 2026-11-21 with "Wie empfohlen": no "OAAP" in app names (D1), the
+renames of §2 (D2), the frame as a platform script (D3, amends RFC-0035 D2), the tenant's
+title and logo in every app (D4), help mandatory (D5), MCP read tools mandatory for B/C
+apps with data (D6), the twin only where business objects exist plus picker, open and MCP
+(D7), all apps now in stages 1–6 instead of opportunistically (D8, amends RFC-0035 D6), the
+guidelines' blue (D9).
+
+**Entscheidung (21.11.):** Jörg hat D1–D9 „wie empfohlen“ entschieden.
