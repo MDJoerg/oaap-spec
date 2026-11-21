@@ -2,7 +2,9 @@
 
 - **Status:** **Accepted (2026-11-20)** — Jörg: "Wie empfohlen" for
   D1–D10. **Stage 1 built** (Jörg: "Stufe 1 bauen"): mcp-gateway
-  0.32.0, `oaap.ai.mcp-gateway` 0.30.0 §5.5; see §10. The facts in §1 were read the same day
+  0.32.0, `oaap.ai.mcp-gateway` 0.30.0 §5.5; see §10. **Stage 2 built and measured
+  2026-11-21** (§11): mcp-gateway 0.38.0, `oaap.ai.mcp-gateway` 0.34.0, recipe `sap-sso`
+  1.2.0. The facts in §1 were read the same day
   in `oaap.ai.mcp-gateway` 0.29.0 and `mcp-gateway` 0.31.0.
 - **Date:** 2026-11-20
 - **Authors:** Jörg (the need, 2026-11-20, while setting up SAP SSO for a
@@ -297,3 +299,82 @@ Reiter, Multi-System-Sicht mit Abgleich und Freigabe je System, im Chat
 jedes Werkzeug einmal mit `system`, das Werkzeug `systeme`, Ampel je
 Aufruf, das System in der Messzeile. Gemessen auf oaap-test; die Messung
 mit zwei echten SAP-Systemen folgt in bec.
+
+## 11. Stage 2 -- built and measured (2026-11-21, mcp-gateway 0.38.0)
+
+**Built.**
+
+- **Prompts** (D6): listed once with a required argument `system` first,
+  routed like a tool; a differing prompt is approved per system.
+- **Resources and templates** (D6, "the system as a URI prefix"): listed once
+  per system they are served on, `oaap-system://<system>/<uri>`, the name with
+  the system's title; read at that system's server with the plain URI. A
+  plain URI is refused with a sentence naming the prefix -- except a view of
+  an MCP App (`ui://`), which is code the tool shows and stays the
+  reference's. The light per system holds as for tools.
+- **`systeme`** names per system the prompts and the prefixed resources.
+- **The operator's page**: the matrix shows every kind (*Prompt*,
+  *Ressource*, *Ressourcenvorlage*), *Für <system> freigeben* carries the kind;
+  `app.py view system-approve … --kind prompt|resource|template`.
+- **Convert** (D9): on the page of a view that holds servers of two or more
+  systems, *Umwandeln* -- choose the reference, *Plan zeigen*, then *Neue
+  Multi-System-Sicht anlegen*; `app.py view convert <view> <reference>
+  [<new>]` (without a name only the plan). A NEW view: the reference's
+  entries (a copy, approvals as held), the other systems added, an approval
+  the old view held for another system's server carried over (S3), the old
+  view, its keys, profiles and assistants unchanged. Refused with sentences:
+  no counterpart at the reference, another effect class, fixed arguments or
+  bounds, a server without a system, two entries for one counterpart. A
+  reference entry the old view did not hold for a system is served there
+  only when that server reports the same text, and the plan says so.
+- **Recipe `sap-sso` 1.2.0** (oaap-docs): the step *server* also makes the
+  target system (setup kind `system`, needs mcp-gateway 0.32 or later --
+  an older gateway refuses the unknown kind with a sentence in the
+  preview): new parameters `system` (default `sap`), `system_title`,
+  `system_role` (default `other`; `production` makes the light at least
+  yellow), `sap_sid` (optional); facts `sid`, `client`; the server as its
+  only server. A second run finds it present.
+
+**Deviation:** the recipe adds the system but does not put it into a
+multi-system view: which view is the reference and which systems belong
+together stays the operator's decision (*Weiteres System* or *Umwandeln*).
+
+**Tests.** mcp-gateway: new `test_landscape2.py` 35 (prompts once with
+`system`, routing without it, refusals with nothing sent, approval of a prompt
+per system; resources and templates per system with the prefix, read with the
+plain URI, plain and foreign URIs refused, light; `systeme`; convert with a
+carried approval, refusals, page and CLI; an ordinary view unchanged);
+unchanged green `test_landscape.py` 34, `test_gateway.py` 568, `test_setup.py`
+89, `test_templates.py` 54, `test_untrusted.py`. Reference
+`test_recipe_sap_sso.py` green with the system item checked (its paper setup
+door also learned the `recipe` argument of reference 0.1.338 -- the test had
+been red since RFC-0117 stage 2).
+
+**Measured on `oaap-test`** (`rzt-werkzeuge` 0.38.0 built from the working
+tree; the gateway's code run inside its container against its real database;
+two paper servers in the container that report exactly the texts the gateway
+holds from `rzt-hilfe` -- a platform source cannot stand in a view that takes
+keys), 14/14: both paper servers report the same 2 prompts, 4 resources and
+1 template; all 7 *gleich* for the second system; `prompts/list` with
+`system` naming both; resources and the template per system with the
+prefix; `prompts/get` and `resources/read` reach the chosen system's server
+without the argument and with the plain URI; a plain URI and a prompt without
+`system` refused with nothing sent; a key up to green sees no resource of the
+production system; `systeme` with prompts and resources, without address;
+convert shows its plan and makes the new view, the old one stays; cleaned up
+(no probe view, system, server or key left).
+
+**Not measured:** two real SAP systems in `bec` (as in stage 1, on Jörg's
+word); the recipe `sap-sso` 1.2.0 against a real SAP system; a view of an MCP
+App in a multi-system view (by construction: served as before from the
+reference).
+
+**Deutsch:** Stufe 2 ist gebaut und gemessen (MCP-Gateway 0.38.0). Prompts
+stehen in der Multi-System-Sicht einmal mit `system`, Ressourcen je System mit
+`oaap-system://<system>/` vor der URI. Abweichendes gibt der Betreiber je
+System frei, auch für Prompts und Ressourcen. „Umwandeln“ macht aus einer
+alten Sicht mit Präfix-Namen eine neue Multi-System-Sicht; Freigaben gehen
+mit, die alte Sicht bleibt. Das Rezept `sap-sso` 1.2.0 trägt sein System in
+die Systemlandschaft ein. Die Sicht dazu wählt weiter der Betreiber. Auf
+oaap-test 14/14 mit zwei Papier-Servern, die die Texte der Hilfe von rzt
+melden. Offen: zwei echte SAP-Systeme in bec.
