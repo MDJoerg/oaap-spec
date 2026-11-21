@@ -1,6 +1,9 @@
 # RFC-0119: Apps Bring Their Own Assistant Templates
 
 - **Status:** **Accepted (2026-11-21)** — D1–D11 as recommended (Jörg: "Wie empfohlen").
+  **Stage 1 built and measured 2026-11-22 (§11):** reference 0.1.342, `oaap.apps.runtime`
+  0.2.79 (manifest 0.20), `oaap.core.tenant` 1.23, `vorgaenge` 0.18.0 with the template
+  `vorgaenge-ueberblick` 1.0.0.
   The facts in §1 were read the same day in `platform/recipes/hilfe-assistent.json`,
   `appctl.py` (`docs_publish_instance`, `SHIPPED_RECIPE_DIR`, `tenant_recipe_path`), the
   manifests of `oaap-apps/apps/*/oaap-app.yaml`, `oaap.ai.mcp-gateway` 0.35 §3.9e and
@@ -304,6 +307,78 @@ or names its exception in the manifest comment `# design: no-assistant-template 
 - **D11 — MCP prompts of the app's server may be named in the template's view, as an
   addition, never instead of a template?** *Recommendation: yes, stage 3.*
 
+## 11. Stage 1 — built and measured (2026-11-22)
+
+**Built.**
+
+- **Node (reference 0.1.342, `oaap.apps.runtime` 2.41):** manifest 0.20
+  `assistant_templates: {path}` (refused without `mcp.path`, with another field, with a path
+  leaving the package). New module `app_templates.py` (pure rules: declaration, §4.2–4.4,
+  extract, listing). At every install the node copies the valid templates to
+  `tenants/<tenant>/assistant-templates/<instance id>/` with `templates.json`, says what it
+  dropped and why, never fails the install; removal deletes the folder; a rehearsal copies
+  nothing; audit `instance.assistant_templates`.
+- **Recipes (`oaap.core.tenant` 1.23):** `tenant_recipe_path(rid, tid)` finds an app's
+  template of that tenant when neither the operator nor the platform has the id; preview,
+  run, continue, rollback and requests use it. `recipe_is_free(doc, tid)`: free when the doc
+  equals the file the app brought and §4.3 still holds. For an app's template the preview
+  reads the app server's light from the gateway's setup door (`GET ?kind=server_light`): not
+  red → that light is taken; red or unknown → the parameter stays open, the card's light as
+  `suggested` with `proposal: "app"`.
+- **Portal:** rows of app templates carry `tenant` (shown only there) and `app`; the page
+  *Assistenten* shows platform cards first, then "von der App …"; the wizard asks a light
+  without default and without `from` under *Was gebraucht wird*, with "– bitte wählen –" and
+  nothing selected, and says whether the source is red (the app's proposal named) or already
+  set by a human.
+- **`vorgaenge` 0.18.0** (manifest 0.20) brings `assistants/vorgaenge-ueberblick.json` 1.0.0:
+  view `vorgaenge` of the app's reading tools, profile `<chat>-vorgaenge` (reading only), the
+  assistant with instructions naming `list_queues`, `list_cases`, `search_cases`, `get_case`.
+
+**Deviations from the text above.**
+
+- **The need naming the app is `source`, not `app`** (§3.2, §4.3): `app` is a reserved word
+  of the recipe engine (the selection reference). The placeholder is `{source_key}`.
+- **The template releases no model** (§3.2): it names the model gateway only to offer its
+  list of model names; the chat must already be released for the chosen name (the help
+  template does that). A model release would conflict with the chat's existing one and is the
+  model gateway's decision, not an app's — and it would carry `personal_data`, which an app
+  must not decide either.
+- **The operator's block per app** (§4.5) and the marks "Vorlage nicht mehr da / neuer" (§5,
+  §6) are stage 2, as the stage table says.
+
+**Tests.** Reference `test_app_templates.py` new (Linux runner): manifest 0.20, the
+template of `vorgaenge` against the rules, 13 baits (§4.2–4.4), copy per tenant with a dropped
+file and a link not followed, which file wins, the gate (free in its tenant, not changed, not
+in another tenant), the view and cards, the light question (red → asked, chosen → set, human's
+green → taken), removal and rehearsal. With 28 neighbouring files (recipes, templates, portal,
+manifest doors) 29 files green. `vorgaenge` `test_app`, `test_mcp` green; `check-design.py`
+24/24; `check-store.py` after `--fix` of the README table.
+
+**Measured on `oaap-test`** (0.1.342 staged after a backup; `vorgaenge` 0.18.0 installed
+fresh into tenant `rzt` as `rzt-vorgaenge`; as its tenant_admin through the job the portal
+calls and the portal's pages), 13/13:
+
+1. The install said "Assistant template 'vorgaenge-ueberblick' 1.0.0 handed to the tenant's
+   wizard"; `templates.json` names it, nothing dropped.
+2. Tenant `vuebung`: no template of the app.
+3. The view for the portal: tenant `rzt`, app *Vorgänge*, free.
+4. Page *Assistenten* in `rzt`: card *Offene Vorgänge*, "von der App Vorgänge", *Weiter*.
+5. The wizard asks the source's light: "– bitte wählen –", nothing selected.
+6. Preview without a light: the question stays open, the app's proposal yellow, nothing chosen.
+7. Preview with yellow: no conflict.
+8. Run as tenant_admin without a release: done.
+9. The gateway: the assistant on view `vorgaenge`, origin `vorgaenge-ueberblick@1`.
+10. The view holds only reading tools — no `create_case`, no `comment_case`.
+11. The source now has the chosen light yellow.
+12. *Bait:* the same template in `vuebung` (no app there), even as the operator → refused.
+13. Rolled back: the assistant deleted.
+
+Then `oaap app remove rzt-vorgaenge`: the tenant's template folder and the portal row gone;
+node HEALTHY 8/8, 43/43.
+
+**Not measured:** a click in the browser by a person; a conversation with the new assistant in
+the chat (a person's call through a gateway view, still open since RFC-0118 P6).
+
 ## Deutsche Zusammenfassung
 
 **Idee (Jörg, 21.11.):** Seit RFC-0118 hat jede App mit Daten eine MCP-Tür. Die App weiß
@@ -351,3 +426,16 @@ aus dem geprüften Paket.
 - D3/D4: eng, nur lesend
 - D5: keine Ampel durch die App selbst
 - D6: frei, aber vom Betreiber sperrbar
+
+**Stufe 1 gebaut und gemessen (22.11., §11):** Referenz 0.1.342, Manifest 0.20. Der Knoten
+kopiert die Vorlagen einer App bei der Installation in den Ordner des Mandanten, prüft sie und
+nennt, was er fallen lässt; beim Entfernen verschwinden sie. Im Portal erscheinen sie nur in
+diesem Mandanten als Karte „von der App …“; die Ampel der eigenen Quelle fragt der Assistent
+(nichts vorausgewählt, Vorschlag der App daneben), hat ein Mensch sie schon gesetzt, gilt seine.
+Erste Vorlage: `vorgaenge-ueberblick` in Vorgänge 0.18.0. Auf oaap-test in rzt 13/13: Karte da,
+Ampelfrage, angelegt ohne Freigabe, Sicht nur mit lesenden Werkzeugen, Quelle auf Gelb, im
+Mandanten vuebung abgelehnt, zurückgenommen; nach dem Entfernen der App ist die Karte weg.
+Abweichungen: Der Bedarf heißt `source` (`app` ist in der Rezept-Maschine reserviert); die
+Vorlage gibt kein Modell frei (das bleibt Sache des KI-Gateways). Sperre durch den Betreiber und
+die Hinweise „Vorlage neuer / nicht mehr da“ kommen in Stufe 2. Nicht gemessen: Klick im
+Browser, Gespräch im Chat.
