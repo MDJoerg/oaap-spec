@@ -6,6 +6,8 @@
   `vorgaenge-ueberblick` 1.0.0.
   **Stage 2 built and measured 2026-11-22 (§12):** reference 0.1.343, `oaap.core.tenant`
   1.24; ten more apps bring a template; `check-design.py` makes it a duty.
+  **§6 closed 2026-11-22 (§13):** mcp-gateway 0.41.0 (`oaap.ai.mcp-gateway` 0.36), chat 0.21.0
+  (`oaap.ai.assistants` 0.9).
   The facts in §1 were read the same day in `platform/recipes/hilfe-assistent.json`,
   `appctl.py` (`docs_publish_instance`, `SHIPPED_RECIPE_DIR`, `tenant_recipe_path`), the
   manifests of `oaap-apps/apps/*/oaap-app.yaml`, `oaap.ai.mcp-gateway` 0.35 §3.9e and
@@ -461,6 +463,53 @@ Both instances removed afterwards; node HEALTHY 8/8, 43/43.
 **Not measured:** a click in the browser by a person; a conversation with an app's assistant
 in the chat, and what the chat says after the app is gone.
 
+## 13. §6 closed — a removed app's tools (2026-11-22)
+
+**The finding of §12, read again in the code:** the gateway already marked a source that left
+the platform's list (`servers.gone`, RFC-0073 D2) -- but only at its next sync (every five
+minutes; the measurement of §12 looked at once), and even then it kept listing the entries:
+`item_state` read only the catalog, and the catalog still said "present", read while the app
+existed. The assistant stayed active, so a chat would have sent the model tool names whose
+calls go nowhere.
+
+**Built.**
+
+- **mcp-gateway 0.41.0** (`oaap.ai.mcp-gateway` 0.36, §3.6, §4.2): a new entry state **`gone`**
+  -- the entry's server is a platform source no longer in the list. Neither listed nor
+  callable; a call is refused with "… gibt es nicht mehr: die App dahinter wurde entfernt",
+  never naming the server; one audit line `item.gone` per entry; the entries stay in the views
+  (nothing removed in silence) and are active again when the source returns with the same
+  text. The list of assistants for a chat names **`tools_gone`** (`all` / `some`); the operator's
+  start page names the view ("Quelle entfernt"), its page *Assistenten* the assistant.
+- **chat 0.21.0** (`oaap.ai.assistants` 0.9): with `tools_gone: all` no new conversation (409)
+  and a running one answers "Die Werkzeuge dieses Assistenten gibt es nicht mehr – die App
+  dahinter wurde entfernt. Wer ihn pflegt, kann ihn löschen oder ihm eine andere Sicht geben.";
+  with `some` the conversation goes on; the card says it and disables *Neues Gespräch*.
+
+**Not built, on purpose:** the platform does not poke the gateway at `oaap app remove`. The
+gateway learns of the removal at its next sync (at most five minutes, or the operator's button
+"Quellen jetzt einlesen"); until then a call fails at the removed container, as before. A poke
+would be a new coupling from the platform into one app's command line for a window of five
+minutes.
+
+**Tests.** `test_sources.py` +11 (gone, not listed, refusal without the server, `item.gone`,
+start page, `all`/`some`, bait: no view / no gone source, back → active); `test_gateway.py`
+586/586 (one fixture's fake list lacked the source's address -- the real list always names it --
+and so made the source "gone" mid-test; fixed in the fixture); all 13 gateway test files green;
+`test_chat.py` 249/249 (+5, with the bait `some`); `check-store.py`, `check-design.py` 24/24.
+
+**Measured on `oaap-test`** (backup first; tenant `rzt`; `rzt-werkzeuge` 0.41.0, `rzt-chat`
+0.21.0; `vorgaenge` 0.18.0 installed fresh), 12/12: assistant from `vorgaenge-ueberblick`;
+before: five entries active, four tools listed; right after the removal, before the sync,
+still active (the five-minute window above); the sync says "verschwunden"; then all five entries
+`gone`, nothing listed, the refusal sentence without the server, `tools_gone = all`, the
+operator's page *Assistenten* and start page say it, five `item.gone` lines; reinstalled under
+the same name: active again, `tools_gone` empty; rolled back, the instance removed; node
+HEALTHY 8/8, 43/43.
+
+**Not measured:** the chat's sentence in a browser (the chat's side is covered by its tests
+against a fake gateway that answers `tools_gone`).
+
 ## Deutsche Zusammenfassung
 
 **Idee (Jörg, 21.11.):** Seit RFC-0118 hat jede App mit Daten eine MCP-Tür. Die App weiß
@@ -534,3 +583,13 @@ Entfernen. Auf oaap-test 16 von 17 (die rote Zeile war eine zu weit gefasste Pr�
 Messung). Befund §6: Nach dem Entfernen einer App lässt das MCP-Gateway Quelle, Sicht und
 Assistent stehen – das zu bemerken ist Arbeit im Gateway, offen. Nicht gemessen: Klick im
 Browser, Gespräch im Chat.
+
+**§6 geschlossen (22.11., §13):** Das Gateway kannte „Quelle verschwunden“ schon, merkte es aber
+erst beim nächsten Abgleich (alle fünf Minuten) und bot die Werkzeuge danach trotzdem weiter
+an. Neu (mcp-gateway 0.41.0): Einträge einer entfernten Quelle sind **`gone`** – sie bleiben
+in der Sicht stehen, werden aber weder angeboten noch ausgeführt; ein Aufruf bekommt „… gibt es
+nicht mehr: die App dahinter wurde entfernt“. Die Assistentenliste nennt `tools_gone`. Der Chat
+0.21.0 beginnt dann kein Gespräch mehr und sagt in einem laufenden „Die Werkzeuge dieses
+Assistenten gibt es nicht mehr“. Kommt die App wieder, ist alles wieder aktiv. Die Plattform
+stößt den Abgleich bewusst nicht an (bis zu fünf Minuten Verzug). Auf oaap-test 12 von 12.
+Nicht gemessen: der Satz des Chats im Browser.
