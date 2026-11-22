@@ -8,6 +8,10 @@
   1.24; ten more apps bring a template; `check-design.py` makes it a duty.
   **§6 closed 2026-11-22 (§13):** mcp-gateway 0.41.0 (`oaap.ai.mcp-gateway` 0.36), chat 0.21.0
   (`oaap.ai.assistants` 0.9).
+  **Stage 3 decided 2026-11-22 (§10, D12–D16):** split into 3a–3d; Jörg: "E3: nein, aber
+  vielleicht als Draft mit Freigabe? Sonst wie empfohlen."
+  **Stage 3a built and measured 2026-11-22 (§14):** reference 0.1.344, `oaap.core.tenant` 1.25,
+  mcp-gateway 0.42.0 (`oaap.ai.mcp-gateway` 0.37); ten templates name their app's prompts.
   The facts in §1 were read the same day in `platform/recipes/hilfe-assistent.json`,
   `appctl.py` (`docs_publish_instance`, `SHIPPED_RECIPE_DIR`, `tenant_recipe_path`), the
   manifests of `oaap-apps/apps/*/oaap-app.yaml`, `oaap.ai.mcp-gateway` 0.35 §3.9e and
@@ -258,7 +262,11 @@ or names its exception in the manifest comment `# design: no-assistant-template 
 |---|---|---|
 | **1** | manifest 0.20 `assistant_templates`; node copies per tenant, checks §4.2–4.3 at copy time; portal lists them with origin; server light asked in step 2; first template `vorgaenge-ueberblick` | §9 lines 1–6 on oaap-test |
 | **2** | templates for the apps with data (vorgaenge, partnerverwaltung, projekt, mitarbeiterverwaltung, rollen-rechte, raci, fleetview, wegweiser, studio, marketplace, spezialisten, help); `check-design.py` duty; "Vorlage nicht mehr da / neuer"; the operator's block per app | check-design 24/24 with the new rule; §9 lines 7–8 |
-| **3** | writing tools in app templates with RFC-0105 approvals; MCP prompts of the app's server in the view (D11); templates that span apps; a platform template for the twin | separate decisions when stage 2 stands |
+| **3** | writing tools in app templates with RFC-0105 approvals; MCP prompts of the app's server in the view (D11); templates that span apps; a platform template for the twin | separate decisions when stage 2 stands — taken 2026-11-22 (D12–D16), stage 3 is split: |
+| **3a** | MCP prompts of the app's own server in the template's view (D11); a need can ask for a minimum version of its app | the ten templates of apps with prompts name them; measured on oaap-test |
+| **3b** | writing tools of the app's own server in an app template (D13): each one a separate tick in the wizard, none ticked beforehand; in the chat the existing confirmation per call | measured on oaap-test with `vorgaenge` (`create_case`, `comment_case`) |
+| **3c** | templates that span apps — from the platform only (D15); a platform template for the twin (D16) | measured on oaap-test |
+| **3d** | to be examined: an app template proposes a specialist (RFC-0105) only as a **draft** that a human releases (D14) | a design read against `spezialisten` first; separate go-ahead |
 
 ## 9. Conformance (described; every line gets a bait)
 
@@ -310,6 +318,41 @@ or names its exception in the manifest comment `# design: no-assistant-template 
   assistant" holds the way "every app has help" holds.
 - **D11 — MCP prompts of the app's server may be named in the template's view, as an
   addition, never instead of a template?** *Recommendation: yes, stage 3.*
+
+### Stage 3 (decided 2026-11-22)
+
+Facts read for these decisions: writing tools in app MCP doors exist today only in
+`vorgaenge` (`create_case`, `comment_case`; `help` writes through its separate maintenance
+door, `recherche` reaches the open web). Prompts are served by 16 apps through `mcpdoor`
+(`DOOR.prompt`) and by `help`; the chat offers a view's prompts as `/name …`. The twin is an
+MCP source with three reading tools (`oaap.data.twin` 0.9 §2.16). The RFC-0105 approvals
+(`required`, `signed`) are made for a **specialist** that writes without a person present;
+in the chat a person confirms every writing call before it runs (`X-OAAP-Confirmed`,
+`oaap.ai.assistants` §2) and the gateway checks it.
+
+- **D12 — Split stage 3 into 3a (prompts), 3b (writing tools), 3c (templates that span
+  apps, the twin), each measured and pushed on its own?** *Accepted.*
+- **D13 — Writing tools in a chat assistant from an app template:** the template may name
+  writing tools of the app's **own** server; step 2 of the wizard shows them in a box of
+  their own, the tenant admin ticks each one, none is ticked beforehand; in the chat the
+  existing confirmation per call applies; the template stays free (D6). D4 is replaced by
+  this for stage 3b. *Accepted.*
+- **D14 — May an app template create a specialist (RFC-0105, writing in the background)?**
+  *No.* Jörg: "nein, aber vielleicht als Draft mit Freigabe?" — to be examined as stage 3d:
+  a template proposes a specialist only as a draft that does nothing until a human releases
+  it. The reference to RFC-0105 approvals leaves stages 3a–3c.
+- **D15 — Templates that span several apps come from the platform only;** an app speaks
+  for itself; the light of each source involved is asked separately, without default.
+  *Accepted.*
+- **D16 — A platform template for the twin, which does not set its own light** (the help
+  template may, because it reads public documentation; the twin holds the tenant's data).
+  *Accepted.* Jörg added (2026-11-22): the twin's MCP door will also get **writing**
+  functions (creating and changing types and instances from the chat, for authorized
+  persons only), and a broad **REST API** of the twin (evaluate, model, create, change) is
+  one of his next requirements — the twin as an integrating part of a larger landscape where
+  the data grow together. Both belong to `oaap.data.twin` and a separate RFC. For this RFC
+  it means: the twin template of 3c reads; once the twin offers writing tools they enter the
+  template by the D13 road (a separate tick each, confirmation per call), never silently.
 
 ## 11. Stage 1 — built and measured (2026-11-22)
 
@@ -510,6 +553,48 @@ HEALTHY 8/8, 43/43.
 **Not measured:** the chat's sentence in a browser (the chat's side is covered by its tests
 against a fake gateway that answers `tools_gone`).
 
+## 14. Stage 3a — prompts in app templates (2026-11-22)
+
+**Built.**
+
+- `mcp-gateway` 0.42.0 (`oaap.ai.mcp-gateway` 0.37): the setup door's `view` item may add
+  `"prompts": {"server": <s>}` -- every prompt the server offers, approved as reading entries
+  next to the view's tools. Another form, an unknown server or a server without prompts is
+  refused and the view is not made half; a present view without those prompts is a conflict;
+  remove works as for any view. An older gateway refuses the unknown field.
+- Reference 0.1.344 (`oaap.core.tenant` 1.25): a need may say **`min_version`**; an instance of
+  an older or unknown version does not meet it ("… läuft in Version 0.41.0; diese Vorlage braucht
+  mindestens 0.42.0 -- erst die App aktualisieren"), nothing runs. The rules of an app's template
+  allow `prompts` exactly as `{"server": "{source_key}"}` and require `min_version` 0.42.0 or newer
+  on the MCP gateway's need -- so a template never meets a gateway that would refuse it halfway.
+- `oaap-apps`: the ten templates of apps with prompts (fleetview, marketplace,
+  mitarbeiterverwaltung, partnerverwaltung, projekt, raci, rollen-rechte, spezialisten, studio,
+  wegweiser) name them, template version 1.1.0, each app one patch version up. `vorgaenge` has no
+  prompts and stays as it is.
+
+**Tests.** mcp-gateway `test_setup` 13 new (dry run, made with both prompts and reading tools only,
+present on a second run, conflict on a view without prompts, three other forms, unknown server,
+server without prompts -- nothing made, remove), all other gateway suites green. Reference
+`test_app_templates` 10 new (a valid template with prompts; baits: another server, another form,
+no or too low `min_version`, a `min_version` that is not x.y.z; the need judged with 0.41.0,
+0.42.0, 0.100.0 and without a known version); the nine recipe and template suites in the Linux
+runner green. All eleven templates pass the recipe check and the app-template rules;
+`check-store` and `check-design` 24/24; the tests of the ten apps green.
+
+**Measured on `oaap-test`** (0.1.344 staged after a backup; tenant `rzt`; `wegweiser` 0.6.1), 9/9:
+
+| Asked | Answer |
+|---|---|
+| Install `wegweiser` 0.6.1 | template `wegweiser-links` 1.1.0 handed to the tenant |
+| Preview with the tenant's gateway still 0.41.0 | refused: "… läuft in Version 0.41.0; diese Vorlage braucht mindestens 0.42.0 -- erst die App aktualisieren" |
+| Gateway to 0.42.0, then the run | done; the view `wegweiser` holds `wegweiser_find` and `wegweiser_report` (prompt, read) next to three reading tools, all active, both prompts offered in the view |
+| Preview afterwards | everything present, no conflict |
+| Rollback | the assistant deleted; `wegweiser` removed again |
+
+`rzt-werkzeuge` stays on 0.42.0.
+
+**Not measured:** a prompt fetched with `/name` in the chat in the browser.
+
 ## Deutsche Zusammenfassung
 
 **Idee (Jörg, 21.11.):** Seit RFC-0118 hat jede App mit Daten eine MCP-Tür. Die App weiß
@@ -593,3 +678,31 @@ nicht mehr: die App dahinter wurde entfernt“. Die Assistentenliste nennt `tool
 Assistenten gibt es nicht mehr“. Kommt die App wieder, ist alles wieder aktiv. Die Plattform
 stößt den Abgleich bewusst nicht an (bis zu fünf Minuten Verzug). Auf oaap-test 12 von 12.
 Nicht gemessen: der Satz des Chats im Browser.
+
+**Stufe 3 entschieden (22.11., D12–D16):** Jörg: „E3: nein, aber vielleicht als Draft mit
+Freigabe? Sonst wie empfohlen.“ Stufe 3 wird geteilt:
+- **3a:** MCP-Prompts der eigenen App in der Sicht der Vorlage; ein Bedarf kann eine
+  Mindestversion seiner App verlangen.
+- **3b:** schreibende Werkzeuge der eigenen App. Im Wizard wird jedes einzeln angehakt, vorab
+  keines. Im Chat bestätigt die Person jeden Aufruf wie heute. Die Vorlage bleibt frei.
+- **3c:** Vorlagen über mehrere Apps liefert nur die Plattform. Dazu kommt eine Vorlage für den
+  Zwilling, die ihre Ampel nicht selbst setzt.
+- **3d (zu prüfen):** Eine App-Vorlage legt keinen Spezialisten an. Sie darf ihn höchstens als
+  Entwurf vorschlagen, der erst nach Freigabe durch einen Menschen etwas tut.
+
+Ergänzung zum Zwilling: Seine MCP-Tür bekommt später schreibende Funktionen (Typen und Instanzen
+aus dem Chat anlegen und ändern, nur für Berechtigte). Eine breite REST-API zum Auswerten,
+Modellieren, Anlegen und Ändern ist eine von Jörgs nächsten Anforderungen. Das gehört in ein
+eigenes RFC zu `oaap.data.twin`. Die Zwillings-Vorlage aus 3c liest zunächst nur. Schreibende
+Werkzeuge kommen später über den Weg von 3b hinzu.
+
+**Stufe 3a gebaut und gemessen (22.11., §14):** Das MCP-Gateway 0.42.0 nimmt bei der Einrichtung
+einer Sicht auch die Prompts eines Servers an, also fertige Fragen, die man im Chat mit `/name`
+holt. Ein Bedarf im Rezept kann eine Mindestversion seiner App verlangen (Referenz 0.1.344).
+Eine App-Vorlage darf die Prompts der eigenen App nennen, muss dann aber das Gateway ab 0.42.0
+verlangen. So scheitert sie nie halb an einem älteren Gateway, sondern die Vorschau sagt vorher
+„erst die App aktualisieren“. Die zehn Vorlagen der Apps mit Prompts nennen sie (Vorlage 1.1.0, je
+App eine Patch-Version höher). Auf oaap-test 9 von 9: Mit Gateway 0.41.0 lehnt die Vorschau mit
+diesem Satz ab; mit 0.42.0 entsteht die Sicht mit beiden Prompts von Wegweiser neben den lesenden
+Werkzeugen. Danach wurde alles zurückgenommen. Nicht gemessen: ein Prompt per `/name` im Chat im
+Browser.
