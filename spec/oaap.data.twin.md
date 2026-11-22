@@ -632,8 +632,11 @@ gateway's view decides which of the three tools the assistant has at all.
 
 - **Principal `client:<label>`**: a program outside the platform (a graph viewer, a modelling
   tool, a dashboard), one tenant, made by the operator with
-  `oaap data twin add-client <label> --tenant <t> --reads <types> [--days N]` (the tenant admin's
-  page follows, RFC-0120 D2). Its key is scoped `oaap.twin` (§2.2), shown once, at most 365
+  `oaap data twin add-client <label> --tenant <t> --reads <types> [--days N]`, or by the
+  tenant's administration on the portal page *Zugänge → Integration* (RFC-0120 D2): the page
+  makes and removes the client through a host job (`twin-client-add` / `twin-client-remove`, own
+  tenant only, active types only) and issues its key straight from identity, shown once -- the
+  job never carries a key. Its key is scoped `oaap.twin` (§2.2), shown once, at most 365
   days; `remove-client` revokes every key and deactivates the principal. The record
   (`twin-clients.json`: tenant, types, key id, expiry -- no secret) is written by the host only;
   the twin reads it like the readers' file (§2.14). The tenant comes from that record, never from
@@ -649,7 +652,8 @@ gateway's view decides which of the three tools the assistant has at all.
 - **Keys of platform principals** (`instance:`, `remote:`, `client:`) and keys with a scope that
   names a platform capability (a dot: `oaap.twin`, `oaap.authz…`, `oaap.cases.submit:…`) are
   never issued through the people's key door; only the platform mints them
-  (`oaap.core.identity`, RFC-0120 §1.6).
+  (`oaap.core.identity`, RFC-0120 §1.6) -- with one exception: the key of a `client:` of the
+  actor's own tenant, scoped exactly `oaap.twin`, role `user` only (D2).
 
 ## 3. Configuration
 

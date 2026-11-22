@@ -2,7 +2,7 @@
 
 - **Status:** **Accepted (2026-11-22)** — D1–D12 as recommended (Jörg: "Alles wie empfohlen").
   Kept in mind (§4.10): webhooks in both directions.
-  **Stage 0 built and measured 2026-11-22 (§9), without the portal page:** reference 0.1.346,
+  **Stage 0 built and measured 2026-11-22 (§9), with the portal page:** reference 0.1.346,
   `oaap.data.twin` 0.10, `oaap.core.identity` 0.6.11; §1.6 confirmed and closed.
   The facts in §1 were read the same day in `oaap.data.twin` 0.9, `oaap.data.model` 0.2,
   `oaap.data.timeseries` 0.1, `oaap.events.broker` 0.4, RFC-0027, RFC-0085/0087,
@@ -373,9 +373,24 @@ refused, no key made.
   it) for every twin principal; clients refused on every write path (objects, groups, series).
 - `oaap.data.twin` 0.10 §2.17.
 
-**Not built in stage 0:** the tenant admin's page *Zugänge → Integration* (D2). Today the operator
-makes clients on the command line; the page needs the host worker (the portal does not run the
-node's CLI) and follows before stage 1 is measured.
+**The tenant admin's page (D2), built the same day.** *Zugänge → Integration* lists the tenant's
+clients with their types and keys, makes a client (name, types) and removes one through a host job
+(`twin-client-add` / `twin-client-remove` in the recipe job: own tenant only, active types only,
+a sentence that names the active ones otherwise) -- **without a key**: the job's result files never
+hold a secret. The key is issued on the page straight from identity and shown once, like every
+other key. For that identity's people's key door makes one exception to §1.6: the key of a
+`client:` of the actor's own tenant, scoped exactly `oaap.twin`, role `user` only; `instance:`,
+`remote:` and every other scope stay refused. Tests: `test_key_pages` +7 (the page names client,
+types, keys and `/twin/v1`, shows a job's refusal, asks before removing, carries no secret; the key
+comes from identity once, scoped to the twin with role user, only for a client of this tenant;
+add and remove are jobs with an origin check and no secret); `test_api_keys` +6 (own client's
+twin key issued; another tenant's client, other scopes, more roles refused). Measured on
+`oaap-test` with a temporary tenant admin in `fleetprobe` (removed afterwards), 9/9: job as
+tenant admin makes the client without a key and nothing secret in its result; for another tenant
+and with an inactive type refused (naming the active types); the people's key door gives the
+tenant admin the twin key of its own client; `/twin/v1/types` with it 200; the client without the
+twin scope, with more roles, and an app principal refused; remove revokes (401). §1.6 again 3/3
+closed. **Not measured:** the page clicked in the browser (served: the route is in the portal).
 
 **Tests.** `test_twin_clients` (new, 11: only the bound types, tenant from the record, a tenant in
 the request ignored, unknown client and a person refused, OpenAPI with only its types, three write
@@ -484,7 +499,11 @@ Eine Mandanten-Verwaltung konnte über die Schlüsseltür für Personen Schlüss
 einer App mit Plattform-Begrenzungen ausstellen: Zwilling, Berechtigungstür und Vorgangstür.
 Auf oaap-test wurden 3 von 3 ausgestellt (sofort widerrufen), und der Zwillingsschlüssel kam bis
 zum Zwilling durch. Jetzt geschlossen (identity 0.6.11): 3 von 3 abgelehnt. Neu sind die
-Integrations-Clients `client:<name>` (vom Betreiber per CLI angelegt, nur lesend) sowie
-`/twin/v1/types` und `/twin/v1/openapi.json`. Auf oaap-test 8 von 8. Die Seite „Zugänge →
-Integration“ für die Mandanten-Verwaltung (D2) fehlt noch. Befund am Rande: `test_tenant_boundary`
+Integrations-Clients `client:<name>` (nur lesend) sowie `/twin/v1/types` und
+`/twin/v1/openapi.json`. Auf oaap-test 8 von 8. Am selben Tag kam die Seite „Zugänge → Integration“
+dazu (D2). Darauf legt die Mandanten-Verwaltung Clients ihres Mandanten an und entfernt sie über
+einen Host-Auftrag, der nie einen Schlüssel trägt. Den Schlüssel stellt sie auf der Seite direkt bei
+identity aus, und er wird einmal gezeigt. Dafür lässt identity genau eine Ausnahme zu: den
+Zwillingsschlüssel eines Clients des eigenen Mandanten. Auf oaap-test 9 von 9; die Lücke bleibt
+zu. Nicht geklickt: die Seite im Browser. Befund am Rande: `test_tenant_boundary`
 hat 5 rote Prüfungen, schon vor dieser Änderung.
