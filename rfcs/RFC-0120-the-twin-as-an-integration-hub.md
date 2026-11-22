@@ -11,8 +11,10 @@
   read per period.
   **Stage 3 built and measured 2026-11-22 (§12):** reference 0.1.349, `oaap.data.twin` 0.13
   §2.22-2.25, `oaap.data.model` 0.4 -- use case 2 done: a tool creates a type and objects, a person
-  changes a group, the tool hears it by webhook and does not overwrite it. Inbound webhooks
-  (§4.10) not built: **D13 open**.
+  changes a group, the tool hears it by webhook and does not overwrite it.
+  **D13 decided 2026-11-22 (Jörg: "A" -- build it now, before a real system is named) and built
+  (§13):** reference 0.1.350, `oaap.data.twin` 0.14 §2.26 -- a system that only speaks webhooks
+  posts to a receiver; a mapping in JSON turns the body into a batch under the client's rights.
   The facts in §1 were read the same day in `oaap.data.twin` 0.9, `oaap.data.model` 0.2,
   `oaap.data.timeseries` 0.1, `oaap.events.broker` 0.4, RFC-0027, RFC-0085/0087,
   `program/zielbild-datenplattform.md`, `program/capability-ideas.md` (I-51) and the reference
@@ -360,9 +362,9 @@ Groups already follow AAS submodels in the fleet; types carry `semantic_id`. The
   case 2)?** *Recommendation: yes* — reads are the smallest risk and show the hub soonest; the
   dashboard needs periods, which sync also needs.
 - **D13 — Inbound webhooks (§4.10): a receiver per client with a mapping the tenant admin
-  declares, turned into batch operations under the same write rule?** *Open (2026-11-22, stage 3
-  built without it).* *Recommendation:* yes, built when the first real system is named; mapping
-  in JSON, no code, no fetching (§12).
+  declares, turned into batch operations under the same write rule?** **Decided 2026-11-22:
+  yes, built now** (Jörg: "A"; the recommendation had been to wait for the first real system).
+  Mapping in JSON, no code, no fetching (§13).
 
 ## 9. Stage 0 — built and measured (2026-11-22)
 
@@ -657,6 +659,85 @@ goes into which attribute of which group, which event retires) -- no code in a m
 fetching by the twin, the limits of a batch. Until then the outbound half and the change feed
 cover use case 2.
 
+## 13. D13 — inbound webhooks, built and measured (2026-11-22)
+
+**Built** (`twin_inbound.py`, routes in the twin service, a gateway block, table `receivers`, the
+portal's page *Integration*; `oaap.data.twin` 0.14 §2.26):
+
+- **Receivers on the door:** `POST/GET /twin/v1/receivers`, `PUT/DELETE /twin/v1/receivers/{name}`
+  with the client's key; the URL `/twin/v1/inbound/<client>/<name>` and the secret come once.
+- **The sender posts without a key.** The gateway passes `/twin/v1/inbound/*` without
+  `forward_auth`, strips every identity header and stops a body over 1 MB; the twin checks the
+  receiver's signature and nothing else.
+- **The mapping** (JSON): `id`, `items`, `rules` with `when` and `upsert` or `retire`; paths into
+  the item, `$.` for the envelope, `{"value": ...}` for a constant.
+- **One delivery = one batch** (§2.24) under `in:<receiver>:<hash of the delivery id>`: all or
+  nothing, the same delivery again writes nothing.
+
+**Decided while building (named here, not hidden):**
+
+- **Who declares the mapping:** the holder of the client's key -- the tenant admin who issued it
+  on *Integration*; the page shows every receiver with its state. A form for the mapping on the
+  page is not built (JSON on the door, like the types).
+- **Three signature forms**, because the systems in view sign differently: `oaap` (ours, with a
+  time stamp), `hmac-sha256` over the body with a header and prefix of the system's choice
+  (GitHub, Gitea/Forgejo and many SaaS), `token` (a fixed header; weakest, named). The secret is
+  always the platform's, generated; a system that insists on its own secret is not served yet.
+- **Type and group keys are literal in the mapping**, never taken from a payload, and checked
+  against the client's rights at registration -- so what a receiver may write is readable in its
+  mapping. The rights are checked again at every delivery.
+- **The first rule whose `when` holds** takes an item; an item no rule takes is skipped and
+  counted, not refused -- a system sends more than the twin needs.
+- **A path that finds nothing leaves its attribute out**; it never writes an empty value. A
+  missing key refuses the delivery.
+- **No status and no periods from a mapping yet** -- status is stage 4; periods can come with
+  the first system that sends them.
+- **Answers:** 401 signature, 404 one answer for an unknown client and an unknown receiver, 413,
+  **422** for everything the mapping or the write rule refuses (the sentence names item and
+  operation; the receiver keeps it as its last answer and the page shows it). A sender retries on
+  its own schedule; the delivery id makes that harmless.
+- **No rate limit per receiver** (the gateway's limits hold); **RFC-0068** does not stop a
+  receiver -- it sends nothing out.
+
+**Tests.** `test_twin_inbound` (new, 29, against a real PostgreSQL): registering (a reading
+client 403; name, shape, a rule with both actions, a type the client does not write, code in a
+path, a constant id, an unknown scheme -- each 400 with its sentence; the secret once, never in
+the list; the same name 409; more than five 409), the signature (forged, missing, old, body
+changed -> 401, nothing written, counted as refused), the delivery (two items, one skipped,
+`"1200,5"` -> 1200.5, a relation by key, a missing path left out, the client as owner), the same
+delivery again `replayed` without an event, a retire from the envelope's event, the same body
+without an id `replayed` again, a bad value in the second item -> 422 and the first not written,
+the sentence on the receiver and the portal's read, an item without a key 422, a relation to an
+unknown key 422, a body that is not JSON 400, replacing mapping and signature (the secret stays),
+`hmac-sha256` in GitHub's form and forged, `token` right and wrong, an unknown, a foreign and an
+unknown receiver all the same 404, a client without rights writes nothing through its receiver,
+a removed client 404, 1 MB 413, the OpenAPI. `test_twin_clients` (the new paths in the OpenAPI),
+`test_user_identity` (eleven public routes that strip the identity headers, was ten) green;
+`test_tenant_boundary` keeps its 5 old red checks.
+
+**Measured on `oaap-test`** (0.1.350 staged after a backup, 4 twin schemas migrated, HEALTHY
+9/9 and 43/43; `m124.py`; a temporary tenant admin in the hub tenant, everything removed
+afterwards), 20/20 on the second run -- the first had read the change feed at once, before its
+5 s of settling (a fault of the script):
+
+| Step | Result |
+|---|---|
+| client `m124-ea` with *Modelliert* on *Integration*, key issued on the page; the tool's type | 201 `t.fleetprobe.M124App`, 140 ms |
+| a receiver whose mapping names `FleetNode` | 400, the type named |
+| receiver `ea-tool`, `hmac-sha256` with `X-Hub-Signature-256` / `sha256=` | 201, the URL, the secret once; the list without it |
+| through the gateway: a wrong signature, a forged `X-OAAP-User`, the client's key instead of a signature | 401 each, nothing written |
+| the delivery through the gateway, no key: three items, one of them a comment | 200 in 37 ms, 2 operations, 1 skipped |
+| in the twin | CRM with 1200.5 (sent `"1200,5"`) and `high`; ERP depends on CRM by key, no cost; owner `client:m124-ea` |
+| the same delivery again | `replayed`, 19 ms, no event |
+| a bad value in the second item | 422 naming operation 2, the first not written; *Integration* shows "Fehler" with the sentence, no secret |
+| `deleted` in the envelope | ERP retired, read 404; *Integration* back to "bereit" |
+| change feed (after 6 s) | two created, groups, retired, all with origin `client:m124-ea` |
+| after removing the client | its key 401, its receiver 404; no type, object or receiver of the run left |
+
+**Not measured:** a real system sending (GitHub/Forgejo form imitated by the script); `oaap` and
+`token` signatures live (runner test only); the 1 MB limit at the gateway (the twin's own
+limit tested in the runner); the page *Integration* in a browser (read as HTML); the fleet.
+
 ## Deutsche Zusammenfassung
 
 **Idee (Jörg, 22.11.):** Der Zwilling soll das Integrationsstück der Plattform werden. Dazu
@@ -827,7 +908,16 @@ Tests: 55 neue gegen eine echte PostgreSQL, 31 Dateien grün. Auf oaap-test 27 v
 
 Damit ist Anwendungsfall 2 erfüllt.
 
-**Offen für dich – D13, eingehende Webhooks:** Ein System, das nur Webhooks kann, schickt seine
-Änderungen in den Zwilling; eine Zuordnung, die die Mandanten-Verwaltung festlegt, macht daraus
-Schritte eines Stapels (gleiche Schreibregel, kein doppeltes Schreiben). Empfehlung: bauen, sobald
-das erste echte System feststeht.
+**D13, eingehende Webhooks – entschieden und gebaut (22.11., §13):** Jörg hat „A“ gesagt, also
+jetzt bauen und nicht auf das erste echte System warten. Ein System, das nur Webhooks kann, schickt
+an einen Empfänger des Clients (`/twin/v1/inbound/<client>/<name>`). Es braucht keinen Schlüssel,
+nur die Signatur des Empfängers: unsere eigene, HMAC über den Rumpf wie bei GitHub oder Forgejo,
+oder einen festen Token (die schwächste Form, benannt).
+
+Eine Zuordnung in JSON (wie das Mapping eines eingehenden IDocs) macht aus der Nachricht einen
+Stapel mit den Rechten und der Herkunft des Clients: alles oder nichts, und dieselbe Zustellung
+noch einmal schreibt nichts. Typ und Gruppen stehen fest in der Zuordnung, nie in der Nachricht.
+Status und Zeiträume kann eine Zuordnung noch nicht schreiben.
+
+Was abgelehnt wird (422), steht mit Satz auf der Seite *Integration*. Ein Formular für die
+Zuordnung gibt es nicht; sie wird wie die Typen über die Tür angelegt.

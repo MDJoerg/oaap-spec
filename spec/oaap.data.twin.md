@@ -1,7 +1,7 @@
 # oaap.data.twin — The Digital Twin
 
 - **ID:** `oaap.data.twin`
-- **Version:** 0.13 (0.13: **modelling and sync** -- an integration client may write (`writes`) and model (`models`): types of its tenant with the object type in the tenant's namespace, upsert by its own key, its own groups and periods, batches under an id, retiring the objects it owns, renames by the owner; webhooks for the changes it may read, signed, in order, with retries; every current read leaves a retired object out (§2.22-2.25); RFC-0120 stage 3, reference 0.1.349; 0.12: **values in time** -- values checked against the registry's value types on every door (§2.19); **periodic attributes**: several values of one attribute coexist, each for a period with unit, source and quality, written as periods and read per period (§2.20); the time series readable by persons and integration clients (§2.21); RFC-0120 stage 2, reference 0.1.348; 0.11: **reads of the door `/twin/v1`** -- filtered lists with a cursor (`where` checked against the registry's value types), one object, neighbourhood, shortest paths, export (JSON, GraphML; personal attributes left out), change feed; every read answers as the twin looked at one moment `at` (date-time; recorded time and validity), only objects of the caller's types, an edge only between visible objects; §2.18, RFC-0120 stage 1, reference 0.1.347; 0.10: **integration clients and the door `/twin/v1`** -- `client:<label>`, a program outside the platform in one tenant, reading exactly the types the operator bound it to (`oaap data twin add-client --tenant --reads`, key scoped `oaap.twin`, shown once, at most 365 days); `GET /twin/v1/types` (the caller's bound types with access read/write and `semantic_iri`) and `GET /twin/v1/openapi.json` (OpenAPI 3.1 of the door as the caller sees it), for every twin principal; a client writes nothing yet, §2.17, RFC-0120 stage 0, reference 0.1.346; 0.9: 0.9: the twin as an MCP source -- every MCP gateway of the tenant finds the source `twin` with three read tools, carried as the signed-in person, §2.16, RFC-0118 P6, reference 0.1.341; 0.8: the list searches and pages -- `q` matches words in the title, `offset` skips rows; an app's list report no longer reads all and cuts at 500, §2.6a, RFC-0118 P6, reference 0.1.340; 0.7: `GET /twin/objects?type=` -- an app lists every object of a type it is bound to, §2.6a, RFC-0085 §10, reference 0.1.293; 0.6: the read `affected` -- what depends on a fleet object, §2.10a, RFC-0087 §6, reference 0.1.285; 0.5: the write rules in one module shared by the API and the platform's own writer; an unchanged **relation** writes nothing either, and a group PUT that changes nothing records no event -- §2.15; the person-facing type list answers `semantic_iri` -- `oaap.data.model` 0.2 §2.9; RFC-0085 amendment A2)
+- **Version:** 0.14 (0.14: **inbound webhooks** -- a system that only speaks webhooks posts to a receiver of an integration client, signed with the receiver's secret; a mapping in JSON the tenant admin declares turns the payload into a batch under the client's rights and origin, the delivery id making a retry harmless (§2.26); RFC-0120 D13, reference 0.1.350; 0.13: 0.13: **modelling and sync** -- an integration client may write (`writes`) and model (`models`): types of its tenant with the object type in the tenant's namespace, upsert by its own key, its own groups and periods, batches under an id, retiring the objects it owns, renames by the owner; webhooks for the changes it may read, signed, in order, with retries; every current read leaves a retired object out (§2.22-2.25); RFC-0120 stage 3, reference 0.1.349; 0.12: **values in time** -- values checked against the registry's value types on every door (§2.19); **periodic attributes**: several values of one attribute coexist, each for a period with unit, source and quality, written as periods and read per period (§2.20); the time series readable by persons and integration clients (§2.21); RFC-0120 stage 2, reference 0.1.348; 0.11: **reads of the door `/twin/v1`** -- filtered lists with a cursor (`where` checked against the registry's value types), one object, neighbourhood, shortest paths, export (JSON, GraphML; personal attributes left out), change feed; every read answers as the twin looked at one moment `at` (date-time; recorded time and validity), only objects of the caller's types, an edge only between visible objects; §2.18, RFC-0120 stage 1, reference 0.1.347; 0.10: **integration clients and the door `/twin/v1`** -- `client:<label>`, a program outside the platform in one tenant, reading exactly the types the operator bound it to (`oaap data twin add-client --tenant --reads`, key scoped `oaap.twin`, shown once, at most 365 days); `GET /twin/v1/types` (the caller's bound types with access read/write and `semantic_iri`) and `GET /twin/v1/openapi.json` (OpenAPI 3.1 of the door as the caller sees it), for every twin principal; a client writes nothing yet, §2.17, RFC-0120 stage 0, reference 0.1.346; 0.9: 0.9: the twin as an MCP source -- every MCP gateway of the tenant finds the source `twin` with three read tools, carried as the signed-in person, §2.16, RFC-0118 P6, reference 0.1.341; 0.8: the list searches and pages -- `q` matches words in the title, `offset` skips rows; an app's list report no longer reads all and cuts at 500, §2.6a, RFC-0118 P6, reference 0.1.340; 0.7: `GET /twin/objects?type=` -- an app lists every object of a type it is bound to, §2.6a, RFC-0085 §10, reference 0.1.293; 0.6: the read `affected` -- what depends on a fleet object, §2.10a, RFC-0087 §6, reference 0.1.285; 0.5: the write rules in one module shared by the API and the platform's own writer; an unchanged **relation** writes nothing either, and a group PUT that changes nothing records no event -- §2.15; the person-facing type list answers `semantic_iri` -- `oaap.data.model` 0.2 §2.9; RFC-0085 amendment A2)
 - **Maturity:** draft
 - **Based on:** RFC-0033 §6 / D10 (0.4 adds the remote reader, §2.14:
   a reader on another node, reached through a tunnel,
@@ -698,8 +698,8 @@ caller may not read answers 404 alike.
   `since=now` answers no change and the newest `next`. An event joins the feed 5 seconds after it
   was recorded, so a transaction that took a lower id but committed later is not skipped.
 - `GET /twin/v1/openapi.json` (§2.17) describes these paths.
-- **Not in this version:** limits per client (requests), JSON-LD, value events, inbound webhooks
-  (RFC-0120 D13, open). Writing: §2.22-2.25. Periods and series: §2.20, §2.21. Graph walks run over one load of the visible edges (no recursive SQL yet; measured
+- **Not in this version:** limits per client (requests), JSON-LD, value events. Inbound webhooks:
+  §2.26. Writing: §2.22-2.25. Periods and series: §2.20, §2.21. Graph walks run over one load of the visible edges (no recursive SQL yet; measured
   with the fleet twin, revisited if they get slow).
 
 ### 2.19 Values checked on every door (0.12, RFC-0120 stage 2)
@@ -880,6 +880,78 @@ change feed answers (§2.18: id, at, kind, object, type, group, origin; no value
 - **A closed tenant** (RFC-0068) registers none (409) and posts none -- its webhooks wait.
   "Only to destinations it has bound" is not built.
 - The client's **current** rights decide at each delivery; a removed client's webhooks stop.
+
+### 2.26 Inbound webhooks: receivers with a mapping (0.14, RFC-0120 D13)
+
+A system that only speaks webhooks (a modelling tool, a ticket system, an IoT or SaaS platform)
+pushes its changes into the twin. It holds no OAAP key: it posts to a **receiver** of an
+integration client, signed with the receiver's secret, and a **mapping** turns the payload into
+the operations of a batch (§2.24). They run under the client's rights, with the client's origin,
+in one transaction -- the same write rule as the client's own writes; nothing new may write.
+
+- **Registering** (the client's key, i.e. the tenant admin who holds it):
+  `POST /twin/v1/receivers {"name", "signature"?, "mapping"}` -> 201 with the receiver's
+  **URL** `/twin/v1/inbound/<client>/<name>` and its **secret, shown once**;
+  `GET /twin/v1/receivers` (state, received, written, refused, last answer, the mapping; never the
+  secret); `PUT /twin/v1/receivers/{name} {"signature"?, "mapping"}` replaces the mapping and keeps
+  the secret; `DELETE /twin/v1/receivers/{name}`. A name is `[a-z0-9][a-z0-9-]{0,38}`; at most
+  five per client; a mapping at most 16 KB. A client without `writes` or `models` registers none
+  (403). The tenant admin's page *Integration* lists every receiver of the tenant's clients with
+  its state.
+- **Signature** (`signature.scheme`), checked before anything is read:
+  - `oaap` (default): `X-OAAP-Signature: t=<unix seconds>,v1=<hex>`, HMAC-SHA256 over `<t>.<body>`
+    -- the outbound form (§2.25); a `t` older than 5 minutes fails;
+  - `hmac-sha256`: the header `signature.header` carries `<signature.prefix><hex>`, HMAC-SHA256
+    over the raw body (the form GitHub, Gitea/Forgejo and many SaaS use, e.g. header
+    `X-Hub-Signature-256`, prefix `sha256=`); no time stamp -- a replay writes nothing because of
+    the delivery id;
+  - `token`: the header `signature.header` carries the secret itself (systems that can only send
+    a fixed header). Weakest; named.
+  Every comparison is constant-time. A failed check answers 401 and counts as `refused`; nothing
+  else is recorded.
+- **The mapping** (JSON, no code, nothing fetched):
+
+  ```json
+  {"id": {"header": "X-Delivery"},
+   "items": "data.changes",
+   "rules": [
+     {"when": {"$.event": ["created", "updated"]},
+      "upsert": {"key": "id", "type": "t.werk.Application", "title": "name",
+                 "groups": {"ea.app": {"attributes": {"appName": "name", "cost": "cost.amount",
+                                                      "criticality": {"value": "low"}},
+                                       "relations": [{"key": "dependsOn",
+                                                      "target_key": "parent"}]}}}},
+     {"when": {"$.event": "deleted"}, "retire": {"key": "id", "reason": {"value": "deleted"}}}]}
+  ```
+
+  - A **path** is a dotted string into the current item (`cost.amount`, `tags.0`); a path that
+    starts with `$.` reads from the body's root (the envelope). `{"value": x}` is a constant.
+  - `items` (a path from the root) names the list the body carries; each element is one item.
+    Without it the body is one item; an object at the path is one item.
+  - `rules` (at most 20) are tried in order per item; the **first whose `when` holds** makes the
+    item's operation. `when` maps paths to a value or a list of values, all must hold; without
+    `when` a rule always holds. An item no rule takes is **skipped** and counted.
+  - `upsert` makes the batch operation `upsert` (§2.24): `key` (a path, required), `type` and the
+    group keys are **literal** -- what a mapping may write is visible in the mapping, never taken
+    from a payload; `title` and every attribute are a path or a constant, `relations` name their
+    target by the client's own key (`target_key`, a path). A path that finds nothing leaves its
+    attribute out (it is not written as empty); a key that finds nothing refuses the delivery.
+  - `retire` makes `retire` with `key` and `reason`.
+  - Checked at registration: the shape, the keys' syntax, and that every `type` is one the client
+    writes now. The client's **current** rights decide again at every delivery.
+- **The delivery id** makes a retry harmless: `id` is a path or `{"header": ...}`; without it the
+  hash of the body. The batch runs under `in:<receiver>:<hash of the id>` -- **the same delivery
+  again answers `replayed` and writes nothing** (§2.24).
+- **Answer to the sender:** 200 `{"batch", "replayed", "operations", "skipped"}` (all skipped:
+  200 with `operations: 0`, nothing recorded); 400 not a JSON body; 401 the signature; 404 no such
+  client or receiver (one answer for both); 413 a body over 1 MB; **422** the mapping or the write
+  rule refused it -- the sentence names the item and the operation, **nothing of the delivery is
+  written**, the receiver keeps it as its last answer. More than 500 operations from one delivery
+  -> 422.
+- **Not for a closed tenant's sake:** a receiver takes data in, it sends nothing out, so RFC-0068
+  does not stop it. No rate limit per receiver yet (the gateway's limits hold); named.
+- The route `/twin/v1/inbound/*` is the one part of `/twin/*` the gateway passes **without**
+  verifying a key: it strips every identity header, and the twin trusts only the signature.
 
 ## 3. Configuration
 
@@ -1067,6 +1139,12 @@ change feed answers (§2.18: id, at, kind, object, type, group, origin; no value
     old `t` fails the check; a 500 -> waits, cursor unmoved; after the limit -> stopped and shown
     in the portal; resume -> the backlog; a closed tenant -> 409 and nothing posted; a removed
     client -> stopped.
+24. **Inbound webhooks (0.14, §2.26):** a forged or missing signature -> 401, nothing written;
+    a delivery maps to upserts and a retire under the client's origin; the same delivery again ->
+    `replayed`, nothing written; an item no rule takes -> skipped; a mapping naming a type the
+    client does not write -> 400 at registration; a write the rule refuses (a person's group) ->
+    422, nothing of the delivery written, the sentence on the receiver; another client's receiver
+    name -> 404; the secret never in a list.
 
 Step 8 of RFC-0031 §9 (the rehearsal's own copy, D8) is the only one
 still out of scope (§1) and not a conformance test here yet.
@@ -1356,4 +1434,22 @@ Eine Beziehung erscheint nur, wenn beide Enden sichtbar sind.
   darf, geht signiert dorthin (HMAC mit einem Geheimnis, das er einmal sieht), in Reihenfolge,
   ohne seine eigenen. Fehler: wachsende Wartezeit, nach zehn Fehlversuchen angehalten, im Portal
   sichtbar, wieder aufnehmbar ohne Verlust. Nie ins Netz der Plattform; ein geschlossener Mandant
-  verschickt keine. Eingehende Webhooks (§4.10 des RFC) sind noch nicht gebaut (D13 offen).
+  verschickt keine. Eingehende Webhooks: siehe 0.14 (§2.26).
+
+## Deutsche Zusammenfassung (0.14 — eingehende Webhooks; RFC-0120 D13)
+
+- **Empfänger:** Ein System, das nur Webhooks kann, schickt seine Änderungen an einen Empfänger
+  eines Integrations-Clients: `/twin/v1/inbound/<client>/<name>`. Es braucht keinen OAAP-Schlüssel,
+  sondern signiert mit dem Geheimnis des Empfängers. Das Geheimnis wird einmal gezeigt.
+  Unterstützt sind drei Formen: unsere eigene Signatur, HMAC über den Rumpf (wie bei GitHub oder
+  Forgejo) und ein fester Token im Header (die schwächste, benannt).
+- **Zuordnung (wie ein Mapping beim eingehenden IDoc):** JSON, kein Code, der Zwilling holt nichts
+  selbst. Sie legt fest, wo die Liste im Rumpf steht, welche Regel bei welchem Ereignis greift,
+  welches Feld der Schlüssel ist und welches Feld in welches Attribut welcher Gruppe geht. Typ und
+  Gruppen stehen fest in der Zuordnung und kommen nie aus der Nachricht. Daraus wird ein Stapel
+  (§2.24) mit den Rechten und der Herkunft des Clients: dieselbe Schreibregel, alles oder nichts.
+- **Wiederholung schadet nicht:** Die Zustell-Kennung (ein Feld, ein Header oder sonst der Hash
+  des Rumpfs) wird zur Stapelkennung. Dieselbe Zustellung noch einmal schreibt nichts.
+- **Antworten:** 200 geschrieben; 401 Signatur falsch; 404 unbekannt; 413 zu groß; 422 die
+  Zuordnung oder die Schreibregel hat abgelehnt. Dann ist nichts geschrieben, und der Satz steht
+  auf der Seite *Integration*.
