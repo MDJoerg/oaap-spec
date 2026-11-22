@@ -4,6 +4,8 @@
   **Stage 1 built and measured 2026-11-22 (§11):** reference 0.1.342, `oaap.apps.runtime`
   0.2.79 (manifest 0.20), `oaap.core.tenant` 1.23, `vorgaenge` 0.18.0 with the template
   `vorgaenge-ueberblick` 1.0.0.
+  **Stage 2 built and measured 2026-11-22 (§12):** reference 0.1.343, `oaap.core.tenant`
+  1.24; ten more apps bring a template; `check-design.py` makes it a duty.
   The facts in §1 were read the same day in `platform/recipes/hilfe-assistent.json`,
   `appctl.py` (`docs_publish_instance`, `SHIPPED_RECIPE_DIR`, `tenant_recipe_path`), the
   manifests of `oaap-apps/apps/*/oaap-app.yaml`, `oaap.ai.mcp-gateway` 0.35 §3.9e and
@@ -379,6 +381,86 @@ node HEALTHY 8/8, 43/43.
 **Not measured:** a click in the browser by a person; a conversation with the new assistant in
 the chat (a person's call through a gateway view, still open since RFC-0118 P6).
 
+## 12. Stage 2 — built and measured (2026-11-22)
+
+**Built.**
+
+- **Templates for the apps with data** (`oaap-apps`, manifest 0.20, each `assistants/` with one
+  template 1.0.0, reading tools only, the light of the own source asked):
+  `partnerverwaltung-auskunft` (0.3.0), `mitarbeiterverwaltung-auskunft` (0.3.0),
+  `projekt-stand` (0.3.0), `raci-wer-ist-zustaendig` (0.3.0), `rollen-rechte-wer-darf-was`
+  (0.4.0), `fleetview-lage` (1.2.0), `wegweiser-links` (0.6.0), `studio-vorhaben` (0.8.0),
+  `marketplace-katalog` (0.5.0), `spezialisten-ueberblick` (0.6.0); with `vorgaenge-ueberblick`
+  eleven. The card's light (the app's proposal) is yellow where the data names persons or
+  customers, green for fleet, links, projects of the studio and the catalogue.
+- **Duty (D10):** `check-design.py` rule `template`: an app with `mcp:` ships at least one
+  template, or stands in `NO_TEMPLATE` with its reason. 24/24.
+- **Block (§4.5, reference 0.1.343):** `oaap tenant templates <tenant>` lists what the apps
+  brought and what was dropped; `--block <app_id>` / `--unblock` (server_admin only, audited,
+  `app_templates_blocked` in the tenant record). Blocked: not free, the gate refuses even with
+  a release, the card says "vom Betreiber gesperrt" without the request button; the operator
+  can still run it.
+- **Marks (§5, §6):** a run from an app's template records `app` (id, name, instance). The page
+  *Assistenten* keeps listing such runs after the template is gone and marks a finished run
+  "Vorlage neuer (x.y.z)" or "Vorlage nicht mehr da – die App wurde entfernt; ihre Werkzeuge
+  gibt es nicht mehr"; a rolled-back run gets no mark.
+
+**Deviations from the text above.**
+
+- **The exceptions stand in `check-design.py` (`NO_TEMPLATE`), not as a manifest comment**
+  (§7): an exception then changes no package. Seven: `ai-gateway`, `ollama-models`,
+  `package-catalog`, `vpn-client`, `store-editor` (operator tools), and **`help` and
+  `recherche`**, which the stage table listed or did not name: the platform already ships the
+  templates `hilfe-assistent` and `recherche` for exactly these sources; a second template from
+  the app would build a second view of the same tools.
+- **"Vorlage neuer" holds for platform templates too:** an older finished run of
+  `hilfe-assistent` 1.0.0/1.1.0 now says "Vorlage neuer (1.2.0)". That is the same rule
+  (RFC-0117 D8: nothing changes by itself, the page says so); measured on oaap-test.
+
+**§6 measured — what the gateway does when the app is removed:** nothing by itself. The
+server row stays (with its light), the view keeps its four tool rows, the assistant stays
+active. The page says "Vorlage nicht mehr da … ihre Werkzeuge gibt es nicht mehr"; what the
+chat says when a person then calls the assistant was **not** measured. Making the gateway
+notice a server whose instance is gone is work in `mcp-gateway`, not in this RFC's stage 2.
+
+**Tests.** `test_app_templates.py` extended (Linux runner): every template in `oaap-apps`
+against the rules with a valid manifest (11), the block (a tenant_admin may not block; card,
+gate, a release does not beat it, the portal neither; the other tenant untouched; unblock),
+the run records the app, "Vorlage neuer (1.1.0)" after an update, "Vorlage nicht mehr da"
+after removal, no mark after a rollback. With the 28 neighbouring files 29 green. The ten apps'
+own tests green (fleetview's version check adjusted; wegweiser once 205/206, then twice
+206/206); `check-design.py` 24/24 with a bait (folder removed → `template` error);
+`check-store.py` after `--fix`.
+
+**Measured on `oaap-test`** (0.1.343 staged after a backup; tenant `rzt`; `vorgaenge` 0.18.0
+and `wegweiser` 0.6.0 installed fresh; as its tenant_admin through the job the portal calls
+and the portal's page), 16/17 — the one red line was the measurement's own too-wide check
+(it found the correct "Vorlage neuer" of the older help runs above); the row of the new run
+itself read "von der App Vorgänge" with no mark:
+
+1. Both installs handed their template to the tenant.
+2. `oaap tenant templates rzt` names both, nothing dropped.
+3. Page *Assistenten*: both cards with *Weiter*.
+4. `--block wegweiser`: the card says "vom Betreiber gesperrt", no *Weiter*, no request.
+5. *Bait:* the tenant_admin calls the job anyway → refused.
+6. *Bait:* with a release of the operator → still refused.
+7. The operator sees the preview.
+8. `--unblock`: *Weiter* again.
+9. The tenant's log has block and unblock.
+10. Run as tenant_admin: done; the run names the app.
+11. (see above)
+12. Update to a probe package 0.18.1 with template 1.1.0: "Vorlage neuer (1.1.0)", card 1.1.0.
+13. The assistant in the gateway unchanged (origin `vorgaenge-ueberblick@1`, same instructions).
+14. `oaap app remove rzt-vorgaenge`: card gone, the run listed with "Vorlage nicht mehr da".
+15. §6 as above.
+16. Rolled back: the assistant deleted (the light back to red, the view gone).
+17. No mark on the rolled-back run.
+
+Both instances removed afterwards; node HEALTHY 8/8, 43/43.
+
+**Not measured:** a click in the browser by a person; a conversation with an app's assistant
+in the chat, and what the chat says after the app is gone.
+
 ## Deutsche Zusammenfassung
 
 **Idee (Jörg, 21.11.):** Seit RFC-0118 hat jede App mit Daten eine MCP-Tür. Die App weiß
@@ -438,4 +520,17 @@ Mandanten vuebung abgelehnt, zurückgenommen; nach dem Entfernen der App ist die
 Abweichungen: Der Bedarf heißt `source` (`app` ist in der Rezept-Maschine reserviert); die
 Vorlage gibt kein Modell frei (das bleibt Sache des KI-Gateways). Sperre durch den Betreiber und
 die Hinweise „Vorlage neuer / nicht mehr da“ kommen in Stufe 2. Nicht gemessen: Klick im
+Browser, Gespräch im Chat.
+
+**Stufe 2 gebaut und gemessen (22.11., §12):** Zehn weitere Apps bringen je eine Vorlage mit
+(Partner, Mitarbeiter, Projekte, Zuständigkeiten, Rollen & Rechte, Flotte, Wegweiser, Studio,
+Marktplatz, Spezialisten), nur lesend; mit Vorgänge elf. `check-design.py` macht eine Vorlage
+zur Pflicht für jede App mit MCP-Tür, Ausnahmen mit Grund in der Prüfung selbst (sieben, darunter
+Hilfe und Recherche, weil die Plattform deren Vorlagen schon mitbringt). Referenz 0.1.343: Der
+Betreiber sperrt die Vorlagen einer App je Mandant (`oaap tenant templates <mandant> --block
+<app>`), die Sperre schlägt auch eine Freigabe. Ein Lauf merkt sich seine App; die Seite
+*Assistenten* sagt „Vorlage neuer“ nach einem Update und „Vorlage nicht mehr da“ nach dem
+Entfernen. Auf oaap-test 16 von 17 (die rote Zeile war eine zu weit gefasste Prüfung der
+Messung). Befund §6: Nach dem Entfernen einer App lässt das MCP-Gateway Quelle, Sicht und
+Assistent stehen – das zu bemerken ist Arbeit im Gateway, offen. Nicht gemessen: Klick im
 Browser, Gespräch im Chat.
