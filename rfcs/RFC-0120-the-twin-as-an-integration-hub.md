@@ -1,7 +1,9 @@
 # RFC-0120: The Twin as an Integration Hub
 
 - **Status:** **Accepted (2026-11-22)** — D1–D12 as recommended (Jörg: "Alles wie empfohlen").
-  Kept in mind (§4.10): webhooks in both directions. Nothing built yet.
+  Kept in mind (§4.10): webhooks in both directions.
+  **Stage 0 built and measured 2026-11-22 (§9), without the portal page:** reference 0.1.346,
+  `oaap.data.twin` 0.10, `oaap.core.identity` 0.6.11; §1.6 confirmed and closed.
   The facts in §1 were read the same day in `oaap.data.twin` 0.9, `oaap.data.model` 0.2,
   `oaap.data.timeseries` 0.1, `oaap.events.broker` 0.4, RFC-0027, RFC-0085/0087,
   `program/zielbild-datenplattform.md`, `program/capability-ideas.md` (I-51) and the reference
@@ -349,6 +351,56 @@ Groups already follow AAS submodels in the fleet; types carry `semantic_id`. The
   case 2)?** *Recommendation: yes* — reads are the smallest risk and show the hub soonest; the
   dashboard needs periods, which sync also needs.
 
+## 9. Stage 0 — built and measured (2026-11-22)
+
+**§1.6 confirmed and closed.** Measured on `oaap-test` before the fix: a tenant admin of
+`vuebung` got, through identity's people's key door (the one the portal's *Zugänge* uses, which
+passes principal and scope through), keys for the app principal `instance:vuebung-vuebung-verein`
+scoped `oaap.twin`, `oaap.authz.admin` and `oaap.cases.submit:x` -- 3 of 3 issued (each revoked
+at once); the `oaap.twin` key reached the twin service (it answered 409, "no twin schema", i.e.
+past the gateway's key check). Not only the twin: the same hole reached the authorization admin
+door and the cases door. **Fix** (identity, `oaap.core.identity` 0.6.11): that door refuses keys
+for `instance:`, `remote:`, `client:` principals and any scope with a dot, for every actor,
+audited `key.refused`; the platform keeps minting them through `issue_key`. After the fix: 3 of 3
+refused, no key made.
+
+**Built.**
+
+- Principal `client:<label>`, `oaap data twin clients | add-client <label> --tenant --reads
+  [--days] | remove-client <label>` (reading only), record `twin-clients.json` without a secret,
+  audit `twin.client.add/remove`.
+- `GET /twin/v1/types` and `GET /twin/v1/openapi.json` (OpenAPI 3.1 of the door as the caller sees
+  it) for every twin principal; clients refused on every write path (objects, groups, series).
+- `oaap.data.twin` 0.10 §2.17.
+
+**Not built in stage 0:** the tenant admin's page *Zugänge → Integration* (D2). Today the operator
+makes clients on the command line; the page needs the host worker (the portal does not run the
+node's CLI) and follows before stage 1 is measured.
+
+**Tests.** `test_twin_clients` (new, 11: only the bound types, tenant from the record, a tenant in
+the request ignored, unknown client and a person refused, OpenAPI with only its types, three write
+paths refused, an app reads /twin/v1 with its own bindings); `test_api_keys` +16 (both actors, five
+scopes for an `instance:` principal, `remote:`, `oaap.twin` for an ordinary principal -- all 403,
+no key made; an ordinary instance scope still issued; the platform's own `issue_key` still mints
+the twin key); twin, key and identity suites green in the Linux runner. `test_tenant_boundary` has
+5 red checks **before and after** this change (Caddy lines of public routes, not keys) -- a
+pre-existing finding, not touched here.
+
+**Measured on `oaap-test`** (0.1.346 staged after a backup), 3/3 + 8/8:
+
+| Asked | Answer |
+|---|---|
+| tenant admin asks for `oaap.twin`, `oaap.authz.admin`, `oaap.cases.submit:x` keys of an app principal | 403 each, "stellt nur die Plattform aus", no key |
+| `add-client messung-120` in tenant `fleetprobe`, reads `AssetApp` | key issued (not printed), expires |
+| `GET /twin/v1/types` with it | 200, exactly `AssetApp`, access read, caller `client:messung-120` |
+| `GET /twin/v1/openapi.json` | OpenAPI 3.1, bearer, `x-oaap-types` = its type |
+| without a key / a wrong key | 303 to the sign-in / 401 |
+| `POST /twin/objects` with the client's key | 403 "reads only" |
+| after `remove-client` | the key 401 |
+
+A first run said 200 for "without a key": the measurement followed the 303 to the sign-in page;
+corrected (no redirects followed) and run again.
+
 ## Deutsche Zusammenfassung
 
 **Idee (Jörg, 22.11.):** Der Zwilling soll das Integrationsstück der Plattform werden. Dazu
@@ -426,3 +478,13 @@ Ticketsystem, IoT- oder SaaS-Plattform), schickt seine Änderungen in den Zwilli
 Nachricht Objekte, Gruppen, Status oder Messpunkte werden, legt der Mandant in einer Zuordnung
 fest, ähnlich einem eingehenden IDoc mit Mapping. Alles läuft durch dieselbe Schreibregel. Das
 wird mit Stufe 3 entworfen und eigens entschieden. Gebaut ist noch nichts.
+
+**Stufe 0 gebaut und gemessen (22.11., §9), ohne die Portalseite:** Die Lücke aus §1.6 war echt.
+Eine Mandanten-Verwaltung konnte über die Schlüsseltür für Personen Schlüssel für die Prinzipale
+einer App mit Plattform-Begrenzungen ausstellen: Zwilling, Berechtigungstür und Vorgangstür.
+Auf oaap-test wurden 3 von 3 ausgestellt (sofort widerrufen), und der Zwillingsschlüssel kam bis
+zum Zwilling durch. Jetzt geschlossen (identity 0.6.11): 3 von 3 abgelehnt. Neu sind die
+Integrations-Clients `client:<name>` (vom Betreiber per CLI angelegt, nur lesend) sowie
+`/twin/v1/types` und `/twin/v1/openapi.json`. Auf oaap-test 8 von 8. Die Seite „Zugänge →
+Integration“ für die Mandanten-Verwaltung (D2) fehlt noch. Befund am Rande: `test_tenant_boundary`
+hat 5 rote Prüfungen, schon vor dieser Änderung.

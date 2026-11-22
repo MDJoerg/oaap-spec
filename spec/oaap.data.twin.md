@@ -1,7 +1,7 @@
 # oaap.data.twin — The Digital Twin
 
 - **ID:** `oaap.data.twin`
-- **Version:** 0.9 (0.9: the twin as an MCP source -- every MCP gateway of the tenant finds the source `twin` with three read tools, carried as the signed-in person, §2.16, RFC-0118 P6, reference 0.1.341; 0.8: the list searches and pages -- `q` matches words in the title, `offset` skips rows; an app's list report no longer reads all and cuts at 500, §2.6a, RFC-0118 P6, reference 0.1.340; 0.7: `GET /twin/objects?type=` -- an app lists every object of a type it is bound to, §2.6a, RFC-0085 §10, reference 0.1.293; 0.6: the read `affected` -- what depends on a fleet object, §2.10a, RFC-0087 §6, reference 0.1.285; 0.5: the write rules in one module shared by the API and the platform's own writer; an unchanged **relation** writes nothing either, and a group PUT that changes nothing records no event -- §2.15; the person-facing type list answers `semantic_iri` -- `oaap.data.model` 0.2 §2.9; RFC-0085 amendment A2)
+- **Version:** 0.10 (0.10: **integration clients and the door `/twin/v1`** -- `client:<label>`, a program outside the platform in one tenant, reading exactly the types the operator bound it to (`oaap data twin add-client --tenant --reads`, key scoped `oaap.twin`, shown once, at most 365 days); `GET /twin/v1/types` (the caller's bound types with access read/write and `semantic_iri`) and `GET /twin/v1/openapi.json` (OpenAPI 3.1 of the door as the caller sees it), for every twin principal; a client writes nothing yet, §2.17, RFC-0120 stage 0, reference 0.1.346; 0.9: 0.9: the twin as an MCP source -- every MCP gateway of the tenant finds the source `twin` with three read tools, carried as the signed-in person, §2.16, RFC-0118 P6, reference 0.1.341; 0.8: the list searches and pages -- `q` matches words in the title, `offset` skips rows; an app's list report no longer reads all and cuts at 500, §2.6a, RFC-0118 P6, reference 0.1.340; 0.7: `GET /twin/objects?type=` -- an app lists every object of a type it is bound to, §2.6a, RFC-0085 §10, reference 0.1.293; 0.6: the read `affected` -- what depends on a fleet object, §2.10a, RFC-0087 §6, reference 0.1.285; 0.5: the write rules in one module shared by the API and the platform's own writer; an unchanged **relation** writes nothing either, and a group PUT that changes nothing records no event -- §2.15; the person-facing type list answers `semantic_iri` -- `oaap.data.model` 0.2 §2.9; RFC-0085 amendment A2)
 - **Maturity:** draft
 - **Based on:** RFC-0033 §6 / D10 (0.4 adds the remote reader, §2.14:
   a reader on another node, reached through a tunnel,
@@ -628,6 +628,29 @@ every reader of the tenant sees its whole twin. An assistant adds no
 reach of its own -- the call is the person's (RFC-0073 §4), and the
 gateway's view decides which of the three tools the assistant has at all.
 
+### 2.17 Integration clients and the door `/twin/v1` (0.10, RFC-0120 stage 0)
+
+- **Principal `client:<label>`**: a program outside the platform (a graph viewer, a modelling
+  tool, a dashboard), one tenant, made by the operator with
+  `oaap data twin add-client <label> --tenant <t> --reads <types> [--days N]` (the tenant admin's
+  page follows, RFC-0120 D2). Its key is scoped `oaap.twin` (§2.2), shown once, at most 365
+  days; `remove-client` revokes every key and deactivates the principal. The record
+  (`twin-clients.json`: tenant, types, key id, expiry -- no secret) is written by the host only;
+  the twin reads it like the readers' file (§2.14). The tenant comes from that record, never from
+  the request.
+- **Rights:** one `consumes` binding per type it was given. In this version a client **writes
+  nothing**: objects, groups and series points answer 403 with a sentence (RFC-0120 stage 3).
+- **`GET /twin/v1/types`** -> `{"v": 1, "api": "v1", "caller", "types": [{"key", "kind",
+  "title", "access": ["read"|"write"], "semantic_iri"?, "groups"?, "attributes"?,
+  "relations"?}]}` -- only the types the caller is bound to; for any twin principal
+  (`instance:`, `remote:`, `client:`).
+- **`GET /twin/v1/openapi.json`**: OpenAPI 3.1 of the door as this caller sees it (bearer
+  scheme, paths, `x-oaap-types`). The app routes `/twin/*` above are unchanged.
+- **Keys of platform principals** (`instance:`, `remote:`, `client:`) and keys with a scope that
+  names a platform capability (a dot: `oaap.twin`, `oaap.authz…`, `oaap.cases.submit:…`) are
+  never issued through the people's key door; only the platform mints them
+  (`oaap.core.identity`, RFC-0120 §1.6).
+
 ## 3. Configuration
 
 - `apps/twin-secrets.json` (`0600`, root and the `twin` container's
@@ -1003,3 +1026,13 @@ Werkzeuge in eine Sicht freigibt.
 Die Liste der Objekte eines Typs kann jetzt suchen (`q`: alle Wörter im
 Titel) und blättern (`offset`). Damit liest eine App nicht mehr alles und
 schneidet bei 500 ab (RFC-0118 P6).
+
+## Deutsche Zusammenfassung (0.10 — Integrations-Clients und die Tür /twin/v1, RFC-0120 Stufe 0)
+
+Ein Integrations-Client `client:<name>` ist ein Programm außerhalb der Plattform, etwa ein
+Graph-Viewer, ein Modellierungswerkzeug oder ein Dashboard. Er gehört zu einem Mandanten und liest
+genau die Typen, für die der Betreiber ihn bindet (`oaap data twin add-client`). Sein Schlüssel
+gilt nur für den Zwilling, wird einmal gezeigt und läuft höchstens 365 Tage. Die neue Tür
+`/twin/v1` nennt dem Aufrufer seine Typen (`/twin/v1/types`) und beschreibt sich selbst als
+OpenAPI 3.1 (`/twin/v1/openapi.json`). Schreiben kann ein Client noch nicht; das kommt mit Stufe 3.
+Schlüssel für Plattform-Prinzipale und mit Plattform-Begrenzungen stellt nur die Plattform aus.
