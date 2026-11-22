@@ -1,7 +1,7 @@
 # oaap.data.twin — The Digital Twin
 
 - **ID:** `oaap.data.twin`
-- **Version:** 0.10 (0.10: **integration clients and the door `/twin/v1`** -- `client:<label>`, a program outside the platform in one tenant, reading exactly the types the operator bound it to (`oaap data twin add-client --tenant --reads`, key scoped `oaap.twin`, shown once, at most 365 days); `GET /twin/v1/types` (the caller's bound types with access read/write and `semantic_iri`) and `GET /twin/v1/openapi.json` (OpenAPI 3.1 of the door as the caller sees it), for every twin principal; a client writes nothing yet, §2.17, RFC-0120 stage 0, reference 0.1.346; 0.9: 0.9: the twin as an MCP source -- every MCP gateway of the tenant finds the source `twin` with three read tools, carried as the signed-in person, §2.16, RFC-0118 P6, reference 0.1.341; 0.8: the list searches and pages -- `q` matches words in the title, `offset` skips rows; an app's list report no longer reads all and cuts at 500, §2.6a, RFC-0118 P6, reference 0.1.340; 0.7: `GET /twin/objects?type=` -- an app lists every object of a type it is bound to, §2.6a, RFC-0085 §10, reference 0.1.293; 0.6: the read `affected` -- what depends on a fleet object, §2.10a, RFC-0087 §6, reference 0.1.285; 0.5: the write rules in one module shared by the API and the platform's own writer; an unchanged **relation** writes nothing either, and a group PUT that changes nothing records no event -- §2.15; the person-facing type list answers `semantic_iri` -- `oaap.data.model` 0.2 §2.9; RFC-0085 amendment A2)
+- **Version:** 0.11 (0.11: **reads of the door `/twin/v1`** -- filtered lists with a cursor (`where` checked against the registry's value types), one object, neighbourhood, shortest paths, export (JSON, GraphML; personal attributes left out), change feed; every read answers as the twin looked at one moment `at` (date-time; recorded time and validity), only objects of the caller's types, an edge only between visible objects; §2.18, RFC-0120 stage 1, reference 0.1.347; 0.10: **integration clients and the door `/twin/v1`** -- `client:<label>`, a program outside the platform in one tenant, reading exactly the types the operator bound it to (`oaap data twin add-client --tenant --reads`, key scoped `oaap.twin`, shown once, at most 365 days); `GET /twin/v1/types` (the caller's bound types with access read/write and `semantic_iri`) and `GET /twin/v1/openapi.json` (OpenAPI 3.1 of the door as the caller sees it), for every twin principal; a client writes nothing yet, §2.17, RFC-0120 stage 0, reference 0.1.346; 0.9: 0.9: the twin as an MCP source -- every MCP gateway of the tenant finds the source `twin` with three read tools, carried as the signed-in person, §2.16, RFC-0118 P6, reference 0.1.341; 0.8: the list searches and pages -- `q` matches words in the title, `offset` skips rows; an app's list report no longer reads all and cuts at 500, §2.6a, RFC-0118 P6, reference 0.1.340; 0.7: `GET /twin/objects?type=` -- an app lists every object of a type it is bound to, §2.6a, RFC-0085 §10, reference 0.1.293; 0.6: the read `affected` -- what depends on a fleet object, §2.10a, RFC-0087 §6, reference 0.1.285; 0.5: the write rules in one module shared by the API and the platform's own writer; an unchanged **relation** writes nothing either, and a group PUT that changes nothing records no event -- §2.15; the person-facing type list answers `semantic_iri` -- `oaap.data.model` 0.2 §2.9; RFC-0085 amendment A2)
 - **Maturity:** draft
 - **Based on:** RFC-0033 §6 / D10 (0.4 adds the remote reader, §2.14:
   a reader on another node, reached through a tunnel,
@@ -655,6 +655,53 @@ gateway's view decides which of the three tools the assistant has at all.
   (`oaap.core.identity`, RFC-0120 §1.6) -- with one exception: the key of a `client:` of the
   actor's own tenant, scoped exactly `oaap.twin`, role `user` only (D2).
 
+### 2.18 Reads of the door `/twin/v1` (0.11, RFC-0120 stage 1)
+
+For every twin principal (`instance:`, `remote:`, `client:`), with the caller's bindings (§2.17:
+any binding of an object type, active for the tenant, lets it read). A request the caller can fix
+answers 400 with a sentence (`{"error"}`); an object that does not exist **or** is of a type the
+caller may not read answers 404 alike.
+
+- **The moment `at`** (every read except the feed): a date-time (`2026-11-22T10:00:00Z`) or a date
+  (= the end of that day, UTC); default now. A row counts that was **recorded** by then and not
+  superseded by then (recorded time, §3.4) and whose **validity** contains that day; an object
+  counts that was recorded by then; a merge counts that happened by then and was not undone.
+  Every answer names its moment (`at`). Without `at` a relation whose `valid_to` has passed is
+  gone (unlike the app routes' unfiltered `current_*` read, §2.6).
+- **Visibility:** only objects of the caller's types; a relation appears only when both ends are
+  visible (its target is never named otherwise); a merged-away id answers as its canonical
+  object (`merged_from`), its groups and relations counted there.
+- **`GET /twin/v1/objects?type=&where=&fields=&limit=&cursor=&at=`** -> `{"v", "at", "objects":
+  [{"id", "type", "title", "owner", "groups": {g: {"origin", "attributes": {k: value},
+  "relations": [{"key", "target"}]}}}], "next"}` ordered by (title, id). `where` (repeatable, at
+  most 8, all must hold): `<group>.<attr><op><value>` with op `= != < <= > >=`,
+  `<group>.<attr> in a,b` or `<group>.<attr> has`; the attribute must be registered, belong to
+  the group where the group type lists its attributes, the value fit its `value_type` (numbers
+  compare as numbers, `bool` only with `=`/`!=`/`in`). `fields` names the groups to answer
+  (empty: none). `limit` 1..500 (default 100); `next` is an opaque cursor; one page looks at most
+  20 000 objects and then answers with a `next` to go on.
+- **`GET /twin/v1/objects/{id}?at=`** -- one object in the same shape.
+- **`GET /twin/v1/objects/{id}/graph?depth=&relations=&direction=&types=&at=`** -> `{"nodes":
+  [{"id", "type", "title", "depth"}], "edges": [{"source", "key", "target", "group"}],
+  "truncated"}` -- depth 1..5 (default 2), direction `out|in|both` (default both), `types` the
+  node types the walk enters, at most 2000 nodes.
+- **`GET /twin/v1/paths?from=&to=&relations=&direction=&max=&length=&at=`** -> up to `max`
+  (1..10, default 3) shortest paths of at most `length` hops (1..6), each `{"length", "nodes",
+  "edges"}`, plus the nodes' titles.
+- **`GET /twin/v1/export?types=&relations=&format=json|graphml&attributes=1|0&at=`** -- nodes and
+  edges in one document; JSON with the types' `semantic_iri`, GraphML 1.0 with every attribute as
+  `<group>.<attr>`. Attributes whose attribute type says `"personal": true` are left out (RFC-0120
+  D10). At most 20 000 nodes (`truncated`).
+- **`GET /twin/v1/changes?since=&types=&limit=`** -> `{"changes": [{"id", "at", "kind", "object",
+  "type", "group", "origin", "merged_from"?}], "next", "more"}` -- the events (§2.3) of objects of
+  the caller's types after the event id `since`, in order; `limit` 1..1000 (default 200);
+  `since=now` answers no change and the newest `next`. An event joins the feed 5 seconds after it
+  was recorded, so a transaction that took a lower id but committed later is not skipped.
+- `GET /twin/v1/openapi.json` (§2.17) describes these paths.
+- **Not in this version:** limits per client (requests), JSON-LD, value events, writing (RFC-0120
+  stages 2-3). Graph walks run over one load of the visible edges (no recursive SQL yet; measured
+  with the fleet twin, revisited if they get slow).
+
 ## 3. Configuration
 
 - `apps/twin-secrets.json` (`0600`, root and the `twin` container's
@@ -1040,3 +1087,20 @@ gilt nur für den Zwilling, wird einmal gezeigt und läuft höchstens 365 Tage. 
 `/twin/v1` nennt dem Aufrufer seine Typen (`/twin/v1/types`) und beschreibt sich selbst als
 OpenAPI 3.1 (`/twin/v1/openapi.json`). Schreiben kann ein Client noch nicht; das kommt mit Stufe 3.
 Schlüssel für Plattform-Prinzipale und mit Plattform-Begrenzungen stellt nur die Plattform aus.
+
+## Deutsche Zusammenfassung (0.11 — die Lesewege der Tür /twin/v1, RFC-0120 Stufe 1)
+
+Ein Programm außerhalb der Plattform kann den Zwilling seines Mandanten jetzt richtig lesen:
+
+- **Listen** je Typ, nach Titel geordnet, seitenweise mit einer Blätter-Marke. Gefiltert wird
+  nach Attributwerten, passend zum Werttyp des Attributs (Zahl, ja/nein, Datum, Text; dazu
+  `in` und `has`). Ein falscher Filter wird mit einem Satz abgelehnt.
+- **Ein Objekt** einzeln abrufen.
+- **Nachbarschaft** eines Objekts bis Tiefe 5 sowie die **kürzesten Wege** zwischen zwei Objekten.
+- **Export** aller Knoten und Kanten als JSON oder GraphML, also das, was ein Graph-Viewer lädt.
+  Persönliche Attribute fehlen darin.
+- **Änderungs-Feed** in Reihenfolge, für einen Abgleich, der nichts verpassen darf.
+
+Jede Antwort gilt für einen Zeitpunkt `at` (ohne Angabe: jetzt) und gibt so wieder, wie der
+Zwilling damals aussah. Gezeigt werden nur Objekte der Typen, für die der Aufrufer gebunden ist.
+Eine Beziehung erscheint nur, wenn beide Enden sichtbar sind.

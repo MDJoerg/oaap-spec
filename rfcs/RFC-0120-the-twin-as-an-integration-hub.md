@@ -4,6 +4,8 @@
   Kept in mind (§4.10): webhooks in both directions.
   **Stage 0 built and measured 2026-11-22 (§9), with the portal page:** reference 0.1.346,
   `oaap.data.twin` 0.10, `oaap.core.identity` 0.6.11; §1.6 confirmed and closed.
+  **Stage 1 built and measured 2026-11-22 (§10):** reference 0.1.347, `oaap.data.twin` 0.11
+  §2.18 -- use case 1 done: a graph viewer loads the fleet twin of a tenant from outside.
   The facts in §1 were read the same day in `oaap.data.twin` 0.9, `oaap.data.model` 0.2,
   `oaap.data.timeseries` 0.1, `oaap.events.broker` 0.4, RFC-0027, RFC-0085/0087,
   `program/zielbild-datenplattform.md`, `program/capability-ideas.md` (I-51) and the reference
@@ -416,6 +418,58 @@ pre-existing finding, not touched here.
 A first run said 200 for "without a key": the measurement followed the 303 to the sign-in page;
 corrected (no redirects followed) and run again.
 
+## 10. Stage 1 — built and measured (2026-11-22)
+
+**Built** (`twin_read.py`, routes in the twin service, `oaap.data.twin` 0.11 §2.18): filtered lists
+with a cursor (`where` checked against the registry's value types, `fields`), one object,
+neighbourhood (`/objects/{id}/graph`), shortest paths (`/paths`), export JSON and GraphML
+(`/export`, personal attributes left out -- D10, an attribute type may now say `"personal":
+true`), change feed (`/changes`, cursor = event id, `since=now`, 5 s settling so a late commit is
+not skipped); OpenAPI describes them.
+
+**Decided while building (named here, not hidden):**
+
+- `at` is a **date-time** and means both axes at once: what was recorded by then and not yet
+  superseded (the recorded time the twin keeps anyway), and validity on that day. A date alone is
+  the end of that day, UTC. Without `at` an ended relation (`valid_to` passed) is gone -- the fleet
+  ends relations that way, and a viewer must not draw them.
+- The `where` spelling: `<group>.<attr><op><value>` (`= != < <= > >=`), `<group>.<attr> in a,b`,
+  `<group>.<attr> has` -- the group key has dots, so the attribute is the last part.
+- Graph walks in Python over **one** load of the visible edges (D5: PostgreSQL, no second store;
+  no recursive SQL yet). Measured below; revisit when a twin is much larger than the fleet's.
+- An object of a type the caller may not read answers **404 like a missing one**, and is never an
+  edge's end -- a client cannot probe ids across types.
+
+**Tests.** `test_twin_v1_reads` (new, 38, against a real PostgreSQL in the Linux runner): a small
+twin with history -- lists ordered and paged without gaps or doubles; filters as number, yes/no,
+`in`, `has`; six baits answered 400 with a sentence; `at` 90 minutes back sees the old value,
+misses an object recorded later and a merge done later; a merged id answers as its object with
+its relations; neighbourhood and paths ignore an ended relation and never show the forbidden type;
+export JSON = GraphML, personal attribute left out; feed paged in order, without the forbidden
+type, `since=now`, a fresh event held back; a client of another tenant reads only that tenant; an
+app reads `/twin/v1` with its own bindings; a person is refused. `test_twin_clients` adjusted
+(OpenAPI paths); seven twin files green.
+
+**Measured on `oaap-test`** (0.1.347 staged after a backup; `m121.py`, a temporary client in the
+hub tenant reading the 8 fleet types, removed afterwards), 15/15:
+
+| Asked | Answer |
+|---|---|
+| `/types` | 8 fleet types, 154 ms |
+| `/export` (JSON) | 73 nodes (42 instances, 12 tenants, 7 nodes, 4 brokers, 4 assets, …), 116 edges of 17 relations, 54 KiB, 155 ms; every edge between nodes |
+| `/export?format=graphml` | valid GraphML, 76 KiB, 181 ms, same nodes and edges |
+| `/objects?type=FleetInstance&limit=10` | 5 pages, 42 objects, none twice, 713 ms in all |
+| `where=oaap.liveness.fleetState=up` | 1 of 7 nodes, matching the values in the list |
+| `/objects/{oaap-test}/graph?depth=2` | 64 nodes, 110 edges, 132 ms |
+| `/paths` instance -> tenant | 1 shortest path over the node, 143 ms |
+| `/export?at=` 6 hours back | 73 nodes, 116 edges, `at` named |
+| `/changes` | 343 changes in one page, then none; `since=now` -> next 372 |
+| baits: unknown attribute; type not bound; another tenant's object (and its graph); no key / wrong key | 400 / 400 / 404, 404 / 303, 401 |
+| after removing the client | its key 401 |
+
+**Not measured:** a real graph viewer program (the export is GraphML 1.0 and loads like any
+other; no viewer was run); a twin much larger than the fleet's.
+
 ## Deutsche Zusammenfassung
 
 **Idee (Jörg, 22.11.):** Der Zwilling soll das Integrationsstück der Plattform werden. Dazu
@@ -507,3 +561,24 @@ identity aus, und er wird einmal gezeigt. Dafür lässt identity genau eine Ausn
 Zwillingsschlüssel eines Clients des eigenen Mandanten. Auf oaap-test 9 von 9; die Lücke bleibt
 zu. Nicht geklickt: die Seite im Browser. Befund am Rande: `test_tenant_boundary`
 hat 5 rote Prüfungen, schon vor dieser Änderung.
+
+**Stufe 1 gebaut und gemessen (22.11., §10):** Die Lesewege der Tür `/twin/v1` sind da:
+
+- Listen mit Filtern nach Werttyp und einer Blätter-Marke.
+- Ein Objekt einzeln.
+- Nachbarschaft und kürzeste Wege.
+- Export als JSON und GraphML, ohne persönliche Attribute.
+- Ein Änderungs-Feed.
+
+Jede Antwort gilt für einen Zeitpunkt `at`, und zwar für beide Achsen: was bis dahin aufgezeichnet
+war und was an dem Tag gültig war. Ein Objekt eines Typs, den der Aufrufer nicht lesen darf,
+antwortet wie ein fehlendes und erscheint nie am Ende einer Kante.
+
+Tests: 38 neue, gegen eine echte PostgreSQL. Auf oaap-test hat ein vorübergehender Client den
+Flottenzwilling von außen gelesen, 15 von 15:
+
+- 73 Knoten und 116 Kanten in 155 ms, als GraphML gleich viele.
+- Die Nachbarschaft des Knotens oaap-test: 64 Knoten in 132 ms.
+- Die Köder (fremder Mandant, fremder Typ, kein Schlüssel) wurden abgewiesen.
+
+Damit ist Anwendungsfall 1 erfüllt. Nicht ausprobiert: ein echtes Graph-Viewer-Programm.
