@@ -1,6 +1,7 @@
 # RFC-0120: The Twin as an Integration Hub
 
-- **Status:** **Draft (2026-11-22)** — D1–D12 open.
+- **Status:** **Accepted (2026-11-22)** — D1–D12 as recommended (Jörg: "Alles wie empfohlen").
+  Kept in mind (§4.10): webhooks in both directions. Nothing built yet.
   The facts in §1 were read the same day in `oaap.data.twin` 0.9, `oaap.data.model` 0.2,
   `oaap.data.timeseries` 0.1, `oaap.events.broker` 0.4, RFC-0027, RFC-0085/0087,
   `program/zielbild-datenplattform.md`, `program/capability-ideas.md` (I-51) and the reference
@@ -259,6 +260,20 @@ kind of principal, not a back door.
 - They enter an assistant only by the road of RFC-0119 D13: each one ticked in the wizard, the
   chat confirms every call. A platform template "Zwilling" (RFC-0119 D16, stage 3c) starts reading.
 
+### 4.10 Kept in mind: webhooks in both directions (Jörg, 2026-11-22)
+
+Jörg: "Webhooks would have even more potential if we think of them in both directions." §4.7
+proposes webhooks **out** of the twin. The other direction: a system that only speaks webhooks
+(a modelling tool, a ticket system, an IoT or SaaS platform) **pushes** its changes **into** the
+twin — `POST /twin/v1/hooks/<client>/<hook>`, the signature checked with a secret the client
+holds, the payload turned into upserts, groups, status changes or series points by a **mapping
+the tenant declares** (which field is the source key, which goes into which group, which event
+means which status), and every result goes through the same write rule as any other write of that
+client. Nothing is fetched by the twin. A receiver like that is what makes "the data grow
+together" without writing an adapter per system; it is the inbound partner of sync (stage 3).
+**Not decided** — to be designed with stage 3, with its own decision (mapping format, what a
+mapping may write, replay and order, limits).
+
 ### 4.9 Friendly to AAS
 
 Groups already follow AAS submodels in the fleet; types carry `semantic_id`. The new reads answer
@@ -284,7 +299,7 @@ Groups already follow AAS submodels in the fleet; types carry `semantic_id`. The
 | **0** | measure §1.6; OpenAPI skeleton; principal kind `client:` with bindings, key, portal *Integration* | the gap answered (and closed if open); a client reads `GET /twin/v1/types` with its key |
 | **1** | reads: filtered lists, cursor, `?at=` date-time, neighbourhood, paths, export (JSON, GraphML); change feed | use case 1: a graph viewer loads the fleet twin of a tenant from outside, measured on oaap-test |
 | **2** | values in time: periodic attributes, series for persons and clients, chart, form *Werte mit Zeitraum*; value checks on every door | use case 3: KPIs with periods entered in the form and read per period |
-| **3** | modelling and sync: tenant object types, upsert by key, batch, retire, webhooks | use case 2: a tool creates a type and objects, a person changes a group, the tool hears it by webhook and does not overwrite it |
+| **3** | modelling and sync: tenant object types, upsert by key, batch, retire, webhooks (out; inbound hooks with a mapping to be decided here, §4.10) | use case 2: a tool creates a type and objects, a person changes a group, the tool hears it by webhook and does not overwrite it |
 | **4** | status: declared transitions, route, portal, events | a status change refused off the declaration and accepted on it, with its event |
 | **5** | writing MCP tools on the twin, RFC-0119 3c template "Zwilling" with them as ticks | a person changes a group from the chat, confirmed, audited |
 | later | value events, AAS repository API (`oaap.data.aas`), queues, a query language | own decisions |
@@ -302,6 +317,8 @@ Groups already follow AAS submodels in the fleet; types carry `semantic_id`. The
 9. A writing MCP tool acts as the person and only where the portal would let the person write.
 
 ## 8. Decisions
+
+*Accepted 2026-11-22: D1–D12 as recommended.*
 
 - **D1 — An external door for programs at all (`/twin/v1`, principal `client:`), rather than
   only apps and persons?** *Recommendation: yes* — it is what makes the twin a hub; with the same
@@ -402,3 +419,10 @@ Zwilling als einzige Datenbasis nutzt.
 - D5: keine Graph-Datenbank und keine Abfragesprache jetzt
 - D8: ein Modellierungswerkzeug darf Typen anlegen
 - D12: Reihenfolge Lesen → Zeit → Sync
+
+**Angenommen (22.11.):** Jörg: „Alles wie empfohlen“. D1–D12 gelten wie empfohlen. Vorgemerkt
+(§4.10): Webhooks in beide Richtungen. Ein System, das nur Webhooks kennt (Modellierungswerkzeug,
+Ticketsystem, IoT- oder SaaS-Plattform), schickt seine Änderungen in den Zwilling. Wie aus der
+Nachricht Objekte, Gruppen, Status oder Messpunkte werden, legt der Mandant in einer Zuordnung
+fest, ähnlich einem eingehenden IDoc mit Mapping. Alles läuft durch dieselbe Schreibregel. Das
+wird mit Stufe 3 entworfen und eigens entschieden. Gebaut ist noch nichts.
