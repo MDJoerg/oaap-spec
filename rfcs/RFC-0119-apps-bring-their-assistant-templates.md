@@ -783,3 +783,25 @@ mehrere Apps (D15) und 3d bleiben offen.
 
 *Deutsch:* Die Zwillings-Vorlage aus 3c ist gebaut und gemessen (siehe RFC-0120 §15). Offen
 bleiben Vorlagen über mehrere Apps und 3d.
+
+**Amendment 2026-11-22 -- D16, the light of the twin's source (reference 0.1.353, template 1.1.0):**
+Found in `bec` on `oaapx01` by Jörg's first conversation: template 1.0.0 set no light for the
+source `twin`. Every new source starts red in the MCP gateway, the chat's profile reached yellow,
+so the gateway refused every session ("die Ampel der Sicht zwilling ist rot ..."). The
+measurement of §15 in RFC-0120 checked that the run finished, not that a session opens. D16 is
+read again: the template still *proposes* no light (the twin holds the tenant's data), but it
+**asks** for one -- `quelle_ampel`, a light without a default, and a `server_light` step for
+`twin` after the `refresh`, as the apps' templates do (§4.4). Set by hand, the light stands and
+nothing is asked; the setup only changes the red every new source starts with. In `bec` the
+source was set to yellow by hand (backup first). Measured on `oaap-test` (tenant `rzt`, 8/8):
+red -> asked, no proposal; yellow chosen -> set; with the profile's ceiling at yellow as in `bec`,
+the gateway's check for persons from a chat lets the profile through, and with the source back on
+red it gives the sentence from `bec`; already yellow -> not asked; rolled back. `rzt` has only a
+red model, so the yellow ceiling was set on the profile for the check, not chosen in the run.
+Not measured: a conversation in a real chat.
+
+*Deutsch:* Die Vorlage „Zwilling“ 1.0.0 setzte keine Ampel für die Quelle twin. Neue Quellen
+beginnen rot, das Profil des Chats reichte bis gelb, darum lehnte das Gateway in bec jede Sitzung
+ab. 1.1.0 fragt die Ampel jetzt ab, ohne Vorgabe und ohne Vorschlag; eine von Hand gesetzte Ampel
+gilt. In bec steht twin von Hand auf gelb. Auf oaap-test 8 von 8. Nicht gemessen: ein Gespräch im
+echten Chat.
