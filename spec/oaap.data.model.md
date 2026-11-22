@@ -1,7 +1,7 @@
 # oaap.data.model — Type Registry for the Digital Twin
 
 - **ID:** `oaap.data.model`
-- **Version:** 0.3 (0.3: an attribute type may say **`"periodic": true`** and a **`"unit"`** -- values with a period, `oaap.data.twin` 0.12 §2.20; and **`"personal": true`** -- left out of exports, `oaap.data.twin` 0.11 §2.18; RFC-0120, 2026-11-22; 0.2: **semantic IDs** -- the optional `semantic_id` of a type, its three forms and the one setting for the domain of OAAP's own, §2.9, RFC-0085 amendment A2, 2026-11-14)
+- **Version:** 0.4 (0.4: **types of a tenant made through the twin** -- an object type a tenant (an integration client with `models`) registers is named `t.<tenant label>.<key>` and carries `created_by`; attribute, relation and group keys stay node-wide and are reused when registered with the same meaning; §2.10, `oaap.data.twin` 0.13 §2.23, RFC-0120 D8/D9, 2026-11-22; 0.3: an attribute type may say **`"periodic": true`** and a **`"unit"`** -- values with a period, `oaap.data.twin` 0.12 §2.20; and **`"personal": true`** -- left out of exports, `oaap.data.twin` 0.11 §2.18; RFC-0120, 2026-11-22; 0.2: **semantic IDs** -- the optional `semantic_id` of a type, its three forms and the one setting for the domain of OAAP's own, §2.9, RFC-0085 amendment A2, 2026-11-14)
 - **Maturity:** draft
 - **Based on:** RFC-0031 (data model & digital twin — Model is Schritt
   2 of the build order: Store, Model, Twin, reference apps, browser,
@@ -218,6 +218,20 @@ the same instance with an unchanged manifest does not ask again.
 this is the instance's own record of "who declared what", the CLI
 stand-in for the instance page RFC-0031 §5 says will show it once
 Schritt 5 exists.
+
+### 2.10 Types of a tenant made through the twin (0.4, RFC-0120 D8, D9)
+
+The registry is node-wide; two tenants on one node must not become one type by choosing the same
+name. Therefore, when a tenant registers an **object type** through the twin (`oaap.data.twin`
+§2.23 -- an integration client with `models`), its key is **`t.<tenant label>.<key>`**, its
+origin `tenant:<tenant-id>`, and its definition carries **`created_by`** (the principal that made
+it; the client owns the object types it created). Attribute keys cannot carry the namespace (they
+are `[A-Za-z][A-Za-z0-9]*`, the twin's attribute rule), and group keys are already
+`namespace.name`; both, and relation keys, stay node-wide, and a key that is already registered
+**with the same meaning** is reused and activated for the tenant -- attribute: `value_type`,
+`values`, `unit`, `periodic`; relation: `from`, `to` -- while another meaning is refused. The
+additive rule of §2.5 holds: a tenant's group type gains attributes and relations, never loses or
+changes one. App and platform types keep their keys.
 
 ### 2.5 Comparing two versions of a type (D2, additive vs. destructive)
 
@@ -500,3 +514,11 @@ Zeitraum nebeneinander, z. B. eine Kennzahl je Jahr), `"unit"` (die Einheit, die
 Exporten). Ein Mandant setzt die ersten beiden im Portal beim Anlegen eines Gruppentyps (Spalte
 „Werte mit Zeitraum“, Einheit). Alle drei sind additiv: wer sie nicht kennt, liest den Typ wie
 bisher.
+
+## Deutsche Zusammenfassung (0.4 — Typen eines Mandanten über den Zwilling)
+
+Legt ein Mandant über den Zwilling einen Objekttyp an (ein Integrations-Client, der modellieren
+darf), heißt er `t.<Mandantenkürzel>.<Name>` und trägt `created_by`. So werden zwei Mandanten auf
+einem Knoten nie aus Versehen ein Typ. Attribut-, Beziehungs- und Gruppenschlüssel bleiben
+knotenweit; gibt es sie schon mit derselben Bedeutung, werden sie wiederverwendet, sonst
+abgewiesen. Es gilt die Regel „nur hinzufügen“ (§2.5).

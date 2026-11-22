@@ -1,7 +1,7 @@
 # oaap.data.twin — The Digital Twin
 
 - **ID:** `oaap.data.twin`
-- **Version:** 0.12 (0.12: **values in time** -- values checked against the registry's value types on every door (§2.19); **periodic attributes**: several values of one attribute coexist, each for a period with unit, source and quality, written as periods and read per period (§2.20); the time series readable by persons and integration clients (§2.21); RFC-0120 stage 2, reference 0.1.348; 0.11: **reads of the door `/twin/v1`** -- filtered lists with a cursor (`where` checked against the registry's value types), one object, neighbourhood, shortest paths, export (JSON, GraphML; personal attributes left out), change feed; every read answers as the twin looked at one moment `at` (date-time; recorded time and validity), only objects of the caller's types, an edge only between visible objects; §2.18, RFC-0120 stage 1, reference 0.1.347; 0.10: **integration clients and the door `/twin/v1`** -- `client:<label>`, a program outside the platform in one tenant, reading exactly the types the operator bound it to (`oaap data twin add-client --tenant --reads`, key scoped `oaap.twin`, shown once, at most 365 days); `GET /twin/v1/types` (the caller's bound types with access read/write and `semantic_iri`) and `GET /twin/v1/openapi.json` (OpenAPI 3.1 of the door as the caller sees it), for every twin principal; a client writes nothing yet, §2.17, RFC-0120 stage 0, reference 0.1.346; 0.9: 0.9: the twin as an MCP source -- every MCP gateway of the tenant finds the source `twin` with three read tools, carried as the signed-in person, §2.16, RFC-0118 P6, reference 0.1.341; 0.8: the list searches and pages -- `q` matches words in the title, `offset` skips rows; an app's list report no longer reads all and cuts at 500, §2.6a, RFC-0118 P6, reference 0.1.340; 0.7: `GET /twin/objects?type=` -- an app lists every object of a type it is bound to, §2.6a, RFC-0085 §10, reference 0.1.293; 0.6: the read `affected` -- what depends on a fleet object, §2.10a, RFC-0087 §6, reference 0.1.285; 0.5: the write rules in one module shared by the API and the platform's own writer; an unchanged **relation** writes nothing either, and a group PUT that changes nothing records no event -- §2.15; the person-facing type list answers `semantic_iri` -- `oaap.data.model` 0.2 §2.9; RFC-0085 amendment A2)
+- **Version:** 0.13 (0.13: **modelling and sync** -- an integration client may write (`writes`) and model (`models`): types of its tenant with the object type in the tenant's namespace, upsert by its own key, its own groups and periods, batches under an id, retiring the objects it owns, renames by the owner; webhooks for the changes it may read, signed, in order, with retries; every current read leaves a retired object out (§2.22-2.25); RFC-0120 stage 3, reference 0.1.349; 0.12: **values in time** -- values checked against the registry's value types on every door (§2.19); **periodic attributes**: several values of one attribute coexist, each for a period with unit, source and quality, written as periods and read per period (§2.20); the time series readable by persons and integration clients (§2.21); RFC-0120 stage 2, reference 0.1.348; 0.11: **reads of the door `/twin/v1`** -- filtered lists with a cursor (`where` checked against the registry's value types), one object, neighbourhood, shortest paths, export (JSON, GraphML; personal attributes left out), change feed; every read answers as the twin looked at one moment `at` (date-time; recorded time and validity), only objects of the caller's types, an edge only between visible objects; §2.18, RFC-0120 stage 1, reference 0.1.347; 0.10: **integration clients and the door `/twin/v1`** -- `client:<label>`, a program outside the platform in one tenant, reading exactly the types the operator bound it to (`oaap data twin add-client --tenant --reads`, key scoped `oaap.twin`, shown once, at most 365 days); `GET /twin/v1/types` (the caller's bound types with access read/write and `semantic_iri`) and `GET /twin/v1/openapi.json` (OpenAPI 3.1 of the door as the caller sees it), for every twin principal; a client writes nothing yet, §2.17, RFC-0120 stage 0, reference 0.1.346; 0.9: 0.9: the twin as an MCP source -- every MCP gateway of the tenant finds the source `twin` with three read tools, carried as the signed-in person, §2.16, RFC-0118 P6, reference 0.1.341; 0.8: the list searches and pages -- `q` matches words in the title, `offset` skips rows; an app's list report no longer reads all and cuts at 500, §2.6a, RFC-0118 P6, reference 0.1.340; 0.7: `GET /twin/objects?type=` -- an app lists every object of a type it is bound to, §2.6a, RFC-0085 §10, reference 0.1.293; 0.6: the read `affected` -- what depends on a fleet object, §2.10a, RFC-0087 §6, reference 0.1.285; 0.5: the write rules in one module shared by the API and the platform's own writer; an unchanged **relation** writes nothing either, and a group PUT that changes nothing records no event -- §2.15; the person-facing type list answers `semantic_iri` -- `oaap.data.model` 0.2 §2.9; RFC-0085 amendment A2)
 - **Maturity:** draft
 - **Based on:** RFC-0033 §6 / D10 (0.4 adds the remote reader, §2.14:
   a reader on another node, reached through a tunnel,
@@ -698,8 +698,8 @@ caller may not read answers 404 alike.
   `since=now` answers no change and the newest `next`. An event joins the feed 5 seconds after it
   was recorded, so a transaction that took a lower id but committed later is not skipped.
 - `GET /twin/v1/openapi.json` (§2.17) describes these paths.
-- **Not in this version:** limits per client (requests), JSON-LD, value events, writing (RFC-0120
-  stage 3). Periods and series: §2.20, §2.21. Graph walks run over one load of the visible edges (no recursive SQL yet; measured
+- **Not in this version:** limits per client (requests), JSON-LD, value events, inbound webhooks
+  (RFC-0120 D13, open). Writing: §2.22-2.25. Periods and series: §2.20, §2.21. Graph walks run over one load of the visible edges (no recursive SQL yet; measured
   with the fleet twin, revisited if they get slow).
 
 ### 2.19 Values checked on every door (0.12, RFC-0120 stage 2)
@@ -782,6 +782,104 @@ The time series of `oaap.data.timeseries` (until now reachable for app keys only
 
 A tenant without time series answers 409 (the client) or shows none (the portal). Writing series
 stays with apps (RFC-0086).
+
+### 2.22 Clients that write (0.13, RFC-0120 stage 3)
+
+An integration client's record (`twin-clients.json`, written by the host only) carries, besides
+`reads`, **`writes`** -- the object types it creates objects of (as owner) and writes its own
+groups on -- and **`models: true`** -- it may create types of its tenant (§2.23, RFC-0120 D8). A
+modelling client is owner of every object type it created itself, without the operator naming
+it again. The tenant admin sets both on *Zugänge -> Integration* (fields *Schreibt*,
+*Modelliert*); the operator with `oaap data twin add-client <label> --tenant <t> [--reads]
+[--writes] [--models]`.
+
+- The **origin** of everything a client writes is `client:<label>`. The twin's write rule holds
+  unchanged (§2.15): a group belongs to the origin that created it; a group a person (`tenant`),
+  an app or the platform created is refused with 403 and a sentence naming its owner. **This is
+  the sync rule: nobody overwrites anybody.**
+- A client writes **only through `/twin/v1`**; the app routes (`/twin/objects`, `/twin/series`,
+  `/twin/points`) refuse it with a sentence pointing there. Writing series stays with apps.
+- A client's group write is stricter than an app's: the group type must be registered, active
+  for the tenant and attached to the object's type; attributes and relations only from the group
+  type's lists; a relation's target is named by id or by the client's own key and must be an
+  object the client may read. Every value is checked (§2.19).
+- Every write answers JSON; a refusal is `{"error": "<sentence>"}` with 400, 403, 404 or 409, and
+  nothing of the call is written.
+
+### 2.23 Types of the tenant (0.13, RFC-0120 D8, D9)
+
+`POST /twin/v1/types` (client with `models`) `{"object_type"?: {"key", "title", "title_plural"?,
+"semantic_id"?}, "on"?: <object type>, "groups": [{"key", "title", "attributes": [{"key", "title",
+"value_type", "values"?, "unit"?, "periodic"?, "personal"?}], "relations": [{"key", "title", "to",
+"title_inverse"?}]}]}`:
+
+- The object type is registered as **`t.<tenant label>.<key>`** (D9) with origin
+  `tenant:<tenant-id>` and `created_by` = the client. Without `object_type`, the groups go `on` an
+  object type the client may write.
+- Attribute, relation and group keys stay node-wide (an attribute key has no dots, §2.5). A key
+  already registered with the **same meaning** is **reused** (attribute: `value_type`, `values`,
+  `unit`, `periodic`; relation: `from`, `to`); with another meaning it is refused (409). A
+  relation's `to` may name a type of the same body by its short key.
+- **Additive only** (`oaap.data.model` §2.5): a group type of this tenant that this client created
+  may gain attributes and relations; nothing is removed or changed. A group type made by someone
+  else is not changed (403).
+- The same body again registers nothing: 200 `{"created": [], "unchanged": [...]}`; 201 when
+  something was registered. One event `type.created`.
+
+### 2.24 Upsert, batches, retire (0.13, RFC-0120 stage 3)
+
+- **Upsert by the client's own key:** `PUT /twin/v1/objects/by-key/{key}` `{"type", "title",
+  "groups": {<group>: {"attributes", "relations": [{"key", "target" | "target_key"}]}}}` finds the
+  object the client knows as `{key}` (`source_keys`, origin `client:<label>`) or creates it (owner
+  of the type needed; the first group is the owner's core group) -> `{"id", "created", "written",
+  "renamed"}`, 201 when created, 200 otherwise. The same call twice makes one object; two calls
+  at once with the same key too (a lock per key). `GET /twin/v1/objects/by-key/{key}` reads it.
+  A key is the client's own: another client's key `APP-1` is another object.
+- **Rename:** a new `title` from the owner renames; the old title is kept in `renames`, so a read
+  with an earlier `at` answers the title of then. Another origin's title is refused.
+- **Groups and periods:** `PUT /twin/v1/objects/{id}/groups/{group}`,
+  `POST /twin/v1/objects/{id}/groups/{group}/periods` (§2.20) -- into the client's own groups.
+- **Batch:** `POST /twin/v1/batch {"id", "operations": [...]}` -- up to 500 operations `upsert`
+  (as above, with `key`), `group`, `period`, `retire` (each naming its object by `object` or by
+  the client's `key`, so a later operation can use an object an earlier one created) in **one
+  transaction, all or nothing**: one bad operation answers its number and sentence and nothing
+  is written. The answer is kept under `(client, id)`; **the same id again answers it with
+  `"replayed": true` and writes nothing**.
+- **Retire:** `POST /twin/v1/objects/{id}/retire {"reason"?}` -- only the owner. The object stays
+  in the history (a read with an earlier `at` sees it), leaves **every current read** (the door's
+  lists, export, graph, paths; an app's and a person's reads; the MCP door) and is never written
+  again (409). Retiring twice writes nothing. A relation ends as before, with `valid_to`. Erasure
+  stays RFC-0090. Events `object.retired`, `object.renamed`.
+
+### 2.25 Webhooks (0.13, RFC-0120 stage 3, D6)
+
+A client registers a URL and gets every change it may read posted there -- the same entries the
+change feed answers (§2.18: id, at, kind, object, type, group, origin; no values, so D10 holds):
+
+- `POST /twin/v1/webhooks {"url", "types"?, "kinds"?, "own"?}` -> 201 with an id and the
+  **secret, shown once**; `GET /twin/v1/webhooks` (state, delivered, failures, last answer; never
+  the secret); `DELETE /twin/v1/webhooks/{id}`; `POST /twin/v1/webhooks/{id}/resume`. At most
+  five per client. `types` narrows to some of its types, `kinds` to some of `object.created`,
+  `group.written`, `period.written`, `object.retired`, `object.renamed`, `object.merged`,
+  `object.unmerged`. The client's own writes are left out unless `own: true`.
+- **Delivery** (the service `hooks`, the twin's image): `POST <url>` with `{"hook", "events": [...]
+  (at most 50, oldest first), "next"}`, header **`X-OAAP-Signature: t=<unix seconds>,v1=<hex>`**,
+  `<hex>` = HMAC-SHA256 with the secret over `<t>.<body>`; the receiver recomputes it and refuses
+  an old `t`. The cursor moves only after a 2xx: **in order, at least once** -- a receiver
+  deduplicates by event id; a sync that lost one reads the change feed from `next`. An event is
+  posted once it is 5 seconds old (the feed's settling) -- measured 7 s from a person's save to
+  the receiver.
+- **Retries:** a failure waits 2^n seconds (at most an hour); after 10 failures in a row the
+  webhook **stops** -- the client's list and the tenant admin's page *Integration* show it with
+  the last answer; `resume` delivers everything from where it stopped.
+- **Only to the internet:** `https`; no user or password in the URL; never a name of the
+  platform's network or a private, loopback or link-local address -- checked at registration and
+  again before every connection, which goes to the checked address (no second lookup), no
+  redirect followed. The operator may name exceptions (`OAAP_TWIN_HOOK_ALLOW`, host names or
+  addresses, e.g. a test receiver in the LAN; `http` allowed for them).
+- **A closed tenant** (RFC-0068) registers none (409) and posts none -- its webhooks wait.
+  "Only to destinations it has bound" is not built.
+- The client's **current** rights decide at each delivery; a removed client's webhooks stop.
 
 ## 3. Configuration
 
@@ -951,6 +1049,24 @@ stays with apps (RFC-0086).
 19. **Series (0.12, §2.21):** a client reads the series of an object of its types and a range;
     a series of a type it may not read -> 404 (list and range); a person reads any series of the
     tenant.
+
+20. **Clients that write (0.13, §2.22):** a client without `writes` creates nothing (403); a
+    client writes a group a person created -> 403 naming `tenant`, the person's value stays; a
+    client never writes through the app routes; a client of another tenant reads and writes
+    nothing of this one (404).
+21. **Types (0.13, §2.23):** without `models` -> 403; the object type is `t.<label>.<key>`; the
+    same body again -> 200, nothing registered; an attribute added -> registered, the others
+    unchanged; the same attribute key with another value type -> 409.
+22. **Upsert, batch, retire (0.13, §2.24):** the same upsert twice -> one object; a wrong value ->
+    400 and no object; a relation by the target's key; a rename read back with an earlier `at`;
+    a batch with a bad second operation -> 400 naming it, the first not written; the same batch
+    id twice -> `replayed`, no event; a retired object -> 404 now, 200 with an earlier `at`, 409
+    on any write; another owner's object -> 403.
+23. **Webhooks (0.13, §2.25):** a URL into the platform's network or a private address -> 400; a
+    person's change reaches the receiver signed, the client's own does not; a forged body or an
+    old `t` fails the check; a 500 -> waits, cursor unmoved; after the limit -> stopped and shown
+    in the portal; resume -> the backlog; a closed tenant -> 409 and nothing posted; a removed
+    client -> stopped.
 
 Step 8 of RFC-0031 §9 (the rehearsal's own copy, D8) is the only one
 still out of scope (§1) and not a conformance test here yet.
@@ -1217,3 +1333,27 @@ Eine Beziehung erscheint nur, wenn beide Enden sichtbar sind.
 - **Messreihen für Personen und Clients:** Ein Integrations-Client liest die Reihen der Objekte,
   die er lesen darf; eine Person sieht sie auf der Objektseite als Verlaufslinie (24 Stunden bis
   ein Jahr). Gemessene Werte bleiben Reihen, gemeldete Kennzahlen sind Zeiträume (D4).
+
+## Deutsche Zusammenfassung (0.13 — Modellieren und Abgleich; RFC-0120 Stufe 3)
+
+- **Clients dürfen schreiben:** Ein Integrations-Client bekommt neben „liest“ jetzt „schreibt“
+  (Typen, deren Objekte er anlegt und auf denen er seine eigenen Gruppen pflegt) und „modelliert“
+  (er darf eigene Typen des Mandanten anlegen). Die Mandanten-Verwaltung setzt beides auf der
+  Seite *Zugänge → Integration*. Alles, was ein Client schreibt, hat die Herkunft
+  `client:<name>`. Die Schreibregel des Zwillings gilt unverändert: Eine Gruppe, die eine Person,
+  eine App oder die Plattform angelegt hat, wird ihm mit dem Namen des Besitzers verweigert –
+  niemand überschreibt jemanden.
+- **Typen des Mandanten:** Ein modellierender Client legt Objekttypen an; sie heißen
+  `t.<Mandantenkürzel>.<Name>`. Attribut-, Beziehungs- und Gruppenschlüssel werden
+  wiederverwendet, wenn sie schon mit derselben Bedeutung existieren, und abgewiesen, wenn sie
+  etwas anderes bedeuten. Nur hinzufügen, nie wegnehmen; derselbe Aufruf noch einmal ändert nichts.
+- **Abgleich:** Upsert über den eigenen Schlüssel des Werkzeugs (zweimal = ein Objekt), Beziehungen
+  über den Schlüssel des Ziels, Umbenennen nur durch den Besitzer (der alte Titel bleibt lesbar),
+  Stapel bis 500 Schritte in einer Transaktion unter einer Kennung (dieselbe Kennung noch einmal
+  schreibt nichts), Stilllegen statt Löschen: weg aus allem Lesen von heute, in der Geschichte
+  noch da, nie wieder beschrieben.
+- **Webhooks:** Ein Client meldet eine https-Adresse im Internet an; jede Änderung, die er lesen
+  darf, geht signiert dorthin (HMAC mit einem Geheimnis, das er einmal sieht), in Reihenfolge,
+  ohne seine eigenen. Fehler: wachsende Wartezeit, nach zehn Fehlversuchen angehalten, im Portal
+  sichtbar, wieder aufnehmbar ohne Verlust. Nie ins Netz der Plattform; ein geschlossener Mandant
+  verschickt keine. Eingehende Webhooks (§4.10 des RFC) sind noch nicht gebaut (D13 offen).

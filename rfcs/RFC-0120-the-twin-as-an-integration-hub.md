@@ -9,6 +9,10 @@
   **Stage 2 built and measured 2026-11-22 (§11):** reference 0.1.348, `oaap.data.twin` 0.12
   §2.19-2.21, `oaap.data.model` 0.3 -- use case 3 done: KPIs with periods entered in the form and
   read per period.
+  **Stage 3 built and measured 2026-11-22 (§12):** reference 0.1.349, `oaap.data.twin` 0.13
+  §2.22-2.25, `oaap.data.model` 0.4 -- use case 2 done: a tool creates a type and objects, a person
+  changes a group, the tool hears it by webhook and does not overwrite it. Inbound webhooks
+  (§4.10) not built: **D13 open**.
   The facts in §1 were read the same day in `oaap.data.twin` 0.9, `oaap.data.model` 0.2,
   `oaap.data.timeseries` 0.1, `oaap.events.broker` 0.4, RFC-0027, RFC-0085/0087,
   `program/zielbild-datenplattform.md`, `program/capability-ideas.md` (I-51) and the reference
@@ -355,6 +359,10 @@ Groups already follow AAS submodels in the fleet; types carry `semantic_id`. The
 - **D12 — Order of stages: reads (use case 1) before values in time (use case 3) before sync (use
   case 2)?** *Recommendation: yes* — reads are the smallest risk and show the hub soonest; the
   dashboard needs periods, which sync also needs.
+- **D13 — Inbound webhooks (§4.10): a receiver per client with a mapping the tenant admin
+  declares, turned into batch operations under the same write rule?** *Open (2026-11-22, stage 3
+  built without it).* *Recommendation:* yes, built when the first real system is named; mapping
+  in JSON, no code, no fetching (§12).
 
 ## 9. Stage 0 — built and measured (2026-11-22)
 
@@ -549,6 +557,106 @@ writing under the check is therefore covered by the runner test, not by a live h
 measured:** the pages in a browser (read as HTML), a twin of another tenant with real KPIs, a
 dashboard program reading them.
 
+## 12. Stage 3 — built and measured (2026-11-22)
+
+**Built** (`twin_sync.py`, `hooks.py` and the service `hooks`, routes in the twin service, the
+host's client record and job, the portal's page *Integration*; `oaap.data.twin` 0.13 §2.22-2.25,
+`oaap.data.model` 0.4):
+
+- **Clients that write:** `writes` and `models` in the client record (CLI, the tenant admin's
+  page); origin `client:<label>`; the twin's write rule unchanged.
+- **Types of the tenant** (D8, D9): `POST /twin/v1/types`, object types `t.<label>.<Key>`.
+- **Upsert by key, groups, periods, batch, retire, rename** on `/twin/v1`; every current read
+  leaves a retired object out.
+- **Webhooks out** (D6): registration on the door, delivery by the new service `hooks`, signed,
+  in order, retries, stop, resume; the page *Integration* shows each webhook's state.
+
+**Decided while building (named here, not hidden):**
+
+- **A client writes only through `/twin/v1`**; the app routes stay an app's. Writing series stays
+  with apps.
+- **D9 only for object types.** The twin's attribute keys cannot carry dots and group keys are
+  already `namespace.name`; so attribute, relation and group keys stay node-wide and are **reused
+  when registered with the same meaning**, refused otherwise -- a modelling tool syncing two
+  tenants on one node shares `appName` but never a type.
+- **A modelling client owns what it modelled** -- the object types it created are its to write as
+  owner without the operator naming them; a group type made by someone else it does not change.
+- **A client's group write is stricter than an app's:** registered group type on the object's
+  type, attributes and relations from its lists, a relation target it may read.
+- **Upsert by `PUT /objects/by-key/{key}`, not `{source}/{key}`** (§4.5 sketched a source): the
+  key space is the client's own (`source_keys` per origin); finding an object by another
+  origin's key is not offered -- it would let one client probe another's keys.
+- **Rename updates `objects.title`** and keeps the old title in `renames`; a read with an earlier
+  `at` answers the title of then. The one UPDATE of twin data, named.
+- **Retire is final:** one row in `retirements`, the key is not used again (409); relations end
+  with `valid_to` as before.
+- **Batch:** `upsert`, `group`, `period`, `retire` -- not `types` (the registry is node-wide, a
+  type is not part of a sync transaction); 500 at most; the answer kept per client and id.
+- **Webhooks carry the change feed's entries, no values** (D10 holds without a rule per type);
+  up to 50 per POST; own writes left out unless asked; at least once, in order; 2^n s, stop after
+  10, resume. An event goes out once it is 5 s old (the feed's settling) -- measured 7.2 s from a
+  person's save to the receiver.
+- **Only to the internet**, checked twice, connected to the checked address, no redirects; the
+  operator's `OAAP_TWIN_HOOK_ALLOW` names exceptions. **A closed tenant** registers none and
+  posts none; "only to destinations it has bound" (§5.5) is not built.
+- **A person's change carries `tenant:<sign-in name>`** as its origin -- as the change feed since
+  stage 1. The tenant's own program learns who changed what; named, not changed here.
+
+**Found while measuring, fixed:** the twin and the delivery read `tenants.json` without its
+envelope (`{"tenants": {...}}`) -- the first run registered the type under the tenant's id
+instead of its label, and **a closed tenant would still have posted webhooks**. The runner test
+had written the file in the same wrong shape, so it was green. Now one function reads it for
+both (`twin_sync.tenant_of`), and the test writes the host's shape.
+
+**Tests.** `test_twin_sync` (new, 55, against a real PostgreSQL in the Linux runner) -- use case 2
+as a run: types (models only, namespace, the same body again, additive, another meaning 409, a
+group on a foreign type 403, another tenant's group key 409), upsert (twice one object, `"1200,5"`
+-> 1200.5, a bad value creates nothing, relation by key, an unknown attribute or target, rename
+and `at`), the sync rule (a person's group refused with its owner, the value stays), webhooks
+(five bad URLs, a closed tenant, the secret once, signed, own writes left out, a forged body and
+an old stamp fail, 500 -> wait with the cursor unmoved, stop after the limit seen by client and
+portal, resume with the backlog, a closed tenant waits, a removed client stops, the address check
+without the exception), batch (all, replay without an event, a bad second step writes nothing,
+501 steps, no id), retire (gone now, there before, no write after, twice nothing, another owner
+403, the portal), the feed, another tenant 404, an app 403. `test_twin_clients` (app routes point
+clients to `/twin/v1`, OpenAPI with the write paths). 31 twin, portal and compose files green;
+`test_tenant_boundary` keeps its 5 old red checks (Caddy lines of public routes, before and after).
+
+**Measured on `oaap-test`** (0.1.349 staged after a backup; `m123.py`; a temporary tenant admin
+in the hub tenant, a receiver on the node's own address allowed for the run with
+`OAAP_TWIN_HOOK_ALLOW`, all removed afterwards), 27/27 on the second run:
+
+| Step | Result |
+|---|---|
+| *Integration*: client `m123-ea` with *Modelliert* as a host job; key issued on the page | record `models: true`, no key in it; key shown once |
+| the tool: `POST /types` (type, group, 3 attributes, a relation), then again | 201 `t.fleetprobe.M123App`, 6 registered, 142 ms; 200, nothing |
+| webhook into the platform's network; to the receiver | 400; 201, secret once |
+| a batch of 3 upserts with relations by key; the same id again | 141 ms, 3 created; `replayed`, no event |
+| a value outside the enum | 400, nothing created |
+| graph around CRM | 2 edges (Shop, ERP), 121 ms |
+| the person: a tenant group on the tool's type in *Typ anlegen*, a note on CRM saved on the object page | created; "Gespeichert" |
+| the receiver | the change after 7.2 s, signature valid, origin the person; none of the tool's own |
+| the tool writes the person's group | 403 "belongs to 'tenant'", the note stays |
+| rename and change by key; retire Shop | renamed; Shop 404, the export has CRM (neu) and ERP |
+| the receiver answers 500, then 204 again | the client sees `retrying` with "HTTP 500"; then delivered, `active` |
+| *Integration* | the client as modelling, its webhook "läuft", no secret |
+| feed; the service's log | created, group, renamed, retired; deliveries and the failure, no secret |
+| after removing the client | its key 401; no type, object or webhook of the run left |
+
+**Not measured:** a real modelling tool; a webhook to an https receiver on the internet (the run
+used the operator's exception for the LAN); the stop after 10 failures and a closed tenant live
+(runner test only); the page *Integration* in a browser (read as HTML).
+
+**D13 -- inbound webhooks (§4.10): open, for Jörg.** A system that only speaks webhooks pushes
+into the twin: `POST /twin/v1/hooks/<client>/<hook>`, its signature checked with a secret the
+client holds, the payload turned by a **mapping the tenant admin declares** into the operations of
+a batch (§2.24) -- so it goes through the same write rule as the client's own writes, and the
+delivery id is the batch id (a retry writes nothing twice). *Recommendation:* build it when the
+first real system is named, with a mapping in JSON (which field is the key, the type, which field
+goes into which attribute of which group, which event retires) -- no code in a mapping, no
+fetching by the twin, the limits of a batch. Until then the outbound half and the change feed
+cover use case 2.
+
 ## Deutsche Zusammenfassung
 
 **Idee (Jörg, 22.11.):** Der Zwilling soll das Integrationsstück der Plattform werden. Dazu
@@ -690,3 +798,36 @@ Flotte die Prüfung bestehen. Auf oaap-test 20 von 20:
 Damit ist Anwendungsfall 3 erfüllt. Nicht angesehen: die Seiten im Browser. Die Flotte schreibt
 auf oaap-test seit dem 15.11. nicht mehr; ihr Schreiben unter der Prüfung zeigt der Test im
 Runner.
+
+**Stufe 3 gebaut und gemessen (22.11., §12):** Modellieren und Abgleich.
+
+- **Clients dürfen schreiben und modellieren:** Auf *Zugänge → Integration* bekommt ein Client
+  „schreibt“ und „modelliert“. Ein modellierender Client legt Objekttypen des Mandanten an
+  (`t.<Kürzel>.<Name>`), legt Objekte über seine eigenen Schlüssel an (zweimal = ein Objekt),
+  ändert, benennt um, legt still – und schreibt nur in seine eigenen Gruppen.
+- **Stapel:** bis 500 Schritte in einer Transaktion unter einer Kennung; dieselbe Kennung noch
+  einmal schreibt nichts.
+- **Webhooks nach außen:** Jede Änderung, die der Client lesen darf, geht signiert an seine
+  Adresse, in Reihenfolge, ohne seine eigenen; bei Fehlern mit Wartezeit, nach zehn Fehlversuchen
+  angehalten und im Portal sichtbar. Nur ins Internet, nie ins Netz der Plattform; ein
+  geschlossener Mandant verschickt keine.
+
+Beim Messen gefunden und behoben: Zwilling und Zustelldienst lasen die Mandantendatei ohne ihre
+Hülle. Der Typ bekam deshalb die Mandanten-ID statt des Kürzels, und ein geschlossener Mandant
+hätte trotzdem Webhooks verschickt. Der Test hatte die Datei genauso falsch geschrieben und war
+deshalb grün. Jetzt liest eine Funktion für beide, und der Test schreibt die echte Form.
+
+Tests: 55 neue gegen eine echte PostgreSQL, 31 Dateien grün. Auf oaap-test 27 von 27:
+
+- Eine Mandanten-Verwaltung hat im Portal einen modellierenden Client angelegt.
+- Das Werkzeug hat einen Typ und drei Objekte angelegt.
+- Eine Person hat im Portal eine Notiz auf ein Objekt geschrieben; das Werkzeug hörte es nach
+  7,2 s per Webhook und durfte die Notiz nicht überschreiben.
+- Ein Empfänger mit Fehler wurde danach nachbeliefert.
+
+Damit ist Anwendungsfall 2 erfüllt.
+
+**Offen für dich – D13, eingehende Webhooks:** Ein System, das nur Webhooks kann, schickt seine
+Änderungen in den Zwilling; eine Zuordnung, die die Mandanten-Verwaltung festlegt, macht daraus
+Schritte eines Stapels (gleiche Schreibregel, kein doppeltes Schreiben). Empfehlung: bauen, sobald
+das erste echte System feststeht.
