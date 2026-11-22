@@ -774,3 +774,12 @@ nur fest. In der ersten Fassung stand, das Gateway prüfe sie. **Nachtrag zu 3a:
 Prompts nur Assistenten mit `commands: true` an, und das hatte die Regel für App-Vorlagen
 verboten. Behoben: Die zehn Vorlagen (1.2.0) tragen es. Nicht gemessen: Kasten und Bestätigung
 im Browser, `/name` im Chat.
+
+**Nachtrag 2026-11-22 -- 3c, die Vorlage für den Zwilling (D16):** gebaut mit RFC-0120 Stufe 5
+(dort §15): `recipes/zwilling.json` liest über die Quelle `twin`; die drei schreibenden Werkzeuge
+des Zwillings (`oaap.data.twin` 0.16 §2.28) kommen auf dem Weg von D13 -- je ein Häkchen, keins
+vorab, im Chat jeder Aufruf bestätigt; keine eigene Ampel. Auf oaap-test gemessen. Vorlagen über
+mehrere Apps (D15) und 3d bleiben offen.
+
+*Deutsch:* Die Zwillings-Vorlage aus 3c ist gebaut und gemessen (siehe RFC-0120 §15). Offen
+bleiben Vorlagen über mehrere Apps und 3d.

@@ -1,7 +1,7 @@
 # oaap.data.twin — The Digital Twin
 
 - **ID:** `oaap.data.twin`
-- **Version:** 0.15 (0.15: **status** -- an object type may declare a status with its values, initial value and allowed transitions (who may make each); a change off the declaration is refused naming what is allowed, a declared one is appended with who, when and why, read with the object and its history, and published as `status.changed` on `.../<object>/status` (§2.27); RFC-0120 stage 4, reference 0.1.351; 0.14: 0.14: **inbound webhooks** -- a system that only speaks webhooks posts to a receiver of an integration client, signed with the receiver's secret; a mapping in JSON the tenant admin declares turns the payload into a batch under the client's rights and origin, the delivery id making a retry harmless (§2.26); RFC-0120 D13, reference 0.1.350; 0.13: 0.13: **modelling and sync** -- an integration client may write (`writes`) and model (`models`): types of its tenant with the object type in the tenant's namespace, upsert by its own key, its own groups and periods, batches under an id, retiring the objects it owns, renames by the owner; webhooks for the changes it may read, signed, in order, with retries; every current read leaves a retired object out (§2.22-2.25); RFC-0120 stage 3, reference 0.1.349; 0.12: **values in time** -- values checked against the registry's value types on every door (§2.19); **periodic attributes**: several values of one attribute coexist, each for a period with unit, source and quality, written as periods and read per period (§2.20); the time series readable by persons and integration clients (§2.21); RFC-0120 stage 2, reference 0.1.348; 0.11: **reads of the door `/twin/v1`** -- filtered lists with a cursor (`where` checked against the registry's value types), one object, neighbourhood, shortest paths, export (JSON, GraphML; personal attributes left out), change feed; every read answers as the twin looked at one moment `at` (date-time; recorded time and validity), only objects of the caller's types, an edge only between visible objects; §2.18, RFC-0120 stage 1, reference 0.1.347; 0.10: **integration clients and the door `/twin/v1`** -- `client:<label>`, a program outside the platform in one tenant, reading exactly the types the operator bound it to (`oaap data twin add-client --tenant --reads`, key scoped `oaap.twin`, shown once, at most 365 days); `GET /twin/v1/types` (the caller's bound types with access read/write and `semantic_iri`) and `GET /twin/v1/openapi.json` (OpenAPI 3.1 of the door as the caller sees it), for every twin principal; a client writes nothing yet, §2.17, RFC-0120 stage 0, reference 0.1.346; 0.9: 0.9: the twin as an MCP source -- every MCP gateway of the tenant finds the source `twin` with three read tools, carried as the signed-in person, §2.16, RFC-0118 P6, reference 0.1.341; 0.8: the list searches and pages -- `q` matches words in the title, `offset` skips rows; an app's list report no longer reads all and cuts at 500, §2.6a, RFC-0118 P6, reference 0.1.340; 0.7: `GET /twin/objects?type=` -- an app lists every object of a type it is bound to, §2.6a, RFC-0085 §10, reference 0.1.293; 0.6: the read `affected` -- what depends on a fleet object, §2.10a, RFC-0087 §6, reference 0.1.285; 0.5: the write rules in one module shared by the API and the platform's own writer; an unchanged **relation** writes nothing either, and a group PUT that changes nothing records no event -- §2.15; the person-facing type list answers `semantic_iri` -- `oaap.data.model` 0.2 §2.9; RFC-0085 amendment A2)
+- **Version:** 0.16 (0.16: **writing MCP tools** -- `twin_set_group`, `twin_add_period`, `twin_set_status` on the twin's MCP source, as the signed-in person with the portal's rights and rules, `readOnlyHint: false`, so a gateway approves each and the chat confirms every call (§2.28); RFC-0120 stage 5, reference 0.1.352; 0.15: 0.15: **status** -- an object type may declare a status with its values, initial value and allowed transitions (who may make each); a change off the declaration is refused naming what is allowed, a declared one is appended with who, when and why, read with the object and its history, and published as `status.changed` on `.../<object>/status` (§2.27); RFC-0120 stage 4, reference 0.1.351; 0.14: 0.14: **inbound webhooks** -- a system that only speaks webhooks posts to a receiver of an integration client, signed with the receiver's secret; a mapping in JSON the tenant admin declares turns the payload into a batch under the client's rights and origin, the delivery id making a retry harmless (§2.26); RFC-0120 D13, reference 0.1.350; 0.13: 0.13: **modelling and sync** -- an integration client may write (`writes`) and model (`models`): types of its tenant with the object type in the tenant's namespace, upsert by its own key, its own groups and periods, batches under an id, retiring the objects it owns, renames by the owner; webhooks for the changes it may read, signed, in order, with retries; every current read leaves a retired object out (§2.22-2.25); RFC-0120 stage 3, reference 0.1.349; 0.12: **values in time** -- values checked against the registry's value types on every door (§2.19); **periodic attributes**: several values of one attribute coexist, each for a period with unit, source and quality, written as periods and read per period (§2.20); the time series readable by persons and integration clients (§2.21); RFC-0120 stage 2, reference 0.1.348; 0.11: **reads of the door `/twin/v1`** -- filtered lists with a cursor (`where` checked against the registry's value types), one object, neighbourhood, shortest paths, export (JSON, GraphML; personal attributes left out), change feed; every read answers as the twin looked at one moment `at` (date-time; recorded time and validity), only objects of the caller's types, an edge only between visible objects; §2.18, RFC-0120 stage 1, reference 0.1.347; 0.10: **integration clients and the door `/twin/v1`** -- `client:<label>`, a program outside the platform in one tenant, reading exactly the types the operator bound it to (`oaap data twin add-client --tenant --reads`, key scoped `oaap.twin`, shown once, at most 365 days); `GET /twin/v1/types` (the caller's bound types with access read/write and `semantic_iri`) and `GET /twin/v1/openapi.json` (OpenAPI 3.1 of the door as the caller sees it), for every twin principal; a client writes nothing yet, §2.17, RFC-0120 stage 0, reference 0.1.346; 0.9: 0.9: the twin as an MCP source -- every MCP gateway of the tenant finds the source `twin` with three read tools, carried as the signed-in person, §2.16, RFC-0118 P6, reference 0.1.341; 0.8: the list searches and pages -- `q` matches words in the title, `offset` skips rows; an app's list report no longer reads all and cuts at 500, §2.6a, RFC-0118 P6, reference 0.1.340; 0.7: `GET /twin/objects?type=` -- an app lists every object of a type it is bound to, §2.6a, RFC-0085 §10, reference 0.1.293; 0.6: the read `affected` -- what depends on a fleet object, §2.10a, RFC-0087 §6, reference 0.1.285; 0.5: the write rules in one module shared by the API and the platform's own writer; an unchanged **relation** writes nothing either, and a group PUT that changes nothing records no event -- §2.15; the person-facing type list answers `semantic_iri` -- `oaap.data.model` 0.2 §2.9; RFC-0085 amendment A2)
 - **Maturity:** draft
 - **Based on:** RFC-0033 §6 / D10 (0.4 adds the remote reader, §2.14:
   a reader on another node, reached through a tunnel,
@@ -998,6 +998,38 @@ who, when and why, and every change is an event. The table `states` keeps its re
   status filter on lists; declaring a status in the portal's form *Typ anlegen*; status by MCP
   tool (stage 5).
 
+### 2.28 Writing MCP tools (0.16, RFC-0120 stage 5)
+
+The twin's MCP source (§2.16) gets three **writing** tools. They act **as the signed-in person**
+with exactly the person's rights on the portal's object page -- never as an app or a client:
+
+| Tool | What | The portal's equivalent |
+|---|---|---|
+| `twin_set_group` | `{id, group, attributes}` -- values into a **tenant group** (origin `tenant`) of the object; the group is created when the tenant has none yet | *Speichern* in a tenant group |
+| `twin_add_period` | `{id, group, attribute, value, valid_from, valid_to, unit?, source?, quality?}` -- one period of a periodic attribute in a tenant group (§2.20) | *Werte mit Zeitraum* |
+| `twin_set_status` | `{id, to, reason?}` -- a status change along a declared transition, as `persons` (§2.27) | the status card |
+
+- Each carries `readOnlyHint: false` (`destructiveHint: false`, `idempotentHint: true` for the
+  first two -- the same values again write nothing). A gateway therefore treats them as
+  **writing**: none is in a view until a tenant admin approves it (`oaap.ai.mcp-gateway`), and in
+  the chat the person **confirms every call** before it runs (`oaap.ai.assistants` §2).
+- **Who:** a person with a writing role (admin, keyuser, tenant_admin -- the roles of the
+  portal's group write); every other caller gets a sentence (`isError`), the same as a reader
+  without a role. The discovery door lists them; it never calls them.
+- **The same rules, one implementation:** the tool calls the function the portal's route calls
+  -- the group type must be active for the tenant and attach to the object's type; a group
+  another origin owns is refused naming its owner; values are checked (§2.19); a retired object
+  is not written (409); a transition not declared is refused naming the allowed ones. Every
+  refusal is a sentence the assistant can read back to the person.
+- **Audited** like a write in the portal: origin `tenant`, `recorded_by` the sign-in name, the
+  event's origin `tenant:<sign-in name>` -- the change feed and webhooks see who it was. The
+  gateway records the call and its confirmation in its own usage log.
+- **Not offered:** creating objects, relations of their own and series points (`twin_create_object`,
+  `twin_relate`, `twin_add_points` in RFC-0120 §4.8) -- a person cannot do them on the portal
+  either; they follow when the portal can.
+- The source's `instructions` say which tools write and that the assistant says beforehand what
+  it will write. Version of the source: 0.16.
+
 ## 3. Configuration
 
 - `apps/twin-secrets.json` (`0600`, root and the `twin` container's
@@ -1197,6 +1229,11 @@ who, when and why, and every change is an event. The table `states` keeps its re
     `.../status` topic; the same status again -> nothing; `by` without the caller ->
     403; a retired object -> 409; adding a value to the declaration works, changing
     `initial` -> 409; in a batch and an inbound mapping the same rules.
+26. **Writing MCP tools (0.16, §2.28):** the three tools listed with `readOnlyHint: false`; a
+    person with a writing role writes a tenant group, a period, a status, recorded with the
+    sign-in name; a reader without a writing role, a machine principal and the discovery door
+    get a sentence; an app's group -> refused naming the owner; a wrong value, a retired object,
+    an undeclared transition -> refused with the portal's sentence.
 
 Step 8 of RFC-0031 §9 (the rehearsal's own copy, D8) is the only one
 still out of scope (§1) and not a conformance test here yet.
@@ -1522,3 +1559,16 @@ Eine Beziehung erscheint nur, wenn beide Enden sichtbar sind.
   den Webhooks und auf dem Broker unter `…/<Objekt>/status` mit von, nach, wer und warum.
 - **Noch nicht:** Status über die eigenen Wege einer App, ein Filter nach Status in Listen, ein
   Status im Portal-Formular *Typ anlegen*, Status per MCP-Werkzeug (Stufe 5).
+
+## Deutsche Zusammenfassung (0.16 — schreibende MCP-Werkzeuge; RFC-0120 Stufe 5)
+
+- Die MCP-Quelle des Zwillings hat drei schreibende Werkzeuge: `twin_set_group` (Werte in eine
+  Mandantengruppe), `twin_add_period` (ein Wert mit Zeitraum) und `twin_set_status` (Status
+  wechseln). Sie handeln als die angemeldete Person, mit genau den Rechten und Regeln der
+  Objektseite im Portal; dahinter steckt derselbe Code.
+- Sie sind als schreibend gekennzeichnet. Ein Gateway nimmt sie deshalb erst in eine Sicht auf,
+  wenn die Mandanten-Verwaltung sie freigibt. Im Chat bestätigt die Person jeden Aufruf.
+- Nur Personen mit Schreibrolle (admin, keyuser, tenant_admin). Alles wird wie im Portal mit dem
+  Anmeldenamen festgehalten; Änderungs-Feed und Webhooks sehen, wer es war.
+- Nicht angeboten: Objekte anlegen, eigene Beziehungen, Messpunkte – das kann eine Person im
+  Portal auch nicht.

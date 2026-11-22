@@ -18,6 +18,9 @@
   **Stage 4 built and measured 2026-11-22 (§14):** reference 0.1.351, `oaap.data.twin` 0.15
   §2.27, `oaap.data.model` 0.5 §2.11 -- a status change off the declaration is refused, a declared
   one is appended, read with the object, changed in the portal and published.
+  **Stage 5 built and measured 2026-11-22 (§15):** reference 0.1.352, `oaap.data.twin` 0.16 §2.28,
+  mcp-gateway 0.44.0 -- three writing MCP tools as the person, the platform template "Zwilling"
+  with a tick per writing tool (RFC-0119 3c).
   The facts in §1 were read the same day in `oaap.data.twin` 0.9, `oaap.data.model` 0.2,
   `oaap.data.timeseries` 0.1, `oaap.events.broker` 0.4, RFC-0027, RFC-0085/0087,
   `program/zielbild-datenplattform.md`, `program/capability-ideas.md` (I-51) and the reference
@@ -819,6 +822,79 @@ and so asked for a time before the machine existed (a fault of the script):
 relay's mark and the runner test only); a status from an inbound webhook live (runner test
 only); the page in a browser (read as HTML); the fleet.
 
+## 15. Stage 5 — writing MCP tools and the template "Zwilling", built and measured (2026-11-22)
+
+**Built** (`mcp_door.py` 0.16, `app.py`, `recipes/zwilling.json`; `oaap.data.twin` 0.16 §2.28;
+mcp-gateway 0.44.0, `oaap.ai.mcp-gateway` 0.39.0):
+
+- **Three writing tools** on the twin's MCP source -- `twin_set_group`, `twin_add_period`,
+  `twin_set_status` -- with `readOnlyHint: false`, as the signed-in person.
+- **One implementation:** `person_group_write`, `person_period_write`, `person_status_change`;
+  the portal's routes and the MCP door call the same functions.
+- **The platform template "Zwilling"** (RFC-0119 3c, D16): an assistant on the source `twin`
+  that reads; each writing tool a tick of its own, none ticked beforehand; no light of its own for
+  the twin; its own access profile of the chat.
+
+**Decided while building (named here, not hidden):**
+
+- **Three tools, not six (§4.8).** `twin_create_object`, `twin_relate` and `twin_add_points`
+  are not offered: a person cannot create objects, relations of their own or series points on
+  the portal either, and the rule is "the person's rights in the portal".
+- **Writing roles are the portal's:** keyuser, admin, tenant_admin. A person with only `user`
+  reads through the source and gets a sentence when a writing tool is called.
+- **A retired object is not written** by a person -- now also on the portal's routes (409); before
+  stage 5 the portal could not reach one anyway.
+- **The template sets no model approval.** The first draft gave the chat a model alias with
+  `personal_data: true` like the help template does with false; the measurement showed that a
+  template must not touch the chat's approval, which the tenant set (a conflict). Like the apps'
+  templates, it now only names the model.
+- **A profile of its own** (`<chat>-zwilling`): the first draft reused the chat's profile and
+  collided with the help template's.
+
+**Found while measuring, fixed:** the MCP gateway knew the twin's catalog of 0.9; its setup check
+counted a `refresh` of a present catalog as nothing to do and refused the writing tools with
+"erst refresh", although `refresh` stood right before the view. mcp-gateway **0.44.0**: `refresh`
+re-reads a present catalog in the run and counts as planned in the check (`oaap.ai.mcp-gateway`
+0.39.0). The twin's source version is now 0.16 (`TWIN_MCP_VERSION`).
+
+**Tests.** `test_twin_mcp` (the six tools, the writing ones `readOnlyHint: false`; a reader
+without a writing role and a machine get a sentence and the store is not asked; a keyuser writes as
+themselves; only known fields of a period go on; the twin's refusal comes back as a sentence; empty
+values; the instructions name the writing tools; the tools call the portal's functions).
+`test_twin_mcp_write` (new, 16, real PostgreSQL): a tenant group written as the person (origin,
+created by, event `tenant:<name>`) and seen on the portal's page; a client's group refused naming
+its owner; a value outside the enum; a reader only; a machine; a period from "12,5"; a plain
+attribute as a period; an undeclared transition naming `active`; a status change with reason as
+the person; `by: owner`; a retired object refused by MCP and 409 on the portal; the portal's route
+unchanged; `tools/list`; without the gateway's tenant header 403. mcp-gateway `test_setup` 3 new
+(missing tool without refresh refused; with refresh planned; the run re-reads and approves),
+all gateway suites green; check-store consistent. Template and twin suites in the Linux runner
+green (`test_assistant_templates`, `…_page`, `test_tenant_recipe`, `test_recipe_apply`,
+`test_app_templates`, `test_twin_status`, `test_twin_sync`, `test_twin_inbound`, `test_data_twin`,
+`test_mcp_sources`, `test_mcp_discover`, `test_key_pages` and more).
+
+**Measured on `oaap-test`** (0.1.352 staged after a backup, HEALTHY 9/9 and 43/43; `rzt-werkzeuge`
+0.44.0; `m126.py`), 17/17 on the second run -- the first found the two template faults and the
+gateway's stale catalog above (13/17):
+
+| Step | Result |
+|---|---|
+| A: the hub tenant, a FleetNode; a person creates a tenant group (note, CO2e periodic) on the portal | created |
+| the source's `tools/list` | three reading, three writing (`readOnlyHint: false`) |
+| `twin_set_group` as the person (as a gateway calls it after the chat's confirmation) | written: group `tenant`, created by the person, event `tenant:<name>`; the portal's page shows the note |
+| `twin_add_period` CO2e 2025 "3,2" | 3.2, recorded by the person |
+| baits: a periodic attribute as a plain value; FleetNode declares no status; a platform group; a reader only | four sentences, nothing written |
+| B: template "Zwilling" in `rzt`, only "Status wechseln" ticked | done; the view holds `twin_set_status` as write and the three reading tools, not the other writing ones; view up to write |
+| nothing ticked | done; the view reads only |
+| rollback | both runs rolled back, both assistants gone |
+
+`rzt-werkzeuge` stays on 0.44.0.
+
+**Not measured:** a writing call confirmed in a real chat end to end (the measurement called the
+twin's door as the gateway does; the gateway's confirmation and usage row with `confirmed=yes`
+were measured for `vorgaenge` in RFC-0119 3b only in the runner); the template in the browser;
+the fleet.
+
 ## Deutsche Zusammenfassung
 
 **Idee (Jörg, 22.11.):** Der Zwilling soll das Integrationsstück der Plattform werden. Dazu
@@ -1017,3 +1093,19 @@ angehängt, die Person hat im Portal gewechselt, und das Relais hat die Ereignis
 Nicht gemessen: die Nachricht am Broker von einem Abonnenten gelesen. Noch nicht gebaut: Status
 über die Wege einer App, Filter nach Status, Status im Portal-Formular *Typ anlegen*, Status per
 MCP-Werkzeug (Stufe 5).
+
+**Stufe 5, schreibende MCP-Werkzeuge – gebaut und gemessen (22.11., §15):** Die MCP-Quelle des
+Zwillings hat drei schreibende Werkzeuge: Werte in eine Mandantengruppe, ein Wert mit Zeitraum,
+Status wechseln. Sie handeln als die angemeldete Person, mit genau den Rechten und Regeln der
+Objektseite im Portal; dahinter steckt derselbe Code. Objekte anlegen, eigene Beziehungen und
+Messpunkte gibt es nicht, weil eine Person das im Portal auch nicht kann.
+
+Dazu die Plattform-Vorlage „Zwilling“ (RFC-0119 3c): Ein Assistent liest den Zwilling, und jedes
+schreibende Werkzeug ist ein eigenes Häkchen, keins vorab gesetzt. Im Chat bestätigt die Person
+jeden Aufruf.
+
+Beim Messen gefunden und behoben: Die erste Fassung der Vorlage fasste die Modellfreigabe des
+Chats an und benutzte dessen vorhandenes Zugangsprofil – beides abgewiesen, beides korrigiert.
+Außerdem kannte das MCP-Gateway noch den alten Katalog des Zwillings; mcp-gateway 0.44.0 liest
+ihn bei der Einrichtung neu ein. Auf oaap-test danach 17 von 17. Nicht gemessen: ein schreibender
+Aufruf in einem echten Chat von Anfang bis Ende.
