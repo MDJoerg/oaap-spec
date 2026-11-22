@@ -1,7 +1,7 @@
 # oaap.data.twin — The Digital Twin
 
 - **ID:** `oaap.data.twin`
-- **Version:** 0.14 (0.14: **inbound webhooks** -- a system that only speaks webhooks posts to a receiver of an integration client, signed with the receiver's secret; a mapping in JSON the tenant admin declares turns the payload into a batch under the client's rights and origin, the delivery id making a retry harmless (§2.26); RFC-0120 D13, reference 0.1.350; 0.13: 0.13: **modelling and sync** -- an integration client may write (`writes`) and model (`models`): types of its tenant with the object type in the tenant's namespace, upsert by its own key, its own groups and periods, batches under an id, retiring the objects it owns, renames by the owner; webhooks for the changes it may read, signed, in order, with retries; every current read leaves a retired object out (§2.22-2.25); RFC-0120 stage 3, reference 0.1.349; 0.12: **values in time** -- values checked against the registry's value types on every door (§2.19); **periodic attributes**: several values of one attribute coexist, each for a period with unit, source and quality, written as periods and read per period (§2.20); the time series readable by persons and integration clients (§2.21); RFC-0120 stage 2, reference 0.1.348; 0.11: **reads of the door `/twin/v1`** -- filtered lists with a cursor (`where` checked against the registry's value types), one object, neighbourhood, shortest paths, export (JSON, GraphML; personal attributes left out), change feed; every read answers as the twin looked at one moment `at` (date-time; recorded time and validity), only objects of the caller's types, an edge only between visible objects; §2.18, RFC-0120 stage 1, reference 0.1.347; 0.10: **integration clients and the door `/twin/v1`** -- `client:<label>`, a program outside the platform in one tenant, reading exactly the types the operator bound it to (`oaap data twin add-client --tenant --reads`, key scoped `oaap.twin`, shown once, at most 365 days); `GET /twin/v1/types` (the caller's bound types with access read/write and `semantic_iri`) and `GET /twin/v1/openapi.json` (OpenAPI 3.1 of the door as the caller sees it), for every twin principal; a client writes nothing yet, §2.17, RFC-0120 stage 0, reference 0.1.346; 0.9: 0.9: the twin as an MCP source -- every MCP gateway of the tenant finds the source `twin` with three read tools, carried as the signed-in person, §2.16, RFC-0118 P6, reference 0.1.341; 0.8: the list searches and pages -- `q` matches words in the title, `offset` skips rows; an app's list report no longer reads all and cuts at 500, §2.6a, RFC-0118 P6, reference 0.1.340; 0.7: `GET /twin/objects?type=` -- an app lists every object of a type it is bound to, §2.6a, RFC-0085 §10, reference 0.1.293; 0.6: the read `affected` -- what depends on a fleet object, §2.10a, RFC-0087 §6, reference 0.1.285; 0.5: the write rules in one module shared by the API and the platform's own writer; an unchanged **relation** writes nothing either, and a group PUT that changes nothing records no event -- §2.15; the person-facing type list answers `semantic_iri` -- `oaap.data.model` 0.2 §2.9; RFC-0085 amendment A2)
+- **Version:** 0.15 (0.15: **status** -- an object type may declare a status with its values, initial value and allowed transitions (who may make each); a change off the declaration is refused naming what is allowed, a declared one is appended with who, when and why, read with the object and its history, and published as `status.changed` on `.../<object>/status` (§2.27); RFC-0120 stage 4, reference 0.1.351; 0.14: 0.14: **inbound webhooks** -- a system that only speaks webhooks posts to a receiver of an integration client, signed with the receiver's secret; a mapping in JSON the tenant admin declares turns the payload into a batch under the client's rights and origin, the delivery id making a retry harmless (§2.26); RFC-0120 D13, reference 0.1.350; 0.13: 0.13: **modelling and sync** -- an integration client may write (`writes`) and model (`models`): types of its tenant with the object type in the tenant's namespace, upsert by its own key, its own groups and periods, batches under an id, retiring the objects it owns, renames by the owner; webhooks for the changes it may read, signed, in order, with retries; every current read leaves a retired object out (§2.22-2.25); RFC-0120 stage 3, reference 0.1.349; 0.12: **values in time** -- values checked against the registry's value types on every door (§2.19); **periodic attributes**: several values of one attribute coexist, each for a period with unit, source and quality, written as periods and read per period (§2.20); the time series readable by persons and integration clients (§2.21); RFC-0120 stage 2, reference 0.1.348; 0.11: **reads of the door `/twin/v1`** -- filtered lists with a cursor (`where` checked against the registry's value types), one object, neighbourhood, shortest paths, export (JSON, GraphML; personal attributes left out), change feed; every read answers as the twin looked at one moment `at` (date-time; recorded time and validity), only objects of the caller's types, an edge only between visible objects; §2.18, RFC-0120 stage 1, reference 0.1.347; 0.10: **integration clients and the door `/twin/v1`** -- `client:<label>`, a program outside the platform in one tenant, reading exactly the types the operator bound it to (`oaap data twin add-client --tenant --reads`, key scoped `oaap.twin`, shown once, at most 365 days); `GET /twin/v1/types` (the caller's bound types with access read/write and `semantic_iri`) and `GET /twin/v1/openapi.json` (OpenAPI 3.1 of the door as the caller sees it), for every twin principal; a client writes nothing yet, §2.17, RFC-0120 stage 0, reference 0.1.346; 0.9: 0.9: the twin as an MCP source -- every MCP gateway of the tenant finds the source `twin` with three read tools, carried as the signed-in person, §2.16, RFC-0118 P6, reference 0.1.341; 0.8: the list searches and pages -- `q` matches words in the title, `offset` skips rows; an app's list report no longer reads all and cuts at 500, §2.6a, RFC-0118 P6, reference 0.1.340; 0.7: `GET /twin/objects?type=` -- an app lists every object of a type it is bound to, §2.6a, RFC-0085 §10, reference 0.1.293; 0.6: the read `affected` -- what depends on a fleet object, §2.10a, RFC-0087 §6, reference 0.1.285; 0.5: the write rules in one module shared by the API and the platform's own writer; an unchanged **relation** writes nothing either, and a group PUT that changes nothing records no event -- §2.15; the person-facing type list answers `semantic_iri` -- `oaap.data.model` 0.2 §2.9; RFC-0085 amendment A2)
 - **Maturity:** draft
 - **Based on:** RFC-0033 §6 / D10 (0.4 adds the remote reader, §2.14:
   a reader on another node, reached through a tunnel,
@@ -953,6 +953,51 @@ in one transaction -- the same write rule as the client's own writes; nothing ne
 - The route `/twin/v1/inbound/*` is the one part of `/twin/*` the gateway passes **without**
   verifying a key: it strips every identity header, and the twin trusts only the signature.
 
+### 2.27 Status as a declared transition (0.15, RFC-0120 stage 4, D7)
+
+An object may have a **status** -- `planned -> active -> retired`, `open -> in_work -> done` --
+when its object type **declares** one in the registry (`oaap.data.model` 0.5 §2.11). The status
+is not an attribute: it changes only along a declared transition, every change is appended with
+who, when and why, and every change is an event. The table `states` keeps its relay meaning
+(§2.13); this is called **status** (D7).
+
+- **The declaration** (on the object type): `"status": {"values": [...], "initial"?,
+  "transitions": [{"from", "to", "by"?}]}`. `values` are 1..50 keys `[a-z][a-z0-9_]{0,39}`;
+  `initial` is one of them (default: the first) -- the status of an object nobody changed yet;
+  a transition names two different values; `by` is a subset of `owner` (the object's owner
+  origin), `writers` (an app or client that may write the type), `persons` (a person who may
+  write the tenant's groups: admin, keyuser, tenant_admin). Without `by`, all three may.
+  - A modelling client declares it with its type: `POST /twin/v1/types {"object_type": {"key",
+    ..., "status": {...}}}` (§2.23). On a type it created, the same call **adds** values and
+    transitions; it never removes one, never changes `initial` or a transition's `by` (409).
+  - An app declares it in its manifest's `data_model.object_types` (`oaap.data.model` §2.2).
+  - A type without a declaration has no status; its objects answer none.
+- **Changing it:** `POST /twin/v1/objects/{id}/status {"to", "reason"?}` (a client),
+  `POST /internal/twin/objects/{id}/status` (a person, the portal's object page), a batch
+  operation `{"op": "status", "object" | "key", "to", "reason"?}` (§2.24), and a rule
+  `"status": {"key", "to", "reason"?}` in an inbound mapping (§2.26; `to` a path or a constant).
+  Checked in this order, each with its sentence:
+  - the type declares no status -> 409; `to` is not one of its values -> 400;
+  - the object is retired -> 409 (§2.24);
+  - `to` is the current status -> 200 `{"written": false}`, nothing appended, no event;
+  - no declared transition from the current status to `to` -> **409, naming the values that are
+    allowed from here**;
+  - the transition's `by` does not include the caller -> 403, naming who may.
+  Otherwise one row is appended (`statuses`: from, to, reason, origin, recorded_by, recorded_at --
+  append-only like every twin table) -> `{"id", "from", "to", "at", "written": true}`.
+- **Reading it:** the object read of the door (`GET /twin/v1/objects/{id}`) and of the portal
+  carry `"status": {"value", "since", "by"}` (`since` and `by` empty while it is still the
+  initial one); `?at=` answers the status of then. `GET /twin/v1/objects/{id}/status[?at=]` adds
+  the **history**, newest first. The portal's object page shows the status, a form with the
+  values a person may go to from here, and the history.
+- **Events:** each change records `status.changed` (§2.18's change feed and §2.25's webhooks
+  carry it with `"status": {"from", "to"}`; a webhook may name the kind). The relay publishes it
+  on **`oaap/<tenant>/<type>/<object>/status`** (retained) with from, to, origin and reason --
+  values a subscriber needs without reading back; a status is not personal data (D10 holds).
+- **Not in this version:** writing a status through an app's own routes (`/twin/objects`); a
+  status filter on lists; declaring a status in the portal's form *Typ anlegen*; status by MCP
+  tool (stage 5).
+
 ## 3. Configuration
 
 - `apps/twin-secrets.json` (`0600`, root and the `twin` container's
@@ -1145,6 +1190,13 @@ in one transaction -- the same write rule as the client's own writes; nothing ne
     client does not write -> 400 at registration; a write the rule refuses (a person's group) ->
     422, nothing of the delivery written, the sentence on the receiver; another client's receiver
     name -> 404; the secret never in a list.
+25. **Status (0.15, §2.27):** a type without a declaration -> 409; a value not declared ->
+    400; a transition not declared -> 409 naming the allowed ones; a declared one ->
+    appended, read with the object and in the history, `?at=` before it answers the
+    old status, the event in the change feed with from and to and on the relay's
+    `.../status` topic; the same status again -> nothing; `by` without the caller ->
+    403; a retired object -> 409; adding a value to the declaration works, changing
+    `initial` -> 409; in a batch and an inbound mapping the same rules.
 
 Step 8 of RFC-0031 §9 (the rehearsal's own copy, D8) is the only one
 still out of scope (§1) and not a conformance test here yet.
@@ -1453,3 +1505,20 @@ Eine Beziehung erscheint nur, wenn beide Enden sichtbar sind.
 - **Antworten:** 200 geschrieben; 401 Signatur falsch; 404 unbekannt; 413 zu groß; 422 die
   Zuordnung oder die Schreibregel hat abgelehnt. Dann ist nichts geschrieben, und der Satz steht
   auf der Seite *Integration*.
+
+## Deutsche Zusammenfassung (0.15 — Status; RFC-0120 Stufe 4)
+
+- **Status am Typ erklärt:** Ein Objekttyp kann einen Status festlegen: die Werte (z. B. geplant,
+  aktiv, stillgelegt), den Anfangswert und die erlaubten Übergänge. Je Übergang lässt sich
+  festlegen, wer ihn machen darf: der Besitzer des Objekts, die Schreibenden (Apps oder Clients)
+  oder Personen. Ein modellierender Client legt das mit seinem Typ an und kann später nur
+  ergänzen. Eine App legt es in ihrem Manifest fest.
+- **Wechseln:** über die Tür, im Portal auf der Objektseite, als Schritt eines Stapels oder aus
+  einer Zuordnung für eingehende Webhooks. Ein Übergang, der nicht erklärt ist, wird abgewiesen;
+  der Satz nennt, wohin es von hier aus geht. Jeder Wechsel wird angehängt, mit wer, wann und
+  warum; nichts wird überschrieben.
+- **Lesen:** Der Status kommt mit dem Objekt, mit Stichtag auch der von damals, auf Wunsch mit
+  der ganzen Geschichte. Jeder Wechsel ist ein Ereignis (`status.changed`): im Änderungs-Feed, in
+  den Webhooks und auf dem Broker unter `…/<Objekt>/status` mit von, nach, wer und warum.
+- **Noch nicht:** Status über die eigenen Wege einer App, ein Filter nach Status in Listen, ein
+  Status im Portal-Formular *Typ anlegen*, Status per MCP-Werkzeug (Stufe 5).

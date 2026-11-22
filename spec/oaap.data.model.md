@@ -1,7 +1,7 @@
 # oaap.data.model — Type Registry for the Digital Twin
 
 - **ID:** `oaap.data.model`
-- **Version:** 0.4 (0.4: **types of a tenant made through the twin** -- an object type a tenant (an integration client with `models`) registers is named `t.<tenant label>.<key>` and carries `created_by`; attribute, relation and group keys stay node-wide and are reused when registered with the same meaning; §2.10, `oaap.data.twin` 0.13 §2.23, RFC-0120 D8/D9, 2026-11-22; 0.3: an attribute type may say **`"periodic": true`** and a **`"unit"`** -- values with a period, `oaap.data.twin` 0.12 §2.20; and **`"personal": true`** -- left out of exports, `oaap.data.twin` 0.11 §2.18; RFC-0120, 2026-11-22; 0.2: **semantic IDs** -- the optional `semantic_id` of a type, its three forms and the one setting for the domain of OAAP's own, §2.9, RFC-0085 amendment A2, 2026-11-14)
+- **Version:** 0.5 (0.5: an object type may declare a **status** -- values, initial value, transitions with who may make each; additive only; §2.11, `oaap.data.twin` 0.15 §2.27, RFC-0120 D7, 2026-11-22; 0.4: 0.4: **types of a tenant made through the twin** -- an object type a tenant (an integration client with `models`) registers is named `t.<tenant label>.<key>` and carries `created_by`; attribute, relation and group keys stay node-wide and are reused when registered with the same meaning; §2.10, `oaap.data.twin` 0.13 §2.23, RFC-0120 D8/D9, 2026-11-22; 0.3: an attribute type may say **`"periodic": true`** and a **`"unit"`** -- values with a period, `oaap.data.twin` 0.12 §2.20; and **`"personal": true`** -- left out of exports, `oaap.data.twin` 0.11 §2.18; RFC-0120, 2026-11-22; 0.2: **semantic IDs** -- the optional `semantic_id` of a type, its three forms and the one setting for the domain of OAAP's own, §2.9, RFC-0085 amendment A2, 2026-11-14)
 - **Maturity:** draft
 - **Based on:** RFC-0031 (data model & digital twin — Model is Schritt
   2 of the build order: Store, Model, Twin, reference apps, browser,
@@ -232,6 +232,29 @@ are `[A-Za-z][A-Za-z0-9]*`, the twin's attribute rule), and group keys are alrea
 `values`, `unit`, `periodic`; relation: `from`, `to` -- while another meaning is refused. The
 additive rule of §2.5 holds: a tenant's group type gains attributes and relations, never loses or
 changes one. App and platform types keep their keys.
+
+### 2.11 Status on an object type (0.5, RFC-0120 D7)
+
+An object type may carry `status` -- in a manifest's `data_model.object_types` or when a tenant's
+client registers it through the twin (§2.10):
+
+```yaml
+object_types:
+  - key: Machine
+    status:
+      values: [planned, active, maintenance, retired]
+      initial: planned            # default: the first value
+      transitions:
+        - {from: planned, to: active}
+        - {from: active, to: maintenance}
+        - {from: maintenance, to: active}
+        - {from: active, to: retired, by: [owner]}   # owner | writers | persons; default all
+```
+
+Values are keys `[a-z][a-z0-9_]{0,39}`, at most 50; a transition names two different values.
+What the twin does with it is `oaap.data.twin` §2.27. Additive like everything else (§2.5): a new
+value or transition may be added; removing one, changing `initial` or a transition's `by` is a
+destructive change.
 
 ### 2.5 Comparing two versions of a type (D2, additive vs. destructive)
 
@@ -522,3 +545,10 @@ darf), heißt er `t.<Mandantenkürzel>.<Name>` und trägt `created_by`. So werde
 einem Knoten nie aus Versehen ein Typ. Attribut-, Beziehungs- und Gruppenschlüssel bleiben
 knotenweit; gibt es sie schon mit derselben Bedeutung, werden sie wiederverwendet, sonst
 abgewiesen. Es gilt die Regel „nur hinzufügen“ (§2.5).
+
+## Deutsche Zusammenfassung (0.5 — Status am Objekttyp)
+
+Ein Objekttyp kann einen Status erklären: Werte, Anfangswert und erlaubte Übergänge, je Übergang
+auch, wer ihn machen darf (Besitzer, Schreibende, Personen). Das geht im Manifest einer App oder
+über den Zwilling durch einen modellierenden Client. Wie bei allen Typen darf man nur ergänzen.
+Was der Zwilling daraus macht, steht in `oaap.data.twin` §2.27.

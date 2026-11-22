@@ -15,6 +15,9 @@
   **D13 decided 2026-11-22 (Jörg: "A" -- build it now, before a real system is named) and built
   (§13):** reference 0.1.350, `oaap.data.twin` 0.14 §2.26 -- a system that only speaks webhooks
   posts to a receiver; a mapping in JSON turns the body into a batch under the client's rights.
+  **Stage 4 built and measured 2026-11-22 (§14):** reference 0.1.351, `oaap.data.twin` 0.15
+  §2.27, `oaap.data.model` 0.5 §2.11 -- a status change off the declaration is refused, a declared
+  one is appended, read with the object, changed in the portal and published.
   The facts in §1 were read the same day in `oaap.data.twin` 0.9, `oaap.data.model` 0.2,
   `oaap.data.timeseries` 0.1, `oaap.events.broker` 0.4, RFC-0027, RFC-0085/0087,
   `program/zielbild-datenplattform.md`, `program/capability-ideas.md` (I-51) and the reference
@@ -738,6 +741,84 @@ afterwards), 20/20 on the second run -- the first had read the change feed at on
 `token` signatures live (runner test only); the 1 MB limit at the gateway (the twin's own
 limit tested in the runner); the page *Integration* in a browser (read as HTML); the fleet.
 
+## 14. Stage 4 — status, built and measured (2026-11-22)
+
+**Built** (`twin_status.py`, table `statuses`, routes in the twin service, the relay, the
+portal's object page; `oaap.data.twin` 0.15 §2.27, `oaap.data.model` 0.5 §2.11):
+
+- **The declaration on the object type:** `status: {values, initial?, transitions: [{from, to,
+  by?}]}`, `by` from `owner`, `writers`, `persons` (default all). A modelling client declares it
+  with `POST /twin/v1/types` and may only add to it later; an app in its manifest.
+- **Changing:** `POST /twin/v1/objects/{id}/status`, the portal's object page, a batch operation
+  `status`, a rule `status` in an inbound mapping (§13) -- one rule in `twin_status.change`.
+- **Reading:** the status with the object (door and portal), `?at=` the status of then,
+  `GET /twin/v1/objects/{id}/status` with the history.
+- **Events:** `status.changed` in the change feed and in webhooks with `status: {from, to}`; the
+  relay publishes it on `oaap/<tenant>/<type>/<object>/status` with from, to and reason.
+
+**Decided while building (named here, not hidden):**
+
+- **The initial status writes no row.** An object stands on `initial` until the first change;
+  `since` and `by` stay empty -- no row for every object of a type that gains a status later.
+- **`by` names kinds of caller, not roles or bindings.** `owner` (the object's owner origin),
+  `writers` (an app or client that may write the type), `persons` (admin, keyuser, tenant_admin,
+  the roles that write tenant groups). Finer rules (a named role per transition) can be added to
+  the same field later.
+- **The declaration only grows:** values and transitions may be added; `initial` and a
+  transition's `by` do not change (409) -- the additive rule of the registry.
+- **The same status again** writes nothing and records no event (200, `written: false`), like a
+  group PUT that changes nothing (§2.15).
+- **A refused transition answers 409** and names the values allowed from here; a value the type
+  does not have answers 400; who may not answers 403 naming who may.
+- **One change at a time per object** (a lock): two callers never both step from the same
+  status.
+- **The relay's status message carries values** (from, to, reason) -- a status is not personal
+  data, and a subscriber should not have to read back (D10 holds).
+- **Not built:** status through an app's own routes, a status filter on lists, declaring a status
+  in the portal's form *Typ anlegen*, a status by MCP tool (stage 5).
+
+**Tests.** `test_twin_status` (new, 33, against a real PostgreSQL): four bad declarations
+(initial, an unknown value in a transition, an unknown `by`, a bad value key) 400 and nothing
+registered; a type with status; a new object on `planned` without a row; an unknown value 400;
+an undeclared transition 409 naming `active`, nothing appended, no event; a declared one appended,
+read with the object (value, since, by); the same again nothing; `?at=` before it answers
+`planned`; the feed's entry with from and to; a person in the portal (persons) changes, the page
+offers only what the person may, the history carries the reason and the sign-in name; the person
+may not `active -> retired` (owner only, 403), a person without a writing role 403; a writing
+client that does not own the object 403 on that one, allowed on the others; a client that cannot
+read the type 404; the owner retires; the history newest first; the relay's message with from, to
+and reason; the declaration grows (a value and a transition), the same again nothing, changing
+`initial` or `by` 409; a type without a declaration 409 and no status on its objects; a batch
+whose second status step is undeclared writes neither; a batch step by key; an inbound mapping
+changes a status and an undeclared one answers 422; a retired object; OpenAPI; a webhook may
+name `status.changed`. Green with it: `test_twin_sync`, `test_twin_inbound`, `test_twin_clients`
+(the new path in the OpenAPI), `test_event_relay`, `test_twin_v1_reads`, `test_data_twin` (a line
+of the new route named `tenant` and `body.get` together -- split, so the source check reads it
+right), `test_twin_browser`, `test_twin_periods`, `test_key_pages`, `test_user_identity`,
+`test_data_model`, `test_fleet_twin`, `test_assets_tenant`, `test_propagation`.
+
+**Measured on `oaap-test`** (0.1.351 staged after a backup, 4 twin schemas migrated, HEALTHY
+9/9 and 43/43; `m125.py`; a temporary tenant admin in the hub tenant, everything removed
+afterwards), 18/18 on the second run -- the first had cut the moment for `?at=` to the second
+and so asked for a time before the machine existed (a fault of the script):
+
+| Step | Result |
+|---|---|
+| a modelling client on *Integration*; type `t.fleetprobe.M125Machine` with status (planned, active, maintenance, retired; retire only the owner) | 201, 138 ms |
+| the new machine | `planned`, never changed |
+| `planned -> maintenance` | 409 naming `active`, nothing appended |
+| `planned -> active` "abgenommen" | appended, 123 ms; read with the object as `active` by the client; `?at=` before: `planned` |
+| the object page in the portal | "Status: active", the form offers `maintenance`, not `retired` |
+| the person: `maintenance` "Ölwechsel"; then `retired` | changed; then back with the sentence |
+| the page | "Status: maintenance", the history with "Ölwechsel" by the person and "abgenommen" |
+| the client (owner): `active`, then `retired` "verschrottet" | allowed; the door's history newest first |
+| relay; change feed after 6 s | the relay's mark past the status events, no error in its log; four `status.changed` with from and to, one by the person |
+| after removing the client | its key 401; no type, object or status of the run left |
+
+**Not measured:** the message on the broker's topic `.../status` read by a subscriber (the
+relay's mark and the runner test only); a status from an inbound webhook live (runner test
+only); the page in a browser (read as HTML); the fleet.
+
 ## Deutsche Zusammenfassung
 
 **Idee (Jörg, 22.11.):** Der Zwilling soll das Integrationsstück der Plattform werden. Dazu
@@ -921,3 +1002,18 @@ Status und Zeiträume kann eine Zuordnung noch nicht schreiben.
 
 Was abgelehnt wird (422), steht mit Satz auf der Seite *Integration*. Ein Formular für die
 Zuordnung gibt es nicht; sie wird wie die Typen über die Tür angelegt.
+
+**Stufe 4, Status – gebaut und gemessen (22.11., §14):** Ein Objekttyp kann einen Status
+festlegen: Werte, Anfangswert und erlaubte Übergänge. Je Übergang lässt sich bestimmen, wer ihn
+machen darf: der Besitzer, die Schreibenden oder Personen. Ein Übergang, der nicht festgelegt ist,
+wird abgewiesen; der Satz nennt, wohin es von hier aus geht. Ein festgelegter wird angehängt, mit
+wer, wann und warum. Der Status kommt mit dem Objekt, mit Stichtag auch der von damals. Im Portal
+zeigt die Objektseite den Status, ein Formular mit den erlaubten Zielen und die Geschichte. Jeder
+Wechsel ist ein Ereignis: im Änderungs-Feed, in den Webhooks und auf dem Broker unter
+`…/<Objekt>/status`. Wechseln geht auch im Stapel und aus einer Zuordnung für eingehende Webhooks.
+
+Auf oaap-test 18 von 18: Ein nicht festgelegter Übergang wurde abgewiesen, ein festgelegter
+angehängt, die Person hat im Portal gewechselt, und das Relais hat die Ereignisse veröffentlicht.
+Nicht gemessen: die Nachricht am Broker von einem Abonnenten gelesen. Noch nicht gebaut: Status
+über die Wege einer App, Filter nach Status, Status im Portal-Formular *Typ anlegen*, Status per
+MCP-Werkzeug (Stufe 5).
