@@ -12,6 +12,9 @@
   vielleicht als Draft mit Freigabe? Sonst wie empfohlen."
   **Stage 3a built and measured 2026-11-22 (§14):** reference 0.1.344, `oaap.core.tenant` 1.25,
   mcp-gateway 0.42.0 (`oaap.ai.mcp-gateway` 0.37); ten templates name their app's prompts.
+  **Stage 3b built and measured 2026-11-22 (§15):** reference 0.1.345, `oaap.core.tenant` 1.26,
+  mcp-gateway 0.43.0 (`oaap.ai.mcp-gateway` 0.38), `vorgaenge` 0.19.0 (template 2.0.0); with it a
+  correction to 3a (`commands: true`, §15).
   The facts in §1 were read the same day in `platform/recipes/hilfe-assistent.json`,
   `appctl.py` (`docs_publish_instance`, `SHIPPED_RECIPE_DIR`, `tenant_recipe_path`), the
   manifests of `oaap-apps/apps/*/oaap-app.yaml`, `oaap.ai.mcp-gateway` 0.35 §3.9e and
@@ -327,8 +330,10 @@ door, `recherche` reaches the open web). Prompts are served by 16 apps through `
 (`DOOR.prompt`) and by `help`; the chat offers a view's prompts as `/name …`. The twin is an
 MCP source with three reading tools (`oaap.data.twin` 0.9 §2.16). The RFC-0105 approvals
 (`required`, `signed`) are made for a **specialist** that writes without a person present;
-in the chat a person confirms every writing call before it runs (`X-OAAP-Confirmed`,
-`oaap.ai.assistants` §2) and the gateway checks it.
+in the chat a person confirms every writing call before it runs (`oaap.ai.assistants` §2).
+*Corrected 2026-11-22 (stage 3b):* the **chat** enforces that confirmation; the gateway only
+records `X-OAAP-Confirmed` in the usage row, "never a permission" (`oaap.ai.assistants` §5) --
+the first version of this paragraph said the gateway checks it.
 
 - **D12 — Split stage 3 into 3a (prompts), 3b (writing tools), 3c (templates that span
   apps, the twin), each measured and pushed on its own?** *Accepted.*
@@ -595,6 +600,57 @@ runner green. All eleven templates pass the recipe check and the app-template ru
 
 **Not measured:** a prompt fetched with `/name` in the chat in the browser.
 
+## 15. Stage 3b — writing tools, one tick each; correction to 3a (2026-11-22)
+
+**Correction to 3a, found while reading the chat for 3b.** The chat offers a view's prompts as
+`/name` only to an assistant with `commands: true` (`oaap.ai.assistants` §2), and §4.3 forbade
+`commands` in an app's template. The measurement of §14 looked at the view only. Fixed: an
+assistant of an app's template may carry `commands: true` exactly when its view names the app's
+prompts; the ten templates carry it (template 1.2.0, each app one more patch version).
+
+**Built (D13).**
+
+- `mcp-gateway` 0.43.0 (`oaap.ai.mcp-gateway` 0.38): the setup door's `view` item with
+  `tools: {"server", "effect": "read"}` may add `"writes": {"<tool>": true|false}` -- writing tools
+  of the same server, approved as `write` when true, not at all when false. A reading or unknown
+  tool, another value, or `writes` next to a tool list is refused; nothing is made half. The view's
+  ceiling follows its entries.
+- Reference 0.1.345 (`oaap.core.tenant` 1.26): in an app's template `writes` maps each tool to a
+  parameter of kind `bool` that is not ticked beforehand and not `shape`; a literal `true`, a
+  ticked default or one parameter for two tools drops the template; the gateway's need says
+  `min_version: 0.43.0`; the chat's profile may say `max_effect: write` only when the view has
+  `writes`. The wizard shows the ticks in step 2 in a box "Darf schreiben" (warning tone, tool
+  name next to each label, a sentence that the person confirms every writing call in the chat).
+- `vorgaenge` 0.19.0: template `vorgaenge-ueberblick` **2.0.0** (a new major, so an operator's
+  release of `@1` does not cover writing) with `create_case` and `comment_case`, each its own
+  tick; greeting and instructions say the assistant writes only with tools it is offered, says
+  beforehand what it will write, and writes to the reporter only when asked.
+
+**Tests.** mcp-gateway `test_setup` 10 new (false: reading only; the same view ticked later: a
+conflict; true: `write`, ceiling write; again: present; baits reading tool, unknown tool, "ja",
+a list, `writes` next to a tool list; remove), all gateway suites green. Reference
+`test_app_templates` 14 new (the template's ticks; baits ticked default as bool and as text, a
+literal true, `shape`, one parameter for two tools, a list, gateway 0.42.0, profile `execute`, a
+profile that writes without `writes`, `commands` without prompts and not true; the wizard asks both
+ticks unticked; an empty form sends false; the rendered item carries true/false); the nine recipe
+and template suites in the Linux runner green; check-store and check-design 24/24; the tests of
+`vorgaenge` and the ten apps green.
+
+**Measured on `oaap-test`** (0.1.345 staged after a backup; tenant `rzt`; `rzt-werkzeuge` 0.43.0),
+11/11:
+
+| Asked | Answer |
+|---|---|
+| `wegweiser` 0.6.2, run of template 1.2.0 | the assistant has `commands: true`, the view offers both prompts |
+| `vorgaenge` 0.19.0, only "Vorgänge melden" ticked | done; `create_case` as `write` in the view, `comment_case` absent, all else reads; view and the chat's profile up to `write` |
+| nothing ticked | done; no writing tool, the view reads only (the profile's ceiling says `write`, the view caps it) |
+| Rollback | all three assistants deleted; `vorgaenge` and `wegweiser` removed again |
+
+`rzt-werkzeuge` stays on 0.43.0.
+
+**Not measured:** the box "Darf schreiben" clicked in the browser; a writing call confirmed in the
+chat and its usage row with `confirmed=yes`; `/name` in the chat.
+
 ## Deutsche Zusammenfassung
 
 **Idee (Jörg, 21.11.):** Seit RFC-0118 hat jede App mit Daten eine MCP-Tür. Die App weiß
@@ -706,3 +762,15 @@ App eine Patch-Version höher). Auf oaap-test 9 von 9: Mit Gateway 0.41.0 lehnt 
 diesem Satz ab; mit 0.42.0 entsteht die Sicht mit beiden Prompts von Wegweiser neben den lesenden
 Werkzeugen. Danach wurde alles zurückgenommen. Nicht gemessen: ein Prompt per `/name` im Chat im
 Browser.
+
+**Stufe 3b gebaut und gemessen (22.11., §15):** Eine App-Vorlage darf schreibende Werkzeuge der
+eigenen App nennen. Jedes bekommt im Assistenten ein eigenes Häkchen im Kasten „Darf schreiben“,
+und keines ist vorab gesetzt. Was nicht angehakt ist, kommt gar nicht in die Sicht. MCP-Gateway
+0.43.0, Referenz 0.1.345. Vorgänge 0.19.0 bringt die Vorlage 2.0.0 mit „Vorgänge melden“ und
+„Kommentare schreiben“. Die neue Hauptversion sorgt dafür, dass eine Freigabe des Betreibers für
+die nur lesende Version 1 das Schreiben nicht mit abdeckt. Auf oaap-test 11 von 11.
+**Korrektur:** Die Bestätigung jedes schreibenden Aufrufs erzwingt der Chat; das Gateway hält sie
+nur fest. In der ersten Fassung stand, das Gateway prüfe sie. **Nachtrag zu 3a:** Der Chat bietet
+Prompts nur Assistenten mit `commands: true` an, und das hatte die Regel für App-Vorlagen
+verboten. Behoben: Die zehn Vorlagen (1.2.0) tragen es. Nicht gemessen: Kasten und Bestätigung
+im Browser, `/name` im Chat.
