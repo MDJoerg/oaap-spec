@@ -6,6 +6,9 @@
   `oaap.data.twin` 0.10, `oaap.core.identity` 0.6.11; §1.6 confirmed and closed.
   **Stage 1 built and measured 2026-11-22 (§10):** reference 0.1.347, `oaap.data.twin` 0.11
   §2.18 -- use case 1 done: a graph viewer loads the fleet twin of a tenant from outside.
+  **Stage 2 built and measured 2026-11-22 (§11):** reference 0.1.348, `oaap.data.twin` 0.12
+  §2.19-2.21, `oaap.data.model` 0.3 -- use case 3 done: KPIs with periods entered in the form and
+  read per period.
   The facts in §1 were read the same day in `oaap.data.twin` 0.9, `oaap.data.model` 0.2,
   `oaap.data.timeseries` 0.1, `oaap.events.broker` 0.4, RFC-0027, RFC-0085/0087,
   `program/zielbild-datenplattform.md`, `program/capability-ideas.md` (I-51) and the reference
@@ -470,6 +473,82 @@ hub tenant reading the 8 fleet types, removed afterwards), 15/15:
 **Not measured:** a real graph viewer program (the export is GraphML 1.0 and loads like any
 other; no viewer was run); a twin much larger than the fleet's.
 
+## 11. Stage 2 — built and measured (2026-11-22)
+
+**Built** (`twin_values.py`, `twin_write.py`, `twin_read.py`, routes in the twin service, the
+portal's object page and type form; `oaap.data.twin` 0.12 §2.19-2.21, `oaap.data.model` 0.3):
+
+- **Values checked on every door** (§2.19 of the spec): app, person, platform writers, periods --
+  one function, before anything is written; a bad value refuses the whole write with a sentence.
+- **Periodic attributes** (D4): an attribute type says `"periodic": true` (and a `unit`); table
+  `periods`, append-only; written by an app (`POST …/groups/{group}/periods`) or a person in the
+  portal; read per period on every door and as the object's value.
+- **Series for persons and clients:** `/twin/v1/series` (list, range, latest) for a client, the
+  same through `/internal/twin/series` for the portal; the object page draws each number series.
+- **The form *Werte mit Zeitraum*** on the object page: attribute, a year (whole, a quarter or a
+  month) or two dates, value, unit, source, quality; a table per attribute with bars, a button
+  to withdraw. The form *Typ anlegen* gets a column "Werte mit Zeitraum" and the unit.
+
+**Decided while building (named here, not hidden):**
+
+- **One bad value stops an app's or a person's write, not the fleet's.** The platform's own
+  writers (origin `platform:`) lose only that value, logged -- one odd reading of one node must not
+  stop the fleet twin. An **empty string** for any type but text is "no value" (stored `null`): the
+  portal's empty field, and what the fleet writes for "none" (measured: the only 4 of 651 current
+  values on oaap-test that did not fit were such empty strings). A string where a number is
+  expected becomes the number (the portal sends text).
+- **Periods of one attribute must not overlap; the same bounds again correct.** Otherwise "the value
+  at a moment" would be ambiguous. Q1 and the year 2025 cannot both be one attribute -- a type that
+  wants both declares two attributes. `null` withdraws (a row, not a delete).
+- **A date as `valid_to` is the last day covered** (2025-01-01 .. 2025-12-31 = 2025), stored
+  exclusive as the next day's 00:00 UTC -- what a form asks, what the API keeps.
+- **The object's value of a periodic attribute** is the period containing the moment, else the
+  **last one that ended before it**, with its bounds. A KPI for 2025 read in November 2026 is still
+  the last known value; showing nothing would hide it, and the bounds keep anyone from taking it
+  for today's.
+- **`at` stays both axes** (stage 1). An object recorded today does not exist at `at=2024-07-01`,
+  so a past period as known today is read with `from`/`to` on `/periods`; the portal's date picks
+  the period of that day (it filters validity only, as before).
+- **Turning `periodic` on or off is a destructive type change** (`type_change_kind`): the values
+  live in another table then.
+- **Clients still only read** -- writing periods is stage 3 (sync), with the rest of writing.
+
+**Tests.** `test_twin_periods` (new, 44, against a real PostgreSQL in the Linux runner): value
+checks per type with baits (int, date, enum), all-or-nothing, `"120"` -> 120, `""` -> null, a
+`platform:` writer losing one value; periods coexisting, overlap 409, correction, unchanged 200,
+withdrawal and second withdrawal 404, non-periodic 400, periodic in a group write 400; reads per
+period, window, `at` before a correction, object value now (last ended) and on a day; the person
+door (roles, tenant group created, an app's group refused, inactive group type); series for a
+client (list, range, latest, a forbidden type 404) and a person; OpenAPI; the portal's form rules,
+labels, bars and lines; the destructive type change. `test_fleet_twin` now registers the fleet's
+attribute types and counts values left out: **none** -- the fleet's real values pass the check.
+13 twin and portal files green.
+
+**Measured on `oaap-test`** (0.1.348 staged after a backup; `m122.py`, a temporary tenant admin in
+the hub tenant and a temporary client, removed afterwards with every row of the probe group),
+20/20:
+
+| Step | Result |
+|---|---|
+| *Typ anlegen* with two periodic KPIs (CO₂e t, energy MWh) and an int counter on `FleetNode` | registered: periodic with unit, the counter not |
+| object page of the node oaap-test | the card *Werte mit Zeitraum* with its form, 228 ms |
+| CO₂e 2024, 2025, Q1 2026, energy 2025 entered in the form | "Eingetragen: 2024." … each 45-56 ms |
+| Q2 2025 (overlaps 2025); "viel" as a number | refused with a sentence |
+| 2025 corrected, then the same again | "Eingetragen", then "Unverändert" |
+| 2023 entered, then the button *Zurückziehen* | gone from every list |
+| the page again (30 days) | 2024, 2025, Q1 2026, 2025 with bars; series drawn as lines |
+| "viele" for the counter; "7" | refused; stored as the number 7 |
+| client: CO₂e per period | 2024 1200.5, 2025 1050, Q1 2026 260 -- t CO₂e, with quality, 141 ms |
+| client: window June 2025 | CO₂e 2025 and energy 2025 |
+| client: the object now | CO₂e 260 (Q1 2026, the last ended) with its bounds, energy 830 |
+| client: the node's series and the last day of one | 14 series; points read |
+| every current value of the node's 4 twins through the new check | 652, none refused |
+
+The fleet no longer writes this twin (oaap-test stopped being the hub on 2026-11-15); the fleet's
+writing under the check is therefore covered by the runner test, not by a live hub. **Not
+measured:** the pages in a browser (read as HTML), a twin of another tenant with real KPIs, a
+dashboard program reading them.
+
 ## Deutsche Zusammenfassung
 
 **Idee (Jörg, 22.11.):** Der Zwilling soll das Integrationsstück der Plattform werden. Dazu
@@ -582,3 +661,32 @@ Flottenzwilling von außen gelesen, 15 von 15:
 - Die Köder (fremder Mandant, fremder Typ, kein Schlüssel) wurden abgewiesen.
 
 Damit ist Anwendungsfall 1 erfüllt. Nicht ausprobiert: ein echtes Graph-Viewer-Programm.
+
+**Stufe 2 gebaut und gemessen (22.11., §11):** Werte in der Zeit.
+
+- **Geprüfte Werte an jeder Tür:** Jeder Wert wird gegen seinen Typ geprüft, bevor etwas
+  geschrieben wird. Ein falscher Wert lehnt den ganzen Schreibvorgang ab, mit einem Satz. Nur die
+  Flotte verliert dabei nur den einen falschen Wert. Ein leeres Feld zählt als „kein Wert“.
+- **Werte mit Zeitraum:** Ein Attributtyp kann periodisch sein, mit Einheit. Mehrere Werte stehen
+  dann nebeneinander, jeder mit Zeitraum, Quelle und Güte. Überschneiden dürfen sie sich nicht;
+  dieselben Grenzen korrigieren, Zurückziehen ist eine eigene Zeile, nichts wird gelöscht. Als Wert
+  des Objekts gilt der Zeitraum, der jetzt läuft, sonst der zuletzt abgelaufene, mit seinen
+  Grenzen.
+- **Im Portal:** beim Anlegen eines Gruppentyps die Spalte „Werte mit Zeitraum“ und eine Einheit;
+  auf der Objektseite das Formular „Werte mit Zeitraum“ (Jahr, Quartal, Monat oder Von–Bis), eine
+  Tabelle mit Balken je Kennzahl und Messreihen als Verlaufslinien.
+- **Für Clients:** Zeiträume je Objekt (mit Zeitfenster) und die Messreihen der Objekte, die sie
+  lesen dürfen. Schreiben kommt mit Stufe 3.
+
+Tests: 44 neue gegen eine echte PostgreSQL. Der Flottentest zeigt, dass alle echten Werte der
+Flotte die Prüfung bestehen. Auf oaap-test 20 von 20:
+
+- Eine Mandanten-Verwaltung hat im Portal zwei Kennzahlen mit Zeitraum angelegt.
+- Am Knoten oaap-test hat sie CO₂e für 2024, 2025 und Q1 2026 eingetragen, einen Wert korrigiert
+  und einen zurückgezogen. Überschneidung und Text statt Zahl wurden abgewiesen.
+- Ein Client hat sie je Zeitraum gelesen.
+- Alle 652 vorhandenen Werte bestehen die neue Prüfung.
+
+Damit ist Anwendungsfall 3 erfüllt. Nicht angesehen: die Seiten im Browser. Die Flotte schreibt
+auf oaap-test seit dem 15.11. nicht mehr; ihr Schreiben unter der Prüfung zeigt der Test im
+Runner.

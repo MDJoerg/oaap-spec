@@ -1,7 +1,7 @@
 # oaap.data.twin — The Digital Twin
 
 - **ID:** `oaap.data.twin`
-- **Version:** 0.11 (0.11: **reads of the door `/twin/v1`** -- filtered lists with a cursor (`where` checked against the registry's value types), one object, neighbourhood, shortest paths, export (JSON, GraphML; personal attributes left out), change feed; every read answers as the twin looked at one moment `at` (date-time; recorded time and validity), only objects of the caller's types, an edge only between visible objects; §2.18, RFC-0120 stage 1, reference 0.1.347; 0.10: **integration clients and the door `/twin/v1`** -- `client:<label>`, a program outside the platform in one tenant, reading exactly the types the operator bound it to (`oaap data twin add-client --tenant --reads`, key scoped `oaap.twin`, shown once, at most 365 days); `GET /twin/v1/types` (the caller's bound types with access read/write and `semantic_iri`) and `GET /twin/v1/openapi.json` (OpenAPI 3.1 of the door as the caller sees it), for every twin principal; a client writes nothing yet, §2.17, RFC-0120 stage 0, reference 0.1.346; 0.9: 0.9: the twin as an MCP source -- every MCP gateway of the tenant finds the source `twin` with three read tools, carried as the signed-in person, §2.16, RFC-0118 P6, reference 0.1.341; 0.8: the list searches and pages -- `q` matches words in the title, `offset` skips rows; an app's list report no longer reads all and cuts at 500, §2.6a, RFC-0118 P6, reference 0.1.340; 0.7: `GET /twin/objects?type=` -- an app lists every object of a type it is bound to, §2.6a, RFC-0085 §10, reference 0.1.293; 0.6: the read `affected` -- what depends on a fleet object, §2.10a, RFC-0087 §6, reference 0.1.285; 0.5: the write rules in one module shared by the API and the platform's own writer; an unchanged **relation** writes nothing either, and a group PUT that changes nothing records no event -- §2.15; the person-facing type list answers `semantic_iri` -- `oaap.data.model` 0.2 §2.9; RFC-0085 amendment A2)
+- **Version:** 0.12 (0.12: **values in time** -- values checked against the registry's value types on every door (§2.19); **periodic attributes**: several values of one attribute coexist, each for a period with unit, source and quality, written as periods and read per period (§2.20); the time series readable by persons and integration clients (§2.21); RFC-0120 stage 2, reference 0.1.348; 0.11: **reads of the door `/twin/v1`** -- filtered lists with a cursor (`where` checked against the registry's value types), one object, neighbourhood, shortest paths, export (JSON, GraphML; personal attributes left out), change feed; every read answers as the twin looked at one moment `at` (date-time; recorded time and validity), only objects of the caller's types, an edge only between visible objects; §2.18, RFC-0120 stage 1, reference 0.1.347; 0.10: **integration clients and the door `/twin/v1`** -- `client:<label>`, a program outside the platform in one tenant, reading exactly the types the operator bound it to (`oaap data twin add-client --tenant --reads`, key scoped `oaap.twin`, shown once, at most 365 days); `GET /twin/v1/types` (the caller's bound types with access read/write and `semantic_iri`) and `GET /twin/v1/openapi.json` (OpenAPI 3.1 of the door as the caller sees it), for every twin principal; a client writes nothing yet, §2.17, RFC-0120 stage 0, reference 0.1.346; 0.9: 0.9: the twin as an MCP source -- every MCP gateway of the tenant finds the source `twin` with three read tools, carried as the signed-in person, §2.16, RFC-0118 P6, reference 0.1.341; 0.8: the list searches and pages -- `q` matches words in the title, `offset` skips rows; an app's list report no longer reads all and cuts at 500, §2.6a, RFC-0118 P6, reference 0.1.340; 0.7: `GET /twin/objects?type=` -- an app lists every object of a type it is bound to, §2.6a, RFC-0085 §10, reference 0.1.293; 0.6: the read `affected` -- what depends on a fleet object, §2.10a, RFC-0087 §6, reference 0.1.285; 0.5: the write rules in one module shared by the API and the platform's own writer; an unchanged **relation** writes nothing either, and a group PUT that changes nothing records no event -- §2.15; the person-facing type list answers `semantic_iri` -- `oaap.data.model` 0.2 §2.9; RFC-0085 amendment A2)
 - **Maturity:** draft
 - **Based on:** RFC-0033 §6 / D10 (0.4 adds the remote reader, §2.14:
   a reader on another node, reached through a tunnel,
@@ -699,8 +699,89 @@ caller may not read answers 404 alike.
   was recorded, so a transaction that took a lower id but committed later is not skipped.
 - `GET /twin/v1/openapi.json` (§2.17) describes these paths.
 - **Not in this version:** limits per client (requests), JSON-LD, value events, writing (RFC-0120
-  stages 2-3). Graph walks run over one load of the visible edges (no recursive SQL yet; measured
+  stage 3). Periods and series: §2.20, §2.21. Graph walks run over one load of the visible edges (no recursive SQL yet; measured
   with the fleet twin, revisited if they get slow).
+
+### 2.19 Values checked on every door (0.12, RFC-0120 stage 2)
+
+Every write of attributes -- an app's `POST /twin/objects` and `PUT …/groups/{group}`, a person's
+group write through the portal, the platform's own writers (fleet, tenant assets) and every period
+(§2.20) -- checks each value against its attribute type in `oaap.data.model` **before anything is
+written**. One function decides (`twin_values.check` in the reference):
+
+| value_type | accepted | stored |
+|---|---|---|
+| text | a string | as given |
+| int | an integer, or a string of digits | an integer |
+| decimal | a number, or a string that is one (`1.5`, `1,5`) | a number |
+| bool | `true`/`false`, or those strings | `true`/`false` |
+| date | `2026-11-22` | as given |
+| datetime | `2026-11-22T10:00:00Z` | as given |
+| enum | a string; one of the type's `values` when it lists them | as given |
+| ref | `urn:oaap:obj:<uuid>` | as given |
+
+`null` always fits (it clears), and so does an empty string for every type but text (a form's
+empty field; the fleet's "none"), stored as `null`. An attribute that is not registered is not
+checked. A value that does not fit refuses the **whole** write with 400 and a sentence naming the
+attribute and its type -- the other values of that write are not written either. Only the
+platform's own writers (origin `platform:…`) are not refused for one bad value: that value is left
+out and logged, so one odd reading of one node never stops the fleet's twin. A periodic attribute
+(§2.20) in a group write is refused with a sentence pointing to `…/periods`.
+
+### 2.20 Periodic attributes (0.12, RFC-0120 stage 2, D4)
+
+An attribute type may say **`"periodic": true`** (and a **`"unit"`**, `oaap.data.model` §2.2). Such
+an attribute holds **several values side by side**, each for a **period**: a KPI per year or
+quarter (CO₂e 2024, CO₂e 2025), not a measurement (that is a series, §2.21). Table `periods` in the
+tenant's schema, append-only like every other: `value`, `valid_from` and `valid_to` as
+date-times (`valid_to` exclusive), `unit`, `source`, `quality` (`measured`, `calculated`,
+`estimated`, `reported`), who and when.
+
+- **Write:** `POST /twin/objects/{id}/groups/{group}/periods` (an app, with `contributes` on the
+  object's type, into its own group -- §2.15) and `POST /internal/twin/objects/{id}/groups/{group}/periods`
+  (a person through the portal: roles admin, keyuser or tenant_admin, into a tenant group, which
+  the first period creates). Body `{"attribute", "value", "valid_from", "valid_to", "unit"?,
+  "source"?, "quality"?}`; a **date** as `valid_from` is that day's 00:00 UTC, a date as `valid_to`
+  is the **last day the period covers** (2025-01-01 .. 2025-12-31 is the year 2025); without
+  `unit` the attribute type's unit is kept. The value is checked (§2.19). Answers 201
+  `{"written": true, "period"}`, or 200 with `written: false` when the same period with the same
+  value, unit, source and quality is already there.
+- **Rules:** periods of one attribute of one object **must not overlap** (409 naming the period
+  in the way) -- except that **the same bounds again correct** the period (the old row is
+  superseded, never deleted). **`"value": null` withdraws** a period (404 if there is none to
+  withdraw). An attribute that is not periodic is refused as a period (400), and the attribute
+  must belong to the group when the group type lists its attributes. One event `period.written`
+  per write.
+- **Read per period:** `GET /twin/v1/objects/{id}/periods?attribute=<group>.<attr>&from=&to=&at=`
+  (a client, §2.18), `GET /twin/objects/{id}/periods` (an app with any binding on the type),
+  `GET /internal/twin/objects/{id}/periods` (a person) -> `{"object", "periods": [{"group",
+  "attribute", "value", "valid_from", "valid_to", "unit", "source", "quality", "recorded_at",
+  "recorded_by"}]}`, oldest first, withdrawn ones left out. `from`/`to` keep the periods that
+  overlap that window; `at` answers as recorded then (a correction made later is not yet there).
+- **Read as the object's value:** in every object read (§2.18, `GET /twin/objects/{id}`, the
+  portal, the MCP door) a periodic attribute's value is that of the period that **contains the
+  moment** -- or, if none does, of the **latest period that ended before it** (the last known
+  value), with its bounds: on `/twin/v1` under the group's `periods`, elsewhere next to the value
+  (`"periodic": true`, `valid_from`, `valid_to`, `unit`, …). Filters (`where`, §2.18) compare
+  that value. A period that begins later never counts.
+- **`at` stays both axes** (§2.18): an object recorded today does not exist at `at=2024-07-01`.
+  To read the value of a past period as it is known today, read the periods with `from`/`to`.
+  The portal's date (a validity day, §2.12) picks the period of that day.
+
+### 2.21 Series for persons and clients (0.12, RFC-0120 stage 2)
+
+The time series of `oaap.data.timeseries` (until now reachable for app keys only) are read by:
+
+- **integration clients** -- `GET /twin/v1/series?object=`, `GET /twin/v1/series/{id}/range?from=&to=&step=`,
+  `GET /twin/v1/series/{id}/latest`; only series of objects of a type the client may read; any
+  other answers 404 like a missing one;
+- **persons** through the portal -- `GET /internal/twin/series?object=` and
+  `GET /internal/twin/series/{id}/range`; a person reads the tenant's whole twin (§2.12). The
+  object page draws each number series (at most eight) as a line with its min-max band over 24
+  hours, 7 days, 30 days or a year.
+
+A tenant without time series answers 409 (the client) or shows none (the portal). Writing series
+stays with apps (RFC-0086).
 
 ## 3. Configuration
 
@@ -857,6 +938,19 @@ caller may not read answers 404 alike.
     `a` in its tenant with its groups; `?type=b` (unbound) → 403;
     without `?type=` → 400; a wrong key → refused at the gateway; the
     same app in another tenant → an empty list.
+
+17. **Values are checked on every door (0.12, §2.19):** a text for an `int` attribute, an
+    invalid date, a value outside an `enum` -> 400 with the attribute's name, and the other
+    values of the same write are not written; `"120"` for an `int` is stored as `120`; `""` for a
+    date as `null`; a `platform:` writer loses only the bad value.
+18. **Periods (0.12, §2.20):** CO₂e 2024 and 2025 coexist; Q1 2025 -> 409; 2025 again with
+    other values supersedes, the same values again -> 200 `written: false`; `null` withdraws, a
+    second withdrawal -> 404; a non-periodic attribute as a period -> 400; a periodic one in a
+    group write -> 400; `at` before a correction reads the old value; the object read shows the
+    period containing the moment or the last one ended, with its bounds.
+19. **Series (0.12, §2.21):** a client reads the series of an object of its types and a range;
+    a series of a type it may not read -> 404 (list and range); a person reads any series of the
+    tenant.
 
 Step 8 of RFC-0031 §9 (the rehearsal's own copy, D8) is the only one
 still out of scope (§1) and not a conformance test here yet.
@@ -1104,3 +1198,22 @@ Ein Programm außerhalb der Plattform kann den Zwilling seines Mandanten jetzt r
 Jede Antwort gilt für einen Zeitpunkt `at` (ohne Angabe: jetzt) und gibt so wieder, wie der
 Zwilling damals aussah. Gezeigt werden nur Objekte der Typen, für die der Aufrufer gebunden ist.
 Eine Beziehung erscheint nur, wenn beide Enden sichtbar sind.
+
+## Deutsche Zusammenfassung (0.12 — Werte mit Zeitraum, geprüfte Werte, Messreihen; RFC-0120 Stufe 2)
+
+- **Werte werden geprüft, an jeder Tür:** App, Portal, Flotte und Zeiträume prüfen jeden Wert
+  gegen den Werttyp seines Attributs, bevor etwas geschrieben wird. Ein falscher Wert lehnt den
+  ganzen Schreibvorgang ab, mit einem Satz. „120“ für eine ganze Zahl wird zur Zahl 120; ein
+  leeres Feld ist „kein Wert“. Nur die Plattform selbst (Flotte) verliert bei einem falschen Wert
+  nur diesen einen, damit ein seltsamer Messwert nie den Flottenzwilling anhält.
+- **Werte mit Zeitraum:** Ein Attributtyp kann sagen `"periodic": true` (mit Einheit). Dann
+  stehen mehrere Werte nebeneinander, jeder für einen Zeitraum, mit Quelle und Güte – eine
+  Kennzahl je Jahr oder Quartal. Zeiträume eines Attributs dürfen sich nicht überschneiden;
+  dieselben Grenzen noch einmal korrigieren, `null` zieht zurück; nichts wird gelöscht.
+  Eingetragen wird von einer App oder im Portal auf der Seite des Objekts (Formular „Werte mit
+  Zeitraum“), gelesen je Zeitraum (Liste, Zeitfenster) und als Wert des Objekts: der Zeitraum,
+  der jetzt gilt, sonst der zuletzt abgelaufene – mit seinen Grenzen, damit niemand 2025 für
+  heute hält.
+- **Messreihen für Personen und Clients:** Ein Integrations-Client liest die Reihen der Objekte,
+  die er lesen darf; eine Person sieht sie auf der Objektseite als Verlaufslinie (24 Stunden bis
+  ein Jahr). Gemessene Werte bleiben Reihen, gemeldete Kennzahlen sind Zeiträume (D4).

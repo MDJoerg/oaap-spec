@@ -1,7 +1,7 @@
 # oaap.data.model — Type Registry for the Digital Twin
 
 - **ID:** `oaap.data.model`
-- **Version:** 0.2 (0.2: **semantic IDs** -- the optional `semantic_id` of a type, its three forms and the one setting for the domain of OAAP's own, §2.9, RFC-0085 amendment A2, 2026-11-14)
+- **Version:** 0.3 (0.3: an attribute type may say **`"periodic": true`** and a **`"unit"`** -- values with a period, `oaap.data.twin` 0.12 §2.20; and **`"personal": true`** -- left out of exports, `oaap.data.twin` 0.11 §2.18; RFC-0120, 2026-11-22; 0.2: **semantic IDs** -- the optional `semantic_id` of a type, its three forms and the one setting for the domain of OAAP's own, §2.9, RFC-0085 amendment A2, 2026-11-14)
 - **Maturity:** draft
 - **Based on:** RFC-0031 (data model & digital twin — Model is Schritt
   2 of the build order: Store, Model, Twin, reference apps, browser,
@@ -93,6 +93,11 @@ data_model:                    # types this package ships, origin app:<id>
     - key: VatId
       title: VAT-ID
       value_type: text            # text | int | decimal | bool | date | datetime | enum | ref
+    - key: co2e
+      value_type: decimal
+      periodic: true              # 0.3: values with a period side by side (oaap.data.twin §2.20)
+      unit: t CO2e                # 0.3: the unit a period keeps when it names none
+      # personal: true            # 0.3: personal data -- left out of exports (twin §2.18)
   group_types:
     - key: crm.core               # dotted: <namespace>.<name>
       on: Customer
@@ -226,6 +231,7 @@ the attribute/relation/activity keys it lists). Comparing old to new:
 | a group type gains an attribute/relation/activity in its list | additive |
 | a type, or a member of a group type's list, is **removed** | destructive |
 | `value_type` (attribute type) or `kind` changes | destructive |
+| `periodic` (attribute type) is turned on or off (0.3) | destructive |
 | `from`/`to` (relation type) changes | destructive |
 
 **0.1 refuses every destructive change unconditionally.** RFC-0031 §4
@@ -485,3 +491,12 @@ und bekommen das jetzt als klare Meldung, statt eines stillen
 anlegen, nie einen bestehenden ändern — die additive/destruktive
 Versionsprüfung bleibt allein `appctl.py`s Sache, auf dem Host, von
 Hand. Einzelheiten in [`oaap.data.twin.md`](oaap.data.twin.md) 0.2.
+
+## Deutsche Zusammenfassung (0.3 — Werte mit Zeitraum)
+
+Ein Attributtyp kann drei Angaben mehr tragen: `"periodic": true` (das Attribut hält Werte mit
+Zeitraum nebeneinander, z. B. eine Kennzahl je Jahr), `"unit"` (die Einheit, die ein Zeitraum
+übernimmt, wenn er keine eigene nennt) und `"personal": true` (persönliche Daten, sie fehlen in
+Exporten). Ein Mandant setzt die ersten beiden im Portal beim Anlegen eines Gruppentyps (Spalte
+„Werte mit Zeitraum“, Einheit). Alle drei sind additiv: wer sie nicht kennt, liest den Typ wie
+bisher.
