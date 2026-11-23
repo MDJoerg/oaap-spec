@@ -5,7 +5,9 @@
   2026-11-21 (§9):** app `recherche` 0.1.0, recipe `recherche`, `oaap.ai.assistants` 0.7,
   chat 0.18.0, mcp-gateway 0.35.0, reference 0.1.335 (`OAAP_EGRESS`). **Stage 2 built and
   measured 2026-11-21 (§10):** mcp-gateway 0.36.0 (`oaap.ai.mcp-gateway` 0.32), manifest 0.19
-  `mcp_content` (`oaap.apps.runtime` 0.2.77, reference 0.1.337), `recherche` 0.1.1. The facts in §1 were read the same day in the
+  `mcp_content` (`oaap.apps.runtime` 0.2.77, reference 0.1.337), `recherche` 0.1.1. **Amended
+  2026-11-23 (§2.2a, §11):** `recherche` 0.3.0 brings its own SearXNG as a second service;
+  the destination `search` becomes optional (Jörg: option A). The facts in §1 were read the same day in the
   specs, in `chat` (`loop.py`, `app.py`), `lib/assistants`, `ai-gateway`
   (`relay.py`) and in Anthropic's documentation of its OpenAI-compatible
   endpoint.
@@ -132,6 +134,29 @@ config:
   - key: RECHERCHE_ALLOW        # optional list of domains web_fetch may read
   - key: RECHERCHE_DENY         # domains web_fetch never reads
 ```
+
+### 2.2a Its own search service (amended 2026-11-23, `recherche` 0.3.0)
+
+Found when `recherche` was to go onto an internet-facing node (oaapx01): a destination may
+not point at a container (`'<name>' has no dot`, `oaap.net.destinations` -- a way around the
+gateway's login and the tenant's isolation), and a SearXNG with a published port on such a
+node is open to everybody. So the app brings its search service with it:
+
+- a second service `search` in the same instance (RFC-0016 multi-container): the official
+  SearXNG image pinned by tag and digest, settings baked in (JSON on, no limiter, no image
+  proxy), the secret made by the service itself at its first start and kept in its cache
+  storage (never in the app's configuration -- measured: a generated config value stays empty
+  on a command-line install, and SearXNG then ran with an empty key), **no route and
+  no published port** -- only the service `web` of the same instance asks it, at
+  `http://search:8080` (`RECHERCHE_SEARCH_URL`, `off` switches it off);
+- **order:** a bound destination `search` wins (a rented or other search, the operator's
+  explicit choice); otherwise the own service; **never** the own service in a closed tenant
+  (`OAAP_EGRESS=closed`) -- it could not get out, and a search that quietly finds nothing is a
+  worse answer than a sentence. There the destination stays the only way (RFC-0068);
+- one search service per instance answers the stage-0 finding (§8) that public engines
+  throttle an address asking for many;
+- the recipe `recherche` 1.2.0 asks nothing about the search any more; `fremde_suche` (bool)
+  with `search_url` binds another one, from the command line.
 
 ### 2.2 Tools
 
@@ -475,7 +500,24 @@ operator's page clicked in a browser. **Found next to it:** the schema
 the mcp-gateway's manifest fails the schema check; 0.18 is now in the version list, the
 three fields are still missing.
 
+## 11. Own search service — built and measured (2026-11-23)
+
+See §2.2a. `recherche` 0.3.0 (service `search`, `search.backend()`), recipe `recherche` 1.2.0
+(also the reference's copy). Tests: `recherche` green (own service, order, closed tenant,
+switched off, not reachable); reference `test_assistant_templates`,
+`test_assistant_templates_page`, `test_assistant_import`, `test_mcp_untrusted` green in the
+Linux runner. Measurement on oaap-test and installation in tenant `pxx` on oaapx01: see
+`CURRENT_STATE.md`.
+
 ## Deutsche Zusammenfassung
+
+**Nachtrag 23.11. (Variante A):** `recherche` 0.3.0 bringt einen eigenen Suchdienst mit: ein
+SearXNG als zweiten Dienst in derselben Instanz, ohne Route und ohne offenen Port. Anlass:
+Eine Destination darf nicht auf einen Container zeigen, und ein SearXNG mit offenem Port auf
+einem Internet-Server stünde jedem offen. Eine gebundene Destination `search` gilt weiter vor
+dem eigenen Dienst; im geschlossenen Mandanten wird der eigene nie gefragt. Das Rezept fragt
+nicht mehr nach einer Adresse.
+
 
 **Worum es geht:** Jörgs Frage vom 20.11.: Können wir Assistenten bauen,
 die keinen MCP haben, aber im Internet recherchieren, mit den Regeln in
