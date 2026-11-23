@@ -274,9 +274,16 @@ Report: `oaap-lab/wiki-probe/stufe1-paket.md`.
   (`would_make` → `made` → `present`, 403 without the key), and an update
   with data (13 migrations, content, rights, roles, accounts and image
   identical; every role gained BookStack's new `revision-view-all`).
-- **Not yet measured:** the platform's own backup and restore of this app
-  as a pair; a tenant build from a profile with `app.setup`; sign-out;
-  arm64.
+- **Backup and restore (measured 2026-11-23, `oaap-lab/wiki-probe/sicherung`):**
+  a tenant archive taken with the containers stopped (RFC-0029 D3) carries
+  `db`, `files` and `oaap` together; after a change made later, the
+  instance's storage was unpacked back from the archive. MariaDB started
+  with no crash recovery, and page, image, rights and realm sign-in were
+  exactly as at backup time; the later book was gone. Finding: the platform
+  has no command that restores ONE instance (only a whole node, or a tenant
+  onto an empty node), so this was done by hand.
+- **Not yet measured:** a tenant build from a profile with `app.setup`;
+  sign-out; arm64.
 
 ## 8. Decisions for Jörg
 
@@ -383,9 +390,10 @@ Gateway gemessen: eine einzige Anmeldung; Rollen aus Gruppen, ein Wechsel
 wirkt bei der nächsten Anmeldung; geschützte Bilder; ein Update mit Daten
 über 13 Migrationen ohne Verlust. Für die Einrichtungstür war eine
 Korrektur der Plattform nötig: Türen gehen jetzt zum Dienst der passenden
-Route statt immer zum ersten Dienst. Noch nicht gemessen sind die
-Plattform-Sicherung dieser App, ein Aufbau aus einem Profil, das Abmelden
-und arm64.
+Route statt immer zum ersten Dienst. Sicherung und Rücksicherung gingen am
+23.11. heil durch; nur gibt es keinen Befehl, der eine einzelne Instanz
+zurückspielt. Noch nicht gemessen sind ein Aufbau aus einem Profil, das
+Abmelden und arm64.
 
 **Entscheidungen D1–D10**, am 20.11.2026 von Jörg wie empfohlen
 angenommen: BookStack zuerst
