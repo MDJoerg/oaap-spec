@@ -496,8 +496,28 @@ person, the connector's verb and who refused.
 3. **The home folder is `/arbeitsraum`** without the underscore of D13:
    BookStack's addresses drop it. Changeable per workspace, as D13 says.
 
-**Not yet:** the chat (§5: picker, starting in a workspace, the state and log
-handed to the model, `/stand`, `/abschluss`, `/ablegen`); Forgejo and PCH
+**The chat (built and measured the same evening, chat 0.22.0, mcp-gateway
+0.45.2, `oaap.work.workspaces` 0.2 §5):** a workspace next to the assistant, a
+dialog to make one, the context of §5.2 handed to the model before the first
+message, `/stand`, `/abschluss` (private: no log), `/ablegen` written by the
+chat with consent and the note which other stores were read. Measured with the
+tenant's real model through the chat's public page, 19/19: the picker as the
+person, bert cannot start in anna's workspace, a green conversation in a yellow
+workspace is refused before it starts (K13 live), the context carries state and
+mounts, reading needs no consent, `/stand` proposes and writes after consent,
+`/ablegen` files the conversation in the home chapter as anna. Findings of this
+part: (4) the door's tools lacked their effect class, so the chat would have
+asked consent for every read — `_meta` added; (5) a model names sections with
+their `#` — accepted; (6) a green conversation in a yellow workspace failed only
+at the first tool call — the chat now refuses at the start and opens the light
+dialog; (7) two filings of the same title on one day collided — the name
+carries the time; (8) the tenant's small model, given consent, replaced the open
+items instead of moving one — the consent is where a person catches that; (9)
+on 23.11. the router answered `chat.vuebung…` from outside with a foreign
+self-signed certificate (`schnetnch.duckdns.org`) while the edge in the LAN
+served the right one — measured through the edge, not investigated further.
+
+**Not yet:** Forgejo and PCH
 connectors; team and tenant workspaces (stage 3); revisions of a workspace (it
 counts `rev`, keeps no history); `stores_may` beyond "read" for BookStack; the
 origin of a write beyond the author (BookStack keeps no summary through its
@@ -651,8 +671,21 @@ den der Chat nehmen wird –: 27 von 27. Zwei Befunde: BookStacks Rollen fehlt
 das Recht „Zugriff auf System-API“ (die Einrichtungstür setzt es jetzt, der
 Konnektor sagt es in Worten), und ein Fehler im Gateway hielt eine
 Transaktion offen (behoben, mit Test). Der Heimatordner heißt `/arbeitsraum`
-ohne Unterstrich, weil BookStack ihn aus Adressen streicht. Offen: der Chat,
-Forgejo und PCH, Team-Arbeitsräume.
+ohne Unterstrich, weil BookStack ihn aus Adressen streicht.
+
+**Der Chat (am selben Abend, chat 0.22.0).** Arbeitsraum neben dem Assistenten
+wählen, Arbeitsräume im Chat anlegen, vor der ersten Antwort Stand und
+Protokoll fürs Modell, `/stand`, `/abschluss` (privat ohne Protokoll),
+`/ablegen` schreibt der Chat selbst nach Zustimmung. Mit dem echten Modell des
+Mandanten gemessen: 19 von 19. Befunde: den Werkzeugen der Tür fehlte die
+Wirkungsklasse (sonst Rückfrage bei jedem Lesen), das Modell schreibt
+Abschnitte mit `##`, ein grünes Gespräch im gelben Arbeitsraum scheiterte erst
+beim ersten Werkzeug (jetzt vorher, mit Ampel-Dialog), zweimal dasselbe Thema
+am Tag ablegen kollidierte (jetzt mit Uhrzeit). Das kleine Modell hat bei
+`/stand` offene Punkte überschrieben statt verschoben – die Zustimmung ist die
+Stelle, an der man das sieht. Von außen lieferte der Router für den Chat ein
+fremdes Zertifikat; gemessen über den Edge im LAN. Offen: Forgejo und PCH,
+Team-Arbeitsräume.
 
 **Entschieden (23.11.):** D1–D7, deine sieben Antworten, und D8–D17 wie
 empfohlen („Wie empfohlen“):
