@@ -1,10 +1,12 @@
 # RFC-0110: A Wiki in the Tenant — a Contract for Knowledge, BookStack as the First Connector
 
 - **Status:** **Accepted (2026-11-20)** — D1–D10 as recommended (Jörg:
-  "Ja, wie empfohlen"). Nothing built. The
+  "Ja, wie empfohlen"). The
   facts in §1 were measured the same day on oaap-test with a loose probe
   (`oaap-lab/wiki-probe`), not with a package and not through the OAAP
-  gateway.
+  gateway. **Stage 1 built and measured (2026-11-23):** the package
+  `oaap-apps/apps/bookstack` 0.1.0 behind the gateway on oaap-test,
+  including an update with data 25.02.5 → 26.09.3 (§7.1).
 - **Date:** 2026-11-20
 - **Authors:** Jörg (the goal, 2026-11-20: a wiki in the platform, for
   people to document their organisation, for the AI to keep knowledge
@@ -237,6 +239,45 @@ things carry it, none of them is the build service alone:
 The index service (I-65) can start after stage 3; it needs `changes`,
 `read` and `may`.
 
+### 7.1 Stage 1 as built (2026-11-23)
+
+Report: `oaap-lab/wiki-probe/stufe1-paket.md`.
+
+- **Three services:** `wiki` (linuxserver image `version-v26.09.3` with an
+  entry step), `db` (MariaDB 11.4.13 with an entry step), `oaap` (the
+  adapter's seed, Python). The seed already does what §3 assigns to the
+  adapter at start: it checks the columns of `api_tokens` and `users`,
+  creates its own BookStack account (Admin role) through the API with a
+  one-off token for the default account, keeps a short-lived token for
+  itself in memory only and removes its earlier ones. It also replaces
+  BookStack's known default password and writes `OAAP_WIKI_ADMIN_GROUP`
+  as the Admin role's `external_auth_id`.
+- **Setup door:** one kind, `role` — `{"id": "<group path>", "title",
+  "like": "viewer"|"editor"}`; a role that exists for the group is
+  `present`, never changed; `remove` only while unchanged.
+- **Sign-in:** the gateway lets `user`, `keyuser`, `admin` through
+  (Jörg, 2026-11-23); BookStack signs in through the realm with
+  `AUTH_AUTO_INITIATE`, one password prompt in total. Groups arrive with
+  the full path (`/wiki-redaktion`), and that is the role's
+  `external_auth_id`.
+- **The setup door needed a platform fix:** the internal listener sent
+  `/s/<name>` to the primary service; doors now go to the service of the
+  longest covering route (`oaap.apps.runtime` §2.12, `appctl.door_target`).
+- **Package lessons** (all measured, all in the entry steps): the CLI
+  install generates no secrets; MariaDB set itself up without a password
+  when it had none at the first start; a container recreated in the middle
+  of MariaDB's first setup left it without the user; the image migrates
+  once after the port opens, not after the login works.
+- **Measured behind the gateway:** sign-in, roles from groups and their
+  removal at the next sign-in, protected images (anonymous → realm login
+  at the gateway; a person without the page → 404), the setup door
+  (`would_make` → `made` → `present`, 403 without the key), and an update
+  with data (13 migrations, content, rights, roles, accounts and image
+  identical; every role gained BookStack's new `revision-view-all`).
+- **Not yet measured:** the platform's own backup and restore of this app
+  as a pair; a tenant build from a profile with `app.setup`; sign-out;
+  arm64.
+
 ## 8. Decisions for Jörg
 
 **Decided 2026-11-20: D1–D10 as recommended.**
@@ -332,6 +373,19 @@ geschützten Dateien, Update-Hinweisen; (2) Adapter lesend, als
 MCP-Quelle, der Chat findet und zitiert Wiki-Seiten; (3) Schreiben und
 Änderungsereignisse; (4) Spec 0.1; (5) ein zweites Produkt als Probe
 auf den Vertrag.
+
+**Stufe 1 gebaut und gemessen (23.11.2026, §7.1):** Paket `bookstack`
+0.1.0 mit drei Containern: BookStack, MariaDB und ein kleiner Dienst
+`oaap` als Keim des Adapters. Er richtet die Rollen über die
+Einrichtungstür ein, legt sein eigenes Konto an, ersetzt das bekannte
+Standardkennwort und setzt die Admin-Gruppe. Auf oaap-test hinter dem
+Gateway gemessen: eine einzige Anmeldung; Rollen aus Gruppen, ein Wechsel
+wirkt bei der nächsten Anmeldung; geschützte Bilder; ein Update mit Daten
+über 13 Migrationen ohne Verlust. Für die Einrichtungstür war eine
+Korrektur der Plattform nötig: Türen gehen jetzt zum Dienst der passenden
+Route statt immer zum ersten Dienst. Noch nicht gemessen sind die
+Plattform-Sicherung dieser App, ein Aufbau aus einem Profil, das Abmelden
+und arm64.
 
 **Entscheidungen D1–D10**, am 20.11.2026 von Jörg wie empfohlen
 angenommen: BookStack zuerst

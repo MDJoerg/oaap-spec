@@ -835,6 +835,14 @@ a UI addressing `db`, a bridge addressing `prosody` — keep working).
 - Non-web services (a database, an internal broker port) carry no route
   and are never published — the same rule as a single-service app, now
   meaningful.
+- **The app's own doors** on the internal listener — setup (`/s/`, 2.39),
+  links (`/l/`, 2.33) and assets (`/a/`, 2.34) — go to the service of the
+  **longest route that covers the declared path**, the service the gateway
+  would send a person to; a path no route covers goes to the primary
+  service. The health doors (`/h/`, `/r/`) stay at the primary service.
+  (Measured with `bookstack`, RFC-0110 stage 1, 2026-11-23: its setup door
+  `/oaap/setup` lies under the route `/oaap` of a helper service, and the
+  internal listener had sent it to the primary service.)
 
 The manifest otherwise is unaffected: a single-service app declares
 routes and services exactly as before. Isolation, gateway bridging,
