@@ -1768,6 +1768,13 @@ files the operator must edit", rule 4), so the runtime must offer it:
   generated earlier or typed by hand — is never replaced, because
   replacing a push key voids every subscription of the instance. Note,
   audit trail and deploy log name the key and the kind, never the value.
+- **The command line generates only when asked** (BookStack stage 1,
+  2026-11-23): `oaap app config set <instance> <KEY> --generate` follows the
+  tenant build's rule -- the kind the manifest declares, only into an
+  empty key, never replacing; it takes no value and no `--append`. The
+  value is printed nowhere and the deploy log names the key and the kind.
+  `oaap app install` does not generate; after an install it names every
+  empty key that declares `generate:`, each with that command.
 - **Auditable without leaking.** Every change is recorded with
   instance, key name, actor and time — values never appear in any log.
 
