@@ -1,7 +1,7 @@
 # oaap.core.identity — Identity & Roles
 
 - **ID:** `oaap.core.identity`
-- **Version:** 0.6.11 (the people's key door `POST /internal/keys` refuses keys for the platform's machine principals (`instance:`, `remote:`, `client:`) and any scope with a dot (a platform capability such as `oaap.twin`, `oaap.authz.admin`, `oaap.cases.submit:<x>`), for every actor, audited as `key.refused`; one exception, RFC-0120 D2: a `client:` principal of the actor's own tenant with scope exactly `oaap.twin` and role `user` only -- until then a tenant_admin could mint them and act as an app on the twin, the authorization door or the cases door; the platform mints such keys itself, RFC-0120 §1.6, reference 0.1.346). 0.6.10 (the via check of 2.13 also for `oaap.ai.client:<chat>`, RFC-0104 stage 2). 0.6.9 (a seventh header **`X-OAAP-User-Idp`**: the person's binding at the tenant's OIDC identity provider as `<issuer> <sub>`, empty without one -- on the one list, so stripped, copied and kept out of the log like the others, 2.14, reference 0.1.307, RFC-0095 D2). 0.6.8 (**every node has its assertion key**: made at installation, on every update and at every app installation, never replaced -- 2.11, reference 0.1.302). 0.6.7 (**the discovery door**: `/verify?discover=` passes a gateway's catalog requests to a source without a person, the body parsed as JSON, the app seeing the gateway's machine principal -- 2.12.1, RFC-0073 §16, reference 0.1.300). 0.6.6 (**a client-sent `X-OAAP-Groups`/`X-OAAP-Tenant` is
+- **Version:** 0.6.12 (bootstrap: **machine principals do not count** as users -- an app installed before the first administrator no longer locks the first-run wizard, and the first administrator is added next to the machine principals, never written over them, §2.5; found on a laptop demo node, I-68; reference 0.1.356). 0.6.11 (the people's key door `POST /internal/keys` refuses keys for the platform's machine principals (`instance:`, `remote:`, `client:`) and any scope with a dot (a platform capability such as `oaap.twin`, `oaap.authz.admin`, `oaap.cases.submit:<x>`), for every actor, audited as `key.refused`; one exception, RFC-0120 D2: a `client:` principal of the actor's own tenant with scope exactly `oaap.twin` and role `user` only -- until then a tenant_admin could mint them and act as an app on the twin, the authorization door or the cases door; the platform mints such keys itself, RFC-0120 §1.6, reference 0.1.346). 0.6.10 (the via check of 2.13 also for `oaap.ai.client:<chat>`, RFC-0104 stage 2). 0.6.9 (a seventh header **`X-OAAP-User-Idp`**: the person's binding at the tenant's OIDC identity provider as `<issuer> <sub>`, empty without one -- on the one list, so stripped, copied and kept out of the log like the others, 2.14, reference 0.1.307, RFC-0095 D2). 0.6.8 (**every node has its assertion key**: made at installation, on every update and at every app installation, never replaced -- 2.11, reference 0.1.302). 0.6.7 (**the discovery door**: `/verify?discover=` passes a gateway's catalog requests to a source without a person, the body parsed as JSON, the app seeing the gateway's machine principal -- 2.12.1, RFC-0073 §16, reference 0.1.300). 0.6.6 (**a client-sent `X-OAAP-Groups`/`X-OAAP-Tenant` is
   stripped** on every app route, 2.6; 0.6.5: **a bearer that is not ours** goes to the app when a
   session comes with it, 2.3, I-44; 0.6.4: **a chat acts as the person**, procedure A,
   RFC-0074 stage 1: `/verify?via=`, 2.13, and procedure I takes the
@@ -393,6 +393,16 @@ roles `server_admin`, `admin` and `keyuser` (RFC-0008: the common
 single-operator install needs no further role setup — this user can
 both administer the platform and use every app's own admin functions,
 and can designate further server admins).
+
+"No user yet" means **no person** yet (0.6.12). Machine principals
+(RFC-0027: an app instance, a remote node, a client) never sign in with
+a password, so they do not count: an app installed before the first
+administrator -- a profile run on a fresh node -- brings its machine
+principal along, and the wizard still opens. The first administrator is
+**added** to the user store next to them; the store is never written
+over, since a lost machine principal cuts its app off. A setup that
+names an existing machine principal is refused. A record without a kind
+(written before RFC-0027) counts as a person.
 
 **Identity backfill (0.4.0, RFC-0040 §7).** On every start, a record
 without an `id` receives one, written once. This is deliberately
@@ -1278,6 +1288,16 @@ auf `/me` Aufrufe mit eigener Anmeldung (Claude Code) als die der Person.
 Sie steht auf der einen Liste und wird deshalb überall entfernt, kopiert
 und aus dem Protokoll gehalten wie die anderen, auch in der festen
 Caddyfile.
+
+## Deutsche Zusammenfassung (0.6.12 — Maschinenkonten sperren die Einrichtung nicht)
+
+„Noch kein Benutzer“ heißt jetzt „noch keine **Person**“. Wird auf einem
+frischen Knoten eine App vor dem ersten Admin installiert (etwa durch ein
+Profil), bringt sie ihr Maschinenkonto mit (RFC-0027). Bisher lehnte die
+Ersteinrichtung dann mit 409 ab, und niemand kam je in den Knoten. Jetzt
+zählen Maschinenkonten nicht mit, und der erste Admin wird **neben** ihnen
+angelegt -- die Benutzerdatei wird nicht mehr überschrieben, sonst wäre
+die App abgeschnitten. Gefunden beim Demo-Spike am 23.11.2026 (I-68).
 
 ## Deutsche Zusammenfassung (0.6.11 — keine Plattform-Schlüssel über die Tür für Personen)
 

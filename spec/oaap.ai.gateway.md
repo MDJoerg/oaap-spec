@@ -1,7 +1,7 @@
 # oaap.ai.gateway — AI Supply Behind One Keyed Endpoint
 
 - **ID:** `oaap.ai.gateway`
-- **Version:** 0.9.0 (the setup door **lists** its items: `GET ?kind=supplier|alias|client` without `id` -- names and lights, an alias with the worst (`light`) and the best (`light_min`) light its targets reach, a grant with its ceiling; never credentials or a supplier's address, §7a, RFC-0109 §4; reference ai-gateway 0.12.0). 0.8.0 (**model properties and client templates**: four properties per alias -- `tools`, `vision`, `context`, `output` -- set or unknown, never guessed, the weakest of the alias's targets, each with its origin; in `/v1/models` as `oaap_*` and through the setup door; client files built from templates as data, the key only as a placeholder, and a self-service path `/v1/oaap/client-config`, §3.1, §3.2, §9 tests 15-17, RFC-0106; additive, reference ai-gateway 0.11.0). 0.7.0 (**built from a profile**: a setup door with the kinds `supplier`, `alias` and `client`, and a grant of kind `client` that authorises a chat of the platform through the via door without a key, the person never recorded; a grant may carry the context `tenant`, §7a, RFC-0104; additive, reference ai-gateway 0.10.1). 0.6.0 (a request may carry `X-OAAP-Light`, an additional ceiling for that request only that can tighten the key's ceiling and never loosen it -- the light a person chose for a chat conversation, RFC-0101; usage rows record it, §7, §9 test 12; additive. 0.5.3: a key that names aliases it can never reach under its ceiling is still issued, but the operator is told so, at issuing, at changing the aliases and in the key list, §7 (L14); a supplier that is always stripped of sampling parameters stores that, §4.2 (L15) -- reference app 0.8.1). 0.5.2 (the aliases of a valid key **may be changed** without a
+- **Version:** 0.9.1 (a `supplier` of the setup door is `ready` when its test answers 2xx -- with the stored credentials, or without any when the supplier asks for none, a local Ollama; before, a supplier without credentials was never ready and a profile run waited forever, §7a, I-68; reference ai-gateway 0.14.0). 0.9.0 (the setup door **lists** its items: `GET ?kind=supplier|alias|client` without `id` -- names and lights, an alias with the worst (`light`) and the best (`light_min`) light its targets reach, a grant with its ceiling; never credentials or a supplier's address, §7a, RFC-0109 §4; reference ai-gateway 0.12.0). 0.8.0 (**model properties and client templates**: four properties per alias -- `tools`, `vision`, `context`, `output` -- set or unknown, never guessed, the weakest of the alias's targets, each with its origin; in `/v1/models` as `oaap_*` and through the setup door; client files built from templates as data, the key only as a placeholder, and a self-service path `/v1/oaap/client-config`, §3.1, §3.2, §9 tests 15-17, RFC-0106; additive, reference ai-gateway 0.11.0). 0.7.0 (**built from a profile**: a setup door with the kinds `supplier`, `alias` and `client`, and a grant of kind `client` that authorises a chat of the platform through the via door without a key, the person never recorded; a grant may carry the context `tenant`, §7a, RFC-0104; additive, reference ai-gateway 0.10.1). 0.6.0 (a request may carry `X-OAAP-Light`, an additional ceiling for that request only that can tighten the key's ceiling and never loosen it -- the light a person chose for a chat conversation, RFC-0101; usage rows record it, §7, §9 test 12; additive. 0.5.3: a key that names aliases it can never reach under its ceiling is still issued, but the operator is told so, at issuing, at changing the aliases and in the key list, §7 (L14); a supplier that is always stripped of sampling parameters stores that, §4.2 (L15) -- reference app 0.8.1). 0.5.2 (the aliases of a valid key **may be changed** without a
   new secret, audited old → new, effective from the next request; light and
   release stay as issued, §2; additive. 0.5.1: a supplier may be marked to receive no sampling
   parameters, §4.2; additive. 0.5: keys may expire; keys issued for a cohort of a
@@ -482,7 +482,7 @@ manifest (`oaap.apps.runtime` 2.39).
 
 | Kind | Item | `ready` |
 |---|---|---|
-| `supplier` | `{"id", "url": "https://…/v1", "light"}`, **without** credentials | credentials stored **and** the supplier's test answers 2xx now |
+| `supplier` | `{"id", "url": "https://…/v1", "light"}`, **without** credentials | the supplier's test answers 2xx now -- with the stored credentials, or without any when the supplier asks for none (a local Ollama, 0.9.1); whether it needs some only the supplier says: one that wants them answers 401 and stays not ready, the note naming the missing credentials |
 | `alias` | `{"id": <model name>, "supplier", "model"}`, exactly one target | the name routes |
 | `client` | `{"id": <chat instance key>, "aliases": [...], "ceiling", "personal_data", "tenant"?}`, the grant below | not revoked, not expired |
 
@@ -837,3 +837,14 @@ und der besten Ampel ihrer Ziele, `supplier` die Bezugsquellen mit Ampel
 (ohne Adresse, ohne Zugangsdaten), `client` die gültigen Freigaben mit
 ihrer Obergrenze. Ein Rezept wählt daraus den Modellnamen und schlägt die
 Ampel vor (RFC-0109).
+
+## Deutsche Zusammenfassung (0.9.1 — eine Bezugsquelle ohne Zugangsdaten kann bereit sein)
+
+Die Einrichtungstür meldet eine Bezugsquelle als `ready`, wenn ihr
+Verbindungstest jetzt mit 2xx antwortet -- mit den gespeicherten
+Zugangsdaten oder ganz ohne, wenn die Quelle keine verlangt (ein lokales
+Ollama). Bisher war eine Quelle ohne Zugangsdaten nie bereit, und ein
+Profil mit lokalem Ollama hing beim Aufbau am Haltepunkt (Demo-Spike
+23.11.2026, I-68). Ob eine Quelle Zugangsdaten braucht, sagt nur sie
+selbst: Ein Anbieter, der welche will, antwortet 401, bleibt nicht bereit,
+und der Hinweis nennt die fehlenden Zugangsdaten.

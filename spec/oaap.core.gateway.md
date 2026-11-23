@@ -1,7 +1,7 @@
 # oaap.core.gateway — HTTP Gateway (outline)
 
 - **ID:** `oaap.core.gateway`
-- **Version:** 0.2.23 (0.2.23: **login on every route** per instance -- an operator switch on the instance record makes every route of that instance ask identity, the manifest's `public` ones included, RFC-0092; 0.2.22: 0.2.22: **secret files refused** on every instance site -- see that section, RFC-0084)
+- **Version:** 0.2.24 (0.2.24: a kernel **without** MPTCP has no switch to set, and a container runtime refuses a container that asks for one -- there the gateway starts without it, since nothing on that kernel can negotiate MPTCP, section „Plain TCP listeners“; found on WSL2, I-68; reference 0.1.356). 0.2.23 (0.2.23: **login on every route** per instance -- an operator switch on the instance record makes every route of that instance ask identity, the manifest's `public` ones included, RFC-0092; 0.2.22: 0.2.22: **secret files refused** on every instance site -- see that section, RFC-0084)
 - **Maturity:** draft (outline — full specification to follow;
   an edge route covers **two** levels below its host (`*.*.host`), so a
   tenant's instances behind an edge are forwarded, 2026-11-07 after a
@@ -591,7 +591,7 @@ site — the public `/platform/*` static block never carries it.
   destination listener: 0600, its own file, regenerated with the other
   generated sites and carried forward by an update step.
 
-## Plain TCP listeners (0.2.18)
+## Plain TCP listeners (0.2.18, 0.2.24)
 
 The gateway's public listeners MUST NOT negotiate **Multipath TCP**
 unless an operator asks for it on purpose. Nobody decided that they
@@ -609,6 +609,14 @@ default is the kind of surface this spec exists to name.
   listener kept negotiating). A gateway that already runs therefore
   needs one recreate, which `oaap update` does on the version that
   introduces this.
+- A kernel **without** MPTCP (WSL2 under Docker Desktop, found
+  2026-11-23, I-68) has no such switch, and the container runtime
+  refuses to start a container that asks for it -- the gateway would
+  never come up. There is nothing to switch off on such a kernel, so the
+  gateway starts without the switch (0.2.24). The node decides at
+  install and at every update from the kernel itself (the reference
+  looks for `/proc/sys/net/mptcp/enabled`); on a kernel that has MPTCP
+  the definition stays exactly as above.
 - The node **measures** it rather than trusting the definition:
   `gateway_mptcp` in the care state (`oaap.core.updates` 2.6, fleet
   document `host`), read from the gateway's namespace. A node whose
@@ -939,6 +947,16 @@ Datenbank-Abzügen ab, bevor die App sie sieht — mit 404, ob die Datei
 existiert oder nicht; gezählt wie die Bremse. Ausnahmen je Instanz und
 Kategorie nur durch den server_admin, mit Grund. Dazu prüft der Knoten
 täglich selbst, ob eine Instanz solche Dateien herausgibt.
+
+## Deutsche Zusammenfassung (v0.2.24 — Kernel ohne MPTCP)
+
+Ein Kernel **ohne** MPTCP (WSL2 unter Docker Desktop, gefunden beim
+Demo-Spike am 23.11.2026, I-68) kennt den Schalter `net.mptcp.enabled`
+nicht, und Docker startet einen Container, der ihn verlangt, gar nicht
+erst -- das Gateway käme nie hoch. Auf so einem Kernel gibt es nichts
+abzuschalten; das Gateway startet dort ohne den Schalter. Der Knoten
+entscheidet bei der Installation und bei jedem Update am Kernel selbst.
+Auf jedem Kernel mit MPTCP bleibt die Definition genau wie bisher.
 
 ## Deutsche Zusammenfassung (v0.2.18 — die Listener des Gateways sind reines TCP)
 
