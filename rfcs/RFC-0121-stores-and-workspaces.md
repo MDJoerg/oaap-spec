@@ -1,7 +1,10 @@
 # RFC-0121: Stores and Workspaces — a Person's Context for the Chat
 
 - **Status:** **Accepted (2026-11-23)** — D1–D7 decided in conversation
-  (§12.1), D8–D17 as recommended (Jörg: "Wie empfohlen"). Nothing built, nothing measured for this RFC. The
+  (§12.1), D8–D17 as recommended (Jörg: "Wie empfohlen"). **Stage 1 without the chat built and measured
+  2026-11-23 (§10.1)**: `oaap.work.stores` 0.1, `oaap.work.workspaces` 0.1, the store door in mcp-gateway
+  0.45.0, the BookStack connector in `bookstack` 0.2.0 — 27/27 on `oaap-test`. Stage 1 starts with
+  BookStack instead of Forgejo/PCH (Jörg, 2026-11-23, D15 reordered). The
   facts in §1 were read the same day in the specs, the manifests of `chat`
   0.21.0 and `projekt` 0.3.2, RFC-0067, RFC-0103, RFC-0110, RFC-0111, RFC-0114
   and the PCH repository (`pch-root`, 0.8.0); what was **not** read or measured
@@ -448,6 +451,59 @@ a shared state and log — does not depend on it.
 | **4 — guests** | delegation into one folder (§7). |
 | **5 — later** | group chat (§9), `changes` as events, the index service (I-65), a connector for SAP (the AIPC file store). |
 
+### 10.1 Stage 1 as built (2026-11-23, without the chat)
+
+Jörg, 2026-11-23: build the store concept first, the chat's part last; start
+with **BookStack** (its package exists since RFC-0110 stage 1 and has the
+`act_as` door), Forgejo second after its stage 0. Built:
+
+- **`oaap.work.stores` 0.1** — the verbs as MCP tools with fixed names
+  (`stores_about` … `stores_create_store`), identity `assertion` only.
+- **The BookStack connector** in the package's service `oaap` (`/oaap/mcp`,
+  its own route for all roles, `mcp:` in the manifest): the person from
+  `X-OAAP-User-Idp` (the realm's `sub` = the account's `external_auth_id`), a
+  token for that account minted on demand, kept in memory. Book = store,
+  chapter = folder, page = document; shelves are areas.
+- **`oaap.work.workspaces` 0.1 in the MCP gateway** — store systems (page
+  *Ablagen*, `app.py store …`), private workspaces at `/mcp/_workspaces` (the
+  chat's road), the store door with `X-OAAP-Workspace`, switched per key or
+  profile (D10), the editing layer once above the connector (§3.4).
+
+Measured through the assistant probe (procedure A, the road the chat will
+take), `oaap-lab/arbeitsraum-messung`, 27/27: the picker shows anna one book
+and bert two (K2); a source home and a workspace with an address are refused
+(K7, K12); without the header no store tools, with it eight added to the view;
+a source cannot be written and the connector is not called (K3); `..` and an
+unmounted alias do not resolve (K4); anna creates the home chapter and the
+state document, reads a section, appends to it — the rest unchanged — with
+revision check (K5) and shrink guard (K6); search finds the new text; bert
+reads the board's minutes, BookStack refuses him writing in the handbook, and
+anna's workspace does not open for him. Usage rows name procedure A, the
+person, the connector's verb and who refused.
+
+**Findings that changed the build:**
+
+1. **BookStack's roles lack "access system API"** (`access-api`) — only the
+   admin role has it. Without it every call as the person is a `403` that
+   looked like "not visible". The setup door now adds it to the roles it makes
+   (it opens the road, no book or page); the connector names the missing right
+   in words; for existing roles the wiki's administration sets it (measured:
+   carl, as wiki admin, for Redaktion and Vorstand).
+2. **An open transaction in the gateway.** `books.log` writes without a commit;
+   logging after the commit left a transaction open and locked the database for
+   every other writer (the CLI hung with "database is locked"). Logging now
+   precedes the commit; a test checks that no transaction stays open.
+3. **The home folder is `/arbeitsraum`** without the underscore of D13:
+   BookStack's addresses drop it. Changeable per workspace, as D13 says.
+
+**Not yet:** the chat (§5: picker, starting in a workspace, the state and log
+handed to the model, `/stand`, `/abschluss`, `/ablegen`); Forgejo and PCH
+connectors; team and tenant workspaces (stage 3); revisions of a workspace (it
+counts `rev`, keeps no history); `stores_may` beyond "read" for BookStack; the
+origin of a write beyond the author (BookStack keeps no summary through its
+API); a light test on the node (unit-tested only: the probe sends no
+`X-OAAP-Light`).
+
 ## 11. Conformance (described; every line gets a bait)
 
 1. A call to a connector without an assertion is refused.
@@ -582,6 +638,21 @@ Binär- und Office-Dateien, ein Suchindex über alle Ablagen.
 BDT-API) · 1 Vertrag, Gateway, Forgejo und PCH, privater Arbeitsraum · 2
 BookStack, BDT, GitHub · 3 Team- und Mandanten-Arbeitsräume, Vorlagen · 4 Gäste
 · 5 Gruppenchat, Ereignisse, Index, SAP.
+
+**Stufe 1 ohne Chat gebaut und gemessen (23.11., §10.1).** Auf dein Wort zuerst
+mit BookStack statt Forgejo/PCH (D15 umgedreht), der Chat zuletzt. Gebaut:
+der Vertrag `oaap.work.stores` 0.1 mit festen Werkzeugnamen, der
+BookStack-Konnektor im Paket (findet das Konto der Person an ihrer
+Realm-Kennung und arbeitet mit einem kurzen Token dieses Kontos), im
+MCP-Gateway Ablagesysteme, private Arbeitsräume und die Ablagetür mit
+`alias:/pfad`, Rollenprüfung, Abschnitten, Revision und Kürzungsschutz
+(`oaap.work.workspaces` 0.1). Gemessen über die Assistenten-Sonde – den Weg,
+den der Chat nehmen wird –: 27 von 27. Zwei Befunde: BookStacks Rollen fehlt
+das Recht „Zugriff auf System-API“ (die Einrichtungstür setzt es jetzt, der
+Konnektor sagt es in Worten), und ein Fehler im Gateway hielt eine
+Transaktion offen (behoben, mit Test). Der Heimatordner heißt `/arbeitsraum`
+ohne Unterstrich, weil BookStack ihn aus Adressen streicht. Offen: der Chat,
+Forgejo und PCH, Team-Arbeitsräume.
 
 **Entschieden (23.11.):** D1–D7, deine sieben Antworten, und D8–D17 wie
 empfohlen („Wie empfohlen“):
