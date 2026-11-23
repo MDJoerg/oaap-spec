@@ -1,8 +1,10 @@
 # RFC-0122: Guest Stacks — Compose Stacks the Admin Keeps, Portainer as the First Adapter
 
 - **Status:** **Accepted (2026-11-23)** — D1–D4 decided in conversation
-  (§13.1), D5–D16 as recommended (Jörg: "Wie empfohlen", §13.2). Nothing built,
-  nothing measured. The OAAP facts in §1.1
+  (§13.1), D5–D16 as recommended (Jörg: "Wie empfohlen", §13.2). Nothing built.
+  **Stage 0 measured on oaap-test the same day** (§1.5): what was open in §1.4
+  is answered there, except Nginx Proxy Manager (stage 4) and a restore onto a
+  machine that never had the stack. The OAAP facts in §1.1
   were read the same day in the specs; the Portainer facts in §1.2 come from a
   web search the same day, partly from third-party guides, and from memory —
   each line says which. What was **not** read or measured is listed in §1.4.
@@ -120,7 +122,34 @@ Portainer along as an app, or work with one that is already there (D2).
 - Nginx Proxy Manager: where its proxy hosts lie and how they can be read
   (stage 4).
 
-Stage 0 (§11) answers these before anything is built on them.
+Stage 0 (§11) answers these before anything is built on them. Answered in
+§1.5, except Nginx Proxy Manager.
+
+### 1.5 Measured in stage 0 (2026-11-23, oaap-test)
+
+Portainer CE **2.45.4** (tag `lts`, image of 2026-11-18) as a container bound
+to `127.0.0.1` only, its own data volume, the Docker socket. Three stacks
+through the API: `a` (Postgres 16 with a named volume, nginx with an absolute
+bind mount, no published port), `b` (nginx, a service of the same name `web`),
+and one from Git (`docker/awesome-compose`, `gitea-postgres`). A stand-in for
+the gateway (`caddy:2`, the image of the reference gateway) instead of the
+platform's own gateway, which was not touched. Keycloak: the instance on
+oaap-test, a realm of its own. Everything was removed afterwards.
+
+| # | Measured | Follows |
+|---|---|---|
+| M1 | The first admin needs a **setup token** that Portainer prints into its start log (`X-Setup-Token`, or start with `--no-setup-token`). Without it `POST /api/users/admin/init` is 403. A fresh Portainer has **no environment**; the local Docker one is made through the API (`EndpointCreationType=1`). | The package `portainer` reads the token from the log once, or starts with an admin password file from the instance's secrets (not measured), and creates the local environment itself. |
+| M2 | An access token (`X-API-Key`) reads `/api/endpoints`, `/api/stacks`, `/api/stacks/<id>/file`; a wrong key gets 401 (P1 confirmed). | The adapter needs nothing else for reading. |
+| M3 | `GET /api/stacks` returns the stack variables **with their values** — a database password included. | A "reading" token reads secrets. It is stored as a secret file (RFC-0084), and what the adapter reads is treated as secret (§6.2, §10.7) — also in the twin, which gets variable **names** only. |
+| M4 | A Portainer stack lives under `/data/compose/<id>/` **inside Portainer's volume** (P3 confirmed); Docker's label `com.docker.compose.project.working_dir` names that path, which does not exist on the host. A Git stack carries URL, reference, file path and the commit it was deployed from; its file is readable like any other. | The definition of a Portainer stack comes from the Portainer adapter only. The `docker` adapter alone finds and backs up its volumes, but not its file. |
+| M5 | Portainer's containers, volumes and networks carry `com.docker.compose.project`, `…service`, `…volume`, `…network` (P5 confirmed; `com.docker.compose.version` is empty). OAAP's core services carry the project `oaap`. **OAAP's app containers carry no label at all** — only the name prefix `oaap-app-`. On oaap-test the measurement found three foreign Compose projects and five single containers left from earlier measurements (F4). | Telling OAAP's own from foreign must not rest on a name prefix anyone can choose: stage 1 gives OAAP's app containers a label of their own (an instance key), and discovery reads it. |
+| M6 | A container joined to a stack's network (`docker network connect`) reaches a service there **without a published port**. But a **service name is ambiguous** across the networks a container is in: with stacks `a` and `b` both having `web`, the name answered from `a`, and after `a` was stopped and started, **from `b`**. The container name (`<project>-<service>-<n>`) answered right every time, also across a recreate. | §5.2 rule 1 holds, with a new rule: an exposure is routed to the **container name** in the stack's own network, never to a bare service name. Otherwise a name of tenant A can serve a stack of tenant B (§10.9). |
+| M7 | A redeploy through the API (`PUT /api/stacks/<id>`) answers 200 **before** the containers are recreated (seconds later). The recreated container keeps its name; the stand-in kept working. | §5.2 rule 2 holds by container name. Nobody reads "redeployed" from the API's answer. |
+| M8 | Portainer's **stop** removes the stack's containers and its network — except while another container is joined to the network: then the network stays, and Portainer says nothing. **Start** made the containers again in the kept network; the stand-in worked without being joined again. When the network was removed, start made a **new** one (new id). | The gateway joins again whenever a stack's network is new — the same healing the platform already does for instance networks (RFC-0016) — and an exposure answers 503 meanwhile. |
+| M9 | Portainer's **delete** of a stack answers 204; the named volume stays; the network stays silently while the stand-in is joined to it. | When a stack is **gone** (§4), OAAP leaves the network with its gateway and removes nothing else. |
+| M10 | Mode **`stop`** done with Docker, not Portainer: containers stopped in reverse dependency order, the volume copied through a helper container (5,000 rows, 7 MB), the bind path copied, started in order — **6.3 s** down, all rows there. Portainer kept showing the stack as active throughout. **Restore** after stack, volume and bind path were removed: volume made and filled first, path back, then the stack deployed again from the saved definition through the API — 5,000 of 5,000 rows, the page served; Compose took the pre-made volume without a label and without complaint. | §6.3 and §6.4 hold. The order of a restore is: volumes and paths first, then the admin deploys. The restore onto a machine that never had the stack is still to measure before stage 2 is done. |
+| M11 | **OAuth in CE works** against our Keycloak: authorization code, user info, `preferred_username` as identifier. CE has **no group or team mapping** (no such field in its settings). With automatic user provisioning **on**, every user of the realm gets in (as a standard user); with it **off**, only users made beforehand in Portainer — and under OAuth those must be made **without a password** (with one: refused). Portainer's local admin keeps working with OAuth on. The client secret is not returned by the settings. | P2 confirmed for CE. "Limited to one group" (§5.3) is: provisioning off, persons made beforehand by the admin; a group check on the Keycloak side was not measured. The local admin stays the way in when the provider is down. |
+| M12 | The Git stack, a popular example, uses `postgres:alpine` without a version — today **Postgres 19**, whose data layout no longer fits the example's volume path: the database restarted in a loop (nine times in a few minutes), and the stack also published port 3000 on all interfaces. | Exactly the cases of §3 ("offen am Gateway vorbei") and §7 ("restarting in a loop", "image age") — met in the first stack taken from the internet. |
 
 ## 2. Words
 
@@ -354,7 +383,7 @@ over in one planned step with a way back.
 
 | Stage | Content |
 |---|---|
-| **0 — measure** | On `oaap-test`: Portainer CE as a container behind the gateway; OAuth against Keycloak, limited to one group; the API with a token (stacks, file, variables, a stack from Git); a stack with Postgres in a private network reached by the gateway without a published port, across a redeploy; telling OAAP's containers from foreign ones; `stop` — copy — start, and a restore on an empty node; an absolute bind mount. |
+| **0 — measure** (done 2026-11-23, §1.5; open: a restore onto a machine that never had the stack, Nginx Proxy Manager) | On `oaap-test`: Portainer CE as a container behind the gateway; OAuth against Keycloak, limited to one group; the API with a token (stacks, file, variables, a stack from Git); a stack with Postgres in a private network reached by the gateway without a published port, across a redeploy; telling OAAP's containers from foreign ones; `stop` — copy — start, and a restore on an empty node; an absolute bind mount. |
 | **1 — adopt and expose** | profile, discovery, found stacks, adoption with one tenant, exposures with `tenant` / `roles` / `public`, tiles with the mark; the package `portainer`; adapter `docker` and `portainer` (reading). |
 | **2 — backup** | the backup set, modes `stop` and `live`, the archive and the tenant archive, restore as in §6.4. |
 | **3 — the eye** | twin objects, state and notifications, image age, vulnerability scan, the weekly report. |
@@ -487,11 +516,41 @@ App-Vertrag, kein Update durch die Plattform, nur die Tür davor.
 - **Später (§9):** unsere Compose-Vorlagen im Portainer-Format, private Netze
   über den Fernzugang (RFC-0044), lesende KI-Werkzeuge.
 
-**Nicht gelesen, nicht gemessen (§1.4).** Ob die OAuth-Anmeldung von
-Portainer CE mit unserem Keycloak geht; was die API zu Datei und Variablen
-liefert; wie das Gateway einen Dienst im privaten Netz erreicht und ob das
-ein erneutes Ausrollen übersteht; Anhalten–Kopieren–Starten mit einer
-Datenbank und ein Restore auf leerem Knoten. Das ist Stufe 0.
+**Stufe 0 gemessen (23.11., oaap-test, §1.5).** Portainer CE 2.45.4, drei
+Stacks über die API, ein Stellvertreter fürs Gateway, Keycloak in einem
+eigenen Realm; danach alles entfernt. Die wichtigsten Befunde:
+- **Ein Lese-Token liest Geheimnisse:** `GET /api/stacks` liefert die
+  Variablen eines Stacks mit Werten (auch ein DB-Passwort). Token und
+  Gelesenes werden wie Geheimnisse behandelt; in den Zwilling nur Namen.
+- **Dienstnamen sind mehrdeutig:** Hängt das Gateway in zwei Stack-Netzen mit
+  je einem Dienst `web`, antwortete nach Stop/Start der *andere* Stack. Eine
+  Freigabe zielt darum immer auf den Containernamen
+  (`<projekt>-<dienst>-<n>`), nie auf den Dienstnamen — sonst bedient ein Name
+  von Mandant A einen Stack von Mandant B.
+- **Eigene Container erkennen:** Die App-Container von OAAP tragen heute gar
+  kein Label, nur das Namenspräfix `oaap-app-`. Stufe 1 gibt ihnen ein eigenes
+  Label. Auf oaap-test fanden sich drei fremde Compose-Projekte und fünf
+  einzelne Reste früherer Messungen.
+- **Netz:** Stop in Portainer entfernt Container und Netz (außer das Gateway
+  hängt noch drin, dann bleibt es still stehen); ein neues Netz muss das
+  Gateway neu betreten. Löschen in Portainer lässt Volumes stehen.
+  Redeploy über die API antwortet, bevor die Container neu sind.
+- **Sicherung `stop` und Restore gehen:** 6,3 s Ausfall, 5000 von 5000
+  Zeilen nach Löschen von Stack, Volume und Pfad und neuem Ausrollen aus der
+  gesicherten Definition. Portainer merkt das Anhalten durch Docker nicht.
+- **OAuth in CE geht** gegen unser Keycloak, aber **ohne Gruppen**: Mit
+  automatischem Anlegen kommt jeder des Realms hinein; ohne nur Personen, die
+  der Admin vorher in Portainer angelegt hat (ohne Passwort). Der lokale
+  Admin bleibt als Notzugang.
+- **Erster Admin braucht ein Einrichtungs-Token** aus dem Startprotokoll —
+  wie bei OAAP selbst; das Paket muss das übernehmen.
+- Das erste Beispiel aus dem Netz (gitea-postgres) lief mit
+  `postgres:alpine` = Postgres 19 in eine Neustartschleife und öffnete Port
+  3000 nach außen — genau die Fälle, die das Auge melden soll.
+
+**Noch offen aus Stufe 0:** Restore auf einer Maschine, die den Stack nie
+hatte; Nginx Proxy Manager (Stufe 4); eine Gruppenprüfung auf der
+Keycloak-Seite.
 
 **Stufen (§11).** 0 Messen auf oaap-test · 1 Übernehmen und Freigeben, Paket
 `portainer` · 2 Sicherung · 3 Beobachtung · 4 vorhandene Installation und
