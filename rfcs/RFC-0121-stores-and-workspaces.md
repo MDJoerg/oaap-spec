@@ -6,7 +6,9 @@
   0.45.0, the BookStack connector in `bookstack` 0.2.0 — 27/27 on `oaap-test`. Stage 1 starts with
   BookStack instead of Forgejo/PCH (Jörg, 2026-11-23, D15 reordered). **Stage 0
   for Forgejo measured 2026-11-24 (§10.2)**: acting as the person works through
-  the realm's subject and `Sudo`; nothing built on it yet. The
+  the realm's subject and `Sudo`. **The Forgejo connector built and measured
+  2026-11-24 (§10.3)**: a second service `oaap` in the Forgejo package
+  (Jörg: "Im Forgejo-Paket"). The
   facts in §1 were read the same day in the specs, the manifests of `chat`
   0.21.0 and `projekt` 0.3.2, RFC-0067, RFC-0103, RFC-0110, RFC-0111, RFC-0114
   and the PCH repository (`pch-root`, 0.8.0); what was **not** read or measured
@@ -564,8 +566,62 @@ measurements ran through the edge with an administrator's token. Script:
   requests), origin as a commit trailer (Z5).
 - `search`: names and paths in stage 1 (Z7); full text needs the connector to
   read files itself or a later index (I-65). The chat says so on the mount.
-- Where it runs is open: a small app of its own (§3.5 as written), or a
-  second service in the Forgejo package so the key never leaves the instance.
+- ~~Where it runs is open~~ — decided 2026-11-24 (Jörg: "Im Forgejo-Paket"): a
+  second service in the Forgejo package, so the key never leaves the instance
+  (§10.3). §3.5 "a small app of its own" no longer holds for Forgejo.
+
+### 10.3 The Forgejo connector as built (2026-11-24)
+
+The store package `forgejo` gets a second service **`oaap`** (Python, standard
+library only) next to Forgejo (`web`):
+
+- **The key.** With `OAAP_FORGEJO_CONNECTOR_SECRET` (generated, `config set
+  --generate`) the entry step of `web` creates or updates the technical account
+  `oaap-konnektor` (administrator, for the connector only). The service `oaap`
+  signs in once with it (basic auth), deletes the account's earlier keys and
+  takes a new one with exactly the three scopes of Z2; it lives only in memory.
+  Without the secret there is no account and no connector; Forgejo runs as
+  before. Side effect, intended: Forgejo has an administrator, so the realm
+  source no longer waits for one made by hand, and the first person through the
+  realm does not become one (RFC-0091 finding of 2026-11-18).
+- **As the person.** `X-OAAP-User-Idp` → issuer checked against the instance's
+  realm → `GET /admin/users?login_name=<sub>` (only accounts of a sign-in source,
+  exactly one, not locked; cached 10 minutes) → every content call with
+  `Sudo: <login>`. The connector never calls content without a person.
+- **The door** `/oaap/mcp` under a route for `admin, keyuser, user`; manifest
+  0.23 with `mcp: {path}` and `mcp_store: {kind: forgejo}`, so the portal offers
+  "Für den Chat freigeben". The eleven tools of §3.1 with the fixed names.
+- **Mapping.** Area = account or organisation; store = `owner/repository`;
+  folder = directory of any depth; document = file. `read` gives text (UTF-8, at
+  most 512 KB), the blob `sha` as revision, `markdown` for `.md`, else `text`,
+  the last commit's author. `write` needs the read revision for an existing file
+  and carries the trailer `Via: oaap.work.stores (MCP-Gateway der Plattform)`.
+  `folder` writes a `README.md` (git keeps no empty folder). `search` looks in
+  every path and in the text of at most 25 text files of up to 64 KB, Markdown
+  first, and says so in `note` (Z7). `may` answers from Forgejo's own
+  `permissions` (pull/push) — the first connector that answers all four.
+  `create_store` makes a private repository of the person or an organisation.
+
+**Measured on `oaap-test`** (`ws375-git`, persons anna375/bert375 through the
+realm and the portal, the door through the platform's gateway): 11 tools; each
+person sees only their repositories; bert reading anna's private file is
+refused; read, write with the read revision, a second write with the old one
+refused with the current revision, folder, search with a text hit, `may` per
+person, a new repository with its README as entry. Without a sign-in and with
+forged identity headers the gateway answers 303 to the login. "Für den Chat
+freigeben" as the tenant's `tenant_admin` made the store system `git`
+(forgejo) with its door in the tenant's MCP gateway. Unit tests 23/23.
+
+**Findings:** (10) with `REQUIRE_SIGNIN_VIEW` the API answers 403 without a
+sign-in — the service waits on `/api/healthz`; (11) the version
+`15.0.11+oaap.1` is valid semver but not a valid Docker tag (`+`); (12) the
+platform left the old single container running beside the two new ones on the
+same storage — fixed in runtime 0.2.88 (reference 0.1.376), measured with a
+fresh instance going from the old package to the new one.
+
+**Not measured:** a workspace in the chat with a Forgejo mount (the tenant
+`ws375` has no chat); the update of an existing production Forgejo
+(`projects.joomp.de`) — it needs reference 0.1.376 on that node first (finding 12).
 
 ## 11. Conformance (described; every line gets a bait)
 
@@ -745,6 +801,23 @@ der Forgejo-API nicht, nur auf den Webseiten (Z7). Wer sich nie in Forgejo
 angemeldet hat, hat noch kein Konto (Z9). Offen für dich: wo der Konnektor
 läuft (eigene kleine App oder zweiter Dienst im Forgejo-Paket, damit der
 Schlüssel die Instanz nie verlässt).
+
+**Forgejo-Konnektor gebaut (24.11., §10.3):** Du hast „Im Forgejo-Paket“
+entschieden. Das Paket bekommt einen zweiten Dienst `oaap`. Mit einem
+erzeugten Geheimnis legt Forgejo beim Start das technische Konto
+`oaap-konnektor` an; der Dienst holt sich damit einen Schlüssel mit genau
+drei Rechten, nur im Speicher. Jeder Aufruf läuft per `Sudo` als die Person,
+nie als das Konto. Ohne Geheimnis kein Konnektor, Forgejo läuft wie bisher.
+Gemessen auf oaap-test: elf Werkzeuge, jede Person sieht nur ihre Repos,
+fremde private Dateien bleiben zu, Schreiben nur mit gelesener Revision,
+Ordner (mit README.md), Suche in Namen und im Text von bis zu 25 Dateien,
+„Was darf ich hier“ direkt aus Forgejo, Repo anlegen. „Für den Chat
+freigeben“ trägt Forgejo als Ablagesystem im MCP-Gateway ein. **Befund mit
+Folgen:** Beim Update von einem auf zwei Dienste ließ die Plattform den
+alten Container weiterlaufen – zwei Forgejo auf derselben Datenbank. Behoben
+in Plattform 0.1.376; vorher darf das neue Paket auf keinen Knoten mit
+Forgejo im Betrieb (projects.joomp.de). Nicht gemessen: Arbeitsraum im Chat
+mit Forgejo.
 
 **Entschieden (23.11.):** D1–D7, deine sieben Antworten, und D8–D17 wie
 empfohlen („Wie empfohlen“):
