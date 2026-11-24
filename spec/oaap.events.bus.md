@@ -1,8 +1,12 @@
 # oaap.events.bus — Events Between Apps, in the CloudEvents Envelope
 
 - **ID:** `oaap.events.bus`
-- **Version:** 0.2
-- **Maturity:** draft (0.2: **addressed events** — `oaapto`, the
+- **Version:** 0.3
+- **Maturity:** draft (0.3: **the push into the app** —
+  `events.endpoint`, one signed CloudEvent per POST through the gateway's
+  internal listener, in store order, at least once, backoff, stop after 10
+  failures, `oaap events resume`; the service `bus`, §2.10; reference
+  0.1.363, measured on `oaap-test` 2026-11-24, RFC-0127 §1.10. 0.2: **addressed events** — `oaapto`, the
   platform's own record of who submitted to which case inbox, delivery to
   the named instance only, without a grant, §2.9; the events door serves
   only `/` and `/feed`; reference 0.1.362, measured on `oaap-test`
@@ -77,6 +81,7 @@ events:
     - type: app.vorgaenge.case.statuschanged.v1    # required
       why: "Rückmeldung zum eigenen Auftrag"        # required, ≤ 200
       addressed_only: true                         # 0.2
+  endpoint: /oaap/events                           # 0.3: where the push arrives
 ```
 
 - **Type names**: `<namespace>.<entity>.<what>.v<major>`, lower case
@@ -99,6 +104,10 @@ events:
   an error. A node that knows 0.21 checks the block at install: first its
   shape, then each schema file of the unpacked package; a fault refuses the
   install with the path and the reason.
+
+- **`endpoint`** (0.3) is a path of the app (letters, digits, `. _ ~ - /`, no
+  query), allowed only when the app subscribes to something. Without it the
+  app pulls the feed.
 
 ### 2.3 The schema subset
 
@@ -178,6 +187,9 @@ Two tables in the tenant's twin schema, created by the twin's schema step
   A revocation sets the two columns; a new grant is a new row.
 - **`bus_relations`** (0.2) — the record of §2.9: `publisher`, `addressee`,
   `via` (`cases`), `first_at`, `last_at`, `times`; one row per pair.
+- **`bus_deliveries`** (0.3) — the push's cursor per instance: `last_seq`,
+  `failures`, `next_at`, `stopped_at`, `last_error`, `delivered`,
+  `last_ok_at`; bookkeeping, the one bus table that is updated.
 
 ### 2.7 Grants (RFC-0127 D4)
 
@@ -243,6 +255,37 @@ In 0.2 the only source of the record is the case door — that is the pair
 RFC-0127 D12 begins with. A further source (identity for an invitation,
 RFC-0126) adds a `via`, not a new rule.
 
+### 2.10 The push into the app (0.3, RFC-0127 D6)
+
+An instance whose manifest declares `events.endpoint` receives what its feed
+would return (§2.8 — granted and addressed, the same rule in one function),
+pushed:
+
+- **Who pushes.** The platform service `bus` (the twin's image, its own
+  command, like the webhook service). It reads the catalogue, the signing
+  secrets (`events-secrets.json`, root only, written from the instances'
+  environment with every registry save) and each tenant's store.
+- **How it reaches the app.** Through the gateway's internal listener, which
+  answers the platform network only: `POST gateway:8099/e/<instance>` is
+  rewritten to the declared path and passed to the service that owns it,
+  inside the instance's own network; no identity header passes. Never the
+  internet, never a public name.
+- **What arrives.** One event per POST, the CloudEvents HTTP structured
+  binding (`Content-Type: application/cloudevents+json`, the event of §2.1 as
+  the body), `X-OAAP-Event-Id`, and `X-OAAP-Signature: t=<unix>,v1=<hex>`,
+  HMAC-SHA256 with the instance's **`OAAP_EVENTS_SECRET`** over `<t>.<body>`
+  (the twin webhooks' form). The app recomputes it, refuses a stale `t` (5
+  minutes), answers 2xx, and is idempotent by `id`. `OAAP_EVENTS_SECRET` is
+  minted once at install for an app with an endpoint (a reserved name).
+- **Order and repetition.** Strictly in store order per instance (so also per
+  subject); the cursor moves only after a 2xx, the next event waits. A failure
+  waits 2^n seconds, at most an hour; after 10 failures in a row the push
+  **stops** with the reason (`oaap events list` shows it) until
+  `oaap events resume <instance>` (audited `events.resume`); the feed still
+  serves meanwhile.
+- **Where it starts.** An instance the service sees for the first time starts
+  at the store's newest event; the past is the feed's.
+
 ## 3. Configuration
 
 None in 0.1 beyond the manifest. The limits (64 KB, 120 a minute, 30 days)
@@ -262,6 +305,9 @@ needs another value.
    site; a person's session, another instance's key and an unscoped key are
    refused by identity before the twin service sees the request.
 6. An app cannot publish on the broker (`oaap.events.broker` 0.5).
+8. (0.3) The push reaches an app only through the internal listener, which
+   refuses callers outside the platform network; every push is signed with
+   the instance's own secret.
 7. An addressed event reaches only the instance it names, and only an
    instance the platform's record shows submitting to the publisher; tested
    with no record, another tenant's instance and an instance that does not
@@ -284,6 +330,11 @@ needs another value.
    (inbox, instance), a second case counts it. An addressed event without
    a record is `403`; with one it reaches the addressee's feed without a
    grant and no other feed, a grant on another type included.
+7. (0.3) With an endpoint and a grant, three published events arrive at the
+   app once each, in order, signed; an addressed one too. The app answering
+   503, and its container stopped, hold the cursor; afterwards the events
+   arrive once, in order. Ten failures stop the push; `resume` delivers what
+   waited. An app container calling `gateway:8099/e/<other>` gets 403.
 
 ## 6. Dependencies
 
@@ -329,3 +380,17 @@ Einreicher“ (eine Zeile je Paar, danach wird gezählt). Die Einreichung selbst
 läuft unverändert weiter, auch wenn die Aufzeichnung einmal nicht klappt.
 Adressierte Ereignisse brauchen keine Freigabe und erscheinen nur im Feed des
 Empfängers. Die Ereignistür lässt jetzt nur noch `/` und `/feed` durch.
+
+## Deutsche Zusammenfassung (Nachtrag v0.3)
+
+0.3 bringt den Push. Eine App nennt im Manifest einen Pfad
+(`events.endpoint`). Ein neuer Plattformdienst `bus` schickt ihr dann jedes
+freigegebene oder an sie adressierte Ereignis einzeln dorthin, im
+CloudEvents-Format und mit einem Geheimnis signiert, das nur die Instanz
+kennt (`OAAP_EVENTS_SECRET`). Der Weg führt über den internen Listener des
+Gateways, also nur innerhalb des Knotens, nie übers Internet. Die Reihenfolge
+bleibt erhalten, und jedes Ereignis kommt mindestens einmal an. Antwortet die
+App nicht, wartet der Dienst immer länger (höchstens eine Stunde). Nach zehn
+Fehlschlägen in Folge hält er an, bis jemand `oaap events resume` aufruft.
+Der Feed bleibt daneben bestehen, zum Nachholen und für Apps, die lieber
+selbst abholen.

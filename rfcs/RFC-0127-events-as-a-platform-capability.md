@@ -8,7 +8,8 @@
   envelope, manifest block, door, store, grants, feed) built** the same day,
   reference 0.1.361, `oaap.events.bus` 0.1, measured (§1.8). **Step 1.3
   (addressed events, the case door's record) built**, reference 0.1.362,
-  `oaap.events.bus` 0.2, measured (§1.9). The facts in §1 were read the same day in
+  `oaap.events.bus` 0.2, measured (§1.9). **Step 1.4 (the push into the app)
+  built**, reference 0.1.363, `oaap.events.bus` 0.3, measured (§1.10). The facts in §1 were read the same day in
   `oaap.events.broker` 0.4, RFC-0032, RFC-0120 §4.7/§13, `oaap.data.twin`,
   `oaap.core.notifications` 0.13, `oaap.apps.runtime` (§2.24/§2.25), reference
   0.1.359 (`services/twin/relay.py`, `twin/hooks.py`, `twin_inbound.py`,
@@ -327,6 +328,28 @@ rows were deleted; the two probe cases stay in `default`'s inbox (V-2026-0026,
 door's second `forward_auth` then fails, and with it the case — a coupling
 this option brings; the twin service is a core service of the same node).
 
+### 1.10 Built and measured 2026-11-24: the push, step 1.4
+
+Reference 0.1.363, `oaap.events.bus` 0.3, runtime 0.2.85. The new service
+`bus` came up with the staging; the internal listener carried `/e/<name>`
+for both probe instances (`evprobe` 0.3.0 with `events.endpoint:
+/oaap/events`, an endpoint that checks the signature and can be told to
+answer 503) in the tenant `default`. Both removed afterwards; the
+catalogue, the secrets file and the listener's routes are empty again.
+
+| # | What | Result |
+|---|---|---|
+| P1 | Grant, then `evp-a` publishes three events | at `evp-b` after **1.9 s**, each once, in order, signature valid, `application/cloudevents+json`, no `X-OAAP-User`; `evp-a` receives nothing |
+| P2 | An addressed event (record by hand, as in §1.9) | pushed to `evp-b` |
+| P3 | `evp-b` answers 503; two events published | cursor held, failures 2, waiting with backoff; after the 503 ends both arrive once, in order |
+| P4 | `evp-b`'s container stopped; one event | `HTTP 502` from the gateway, cursor held; after the start it arrives once |
+| P5 | Failure counter **set to 9 by hand**, one more failure | the push stops (`STOPPED (HTTP 503)` in `oaap events list`); an event published meanwhile waits; `oaap events resume` delivers both, in order |
+| P6 | An app container posts to `gateway:8099/e/evp-b` | `403` — only the platform network passes |
+
+Not measured: ten real failures in a row (with the backoff about 17
+minutes), the retention run of the service, an app with several services
+(the route uses `door_target`, measured for the setup door).
+
 ## 2. Words
 
 | Word | Meaning |
@@ -547,7 +570,7 @@ committed on its own:
 | 1.1 | D11, the ACL fix — **built, 0.1.360, §1.7** | `oaap.events.broker` 0.5 |
 | 1.2 | Envelope, manifest block `events` (manifest 0.21), catalogue on the node, the key and the door, the store, grants on the command line, the feed — **built, 0.1.361, §1.8** | `oaap.events.bus` 0.1 |
 | 1.3 | Addressed events (`oaapto`) with the platform's own record of who may address whom — **built, 0.1.362, §1.9** (the case door records the pair) | `oaap.events.bus` 0.2 |
-| 1.4 | The push into the app (CloudEvents HTTP, HMAC, in order per subject, backoff, stop, resume) | `oaap.events.bus` 0.3 |
+| 1.4 | The push into the app (CloudEvents HTTP, HMAC, in order per subject, backoff, stop, resume) — **built, 0.1.363, §1.10** | `oaap.events.bus` 0.3 |
 | 1.5 | `vorgaenge` publishes the status of cases opened from a backend; the probe app as the opener receives it once, and after a stop through the feed | `vorgaenge` |
 | 1.6 | The relay without the sleep while a backlog remains (§1.6) | `oaap.data.twin` |
 
@@ -661,6 +684,14 @@ ohne Freigabe beim Empfänger an und nirgends sonst. Weil `vorgaenge` erst in
 Schritt 1.5 veröffentlicht, wurde für diesen Teil ein Eintrag von Hand
 gesetzt. Der Preis dieser Variante: Ist der Zwilling-Dienst ausgefallen,
 scheitert auch die Einreichung eines Vorgangs.
+
+**Push in die App gebaut am 24.11. (§1.10, Schritt 1.4):** Eine App nennt
+einen Pfad, und der neue Dienst `bus` schickt ihr jedes Ereignis einzeln und
+signiert dorthin, nur innerhalb des Knotens. Gemessen: drei Ereignisse waren
+nach 1,9 Sekunden da, jedes einmal, in Reihenfolge, mit gültiger Signatur.
+Antwortete die App mit Fehler oder war sie gestoppt, wurde gewartet und danach
+vollständig nachgeliefert. Nach zehn Fehlschlägen hält der Push an, und
+`resume` liefert nach. Eine App kommt an den internen Weg nicht heran.
 
 **Entschieden (24.11., D1–D12 einzeln, jeweils wie empfohlen):**
 - **Ein Umschlag:** CloudEvents 1.0 als JSON. `source`, `id` und Zeit setzt
