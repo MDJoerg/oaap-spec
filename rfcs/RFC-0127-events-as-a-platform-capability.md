@@ -457,6 +457,27 @@ object type — the twin door's matter, not this step's. Not measured: a
 merge, a period, a node without the broker profile (no relay, no copy, by
 design).
 
+### 1.15 Built and measured 2026-11-24: the portal page, step 2.3
+
+Reference 0.1.369, `oaap.events.bus` 0.6 §2.13. Measured on `oaap-test`
+through the edge, signed in at `inv1`'s place as a throwaway local
+`tenant_admin` (first sign-in with a new password), and a throwaway `user`:
+
+| # | What | Result |
+|---|---|---|
+| S1 | the side bar; the page | "Ereignisse" shown; `inv1-pp-a` with its push (14 delivered), the three identity types "von identity an sie adressiert, keine Freigabe nötig", the four twin types "wartet auf Freigabe" with "Freigeben"; the seven platform types |
+| S2 | grant `created`; grant `changed` limited to object `a1`'s URN | both "Freigegeben."; the page shows "freigegeben von ev23-ta" |
+| S3 | grant an identity type; grant for an instance that does not exist | refused with the sentence ("addressed … no grant needed"; "not an instance of this tenant") |
+| S4 | the client writes `a1`, `a3`, creates `b1` | delivered: `a1` changed (renamed, group.written), `b1` created — not `a3`, not `b1`'s own group write: the prefix holds |
+| S5 | revoke both, revoke again, resume | "Widerrufen." twice, then "holds no grant"; "Zustellung fortgesetzt." |
+| S6 | the `user` | no entry in the side bar, page and action `403` |
+| S7 | the tenant audit log; `bus_grants` | five lines `events.grant|revoke|resume` by `ev23-ta` with the prefix; rows granted and revoked by `ev23-ta` |
+
+**Found and fixed:** the audit line of a resume carried a type the request
+happened to send; now the instance only. `test_cli_reference` had failed
+since step 1.2 (`events` was in `bin/oaap`, not in `appctl.WRAPPER_GROUPS`);
+fixed with this step.
+
 ## 2. Words
 
 | Word | Meaning |
@@ -687,7 +708,7 @@ committed on its own:
 |---|---|---|
 | 2.1 | identity's events to the inviting app (activated = first login, locked, unlocked; by app · admin), the platform catalogue, the twin's internal door, identity's outbox — **built, 0.1.367, §1.13** | `oaap.events.bus` 0.4 |
 | 2.2 | The twin in the envelope (D10): the relay writes `oaap.twin.object.*.v1` into the store, only while granted — **built, 0.1.368, §1.14** | `oaap.events.bus` 0.5, `oaap.data.twin` 0.16.2 |
-| 2.3 | The portal page "Ereignisse": the tenant's catalogue, grants and push state | `oaap.events.bus` |
+| 2.3 | The portal page "Ereignisse": the tenant's catalogue, grants and push state — **built, 0.1.369, §1.15** | `oaap.events.bus` 0.6 |
 | 2.4 | AsyncAPI 3.1 export per app and per tenant (D9) | `oaap.events.bus` |
 
 ### Security requirements (proposed)
@@ -868,7 +889,9 @@ Entsperren, durch die App oder den Admin. Dabei fiel auf, dass ein Mandant
 ohne Zwilling keinen Ereignisspeicher hatte. Jetzt legt ihn die Installation
 einer App mit `events`-Block an. Schritt 2.2 (0.1.368, §1.14): Der Zwilling
 schreibt seine Änderungen als `oaap.twin.object.*` in den Speicher, aber nur,
-solange eine App dafür freigegeben ist. Stufe 3 bringt
+solange eine App dafür freigegeben ist. Schritt 2.3 (0.1.369, §1.15): Die
+Portalseite „Ereignisse“ zeigt den Katalog des Mandanten, und die Admins
+geben dort frei, widerrufen und setzen Zustellungen fort, alles im Protokoll. Stufe 3 bringt
 Webhooks und Empfänger im CloudEvents-Format.
 
 **Nicht gelesen, nicht gemessen:** alles in §1.4, dazu der AsyncAPI-Text und die

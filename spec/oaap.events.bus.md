@@ -1,8 +1,13 @@
 # oaap.events.bus — Events Between Apps, in the CloudEvents Envelope
 
 - **ID:** `oaap.events.bus`
-- **Version:** 0.5
-- **Maturity:** draft (0.5: **the twin in the envelope** (RFC-0127 D10)
+- **Version:** 0.6
+- **Maturity:** draft (0.6: **the portal page "Ereignisse"** — the
+  tenant's administrators see every instance's declared types, the state of
+  each subscription and the push, the platform's types, and grant (with an
+  optional subject prefix), revoke and resume there; audited in the tenant
+  log, §2.13; reference 0.1.369, measured on `oaap-test` 2026-11-24,
+  RFC-0127 §1.15. 0.5: **the twin in the envelope** (RFC-0127 D10)
   — `oaap.twin.object.created|changed|retired|statuschanged.v1`, audience
   `tenant`, granted by the tenant admin, copied by the relay only while
   granted, §2.12; reference 0.1.368, measured on `oaap-test` 2026-11-24,
@@ -381,6 +386,31 @@ not know is refused at install.
   then on; the twin's own change feed (`/twin/v1`) remains the way to read
   the past. Without the broker profile there is no relay and so no copy.
 
+### 2.13 The portal page "Ereignisse" (0.6, RFC-0127 §6.1)
+
+- **Who.** A `tenant_admin` of the tenant, and a `server_admin` in the
+  tenant's context; the entry sits in the side bar under "Katalog & Daten".
+  Anyone else gets `403`, and the entry is not shown.
+- **What it shows.** Per instance with an `events` block: its app and
+  version; the push (not started · delivered n · failures with the last
+  error · stopped, with "Fortsetzen"); every subscribed type with its *why*
+  and state — *granted* (by whom, the subject prefix), *addressed* (the
+  app's own addressed type, no grant), *addressed by `<publisher>`* (an
+  addressed platform type, no grant), *waiting* (with "Freigeben" when
+  `grant_error` allows it, else its sentence); every published type with
+  its meaning and audience. Below, the platform's types.
+- **What it does.** Grant (optionally limited to subjects starting with a
+  prefix, at most 200 printable characters), revoke, resume — the same rules
+  as `oaap events grant|revoke|resume`, through the twin's internal routes
+  `GET /internal/bus/overview` and `POST /internal/bus/grant|revoke|resume`
+  (the portal relays the signed-in person; the twin checks the role and that
+  the instance belongs to that person's tenant). `granted_by` / `revoked_by`
+  name the person.
+- **The record.** Each action is a line in the tenant audit log
+  (`events.grant|revoke|resume`, who, the instance and type, the prefix),
+  written by the twin, which mounts the audit directory to append — the
+  third appender after appctl and identity.
+
 ## 3. Configuration
 
 None in 0.1 beyond the manifest. The limits (64 KB, 120 a minute, 30 days)
@@ -532,3 +562,14 @@ solange eine Freigabe besteht (Jörgs Entscheidung). Was niemand hört, bleibt
 allein im Journal des Zwillings. Kopie und Wasserstand des Relais stehen in
 einer Transaktion, deshalb landet jede Änderung genau einmal im Speicher.
 Die bisherigen MQTT-Nachrichten des Zwillings bleiben unverändert.
+
+## Deutsche Zusammenfassung (Nachtrag v0.6)
+
+Das Portal hat jetzt die Seite „Ereignisse“ (unter „Katalog & Daten“), nur für
+die Admins des Mandanten. Sie zeigt je App, was sie veröffentlicht und was sie
+empfangen möchte, mit Begründung und Stand, dazu den Stand der Zustellung.
+Freigeben (auf Wunsch nur für Betreffe mit einem bestimmten Anfang),
+Widerrufen und eine angehaltene Zustellung fortsetzen gehen dort mit einem
+Klick, nach denselben Regeln wie auf der Kommandozeile. Jede dieser Aktionen
+steht mit Namen im Protokoll des Mandanten. Darunter stehen die Ereignisse der
+Plattform selbst.
