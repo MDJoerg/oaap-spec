@@ -1,8 +1,11 @@
 # oaap.events.broker — The MQTT Broker per Node
 
 - **ID:** `oaap.events.broker`
-- **Version:** 0.4
-- **Maturity:** draft (0.4: a persistent session expires after 7 days
+- **Version:** 0.5
+- **Maturity:** draft (0.5: a tenant key **reads** its own tree
+  and no longer writes there — only platform principals publish under
+  `oaap/<tenant>/`, §2.4, RFC-0127 D11, closing the hole measured there
+  in §1.5 (F3); 0.4: a persistent session expires after 7 days
   without its client, and the broker starts only once identity answers,
   §3 — RFC-0085 §15, measured 2026-11-13 (expiry with a 1-hour bound: discarded after 3601 s); 0.3: the platform principal **`oaap.watch`** — reads only:
   the broker's own counters under `$SYS/broker/`, the node branches, the
@@ -156,6 +159,14 @@ that knows" posture `/verify` already uses for every HTTP route.
   publish topic and a subscription filter are checked the same way; a
   filter like `oaap/<tenant>/#` is inside the boundary, a bare `#` or
   another tenant's prefix is not.
+- **Inside that tree a tenant key reads and subscribes; it never
+  publishes (0.5, RFC-0127 D11).** Until 0.4 it could write there too,
+  and RFC-0127 §1.5 measured what that allows: a key of the lowest role
+  put a retained message in the relay's format onto a twin topic, and a
+  later subscriber received it as the object's current state. The tree
+  is the platform's: the relay (below) writes the twin's states, later
+  the event bus of RFC-0127 §9 its events. The refusal names the reason
+  ("only the platform publishes in a tenant's tree").
 
 **The platform relay uses its own principal (0.2):**
 
@@ -268,6 +279,8 @@ surface, RFC-0027).
 - A scoped (RFC-0027 D5) machine key MUST be refused for broker access
   (§2.4) — this spec's own boundary, distinct from and no looser than
   the boundary that scoping exists for elsewhere.
+- A tenant key MUST NOT publish anywhere under `oaap/<tenant>/`, its own
+  tenant's included (0.5, RFC-0127 D11); only platform principals do.
 - The relay principal (§2.4) MUST fail closed as well: on a node without
   `BROKER_RELAY_KEY`, `oaap.relay` MUST NOT connect — not even with an
   empty password — and MUST NOT be granted any topic. When configured,
@@ -297,11 +310,14 @@ surface, RFC-0027).
    malformed token, a username that does not match the key id, an
    unknown or revoked key, and an instance-SCOPED key are all refused.
    No anonymous connection succeeds.
-4. **Authorization:** a connected client may publish and subscribe
+4. **Authorization:** a connected client may read and subscribe
    (including wildcard filters) anywhere under its own
    `oaap/<tenant>/...` tree and nowhere else — checked with a literal
    topic, a same-tenant wildcard filter, another tenant's tree, and a
-   bare `#`.
+   bare `#`. **Since 0.5 it may not publish there:** a publish onto its
+   own tenant's twin topic, retained, is refused, and a later subscriber
+   receives nothing from it (RFC-0127 §1.5 repeated, expecting the
+   opposite result).
 5. **WebSocket path:** `/broker/*` refuses a request with no session
    (same as any other protected route) before ever reaching the
    broker; a logged-in session's WebSocket upgrade reaches the broker's
@@ -440,3 +456,16 @@ Sekunden Wartezeit), und nie ohne seine Anmeldeprüfung. Gefunden beim
 Stopp von oaap-demo: Docker startet alle Container gleichzeitig, die Brücke
 lieferte den Rückstau von oaapx01 in der ersten Sekunde, identity lief noch
 nicht, und jede Zustellung an den Flottendienst wurde abgelehnt.
+
+## Deutsche Zusammenfassung (Nachtrag v0.5)
+
+Ein Mandantenschlüssel darf im Baum seines Mandanten `oaap/<mandant>/…`
+jetzt nur noch lesen und abonnieren, nicht mehr veröffentlichen. Dorthin
+schreibt nur noch die Plattform, also das Relais des Zwillings und später
+der Ereignisbus aus RFC-0127. Anlass ist die Messung vom 24.11. (RFC-0127
+§1.5): Ein Schlüssel mit der niedrigsten Rolle konnte eine gefälschte,
+gehaltene Zustandsnachricht auf ein Zwilling-Thema legen, und jeder spätere
+Abonnent hielt sie für echt. Die Ablehnung nennt den Grund. Heute schreibt
+kein Mandantenschlüssel legitim dorthin: Keine App spricht MQTT, das Relais
+und das Pflegeereignis des Knotens melden sich mit dem Plattform-Prinzipal
+`oaap.relay` an, Knotenschlüssel schreiben außerhalb von `oaap/`.

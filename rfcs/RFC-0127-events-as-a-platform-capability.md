@@ -1,9 +1,10 @@
 # RFC-0127: Events as a Platform Capability — Apps Publish What They Declare, Subscribe to What They Are Granted, in the CloudEvents Envelope
 
 - **Status:** **Accepted (2026-11-24)** — D1–D12 decided one by one the same
-  day, each as recommended (§13). Nothing built.
+  day, each as recommended (§13).
   **Stage 0 measured** on `oaap-test` the same day: F3 (§1.5) and the
-  relay's throughput (§1.6). The facts in §1 were read the same day in
+  relay's throughput (§1.6). **Stage 1, step 1 (D11) built** the same day,
+  reference 0.1.360, measured on `oaap-test` (§1.7). The facts in §1 were read the same day in
   `oaap.events.broker` 0.4, RFC-0032, RFC-0120 §4.7/§13, `oaap.data.twin`,
   `oaap.core.notifications` 0.13, `oaap.apps.runtime` (§2.24/§2.25), reference
   0.1.359 (`services/twin/relay.py`, `twin/hooks.py`, `twin_inbound.py`,
@@ -227,6 +228,47 @@ broker (one per object) in the two probe tenants; they go with the tenants. The
 clients were removed afterwards (keys revoked, principals deactivated); the
 relay logged no error.
 
+### 1.7 Built and measured 2026-11-24: D11 (stage 1, step 1)
+
+Reference 0.1.360 (`mqtt_acl.decide`): a tenant key inside its own tree
+`oaap/<tenant>/` reads and subscribes; a publish is refused with "only the
+platform publishes in a tenant's tree (RFC-0127 D11)". `oaap.events.broker`
+0.5 says so (§2.4, §4, test 4). Before the change it was read who else writes
+there: the relay and the node's care event use the platform principal
+`oaap.relay` (identity's own check, untouched), node keys write outside
+`oaap/`, and no app speaks MQTT (F8) — so no legitimate writer loses anything.
+Staged on `oaap-test`; §1.5's probe repeated with a throwaway principal
+(`user`, tenant `t9k2`, unscoped key for one day), then key revoked and
+principal deleted.
+
+| # | What | 0.1.359 (§1.5) | 0.1.360 |
+|---|---|---|---|
+| M2 | Publish, QoS 1, retained, twin-shaped, own tenant | `Success` | **`Not authorized`** |
+| M3 | A later subscriber to that topic | receives the forgery as retained | **receives nothing** |
+| M4 | Other tenant, `oaap-node/…`, `oaap-via/…`; subscribe another tenant | `Not authorized` | `Not authorized` |
+| M1 | Subscribe own tree | granted | granted |
+| M7 | Reading still works: a key of `s0` subscribes `oaap/<s0>/#` | — | `Granted`; 1,040 retained twin states received (`origin` set by the relay), the rest dropped by the broker's queue limit |
+
+The relay logged no refusal after the change. Unit tests: `test_mqtt_acl`,
+`test_broker_profile`, `test_event_relay` changed to the new rule, with
+`test_fleet_watch` and `test_fleet_pair` all green.
+
+**Found on the way (not D11's doing, but this RFC's business).** M7's
+SUBACK came only after **38.7 s**. The broker asks identity once per
+retained message before it delivers it (go-auth, a read check per topic, no
+cache hit for 12,000 different topics): about 370 checks a second, logged as
+up to 11,600 checks a minute; after the key was revoked mid-delivery each
+check answered "unknown key". So a subscriber to a tenant tree with many
+retained topics waits half a minute or more and receives only up to the
+queue limit. That is the twin's retained state topics at scale (RFC-0123's
+pilot will have tens of thousands of nodes), not app events — §9's events
+branch is **not retained** and is therefore not affected. Not measured:
+whether other clients of the broker wait meanwhile (Mosquitto is single
+threaded, so it is expected). Belongs to the twin's topics, a later step
+(an ACL cache keyed by tenant prefix, or no per-message read check for a
+subscription already granted on the whole tree); recorded here, not
+decided.
+
 ## 2. Words
 
 | Word | Meaning |
@@ -429,7 +471,7 @@ checks that from its own records, so an app cannot spray events at strangers.
 | Stage | What | Measured by |
 |---|---|---|
 | **0** | Measure on `oaap-test`: F3 (a tenant key publishing on a twin topic) — **done 2026-11-24, §1.5**; the relay's throughput with a second source — **measured 2026-11-24, §1.6**; whether an instance network reaches the broker — **read 2026-11-24, §1.5 M6**. | §1.4 answered |
-| **1** | **The ACL fix** (only platform principals publish under `oaap/<tenant>/`). Envelope, store, catalogue in the manifest, publish door, grants, addressed events, push into the app, feed. First pair `vorgaenge` → `bestand`. | security requirements; a case moved in `vorgaenge` arrives once in `bestand`, after a stop of `bestand` through the feed |
+| **1** | **The ACL fix** (only platform principals publish under `oaap/<tenant>/`) — **built 2026-11-24, 0.1.360, §1.7**. Envelope, store, catalogue in the manifest, publish door, grants, addressed events, push into the app, feed. First pair `vorgaenge` → `bestand`. | security requirements; a case moved in `vorgaenge` arrives once in `bestand`, after a stop of `bestand` through the feed |
 | **2** | Platform types (identity, twin in the envelope, D10); the portal page "Ereignisse" with the tenant's catalogue and grants; AsyncAPI export. | RFC-0126's activation arrives in the inviting app; AsyncAPI opens in an AsyncAPI viewer |
 | **3** | Webhooks out for any granted type in CloudEvents form with the OPTIONS handshake (D7); receivers in with a CloudEvents mapping (D8). | a CloudEvents sender (a test sender in SAP's format) arrives as an event and is delivered |
 | later | `oaap.events.queue`; Kafka/AMQP; a partner's event mesh over a destination; MQTT for apps; CESQL filters; xRegistry once released; bridging tenant events between nodes. | own RFCs |
@@ -511,6 +553,17 @@ Minute, kostet das nichts; bei einem Import schon.
 - SAP verlangt CloudEvents für jedes Ereignis über seinen Event Hub und
   beschreibt seinen Katalog teils in AsyncAPI.
 
+**Lücke geschlossen am 24.11. (§1.7, Stufe 1, erster Schritt):** Ein
+Mandantenschlüssel darf im Baum seines Mandanten nur noch lesen. Die Messung
+aus §1.5 wurde wiederholt: Die Fälschung wird jetzt abgelehnt, und ein
+späterer Abonnent bekommt nichts. Lesen geht weiter. Dabei aufgefallen: Wer
+einen Mandantenbaum mit vielen gehaltenen Themen abonniert (s0 hat etwa
+12 000), wartet fast 40 Sekunden auf die Bestätigung, weil der Broker für
+jede gehaltene Nachricht einzeln bei identity nachfragt. Er bekommt außerdem
+nur so viele Nachrichten, wie in die Warteschlange passen. Das betrifft die
+Zustandsthemen des Zwillings, nicht die neuen Ereignisse, denn die werden
+nicht gehalten. Festgehalten, nicht entschieden.
+
 **Entschieden (24.11., D1–D12 einzeln, jeweils wie empfohlen):**
 - **Ein Umschlag:** CloudEvents 1.0 als JSON. `source`, `id` und Zeit setzt
   immer die Plattform, nie die App. Dazu kommen vier eigene Erweiterungen:
@@ -543,7 +596,8 @@ die Kopplung an einen fremden Event Mesh (etwa SAP), Benachrichtigungen an
 Menschen und AAS-Ereignisse. Alles das kommt später auf diesem Umschlag.
 
 **Stufen.** Stufe 0 misst die Lücke, den Durchsatz des Relais und ob
-Instanznetze den Broker erreichen — am 24.11. erledigt (§1.5, §1.6). Stufe 1 bringt die Lückenschließung,
+Instanznetze den Broker erreichen — am 24.11. erledigt (§1.5, §1.6). Stufe 1 bringt die Lückenschließung
+(am 24.11. gebaut, 0.1.360, §1.7),
 Umschlag, Ablage, Katalog, Tür, Freigaben, adressierte Ereignisse und
 Zustellung, mit `vorgaenge` → `bestand` als erstem Paar. Stufe 2 bringt die
 Plattformtypen, die Portalseite und den AsyncAPI-Export. Stufe 3 bringt
