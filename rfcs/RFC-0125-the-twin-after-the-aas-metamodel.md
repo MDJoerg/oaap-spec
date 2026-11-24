@@ -1,11 +1,14 @@
 # RFC-0125: The Twin After the AAS Metamodel — Meaning for Every Attribute, Submodels With Structure, Attributes on Relations
 
-- **Status:** **Draft (2026-11-24)** — D1–D9 open (§13). Nothing built,
-  **nothing measured**. The facts in §1 were read the same day in RFC-0031,
-  RFC-0120, `oaap.data.model` 0.5, `oaap.data.twin` 0.16, the twin's tables in
-  reference 0.1.359 (`platform/appctl.py`), `program/aas-zuordnung-knotendaten.md`
-  (14.11.) and the IDTA publications listed in RFC-0123 §12.4. What was **not**
-  read is in §1.4; stage 0 (§12) answers it before anything is built on it.
+- **Status:** **Accepted (2026-11-24)** — D1–D9 decided one by one the same
+  day (§13); D2–D9 as recommended, D1 in Jörg's own form (a compromise:
+  semantics made easy and suggested, not forced; the tenant admin sets how
+  strict). Nothing built, **nothing measured**. The facts in §1 were read the
+  same day in RFC-0031, RFC-0120, `oaap.data.model` 0.5, `oaap.data.twin`
+  0.16, the twin's tables in reference 0.1.359 (`platform/appctl.py`),
+  `program/aas-zuordnung-knotendaten.md` (14.11.) and the IDTA publications
+  listed in RFC-0123 §12.4. What was **not** read is in §1.4; stage 0 (§12)
+  answers it before anything is built on it.
 - **Date:** 2026-11-24
 - **Authors:** Jörg (the direction, 2026-11-24, while deciding RFC-0123 D23/D24:
   "Attribute sind in Teilmodellen integriert und diese wiederum an den
@@ -15,7 +18,12 @@
   ‚Glossar' oder von standardisierten Attributen abgeleitet … Teilmodelle
   können aber auch komplexe Unterstrukturen, Tabellen, Referenzen u. ä.
   abbilden … Zukünftig könnten unsere Zwillinge von extern angereichert werden
-  und umgekehrt Zwillinge der Industrie anreichern"), Claude (facts, design)
+  und umgekehrt Zwillinge der Industrie anreichern"; D1 in his words: "die
+  Anreicherung einer SemanticId nicht unbedingt zu erzwingen, aber irgendwie
+  doch durchzusetzen … eine Ontologie mitführen … Apps, die erst einen Entwurf
+  als Draft anmelden und dann von uns Vorschläge bekommen … Ob das eine Pflicht
+  im Tenant ist/wird und welche Strategie zur Durchsetzung wir nutzen, sollte
+  der Tenant-Admin festlegen"), Claude (facts, design)
 - **Follows:** RFC-0123 D25 (this RFC), D23 (the bill of material after
   IDTA 02011), D24 (attributes on relations after the
   `AnnotatedRelationshipElement`)
@@ -72,12 +80,16 @@ Five things are missing today, all measured or read on 2026-11-24:
 
 The proposal, in one line each:
 
-- **Every attribute has meaning** (D1): a standard ID, or an entry in **our
-  glossary** that the platform creates if the author gives none — never "no
-  meaning".
-- **The glossary is a set of concept descriptions** after IEC 61360 (D2):
-  name in several languages, definition, unit, data type, value list,
-  "is a case of" a standard concept.
+- **Meaning is made easy and suggested, not forced** (D1): an attribute points
+  at a **platform concept** that points at the industry standard, or at the
+  standard directly; an **ontology** records which types can or must have
+  which submodels with which attributes; an app registers its model as a
+  **draft** and gets suggestions; a tenant can **enrich** attributes later;
+  the **tenant admin** sets how strict (`off · suggest · warn · require`,
+  default `suggest`).
+- **Concepts in three levels** after IEC 61360 (D2): platform concepts
+  (node-wide, publishable), a tenant's concepts (private), and a read-only
+  **catalogue** of standards for suggestions.
 - **Structured values** (D3): collection, list, multi-language text, range,
   file, reference — stored in the value the twin already keeps as JSON, no new
   table.
@@ -176,7 +188,7 @@ object can be read out into a partner's AAS environment.
 | `assetKind` Type / Instance | — | an object-type property `asset_kind: type · instance` (article vs. installed piece, DPP granularity Model vs. Item) |
 | Submodel | group | group, with an **instance key** where one object has several of one type (D4) |
 | Submodel template | group type | group type; IDTA templates as `model:` artefacts (D7) |
-| `semanticId` of a submodel / element | optional `semantic_id` | **always present** (D1) |
+| `semanticId` of a submodel / element | optional `semantic_id` | via a platform concept or a standard; suggested, strictness per tenant (D1) |
 | Concept Description | — | a **glossary entry** (D2) |
 | `Property` | attribute, flat value | unchanged |
 | `MultiLanguageProperty` | — | value type `mltext` (D3) |
@@ -193,31 +205,66 @@ object can be read out into a partner's AAS environment.
 | `BasicEventElement` | twin events (RFC-0032) | not here (§11) |
 | — (not in the AAS) | activity | goes out as an own submodel `oaap-aas:Activities/1/0` (§10) |
 
-## 4. Meaning for every attribute (D1)
+## 4. Meaning: made easy, suggested, set per tenant (D1)
 
-**Rule:** every attribute type, every field of a `struct`, every annotation of a
-relation type has a semantic ID. It is one of:
+Jörg's frame (2026-11-24): data quality decides how far automation and AI can
+go, so meaning must win — but by making it easy, not by refusing installs.
+Five parts:
 
-1. a **standard ID** — an IRI of a published template element, or an IRDI from
-   ECLASS or IEC CDD — written by the author;
-2. an **entry in our glossary** written by the author (`oaap-aas:…`, §5);
-3. **an entry the platform creates** when the author writes none: from the
-   type's key, title, description, unit and value type, in the origin's part
-   of the glossary (`oaap-aas:<origin>/<key>/<major>/<minor>`). The manifest
-   check names every attribute that got one, so the author can replace it by a
-   standard ID later.
+**4.1 Three layers, as the AAS references concept descriptions.**
 
-Case 3 keeps RFC-0031's promise ("usable for a five-person company on day
-one"): nobody has to know ECLASS to model a satisfaction score. But no
-attribute is ever without a meaning a partner can look up.
+```
+attribute of an app or a tenant  ──semantic_id──▶  platform concept (oaap-aas:…)
+                                                      │ is_case_of
+                                                      ▼
+                                       industry standard (IDTA IRI, IEC CDD / ECLASS IRDI)
+```
 
-**A standard ID that the author gives later** is additive when the old one was
-platform-created (the created entry gets `is_case_of` → the standard, §5);
-changing an author-given ID stays destructive (F7).
+An attribute may also point at a standard directly. A platform concept lets
+many apps share one meaning ("customer number") and still say which standard
+it is a case of; when a better standard turns up, only the concept's
+`is_case_of` changes, never the apps.
 
-## 5. The glossary (D2)
+**4.2 An ontology.** The platform keeps, per tenant and node-wide, which object
+types **can** or **must** have which submodels (group types, with instance
+keys, D4) with which attributes — derived from manifests, `model:` artefacts
+and the tenant's own types, and readable through the twin's doors. It is what
+a suggestion is checked against ("a `Machine` here usually carries the
+nameplate 02006") and what an assistant reads to understand a tenant's data.
 
-A **glossary entry** is a concept description after the IEC 61360 data
+**4.3 Drafts for apps.** An app (or an integration client with `models`) may
+register its `data_model` as a **draft** first. The platform answers, per
+attribute without a semantic ID: matching standard IDs from the catalogue
+(§5), matching platform concepts, or a **proposed new platform concept** it
+would create. The author accepts, changes or ignores each one; then registers
+for real. Suggestions come from the catalogue by name, unit and value type,
+and may use the tenant's AI gateway where one is set up — a suggestion, never
+a decision.
+
+**4.4 Enriching in the tenant.** A tenant admin (or a person with that right)
+may attach a semantic ID to an attribute **in that tenant** without changing
+the app: a tenant-held mapping "here, attribute `X` of `app:crm` means
+concept `Y`", picked with the same catalogue and suggestions. Reads and the AAS
+export use the mapping; the app's own declaration wins where both exist.
+
+**4.5 How strict — the tenant admin decides.** A tenant setting
+`semantics: off · suggest · warn · require`:
+
+| Level | What happens to an attribute without meaning |
+|---|---|
+| `off` | nothing |
+| **`suggest`** (default) | suggestions in an app's draft and on the object and type pages; nothing blocked, nothing shown as a fault |
+| `warn` | as `suggest`, plus a warning in the tenant's health and at app install |
+| `require` | an app install or a tenant type without meaning for every attribute is refused in this tenant, naming the attributes |
+
+`require` applies to what enters **this tenant**; a node-wide package stays
+installable on the node, and its activation in a `require` tenant is what is
+refused. Existing types are not touched by any level; they show up in the
+suggestions.
+
+## 5. Concepts in three levels, and the catalogue (D2)
+
+A **concept** is a concept description after the IEC 61360 data
 specification (fields to be checked against Part 3a in stage 0):
 
 | Field | Meaning |
@@ -232,20 +279,25 @@ specification (fields to be checked against Part 3a in stage 0):
 | `is_case_of` | standard concepts this one is a case of (IRI/IRDI) |
 | `origin`, `version` | who ships it, in which package version |
 
-Where it lives — the same split as types (F8):
+Three levels — the same split as types (F8), plus the catalogue:
 
-- **Node-wide entries** come with packages (apps, `model:` artefacts) in their
-  manifest, next to `data_model`. They describe a package's public model and
-  may be **published**: `OAAP_SEMANTIC_BASE` then answers the short form as a
-  concept description (the domain that F7 already names, where today nothing
-  answers). Publishing is per package and off by default.
-- **Tenant entries** are made by a tenant (an integration client with
+- **Platform concepts** come with packages (apps, `model:` artefacts) in
+  their manifest, next to `data_model`, and those the platform creates on an
+  accepted suggestion (§4.3). They are node-wide and may be **published**:
+  `OAAP_SEMANTIC_BASE` then answers the short form as a concept description
+  (the domain that F7 already names, where today nothing answers). Publishing
+  is per package and off by default.
+- **A tenant's concepts** are made by a tenant (an integration client with
   `models`, or a person in the twin's browser) under
   `oaap-aas:t/<tenant id>/…`. They are readable **only through the twin's
   doors** of that tenant, never published, and the tenant label never appears
   in the ID (the label can change; the ID must not).
+- **The catalogue** is a read-only set of standard concepts the suggestions
+  draw from: first the elements of the IDTA templates we ship as artefacts
+  (D7) and **IEC CDD**; **ECLASS only once its licence is clear** (stage 0).
+  It is kept per node, updated as a package, and never written by a tenant.
 
-The glossary is read through the twin's doors (`GET …/concepts`, an MCP tool
+Concepts and the catalogue are read through the twin's doors (`GET …/concepts`, an MCP tool
 `twin_concepts`), so an assistant asked "what does *Zufriedenheit* mean here?"
 answers from it.
 
@@ -287,10 +339,10 @@ different `idShort`s.
 
 Every origin has, on every object it may write to, a **default group**
 `<namespace>.default` (`tenant.default` for the tenant). It holds attributes no
-group type declares, under one condition: **each attribute names a glossary
-entry or a standard ID** (§4) — the value type comes from there. So "put any
-attribute anywhere" is possible without a schema, and still no attribute is
-without meaning. The default group goes out as an own submodel of that origin
+group type declares. Each names a concept or a standard ID where it can — the
+value type then comes from there; without one it gives its value type itself
+and falls under the tenant's level of §4.5 (by default: suggestions). So "put
+any attribute anywhere" is possible without a schema, and meaning follows. The default group goes out as an own submodel of that origin
 (`oaap-aas:<origin>/Default/1/0`).
 
 ## 8. Attributes on relations (D6)
@@ -387,26 +439,27 @@ semantic ID of what changed, so a subscriber can filter by meaning.
 
 | Stage | What | Measured by |
 |---|---|---|
-| **0** | Read AAS Part 1 and Part 3a for the element kinds and IEC 61360 fields; count attribute types without semantic ID on the fleet; load one hand-written export into BaSyx; measure `jsonb` writes and reads of a `list` of 500 `struct`s and a path query on 11 111 nodes. | this RFC's §1.4 answered |
-| **1** | Attributes on relations (D6) and meaning for every attribute (D1) with the glossary (D2), node-wide and per tenant, read through the doors. **RFC-0123 stage 1 needs this stage.** | a responsibility with a role written and read; a type without ID gets one; glossary through portal, `/twin/v1` and MCP |
-| **2** | Structured values (D3), several instances (D4), the default group (D5). | a BOM with nested positions; two BOM views on one article |
+| **0** | Read AAS Part 1 and Part 3a for the element kinds and IEC 61360 fields; clear the licences of IEC CDD and ECLASS for a catalogue; count attribute types without semantic ID on the fleet; load one hand-written export into BaSyx; measure `jsonb` writes and reads of a `list` of 500 `struct`s and a path query on 11 111 nodes. | this RFC's §1.4 answered |
+| **1** | Attributes on relations (D6); platform and tenant concepts (D2) with `is_case_of`; the tenant setting `semantics` (D1 §4.5). **RFC-0123 stage 1 needs this stage.** | a responsibility with a role written and read; concepts through portal, `/twin/v1` and MCP; `require` refuses, `suggest` does not |
+| **2** | Structured values (D3), several instances (D4), the default group (D5); the ontology (D1 §4.2). | a BOM with nested positions; two BOM views on one article; the ontology answers what a type can/must carry |
+| **2b** | The catalogue (D2), drafts with suggestions (D1 §4.3), enriching in the tenant (D1 §4.4). | a draft without IDs gets suggestions for every attribute; a tenant mapping shows in the AAS read |
 | **3** | `model:idta-02011` and `model:idta-02006` (D7, D8); one object read out as AAS JSON (D9) and opened in BaSyx. | BaSyx shows the shell and both submodels unchanged |
 | **4** | The template reader (D9 "in"). | 02011 read from its published JSON gives the same artefact as stage 3 |
 | later | `oaap.data.aas` (repository API, registry, discovery); reading a partner's instance submodel; search inside structured values. | own RFCs |
 
-## 13. Decisions (open)
+## 13. Decisions (Jörg, 2026-11-24, one by one)
 
-| # | Question | Recommendation | Not chosen |
+| # | Question | Decision | Not chosen |
 |---|---|---|---|
-| **D1** | Must every attribute have a semantic ID? | **Yes**, and the platform creates a glossary entry when the author gives none (§4). Existing types get one on the next registration (additive). | Required from the author (blocks small companies); optional as today. |
-| **D2** | What is the glossary, and where does it live? | **Concept descriptions after IEC 61360**, node-wide from packages (publishable per package under `OAAP_SEMANTIC_BASE`, off by default) and per tenant (never published, ID without the tenant label) (§5). | Only standard IDs; a free-text glossary without data type and unit; one glossary for the whole node including tenants. |
-| **D3** | How do submodels get structure? | **New value types** `mltext`, `range`, `file`, `reference`, `struct`, `list` in the existing JSON value; history per attribute (§6). | A table per element kind (closer to the AAS, much more work, slower trees); only flat values plus groups. |
-| **D4** | Several submodels of one template on one object? | **An instance key** on the group (`bom.hierarchy:sales`) (§7.1). | A group type per view (`bom.sales`, `bom.manufacturing` — the template's ID would no longer say which template); BOM views as separate objects. |
-| **D5** | A place for undeclared attributes? | **A default group per origin** on every object; each attribute names a glossary entry or standard ID (§7.2). | None (everything declared first); a default group without meaning. |
-| **D6** | Attributes on relations? | **Annotations declared on the relation type**, a `jsonb` column, refused when undeclared; out as `AnnotatedRelationshipElement` (§8). Fixes RFC-0123 S3. | A responsibility object between person and node (RFC-0123 D24 already chose this RFC's way). |
-| **D7** | How do IDTA templates enter? | **As `model:` artefacts** with the template's own IDs, first 02011 (with 02011-1) and 02006 (§9). | Each app copies what it needs; a node-wide built-in set. |
-| **D8** | Where does a 02011 entity live? | **The AAS's own line:** self-managed = own object (the stock), co-managed = `struct` in the group (an article's positions); nesting by reference, never copy (§9). | Every position an object (40 objects per article BOM, a write per position); every BOM a single value (no tree for the stock). |
-| **D9** | Which way in and out first? | **Out first**: one object as AAS JSON, checked in BaSyx; in: IDTA templates as artefacts; partner instances later (§10). | The full repository API first; import first. |
+| **D1** | Must every attribute have a semantic ID? | **A compromise, in Jörg's form (§4):** not forced, but made easy and suggested — three layers (attribute → platform concept → standard, as the AAS references concept descriptions), an ontology of what types can/must carry, drafts with suggestions for apps, enriching in the tenant with a catalogue; **the tenant admin sets how strict**, `off · suggest · warn · require`, **default `suggest`**. | Platform-created entries for every attribute (the recommendation offered); required from the author; optional as today. |
+| **D2** | What is the glossary, and where does it live? | **Concept descriptions after IEC 61360 in three levels** (§5): platform concepts (node-wide, publishable per package under `OAAP_SEMANTIC_BASE`, off by default), a tenant's concepts (never published, ID without the tenant label), and a read-only catalogue for suggestions (IDTA elements and IEC CDD first, ECLASS once licensed). | Without our own catalogue (suggestions only from shipped templates and AI). |
+| **D3** | How do submodels get structure? | **New value types** `mltext`, `range`, `file`, `reference`, `struct`, `list` in the existing JSON value; each field with its own meaning; history per attribute (§6). | A table per element kind. |
+| **D4** | Several submodels of one template on one object? | **An instance key** on the group (`bom.hierarchy:sales`), same semantic ID (§7.1). | A group type per view. |
+| **D5** | A place for undeclared attributes? | **A default group per origin** on every object (§7.2), meaning under the tenant's level of D1. | One shared default group per object (breaks one group, one origin); none. |
+| **D6** | Attributes on relations? | **Annotations declared on the relation type**, a `jsonb` column, refused when undeclared; out as `AnnotatedRelationshipElement` (§8). | Free annotations without declaration. |
+| **D7** | How do IDTA templates enter? | **As `model:` artefacts** with the template's own IDs, first 02011 (with 02011-1) and 02006 (§9). | Built into the node; each app copies. |
+| **D8** | Where does a 02011 entity live? | **The AAS's own line:** self-managed = own object (the stock), co-managed = `struct` in the group (an article's positions); nesting by reference, never copy (§9). | Every position an object; every BOM a single value. |
+| **D9** | Which way in and out first? | **Out first**: one object as AAS JSON, opened in BaSyx; in: IDTA templates as artefacts; partner instances later (§10). | In first; the full repository API first. |
 
 ## Deutsche Zusammenfassung
 
@@ -428,13 +481,19 @@ flachen Wert. Beziehungen tragen keine Attribute (RFC-0123 S3). Ein Objekt hat
 je Gruppentyp nur eine Gruppe, also keine Stückliste je Sicht. Es gibt keinen
 Platz für ein loses Attribut.
 
-**Vorschlag (D1–D9, offen):**
-- **D1:** Jedes Attribut hat eine Semantik. Wer keine angibt, bekommt von der
-  Plattform einen Glossareintrag.
-- **D2:** Das Glossar besteht aus Concept Descriptions nach IEC 61360 (Name
-  mehrsprachig, Definition, Einheit, Datentyp, Werteliste, „ist ein Fall von“
-  einem Standard). Knotenweit aus Paketen, auf Wunsch veröffentlicht; je
-  Mandant nur über die Türen des Zwillings.
+**Entschieden (24.11., einzeln, D2–D9 wie empfohlen):**
+- **D1 (Jörgs Kompromiss):** Semantik wird nicht erzwungen, aber leicht gemacht
+  und vorgeschlagen. Ein Attribut verweist auf ein Plattform-Konzept, das per
+  `is_case_of` auf den Industriestandard zeigt (oder direkt auf den Standard).
+  Eine Ontologie hält fest, welche Typen welche Teilmodelle mit welchen
+  Attributen haben können oder müssen. Apps melden ihr Modell erst als Entwurf
+  an und bekommen Vorschläge. Der Mandant kann Attribute nachträglich
+  anreichern. Wie streng es ist, legt der Tenant-Admin fest: aus · vorschlagen
+  · warnen · verlangen, Vorgabe **vorschlagen**.
+- **D2:** Konzepte nach IEC 61360 in drei Ebenen: Plattform-Konzepte
+  (knotenweit, auf Wunsch veröffentlicht), Konzepte des Mandanten (nur über
+  seine Türen) und ein nur lesbarer Katalog für Vorschläge (zuerst
+  IDTA-Elemente und IEC CDD, ECLASS erst nach Klärung der Lizenz).
 - **D3:** Neue Wertetypen: mehrsprachiger Text, Bereich, Datei, Verweis,
   Struktur, Liste. Gespeichert im vorhandenen JSON-Wert, ohne neue Tabelle.
 - **D4:** Mehrere Gruppen eines Typs je Objekt über einen Instanzschlüssel,
@@ -456,10 +515,12 @@ Platz für ein loses Attribut.
 **Ereignisse** gehören nicht hierher: Jörg will sie als eigene
 Plattformfähigkeit nach CloudEvents (eigenes RFC, I-69).
 
-**Stufen.** Stufe 0 liest das AAS-Metamodell im Original nach und misst Kosten
-und BaSyx. **Stufe 1** (Beziehungsattribute, Semantik, Glossar) braucht
-RFC-0123 für seine erste Stufe. Stufe 2 Strukturen und Instanzen, Stufe 3
-Vorlagen und Export, Stufe 4 der Vorlagen-Leser. Die AAS-Schnittstelle
+**Stufen.** Stufe 0 liest das AAS-Metamodell im Original nach, klärt die
+Katalog-Lizenzen und misst Kosten und BaSyx. **Stufe 1** (Beziehungsattribute,
+Konzepte, Strenge je Mandant) braucht RFC-0123 für seine erste Stufe. Stufe 2
+Strukturen, Instanzen, Vorgabe-Gruppe und Ontologie; Stufe 2b Katalog, Entwürfe
+mit Vorschlägen, Anreichern im Mandanten; Stufe 3 Vorlagen und Export; Stufe 4
+der Vorlagen-Leser. Die AAS-Schnittstelle
 `oaap.data.aas` folgt als eigenes RFC.
 
 **Nicht gelesen, nicht gemessen:** das AAS-Metamodell (Teil 1, Teil 3a) im
