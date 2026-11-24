@@ -478,6 +478,29 @@ happened to send; now the instance only. `test_cli_reference` had failed
 since step 1.2 (`events` was in `bin/oaap`, not in `appctl.WRAPPER_GROUPS`);
 fixed with this step.
 
+### 1.16 Built and measured 2026-11-24: the AsyncAPI export, step 2.4
+
+Reference 0.1.370, `oaap.events.bus` 0.7 §2.14. Read first: AsyncAPI
+**3.1.0** is the released version (GitHub release 2026-01-31, "Latest";
+3.0.0 plus ROS 2 bindings); only `asyncapi` and `info` are required, an
+operation's `action` is `send` or `receive` from the application's side,
+component keys follow `^[a-zA-Z0-9.\-_]+$`. Jörg chose the check: the
+official parser in a throwaway container on `oaap-test`
+(`@asyncapi/parser` **3.6.6** from npm, `node:22-slim`, the documents never
+left the LAN).
+
+| # | Document | Result |
+|---|---|---|
+| A1 | `inv1-pp-a` by `oaap events asyncapi` (24.5 KB) | asyncapi 3.1.0, **0 errors, 0 warnings**; 7 channels, 7 operations, 7 messages, 1 server |
+| A2 | tenant `inv1` by the command line | the same, 0 / 0 |
+| A3 | tenant `s0` (no instance with events now) | valid, 0 channels |
+| A4 | both as downloads from the portal page, signed in as `ev23-ta` through the edge | `200 application/json`, `attachment; filename="asyncapi-inv1.json"` / `asyncapi-inv1-pp-a.json`; 0 / 0 |
+| A5 | counter-checks: `action: publish`; a channel `$ref` to nowhere; `info.version` removed | refused: 1, 2 and 1 errors with the path — the parser checks, the clean result is not an empty one |
+
+Stage 2 is complete. Not done: a rendered view (AsyncAPI Studio would have
+meant sending the document to an outside site), an app reading its own
+document with its key, MCP.
+
 ## 2. Words
 
 | Word | Meaning |
@@ -709,7 +732,7 @@ committed on its own:
 | 2.1 | identity's events to the inviting app (activated = first login, locked, unlocked; by app · admin), the platform catalogue, the twin's internal door, identity's outbox — **built, 0.1.367, §1.13** | `oaap.events.bus` 0.4 |
 | 2.2 | The twin in the envelope (D10): the relay writes `oaap.twin.object.*.v1` into the store, only while granted — **built, 0.1.368, §1.14** | `oaap.events.bus` 0.5, `oaap.data.twin` 0.16.2 |
 | 2.3 | The portal page "Ereignisse": the tenant's catalogue, grants and push state — **built, 0.1.369, §1.15** | `oaap.events.bus` 0.6 |
-| 2.4 | AsyncAPI 3.1 export per app and per tenant (D9) | `oaap.events.bus` |
+| 2.4 | AsyncAPI 3.1 export per app and per tenant (D9) — **built, 0.1.370, §1.16** | `oaap.events.bus` 0.7 |
 
 ### Security requirements (proposed)
 
@@ -891,7 +914,10 @@ einer App mit `events`-Block an. Schritt 2.2 (0.1.368, §1.14): Der Zwilling
 schreibt seine Änderungen als `oaap.twin.object.*` in den Speicher, aber nur,
 solange eine App dafür freigegeben ist. Schritt 2.3 (0.1.369, §1.15): Die
 Portalseite „Ereignisse“ zeigt den Katalog des Mandanten, und die Admins
-geben dort frei, widerrufen und setzen Zustellungen fort, alles im Protokoll. Stufe 3 bringt
+geben dort frei, widerrufen und setzen Zustellungen fort, alles im Protokoll.
+Schritt 2.4 (0.1.370, §1.16): Der Katalog lässt sich als AsyncAPI 3.1.0 je App
+und je Mandant herunterladen; der offizielle Parser nimmt ihn ohne Fehler an.
+Damit ist Stufe 2 fertig. Stufe 3 bringt
 Webhooks und Empfänger im CloudEvents-Format.
 
 **Nicht gelesen, nicht gemessen:** alles in §1.4, dazu der AsyncAPI-Text und die

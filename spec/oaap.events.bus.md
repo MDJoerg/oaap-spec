@@ -1,8 +1,11 @@
 # oaap.events.bus — Events Between Apps, in the CloudEvents Envelope
 
 - **ID:** `oaap.events.bus`
-- **Version:** 0.6
-- **Maturity:** draft (0.6: **the portal page "Ereignisse"** — the
+- **Version:** 0.7
+- **Maturity:** draft (0.7: **AsyncAPI 3.1.0 export** per instance and per
+  tenant — portal downloads, `oaap events asyncapi`, the twin's internal
+  route; §2.14; reference 0.1.370, checked with the official
+  `@asyncapi/parser` 3.6.6 on `oaap-test` 2026-11-24, RFC-0127 §1.16. 0.6: **the portal page "Ereignisse"** — the
   tenant's administrators see every instance's declared types, the state of
   each subscription and the push, the platform's types, and grant (with an
   optional subject prefix), revoke and resume there; audited in the tenant
@@ -411,6 +414,34 @@ not know is refused at install.
   written by the twin, which mounts the audit directory to append — the
   third appender after appctl and identity.
 
+### 2.14 AsyncAPI export (0.7, RFC-0127 D9)
+
+The catalogue outward as **AsyncAPI 3.1.0** (the released version since
+2026-01-31; 3.0.0 plus ROS 2 bindings), generated, never stored:
+
+- **Per instance** — what it publishes (`action: send`) and what it wants
+  (`action: receive`); **per tenant** — every instance's operations, named
+  `<instance>__send__<type>` / `<instance>__receive__<type>`, over the same
+  channels.
+- **Channels and messages.** One channel per event type; its `address` is
+  the type (a logical channel — the platform routes, the app never names a
+  topic). One message per type in `components.messages`, keyed by the type
+  (the type names fit AsyncAPI's component key rule): `contentType
+  application/cloudevents+json`, `payload` the CloudEvents envelope of §2.1
+  with `type` as a constant, `oaapto` required for an addressed type and the
+  type's declared schema as `data` (an unknown type: any object).
+- **Server.** `platform`: `protocol http`, `pathname /platform/events`,
+  host as the variable `site` (`OAAP_EVENTS_URL` of the instance).
+- **OAAP's facts** as specification extensions: `x-oaap-publisher`
+  (`instance:<name>` or `platform:<service>`), `x-oaap-audience`,
+  `x-oaap-semantic-id`, `x-oaap-personal`, `x-oaap-addressed-only`, and
+  `x-oaap-tenant` / `x-oaap-instance` / `x-oaap-app` at the top.
+- **Where.** The portal page "Ereignisse": "AsyncAPI des Mandanten
+  herunterladen" and per instance "AsyncAPI dieser App" (downloads, the
+  tenant's administrators only); `oaap events asyncapi [<instance>] --tenant
+  <label>` on stdout; behind both the twin's `GET /internal/bus/asyncapi`.
+  An app reading its own document through its key, and MCP, come later.
+
 ## 3. Configuration
 
 None in 0.1 beyond the manifest. The limits (64 KB, 120 a minute, 30 days)
@@ -573,3 +604,15 @@ Widerrufen und eine angehaltene Zustellung fortsetzen gehen dort mit einem
 Klick, nach denselben Regeln wie auf der Kommandozeile. Jede dieser Aktionen
 steht mit Namen im Protokoll des Mandanten. Darunter stehen die Ereignisse der
 Plattform selbst.
+
+## Deutsche Zusammenfassung (Nachtrag v0.7)
+
+Den Ereigniskatalog gibt es jetzt als AsyncAPI-Dokument, im offenen Standard,
+mit dem Werkzeuge und Partner (auch SAP auf dem Business Accelerator Hub)
+Ereignisschnittstellen beschreiben. Es gibt ein Dokument je App (was sie
+veröffentlicht und was sie empfängt) und eines für den ganzen Mandanten. Jede
+Nachricht ist dort als CloudEvent beschrieben, mit dem Schema der Daten.
+OAAP-eigene Angaben (Herausgeber, Publikum, Semantik-ID) stehen in
+`x-oaap-…`-Feldern. Zu holen ist es als Download auf der Portalseite
+„Ereignisse“ oder mit `oaap events asyncapi`. Das offizielle Prüfwerkzeug von
+AsyncAPI nimmt beide Dokumente ohne Fehler und ohne Warnung an.
