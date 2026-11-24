@@ -1,8 +1,9 @@
 # RFC-0127: Events as a Platform Capability — Apps Publish What They Declare, Subscribe to What They Are Granted, in the CloudEvents Envelope
 
 - **Status:** **Accepted (2026-11-24)** — D1–D12 decided one by one the same
-  day, each as recommended (§13). Nothing built,
-  **nothing measured**. The facts in §1 were read the same day in
+  day, each as recommended (§13). Nothing built.
+  **F3 measured** on `oaap-test` the same day (stage 0, §1.5); the rest of
+  stage 0 is open. The facts in §1 were read the same day in
   `oaap.events.broker` 0.4, RFC-0032, RFC-0120 §4.7/§13, `oaap.data.twin`,
   `oaap.core.notifications` 0.13, `oaap.apps.runtime` (§2.24/§2.25), reference
   0.1.359 (`services/twin/relay.py`, `twin/hooks.py`, `twin_inbound.py`,
@@ -93,7 +94,7 @@ CloudEvents-conformant):
 |---|---|---|
 | F1 | Mosquitto per node (profile `broker`), WebSocket only through the gateway, TCP 1883 in the platform network; every CONNECT and topic action is checked live at identity. Topic tree `oaap/<tenant-id>/<type-key>/<object-id>/<group-key>`; QoS 1, retained; persistent sessions expire after 7 days. Tenant trees are **not** bridged between nodes (only the fleet tree is). | `oaap.events.broker` §2 (`:60-121`, `:202-248`); RFC-0085 §5.3 |
 | F2 | A client authenticates with an RFC-0027 key; **only an unscoped key** is accepted, an `instance`-scoped one is refused; every topic must lie inside `oaap/<own tenant>/`. A key for a broker client is issued **by hand** by an operator ("Zugänge"). | `oaap.events.broker:142-158`, `:212-217`; `identity/app.py:3243-3266` |
-| F3 | Inside `oaap/<tenant>/` a tenant key may read **and write** (`mqtt_acl.py` kind `tenant`) — so it can publish onto the twin's topics, where only the relay should write. *Inferred, not measured:* a twin event can be forged that way. | `services/mqtt_acl.py:8-33`; `oaap.events.broker:154-181` |
+| F3 | Inside `oaap/<tenant>/` a tenant key may read **and write** (`mqtt_acl.py` kind `tenant`) — so it can publish onto the twin's topics, where only the relay should write. **Measured 2026-11-24 (§1.5):** a twin-shaped event can be forged that way, retained included. | `services/mqtt_acl.py:8-33`; `oaap.events.broker:154-181` |
 | F4 | The relay reads the twin's `events` table from a watermark every 2 s (200 rows), publishes MQTT v5 QoS 1 retained; payload `{id, kind, object_id: "urn:oaap:obj:<uuid>", group_key, origin, recorded_at}`, a status change adds `status: {from, to, reason}` on `…/<object>/status`. | `twin/relay.py:36-37`, `:66-67`, `:129-150`, `:204`, `:281-282` |
 | F5 | Twin webhooks out (built, `oaap.data.twin` 0.13): body `{hook, events[≤50], next}`, `X-OAAP-Signature: t=…,v1=HMAC-SHA256(<t>.<body>)`, at-least-once in order, backoff to 1 h, stop after 10 failures, `resume`, ≤5 per client, internet targets only, no values. Change feed `GET /twin/v1/changes?since=` (cursor = event id). Value events: not built. | `oaap.data.twin:695-701`, `:854-882`; `twin/hooks.py:178-184` |
 | F6 | Twin webhooks in (built, 0.14 §2.26): signature `oaap` · `hmac-sha256` · `token`; a JSON mapping with ≤20 rules `when` → `upsert`/`retire`/`status`; a delivery is one batch, idempotent by delivery id. | `oaap.data.twin:884-954`; `twin_inbound.py` |
@@ -126,17 +127,50 @@ CloudEvents-conformant):
   their spirit and export to AsyncAPI.
 - **An app must never hold a broker key** that reaches the twin's topics (F2,
   F3). Publishing goes through a door, as `cases` does (F9).
-- **F3 is a hole today**, independent of this RFC. D11 closes it in stage 1.
+- **F3 is a hole today** (measured, §1.5), independent of this RFC. D11 closes
+  it in stage 1.
 
 ### 1.4 Not read, not measured
 
-- Whether an instance network reaches the broker at all (relevant only if apps
-  ever speak MQTT, D6).
-- F3 measured: a tenant key publishing onto a twin topic on `oaap-test`.
+- ~~Whether an instance network reaches the broker at all~~ — read 2026-11-24,
+  §1.5 (M6).
+- ~~F3 measured~~ — measured 2026-11-24, §1.5.
 - The relay's throughput beyond 200 rows per 2 s, and what a second event
   source does to it.
 - SAP's AsyncAPI version and `x-sap-*` fields on the Accelerator Hub
   (help.sap.com not reachable for the reader); the AsyncAPI text itself.
+
+### 1.5 Measured 2026-11-24 on `oaap-test` (stage 0, part one)
+
+Reference 0.1.359. A throwaway machine principal `ev-probe` (role `user`) in the
+test tenant `t9k2`, an **unscoped** RFC-0027 key for it (`oaap key issue
+ev-probe --days 1`), an MQTT v5 client (paho 2.1) inside the relay container,
+which sits in the broker's network, against `broker:1883`. A made-up type
+`evprobe` and a made-up object id, so that no real twin object was touched.
+Afterwards the retained message was cleared (empty payload, retain), the key
+revoked, the principal removed.
+
+| # | What | Result |
+|---|---|---|
+| M1 | Subscribe `oaap/<t9k2>/#` | granted |
+| M2 | Publish, QoS 1, **retained**, onto `oaap/<t9k2>/evprobe/<uuid>/state` with exactly the relay's payload (`kind: status.changed`, `origin: twin`, an `object_id` URN) | **`Success`** — the broker took it |
+| M3 | A second connection subscribes **afterwards** to that topic | it receives the forged message as **retained**, indistinguishable from one the relay wrote |
+| M4 | Publish into another tenant's tree, onto the metrics branch `oaap-node/…`, onto the bridged branch `oaap-via/…`; subscribe to another tenant's tree | all four `Not authorized` |
+| M5 | Clear the retained message, subscribe again | nothing retained — cleanup confirmed |
+| M6 | Who sits in the broker's network `oaap_default` | only platform containers (gateway, identity, portal, twin, relay, hooks, connect, store); **no app container**. Apps reach the broker only through the gateway's `/broker/*` (WebSocket, logged-in session **and** a key inside the MQTT CONNECT) or, on a node with the raw port exposed, from outside. |
+
+**What follows.** F3 is real, for the lowest role (`user`): the tenant
+boundary holds (M4), but inside its own tenant a key holder can write onto
+the twin's topics and leave a **retained** forgery there that every later
+subscriber receives as the current state (M3). The relay overwrites it only
+when that object's next real event arrives. The payload carries no mark of who
+wrote it — which is exactly what the CloudEvents envelope with a
+platform-set `source` (D2) and D11 change. Today no app holds such a key and
+no app speaks MQTT (F8, M6); the hole is open to whoever an operator issues an
+unscoped key to by hand. Not measured: overwriting the retained topic of a
+**real** twin object (the ACL does not look at the type, so it is expected to
+behave the same), and whether `/broker/*` accepts a key as `Authorization`
+instead of a session.
 
 ## 2. Words
 
@@ -339,7 +373,7 @@ checks that from its own records, so an app cannot spray events at strangers.
 
 | Stage | What | Measured by |
 |---|---|---|
-| **0** | Measure on `oaap-test`: F3 (a tenant key publishing on a twin topic); the relay's throughput with a second source; whether an instance network reaches the broker. | §1.4 answered |
+| **0** | Measure on `oaap-test`: F3 (a tenant key publishing on a twin topic) — **done 2026-11-24, §1.5**; the relay's throughput with a second source — open; whether an instance network reaches the broker — **read 2026-11-24, §1.5 M6**. | §1.4 answered |
 | **1** | **The ACL fix** (only platform principals publish under `oaap/<tenant>/`). Envelope, store, catalogue in the manifest, publish door, grants, addressed events, push into the app, feed. First pair `vorgaenge` → `bestand`. | security requirements; a case moved in `vorgaenge` arrives once in `bestand`, after a stop of `bestand` through the feed |
 | **2** | Platform types (identity, twin in the envelope, D10); the portal page "Ereignisse" with the tenant's catalogue and grants; AsyncAPI export. | RFC-0126's activation arrives in the inviting app; AsyncAPI opens in an AsyncAPI viewer |
 | **3** | Webhooks out for any granted type in CloudEvents form with the OPTIONS handshake (D7); receivers in with a CloudEvents mapping (D8). | a CloudEvents sender (a test sender in SAP's format) arrives as an event and is delivered |
@@ -394,8 +428,13 @@ Alle sind nur für den Zwilling gebaut, jeder mit eigenem Format. **Keine App
 kann heute veröffentlichen oder abonnieren.** Es gibt kein Manifestfeld dafür,
 der Broker nimmt nur ungescopte Schlüssel, und die stellt ein Operator von Hand
 aus. **Eine Lücke:** Ein solcher Mandantenschlüssel darf auch auf die Themen des
-Zwillings schreiben und könnte so Zwilling-Ereignisse fälschen. Das ist
-gefolgert, noch nicht gemessen.
+Zwillings schreiben und so Zwilling-Ereignisse fälschen. **Am 24.11. auf
+oaap-test gemessen (§1.5):** Ein Schlüssel mit der Rolle `user` hat eine
+gefälschte Nachricht im Format des Relais als gehaltene Nachricht (retained)
+abgelegt, und ein späterer Abonnent bekam sie wie eine echte. Fremde Mandanten,
+den Metrikzweig und den Brückenzweig verweigert der Broker. Apps sitzen nicht
+im Netz des Brokers; heute trifft die Lücke nur, wem ein Operator von Hand
+einen ungescopten Schlüssel gibt.
 
 **CloudEvents** (v1.0.2, im Original geprüft) legt nur den Umschlag fest:
 - Pflicht sind `id`, `source`, `specversion` und `type`.
