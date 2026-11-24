@@ -1,6 +1,7 @@
 # RFC-0127: Events as a Platform Capability — Apps Publish What They Declare, Subscribe to What They Are Granted, in the CloudEvents Envelope
 
-- **Status:** **Draft (2026-11-24)** — D1–D12 open (§13). Nothing built,
+- **Status:** **Accepted (2026-11-24)** — D1–D12 decided one by one the same
+  day, each as recommended (§13). Nothing built,
   **nothing measured**. The facts in §1 were read the same day in
   `oaap.events.broker` 0.4, RFC-0032, RFC-0120 §4.7/§13, `oaap.data.twin`,
   `oaap.core.notifications` 0.13, `oaap.apps.runtime` (§2.24/§2.25), reference
@@ -358,9 +359,9 @@ checks that from its own records, so an app cannot spray events at strangers.
 7. A `personal` type never leaves the tenant without the admin's permission for
    that target.
 
-## 13. Decisions (open)
+## 13. Decisions (Jörg, 2026-11-24, one by one, each as recommended)
 
-| # | Question | Recommendation | Not chosen |
+| # | Question | Decision | Not chosen |
 |---|---|---|---|
 | **D1** | Which envelope? | **CloudEvents 1.0, JSON form, everywhere**; `source`/`id`/`time` set by the platform; extensions `oaaptenant`, `oaaporigin`, `oaapsemantic`, `oaapto` (§3). | Our own envelope; the AAS `EventPayload` form (experimental); CloudEvents only at the edge. |
 | **D2** | How does an app say what it publishes and wants? | **`events.publishes` / `events.subscribes` in the manifest**, types versioned in the name, JSON Schema in the package, meaning after RFC-0125, audience `addressed · tenant · listed` (§4). | Types registered at runtime; no catalogue (anything goes). |
@@ -404,7 +405,7 @@ gefolgert, noch nicht gemessen.
 - SAP verlangt CloudEvents für jedes Ereignis über seinen Event Hub und
   beschreibt seinen Katalog teils in AsyncAPI.
 
-**Vorschlag (D1–D12, offen):**
+**Entschieden (24.11., D1–D12 einzeln, jeweils wie empfohlen):**
 - **Ein Umschlag:** CloudEvents 1.0 als JSON. `source`, `id` und Zeit setzt
   immer die Plattform, nie die App. Dazu kommen vier eigene Erweiterungen:
   Mandant, Herkunft, Bedeutung nach RFC-0125, Empfänger.
