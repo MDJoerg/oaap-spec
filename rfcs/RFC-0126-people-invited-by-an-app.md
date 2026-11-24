@@ -1,8 +1,8 @@
 # RFC-0126: People Invited by an App — an App Asks, the Platform Creates the Login and Sends the Mail
 
 - **Status:** **Accepted (2026-11-24)** — D1–D10 decided one by one the same
-  day, each as recommended (§12). Nothing built. **Stage 0 measured on
-  `oaap-test` the same day (§1.5).** The facts in §1 were read the same day in
+  day, each as recommended (§12). **Stage 0 measured** on `oaap-test` the same day (§1.5); **stage 1 built
+  and measured** the same day, reference 0.1.366 (§1.6). The facts in §1 were read the same day in
   `oaap.core.identity`, RFC-0041, RFC-0055, RFC-0072, RFC-0091,
   `oaap.apps.runtime` (§2.24/§2.25 cases) and reference 0.1.359
   (`services/idp_admin.py`, `services/identity/app.py`); what was **not** read or
@@ -167,6 +167,44 @@ the look of the mail (the realm's theme); a `partner` coming through a
 Keycloak login and RFC-0091's group mapping (the built-in login stood in —
 the gateway's part is the same); Unicode variants of an address.
 
+### 1.6 Built and measured 2026-11-24 on `oaap-test` (stage 1)
+
+Reference 0.1.366: connector verb `invited_users` (`idp_admin.py`), the switch
+(`oaap tenant people`), identity's door `/people/v1` (`people_kc.py`, the
+record before the first login), manifest 0.22 `people: {invite: true}` with
+key, URL and gateway door; `oaap.core.identity` 0.6.13, `oaap.core.tenant`
+1.28, `oaap.apps.runtime` 0.2.86. Measured in a throwaway tenant `inv1` with
+its own realm (made by `oaap idp provision`), whose mail went to a sink on
+the node; two throwaway apps `inv1-pp-a`, `inv1-pp-b` with
+`people: {invite: true}`; the invited person driven from outside through the
+edge. Afterwards the apps, the person and the realm were removed.
+
+| # | What | Result |
+|---|---|---|
+| P1 | `oaap tenant people inv1 on`, twice | attribute, group, "forgot password" on, client `oaap-people` (no login flow, service account) with exactly `manage-users`, `query-groups`, `view-users`, nothing of the realm; the second run changes nothing. The realm's other settings untouched |
+| P2 | `pp-a` invites `ina.probe@…` with `ref` | `201`, UUID; the realm login with marker `instance:inv1-pp-a`, group `/oaap-invited/inv1-pp-a`, both required actions; identity's record `partner`, bound to the realm's `sub`, `invited_by`, `ref`; the mail in the sink |
+| P3 | Reads: `pp-a` by `ref` · `pp-b` | the person · nothing |
+| P4 | `pp-b` locks `pp-a`'s person | `404` |
+| P5 | The same address in other case · an address with a login made by hand | `409` · `409`, never linked |
+| P6 | The person follows the link, sets a password, signs in through the tenant's place (Keycloak) | German pages, "Konto aktualisiert"; signed in; both apps get `X-OAAP-User-Id` = **the UUID the invitation answered** (no second record), role `partner`; "Zugänge" and "Benutzer" `403`; status `active`, `last_login` set |
+| P7 | `lock` · sign in again · `unlock` | realm login disabled, record inactive, session ended · Keycloak does not let the person in · enabled again |
+| P8 | `resend` × 3, then a fourth · `resend` to the active person | three mails, then `429` "more than 3 mails a day to this address" · `409` ("forgot password" is the way) |
+| P9 | `oaap tenant people inv1 off`, then invite and read | client disabled (not deleted); `403` "the server_admin turns it on" |
+| P10 | Audit | `people.invite` (ok and refused, with the reason), `people.lock`, `people.unlock`, all with the instance |
+
+**Found and fixed while measuring (all in 0.1.366 before the commit):**
+(1) the marker attribute was first declared with the SAP claim's shape (upper
+case, 12 characters) and Keycloak refused every login (`400` with the field's
+reasons) -- the marker has its own definition now, an existing wrong one is
+corrected, and identity says Keycloak's reasons; (2) refused attempts used up
+the per-address limit -- only mails that went out count; (3) `resend` sent a
+set-password mail to an active person -- now only while invited or expired.
+Not measured: the hourly and daily limits per instance (unit-tested), a
+tenant's own `people_link_hours`, RFC-0091's group mapping trying to raise an
+invited person (unit-tested: the guard). Left on `oaap-test`: the empty
+tenant `inv1` (`tenant remove` refuses it although it holds no person and no
+instance -- not looked into).
+
 ## 2. The way, step by step
 
 ```
@@ -311,7 +349,7 @@ decision if a tenant without Keycloak ever needs it.
 | Stage | What | Measured by |
 |---|---|---|
 | **0** | Measure on `oaap-test`: a `partner` through the gateway into an app and in the portal; `execute-actions-email` with both actions on the pinned Keycloak (mail, link, lifespan, language); `duplicateEmailsAllowed`. — **measured 2026-11-24, §1.5** | §1.4 answered |
-| **1** | Connector verb `invited_users` (§3), tenant switch, identity's invite with the record before the first login (§5), mail (§6), the door and the manifest capability (§4), audit. | security requirements 1–7; a person invited, mailed, confirmed, logged in, found by `ref` |
+| **1** | Connector verb `invited_users` (§3), tenant switch, identity's invite with the record before the first login (§5), mail (§6), the door and the manifest capability (§4), audit. — **built and measured 2026-11-24, §1.6** | security requirements 1–7; a person invited, mailed, confirmed, logged in, found by `ref` |
 | **2** | Portal page "Eingeladene Personen" per app (lock, resend, raise to a platform role by hand); events once I-69 exists. | the tenant admin sees and acts on every invited person |
 | **3** | `bestand` uses it (RFC-0123 stage 1). | a contact ordered, confirmed, logged in, sees only their nodes |
 
@@ -407,6 +445,16 @@ der `server_admin` das Einladen für einen Mandanten ein, legt der Konnektor in
 dessen Realm einen Client `oaap-people` an, dessen Dienstkonto genau die Rechte
 „Benutzer verwalten“, „Benutzer lesen“ und „Gruppen abfragen“ hat. Beim
 Ausschalten wird er deaktiviert, nicht gelöscht.
+
+**Stufe 1 gebaut und gemessen am 24.11. (§1.6).** Eine App lädt ein, die
+Plattform legt den Login an, und Keycloak schickt die Mail. Die Person
+bestätigt, setzt ihr Passwort und meldet sich an. Die App sieht dann genau die
+UUID, die sie bei der Einladung bekommen hat, mit der Rolle `partner`. Eine
+andere App sieht die Person nicht und kann sie nicht sperren. Doppelte
+Adressen werden abgewiesen, Sperren wirkt sofort, und es gibt Mengengrenzen.
+Ausgeschaltet geht nichts mehr. Beim Messen gefunden und behoben: die
+Markierung hatte erst eine falsche Form; misslungene Versuche zählten auf die
+Grenze; erneut einladen ging auch bei schon Aktiven.
 
 **Stufen.** Stufe 0 misst, ob ein `partner` durchs Gateway in eine App kommt,
 die Keycloak-Mail mit beiden Aktionen und die Duplikat-Einstellung. Stufe 1

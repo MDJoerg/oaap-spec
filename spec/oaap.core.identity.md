@@ -1,7 +1,7 @@
 # oaap.core.identity — Identity & Roles
 
 - **ID:** `oaap.core.identity`
-- **Version:** 0.6.12 (bootstrap: **machine principals do not count** as users -- an app installed before the first administrator no longer locks the first-run wizard, and the first administrator is added next to the machine principals, never written over them, §2.5; found on a laptop demo node, I-68; reference 0.1.356). 0.6.11 (the people's key door `POST /internal/keys` refuses keys for the platform's machine principals (`instance:`, `remote:`, `client:`) and any scope with a dot (a platform capability such as `oaap.twin`, `oaap.authz.admin`, `oaap.cases.submit:<x>`), for every actor, audited as `key.refused`; one exception, RFC-0120 D2: a `client:` principal of the actor's own tenant with scope exactly `oaap.twin` and role `user` only -- until then a tenant_admin could mint them and act as an app on the twin, the authorization door or the cases door; the platform mints such keys itself, RFC-0120 §1.6, reference 0.1.346). 0.6.10 (the via check of 2.13 also for `oaap.ai.client:<chat>`, RFC-0104 stage 2). 0.6.9 (a seventh header **`X-OAAP-User-Idp`**: the person's binding at the tenant's OIDC identity provider as `<issuer> <sub>`, empty without one -- on the one list, so stripped, copied and kept out of the log like the others, 2.14, reference 0.1.307, RFC-0095 D2). 0.6.8 (**every node has its assertion key**: made at installation, on every update and at every app installation, never replaced -- 2.11, reference 0.1.302). 0.6.7 (**the discovery door**: `/verify?discover=` passes a gateway's catalog requests to a source without a person, the body parsed as JSON, the app seeing the gateway's machine principal -- 2.12.1, RFC-0073 §16, reference 0.1.300). 0.6.6 (**a client-sent `X-OAAP-Groups`/`X-OAAP-Tenant` is
+- **Version:** 0.6.13 (0.6.13: **people invited by an app** -- `/people/v1` behind the gateway's door `/platform/people`: invite, resend, lock, unlock, read; the record made before the first login, role `partner`, limits, audit; RFC-0126 stage 1, reference 0.1.366). Before: 0.6.12 (bootstrap: **machine principals do not count** as users -- an app installed before the first administrator no longer locks the first-run wizard, and the first administrator is added next to the machine principals, never written over them, §2.5; found on a laptop demo node, I-68; reference 0.1.356). 0.6.11 (the people's key door `POST /internal/keys` refuses keys for the platform's machine principals (`instance:`, `remote:`, `client:`) and any scope with a dot (a platform capability such as `oaap.twin`, `oaap.authz.admin`, `oaap.cases.submit:<x>`), for every actor, audited as `key.refused`; one exception, RFC-0120 D2: a `client:` principal of the actor's own tenant with scope exactly `oaap.twin` and role `user` only -- until then a tenant_admin could mint them and act as an app on the twin, the authorization door or the cases door; the platform mints such keys itself, RFC-0120 §1.6, reference 0.1.346). 0.6.10 (the via check of 2.13 also for `oaap.ai.client:<chat>`, RFC-0104 stage 2). 0.6.9 (a seventh header **`X-OAAP-User-Idp`**: the person's binding at the tenant's OIDC identity provider as `<issuer> <sub>`, empty without one -- on the one list, so stripped, copied and kept out of the log like the others, 2.14, reference 0.1.307, RFC-0095 D2). 0.6.8 (**every node has its assertion key**: made at installation, on every update and at every app installation, never replaced -- 2.11, reference 0.1.302). 0.6.7 (**the discovery door**: `/verify?discover=` passes a gateway's catalog requests to a source without a person, the body parsed as JSON, the app seeing the gateway's machine principal -- 2.12.1, RFC-0073 §16, reference 0.1.300). 0.6.6 (**a client-sent `X-OAAP-Groups`/`X-OAAP-Tenant` is
   stripped** on every app route, 2.6; 0.6.5: **a bearer that is not ours** goes to the app when a
   session comes with it, 2.3, I-44; 0.6.4: **a chat acts as the person**, procedure A,
   RFC-0074 stage 1: `/verify?via=`, 2.13, and procedure I takes the
@@ -809,7 +809,35 @@ there is none: the overwrite rule of the five.
   `X-OAAP-User-Idp` only when it is named there -- an older platform
   would have let a client send it.
 
-## 3. Configuration
+### 2.x People invited by an app (0.6.13, RFC-0126 stage 1)
+
+Reached only through the gateway's door `/platform/people/*` of an
+instance whose manifest says `people: {invite: true}` (`oaap.apps.runtime`
+2.43), with that instance's key. identity believes the source only when its
+principal `instance:<name>` names the instance the gateway names, and takes
+the tenant from that principal's record. It acts at the tenant's realm only
+with the realm's own invitation client (`oaap.core.tenant`: the switch), never
+with the node's connector credential.
+
+| Call | Does |
+|---|---|
+| `POST /people/v1/invite` `{email, name?, language?, ref?}` | refuses an address any person of the tenant has (`409`, never linked, D8); creates the realm login (`enabled`, address unverified, required actions verify-address and set-password, marker `oaap_invited_by = instance:<name>`, group `oaap-invited/<instance>`); creates the **platform record at once**: UUID, role **`partner`**, bound to `(provider, sub)`, `invited_by`, `ref`; has Keycloak send the mail (link valid 72 h, the tenant's `people_link_hours`); `201 {user_id, status: "invited", ref}` |
+| `GET /people/v1` · `?ref=` · `/{user_id}` | only the people THIS instance invited: `invited · active · locked · expired`, `last_login`, `ref` |
+| `POST /people/v1/{user_id}/resend` | only while `invited` or `expired` (`409` otherwise -- "forgot password" is the realm's way, RFC-0126 D11) |
+| `POST /people/v1/{user_id}/lock` · `unlock` | disables / enables the realm login and the record; locking ends the person's sessions |
+
+- **Every call on an existing person reads the realm login first and
+  refuses unless its marker names the calling instance.** Nothing changes a
+  name, an address or a password; nothing deletes.
+- **The first login** through the tenant's provider finds the binding and
+  creates no second record (`first_login` does not apply). **The role sync**
+  (`oaap.core.tenant` 2.8.1) never raises an invited person above `partner`;
+  only a tenant admin by hand, which ends the app's hold.
+- **Limits** (D5): 20 invitations an hour and 100 a day per instance, 3 mails
+  a day per address; only mails that went out count. `429` with the reason.
+- **Audit**: `people.invite`, `people.resend`, `people.lock`,
+  `people.unlock`, with the instance and the result, refusals included.
+
 
 - Session secret and setup token are generated at install time
   (`oaap.core.host`); the user store lives in the platform data
@@ -1308,3 +1336,16 @@ keine Schlüssel mit einer Begrenzung, die eine Fähigkeit der Plattform nennt (
 konnte eine Mandanten-Verwaltung solche Schlüssel ausstellen und damit als eine App am Zwilling,
 an der Berechtigungstür oder an der Vorgangstür auftreten (gemessen auf oaap-test). Solche
 Schlüssel stellt jetzt nur noch die Plattform selbst aus.
+
+## Deutsche Zusammenfassung (Nachtrag 0.6.13 — Einladung durch eine App, RFC-0126 Stufe 1)
+
+Eine App mit `people: {invite: true}` kann über ihre Tür `/platform/people`
+Personen einladen. identity legt im Realm des Mandanten den Login mit der
+Markierung der App an und lässt Keycloak die Mail schicken („Adresse
+bestätigen, Passwort setzen“). Den Plattform-Datensatz mit UUID und der Rolle
+`partner` legt identity sofort an, gebunden an den Login. Die erste Anmeldung
+findet ihn also und legt keinen zweiten an. Die App sieht, sperrt, entsperrt
+und lädt erneut nur ihre eigenen Eingeladenen ein, und erneut einladen nur,
+solange noch nicht bestätigt ist. Doppelte Adressen werden abgewiesen. Es
+gibt Mengengrenzen, und jeder Aufruf steht im Audit-Protokoll. identity
+benutzt dafür nur den Zugang des einen Realms, nie den Host-Zugang.
