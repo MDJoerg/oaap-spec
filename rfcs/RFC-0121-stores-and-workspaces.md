@@ -4,7 +4,9 @@
   (§12.1), D8–D17 as recommended (Jörg: "Wie empfohlen"). **Stage 1 without the chat built and measured
   2026-11-23 (§10.1)**: `oaap.work.stores` 0.1, `oaap.work.workspaces` 0.1, the store door in mcp-gateway
   0.45.0, the BookStack connector in `bookstack` 0.2.0 — 27/27 on `oaap-test`. Stage 1 starts with
-  BookStack instead of Forgejo/PCH (Jörg, 2026-11-23, D15 reordered). The
+  BookStack instead of Forgejo/PCH (Jörg, 2026-11-23, D15 reordered). **Stage 0
+  for Forgejo measured 2026-11-24 (§10.2)**: acting as the person works through
+  the realm's subject and `Sudo`; nothing built on it yet. The
   facts in §1 were read the same day in the specs, the manifests of `chat`
   0.21.0 and `projekt` 0.3.2, RFC-0067, RFC-0103, RFC-0110, RFC-0111, RFC-0114
   and the PCH repository (`pch-root`, 0.8.0); what was **not** read or measured
@@ -104,9 +106,10 @@ for a limited time (stage 4).
 
 ### 1.3 Not read, not measured
 
-- **Forgejo:** whether an administrator's token can act as a person (`Sudo`),
-  what the contents API returns as a revision, how search answers per person.
-  Where the Forgejo package lives was not found in `oaap-apps/apps`.
+- ~~**Forgejo:** whether an administrator's token can act as a person (`Sudo`),
+  what the contents API returns as a revision, how search answers per person.~~
+  Measured 2026-11-24, §10.2. The package lives in `oaap-store/apps/forgejo`
+  (15.0.11), not in `oaap-apps`.
 - **BDT:** its API for projects, folders and files, and how it knows a person.
 - **PCH on the platform:** the package was never run against a real node (PCH
   open question 33).
@@ -524,6 +527,46 @@ origin of a write beyond the author (BookStack keeps no summary through its
 API); a light test on the node (unit-tested only: the probe sends no
 `X-OAAP-Light`).
 
+### 10.2 Stage 0 for Forgejo (measured 2026-11-24)
+
+On `oaap-test`, a throwaway tenant `ws375` with a realm: the store package
+`forgejo` 15.0.11 (API `15.0.11+gitea-1.22.0`) installed as `ws375-git`, its
+client made with `oaap idp app auth --instance ws375-git`, a local
+administrator created in the container. Two persons of the realm (anna375,
+bert375) signed in through the realm and got their accounts on the spot. The
+measurements ran through the edge with an administrator's token. Script:
+`fj_mess.py` (scratchpad of the session).
+
+| # | Question | Measured |
+|---|---|---|
+| Z1 | Can the connector find the person's account from the platform's assertion? | **Yes.** An account made by the realm carries `source_id` (the sign-in source `oaap`) and `login_name` = the realm's `sub`. `GET /admin/users?source_id=…&login_name=<sub>` returns exactly that account; an unknown subject returns an empty list. `Sudo` takes the **login**, not the subject (`Sudo: <sub>` → 404), so the lookup comes first. |
+| Z2 | Can a token act as the person, and which token? | **Only an administrator's.** `Sudo` as a header or as `?sudo=` works with an administrator's token. A person's own token gets 403 "Only administrators allowed to sudo"; an unknown account 404. The smallest set measured: `write:repository` (contents), `write:user` (`/user`, creating a repository — without it 403), `read:admin` (the lookup of Z1 — without it 403). |
+| Z3 | Do the person's rights hold through `Sudo`? | **Yes.** As bert, the repository search does not show anna's private repository; reading a file in it and writing to it answer 404. As anna it is found. |
+| Z4 | What is a revision? | The contents API returns `sha` (the blob) and `last_commit_sha`, `last_commit_when`. A change **requires** the read `sha` (without: 422 "SHA Required"); a stale one is refused with **409** and names the expected one. Deleting takes the `sha` too. The lost-update check is the product's own. |
+| Z5 | Is the origin kept? | **Yes.** Author and committer of the commit are the person (their display name from the realm); the commit message keeps a trailer (`Via: chat (…)`) unchanged. |
+| Z6 | Folders? | Implicit and of any depth: writing `ordner/unter/neu.md` makes the folders. Git keeps no empty folder. The whole tree is one call (`git/trees/<branch>?recursive=true`). |
+| Z7 | Full-text search as the person? | **Not in the API.** `GET /repos/{owner}/{repo}/search` answers 404; Forgejo searches code only on its web pages. The API finds repositories by name, per person. |
+| Z8 | Creating a store as the person? | **Yes.** `POST /user/repos` with `Sudo` makes a private repository owned by the person (`auto_init`, branch `main`). |
+| Z9 | A person who never signed in to Forgejo? | Has no account: the lookup of Z1 is empty. Not measured: creating the account for them in advance. |
+
+**What follows for the connector (proposed, not decided):**
+
+- `identity: assertion` holds for Forgejo in the tenant (§3.3): the connector
+  maps `X-OAAP-User-Idp` (the subject) to the login (Z1) and then acts with
+  `Sudo` (Z2). A person without an account gets "sign in to Forgejo once" (Z9).
+- The connector holds an **administrator's key** of that Forgejo: whoever has
+  it acts as anyone there. It belongs where the BookStack key lives (the
+  connector's own storage, never the model, never a log), with the three
+  scopes of Z2 and nothing more, on a technical account that is not a person.
+- `about`: `revisions: yes` (Z4), `history: yes` (commits of a path, not
+  measured), `folders: any` (Z6; the verb `folder` writes a placeholder or is
+  declared implicit), `create_store: yes` (Z8), `propose: yes` later (pull
+  requests), origin as a commit trailer (Z5).
+- `search`: names and paths in stage 1 (Z7); full text needs the connector to
+  read files itself or a later index (I-65). The chat says so on the mount.
+- Where it runs is open: a small app of its own (§3.5 as written), or a
+  second service in the Forgejo package so the key never leaves the instance.
+
 ## 11. Conformance (described; every line gets a bait)
 
 1. A call to a connector without an assertion is refused.
@@ -686,6 +729,22 @@ am Tag ablegen kollidierte (jetzt mit Uhrzeit). Das kleine Modell hat bei
 Stelle, an der man das sieht. Von außen lieferte der Router für den Chat ein
 fremdes Zertifikat; gemessen über den Edge im LAN. Offen: Forgejo und PCH,
 Team-Arbeitsräume.
+
+**Forgejo, Stufe 0 gemessen (24.11., §10.2):** Auf oaap-test im
+Wegwerf-Mandanten ws375 ein Forgejo 15.0.11 mit Anmeldung über den Realm, zwei
+Personen des Realms angemeldet. Ergebnis: Forgejo merkt sich bei jedem Konto
+aus dem Realm dessen `sub`; der Konnektor findet damit das Konto (Z1) und
+handelt mit `Sudo` als diese Person (Z2) – das geht nur mit einem
+Administrator-Schlüssel, mindestens mit den Rechten `write:repository`,
+`write:user` und `read:admin`. Die Rechte der Person gelten dabei (fremde
+private Repos unsichtbar, Z3). Jede Änderung verlangt die gelesene Revision,
+eine veraltete wird mit 409 abgelehnt (Z4). Der Commit trägt die Person als
+Autor und behält den Hinweis „Via: chat“ (Z5). Ordner entstehen beim Schreiben
+(Z6), Repos kann die Person anlegen (Z8). **Lücke:** Volltextsuche gibt es in
+der Forgejo-API nicht, nur auf den Webseiten (Z7). Wer sich nie in Forgejo
+angemeldet hat, hat noch kein Konto (Z9). Offen für dich: wo der Konnektor
+läuft (eigene kleine App oder zweiter Dienst im Forgejo-Paket, damit der
+Schlüssel die Instanz nie verlässt).
 
 **Entschieden (23.11.):** D1–D7, deine sieben Antworten, und D8–D17 wie
 empfohlen („Wie empfohlen“):
