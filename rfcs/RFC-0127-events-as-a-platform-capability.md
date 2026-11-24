@@ -4,7 +4,9 @@
   day, each as recommended (§13).
   **Stage 0 measured** on `oaap-test` the same day: F3 (§1.5) and the
   relay's throughput (§1.6). **Stage 1, step 1 (D11) built** the same day,
-  reference 0.1.360, measured on `oaap-test` (§1.7). The facts in §1 were read the same day in
+  reference 0.1.360, measured on `oaap-test` (§1.7). **Step 1.2 (the bus:
+  envelope, manifest block, door, store, grants, feed) built** the same day,
+  reference 0.1.361, `oaap.events.bus` 0.1, measured (§1.8). The facts in §1 were read the same day in
   `oaap.events.broker` 0.4, RFC-0032, RFC-0120 §4.7/§13, `oaap.data.twin`,
   `oaap.core.notifications` 0.13, `oaap.apps.runtime` (§2.24/§2.25), reference
   0.1.359 (`services/twin/relay.py`, `twin/hooks.py`, `twin_inbound.py`,
@@ -269,6 +271,35 @@ threaded, so it is expected). Belongs to the twin's topics, a later step
 subscription already granted on the whole tree); recorded here, not
 decided.
 
+### 1.8 Built and measured 2026-11-24: the bus, step 1.2
+
+Reference 0.1.361, `oaap.events.bus` 0.1, runtime 0.2.83 (manifest 0.21).
+Staged on `oaap-test`; the schema step brought the five twin schemas there
+up to `bus_events` and `bus_grants` on its own. A throwaway probe app
+(`evprobe`, one package, publishing and wanting `app.evprobe.probe.ping.v1`)
+installed twice in the throwaway tenant `s0` (`s0-evp-a`, `s0-evp-b`) and
+once in `zzz-probe` (`zzz-probe-evp-c`); all three removed afterwards (keys
+revoked, principals deleted, the catalogue empty again).
+
+| # | What | Result |
+|---|---|---|
+| B1 | Install | key and URL in the environment, both instances in the catalogue |
+| B2 | Publish with forged `source`, `id`, `time`, `oaaptenant`, `oaaporigin` | `202`; stored and delivered with the platform's values (`source` `urn:oaap:tenant:<s0>:instance:s0-evp-a`, a ULID, the door's time, `oaapsemantic` from the catalogue) |
+| B3 | Undeclared type · `n: -1` · an extra field · 70 KB · `oaapto` | `403` · `422 data.n: at least 0` · `422 data.x: not allowed here` · `413` · `400` |
+| B4 | Binary mode (`ce-type`, `ce-subject`, body = data) | `202` |
+| B5 | `s0-evp-b`'s feed before the grant · after `oaap events grant` · `?since=` · after `revoke` | empty · both events · exactly the later ones · empty, although a new one was published |
+| B6 | The publisher's own feed | empty: it does not get its own events back |
+| B7 | 125 publishes within a minute | 115 × `202` + 10 × `429` (120 a minute, counting the five before) |
+| B8 | `s0-evp-b`'s key at `s0-evp-a`'s door · no key · a forged `X-OAAP-User` · a made-up key | `403` from identity ("limited to … s0-evp-b") · `303` to the login · `303` (the header is stripped) · `401` — none reaches the twin service |
+| B9 | The instance in `zzz-probe`, granted the same type | its feed stays empty while `s0` holds 125 events: no event crosses tenants |
+| B10 | Audit | `events.grant` and `events.revoke` in the tenant audit log with who, instance and type |
+
+Found and fixed during the measurement: `oaap events list --tenant <label>`
+did not resolve a label (fixed before the commit). Not measured: a person's
+session at the door (the `303` without a key is the same path), retention
+(the 30-day deletion runs with 1 % of publishes), a tenant without a twin
+through the real path (unit-tested: `409`).
+
 ## 2. Words
 
 | Word | Meaning |
@@ -476,6 +507,23 @@ checks that from its own records, so an app cannot spray events at strangers.
 | **3** | Webhooks out for any granted type in CloudEvents form with the OPTIONS handshake (D7); receivers in with a CloudEvents mapping (D8). | a CloudEvents sender (a test sender in SAP's format) arrives as an event and is delivered |
 | later | `oaap.events.queue`; Kafka/AMQP; a partner's event mesh over a destination; MQTT for apps; CESQL filters; xRegistry once released; bridging tenant events between nodes. | own RFCs |
 
+### 12.1 Stage 1 in steps (2026-11-24)
+
+`bestand` does not exist yet (RFC-0123 stage 1 is not built, and D21 comes
+before it). Jörg, 2026-11-24: stage 1 is built with a **stand-in
+receiver** — a small probe app on `oaap-test` takes `bestand`'s place;
+`bestand` later uses the same door. The steps, each built, measured and
+committed on its own:
+
+| Step | What | Spec |
+|---|---|---|
+| 1.1 | D11, the ACL fix — **built, 0.1.360, §1.7** | `oaap.events.broker` 0.5 |
+| 1.2 | Envelope, manifest block `events` (manifest 0.21), catalogue on the node, the key and the door, the store, grants on the command line, the feed — **built, 0.1.361, §1.8** | `oaap.events.bus` 0.1 |
+| 1.3 | Addressed events (`oaapto`) with the platform's own record of who may address whom | `oaap.events.bus` 0.2 |
+| 1.4 | The push into the app (CloudEvents HTTP, HMAC, in order per subject, backoff, stop, resume) | `oaap.events.bus` 0.3 |
+| 1.5 | `vorgaenge` publishes the status of cases opened from a backend; the probe app as the opener receives it once, and after a stop through the feed | `vorgaenge` |
+| 1.6 | The relay without the sleep while a backlog remains (§1.6) | `oaap.data.twin` |
+
 ### Security requirements (proposed)
 
 1. A publisher cannot set `source`, `id`, `time` or the `oaap*` extensions
@@ -563,6 +611,19 @@ jede gehaltene Nachricht einzeln bei identity nachfragt. Er bekommt außerdem
 nur so viele Nachrichten, wie in die Warteschlange passen. Das betrifft die
 Zustandsthemen des Zwillings, nicht die neuen Ereignisse, denn die werden
 nicht gehalten. Festgehalten, nicht entschieden.
+
+**Ereignisbus gebaut am 24.11. (§1.8, Schritt 1.2):** Eine App erklärt im
+Manifest (0.21, Block `events`), was sie veröffentlicht und was sie empfangen
+möchte. Sie bekommt einen eigenen Schlüssel und eine Tür auf ihrer Seite
+(`/platform/events`). Die Plattform setzt Absender, Kennung und Zeit selbst,
+prüft gegen das Schema und legt das Ereignis in der Ablage des Mandanten ab.
+Empfangen wird erst nach einer Freigabe (`oaap events grant`), abgeholt wird
+über den Feed. Auf oaap-test mit einer Probe-App gemessen: Gefälschte
+Absenderangaben werden ersetzt. Nicht erklärte Typen, Schemafehler, zu große
+Ereignisse und mehr als 120 pro Minute werden abgelehnt. Vor der Freigabe und
+nach dem Widerruf kommt nichts an. Ein fremder Schlüssel kommt nicht durch die
+Tür, und ein anderer Mandant sieht nichts. Als Nächstes kommen adressierte
+Ereignisse (1.3) und der Push in die App (1.4).
 
 **Entschieden (24.11., D1–D12 einzeln, jeweils wie empfohlen):**
 - **Ein Umschlag:** CloudEvents 1.0 als JSON. `source`, `id` und Zeit setzt
