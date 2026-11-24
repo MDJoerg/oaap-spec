@@ -1,8 +1,12 @@
 # oaap.events.bus — Events Between Apps, in the CloudEvents Envelope
 
 - **ID:** `oaap.events.bus`
-- **Version:** 0.4
-- **Maturity:** draft (0.4: **the platform publishes** — platform types
+- **Version:** 0.5
+- **Maturity:** draft (0.5: **the twin in the envelope** (RFC-0127 D10)
+  — `oaap.twin.object.created|changed|retired|statuschanged.v1`, audience
+  `tenant`, granted by the tenant admin, copied by the relay only while
+  granted, §2.12; reference 0.1.368, measured on `oaap-test` 2026-11-24,
+  RFC-0127 §1.14. 0.4: **the platform publishes** — platform types
   in the platform's own catalogue, the first three from identity
   (`oaap.identity.person.activated|locked|unlocked.v1`, addressed to the
   instance that invited the person), the twin's internal door
@@ -351,6 +355,32 @@ not know is refused at install.
   the order per person holds, and tries again every 30 seconds; a refusal
   (4xx) is final and logged; items older than 7 days are dropped.
 
+### 2.12 The twin in the envelope (0.5, RFC-0127 D10)
+
+| Type | From the twin's kinds | `data` |
+|---|---|---|
+| `oaap.twin.object.created.v1` | `object.created` | `type`, `group`, `origin` |
+| `oaap.twin.object.changed.v1` | `group.written`, `period.written`, `object.renamed`, `object.merged`, `object.unmerged` | `type`, `group`, `origin`, `change` (the kind) |
+| `oaap.twin.object.retired.v1` | `object.retired` | `type`, `origin` |
+| `oaap.twin.object.statuschanged.v1` | `status.changed` | `type`, `origin`, `from`, `to` |
+
+- **Envelope.** `source` `urn:oaap:tenant:<tid>:twin`, `subject` the object
+  URN `urn:oaap:obj:<uuid>`, **`oaaporigin` the origin as the twin names it**
+  (`app:<id>`, `client:<label>`, `model:<id>`, …), `oaapsemantic` the
+  semantic ID of the group's type, else of the object type, from the model
+  registry (absent when neither declares one). Thin: no values; a status
+  carries from/to but not the reason (free text). `type.created` has no
+  event.
+- **Audience `tenant`.** An app declares the types under `events.subscribes`;
+  the tenant admin grants them (`oaap events grant`), optionally with a
+  subject prefix. No publisher instance exists or is needed.
+- **Copied only while granted** (Jörg, 2026-11-24). The relay (`oaap.data.twin`
+  §2.13) writes a twin row into the store only while some instance of the
+  tenant holds a live grant for its type, in the same transaction that moves
+  its watermark — exactly once. An instance granted later sees events from
+  then on; the twin's own change feed (`/twin/v1`) remains the way to read
+  the past. Without the broker profile there is no relay and so no copy.
+
 ## 3. Configuration
 
 None in 0.1 beyond the manifest. The limits (64 KB, 120 a minute, 30 days)
@@ -489,3 +519,16 @@ gerade nicht da, bleibt es liegen und geht später in der richtigen
 Reihenfolge raus. Neu ist außerdem: Wird eine App mit `events`-Block
 installiert, legt der Knoten den Ereignisspeicher des Mandanten an. Ohne
 das ging auf oaap-test das erste Ereignis verloren.
+
+## Deutsche Zusammenfassung (Nachtrag v0.5)
+
+Der Zwilling spricht jetzt im selben Umschlag. Das Relais schreibt seine
+Änderungen als `oaap.twin.object.created`, `changed`, `retired` und
+`statuschanged` in den Ereignisspeicher des Mandanten, mit der Objekt-URN als
+Betreff, der Herkunft so, wie der Zwilling sie nennt (`app:…`, `client:…`),
+und der Semantik-ID des Typs. Werte reisen nicht mit. Eine App muss die Typen
+erklären, und der Mandantenadmin muss sie freigeben. Kopiert wird nur,
+solange eine Freigabe besteht (Jörgs Entscheidung). Was niemand hört, bleibt
+allein im Journal des Zwillings. Kopie und Wasserstand des Relais stehen in
+einer Transaktion, deshalb landet jede Änderung genau einmal im Speicher.
+Die bisherigen MQTT-Nachrichten des Zwillings bleiben unverändert.

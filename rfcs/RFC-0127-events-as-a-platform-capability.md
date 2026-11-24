@@ -435,6 +435,28 @@ measured: a scheduled deactivation (RFC-0046's worker in appctl does not
 go through identity's update and says nothing yet); a person invited by an
 instance that was removed since (the twin answers `stored: false`).
 
+### 1.14 Built and measured 2026-11-24: the twin in the envelope, step 2.2
+
+Reference 0.1.368, `oaap.events.bus` 0.5 §2.12, `oaap.data.twin` 0.16.2.
+Jörg decided first: the relay **copies a twin event only while an instance
+of the tenant holds a grant** for its type. Measured on `oaap-test` in
+`inv1` with a throwaway integration client (`--models`) writing through
+`/twin/v1` and `peopleprobe` 0.2.2 as `inv1-pp-a` declaring the four types:
+
+| # | What | Result |
+|---|---|---|
+| Z1 | object `a1` created, no grant yet | nothing in the store |
+| Z2 | four grants; `a2` created, written again, status open → done (with a reason), retired | five events in the store and pushed in order, all signatures valid: created, changed (`group.written`, the create's own group write), changed, statuschanged (`from` open, `to` done, **no reason**), retired; `source …:twin`, `oaaporigin client:ev22-inv1`, subject the object URN |
+| Z3 | grants revoked; `a3` created | nothing in the store |
+| Z4 | a type with a semantic ID (IDTA nameplate), granted, object created and written | `oaapsemantic` = the object type's semantic ID on both events |
+
+The relay logged no error; the MQTT topics are untouched (same code path).
+**Found in passing:** `/twin/v1/types` did not keep the semantic ID given on
+a group (the registry row has none), so `oaapsemantic` falls back to the
+object type — the twin door's matter, not this step's. Not measured: a
+merge, a period, a node without the broker profile (no relay, no copy, by
+design).
+
 ## 2. Words
 
 | Word | Meaning |
@@ -664,7 +686,7 @@ committed on its own:
 | Step | What | Spec |
 |---|---|---|
 | 2.1 | identity's events to the inviting app (activated = first login, locked, unlocked; by app · admin), the platform catalogue, the twin's internal door, identity's outbox — **built, 0.1.367, §1.13** | `oaap.events.bus` 0.4 |
-| 2.2 | The twin in the envelope (D10): the relay writes `oaap.twin.object.*.v1` into the store | `oaap.events.bus`, `oaap.data.twin` |
+| 2.2 | The twin in the envelope (D10): the relay writes `oaap.twin.object.*.v1` into the store, only while granted — **built, 0.1.368, §1.14** | `oaap.events.bus` 0.5, `oaap.data.twin` 0.16.2 |
 | 2.3 | The portal page "Ereignisse": the tenant's catalogue, grants and push state | `oaap.events.bus` |
 | 2.4 | AsyncAPI 3.1 export per app and per tenant (D9) | `oaap.events.bus` |
 
@@ -844,7 +866,9 @@ Plattformtypen, die Portalseite und den AsyncAPI-Export. Schritt 2.1 ist am
 App die erste Anmeldung einer eingeladenen Person sowie Sperren und
 Entsperren, durch die App oder den Admin. Dabei fiel auf, dass ein Mandant
 ohne Zwilling keinen Ereignisspeicher hatte. Jetzt legt ihn die Installation
-einer App mit `events`-Block an. Stufe 3 bringt
+einer App mit `events`-Block an. Schritt 2.2 (0.1.368, §1.14): Der Zwilling
+schreibt seine Änderungen als `oaap.twin.object.*` in den Speicher, aber nur,
+solange eine App dafür freigegeben ist. Stufe 3 bringt
 Webhooks und Empfänger im CloudEvents-Format.
 
 **Nicht gelesen, nicht gemessen:** alles in §1.4, dazu der AsyncAPI-Text und die
