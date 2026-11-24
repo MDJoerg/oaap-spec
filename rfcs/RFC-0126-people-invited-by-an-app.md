@@ -1,8 +1,8 @@
 # RFC-0126: People Invited by an App — an App Asks, the Platform Creates the Login and Sends the Mail
 
 - **Status:** **Accepted (2026-11-24)** — D1–D10 decided one by one the same
-  day, each as recommended (§12). Nothing built,
-  **nothing measured**. The facts in §1 were read the same day in
+  day, each as recommended (§12). Nothing built. **Stage 0 measured on
+  `oaap-test` the same day (§1.5).** The facts in §1 were read the same day in
   `oaap.core.identity`, RFC-0041, RFC-0055, RFC-0072, RFC-0091,
   `oaap.apps.runtime` (§2.24/§2.25 cases) and reference 0.1.359
   (`services/idp_admin.py`, `services/identity/app.py`); what was **not** read or
@@ -118,6 +118,54 @@ once, and can make the platform record bound to `(provider, sub)` right then
   (`duplicateEmailsAllowed` is set by RFC-0072; not read which way).
 - Tenants without Keycloak (built-in login): there is no mail at all (F6). Not
   designed here beyond D9.
+
+### 1.5 Measured 2026-11-24 on `oaap-test` (stage 0)
+
+Reference 0.1.365, Keycloak 26.7.4 (the pinned version, connector `auth`).
+The tenant realm `vuebung` was only **read**. Everything that writes ran in a
+**throwaway realm** `rfc126probe`, made with the node's own connector
+credential, whose SMTP server was a small sink container on the Keycloak
+instance's network — **no mail left the node**. Afterwards the realm was
+deleted and the sink stopped. The `partner` part ran in the throwaway tenant
+`s0` with a throwaway person (built-in login, a generated password never
+printed) and two throwaway apps, from outside through the edge — the way an
+invited person comes; all removed afterwards.
+
+| # | What | Result |
+|---|---|---|
+| K1 | `vuebung` (and a new realm's defaults) | `duplicateEmailsAllowed: false`, `loginWithEmailAllowed: true`, `actionTokenGeneratedByAdminLifespan` 43,200 s (12 h), languages `de`, `en`, default `de`; required actions `VERIFY_EMAIL`, `UPDATE_PASSWORD` enabled. **`resetPasswordAllowed: false`** — "forgot password" is **off** in a realm OAAP provisions |
+| K2 | Create a user `enabled`, `emailVerified: false`, required actions `VERIFY_EMAIL` + `UPDATE_PASSWORD`, attribute `oaap_invited_by` | `201` — but **the attribute is dropped without a word**: Keycloak 26's declarative user profile keeps only declared attributes (`username`, `email`, `firstName`, `lastName`; `unmanagedAttributePolicy` unset). With the policy `ADMIN_EDIT` the attribute is kept; a group `oaap-invited/probe` works as a marker either way |
+| K3 | `execute-actions-email` with both actions, `lifespan` 72 h | `204`; the mail (German, the user's `locale`): "Aktualisieren Sie Ihr Konto", from the realm's sender, naming the account, both actions and the validity; the link's token runs exactly 259,200 s |
+| K4 | Following the link | "Führen Sie die folgende(n) Aktion(en) aus" (German) → "Passwort aktualisieren" → "Konto aktualisiert". Afterwards `emailVerified: true`, no required action left — opening the link **is** the address check |
+| K5 | The same link again · a link with `lifespan` 30 s after 45 s | `400` "Die Aktion ist nicht mehr gültig." · `400` "Die Aktion ist nicht mehr gültig." — single use, and it expires |
+| K6 | A second user with the same address · in other case (`Invited1@Example.TEST`) · another address | `409` "User exists with same email" · `409` · `201` |
+| M1 | A person with role `partner` (built-in login) | logs in (the forced first password change works), sees the tenant's start page; the launchpad shows **only** the app whose route allows `partner`; that app answers `200` and gets `X-OAAP-User`, `X-OAAP-Roles: partner`, `X-OAAP-User-Id` (the UUID) and the signed assertion; an app allowing only `user` answers `403`; the portal's "Zugänge" and "Benutzer" `403` |
+
+**What follows for stage 1.**
+
+- **The marker needs the user profile.** The provisioning plan declares
+  `oaap_invited_by` in the realm's user profile, viewable and editable by
+  administrators only (not by the user), and adds the group
+  `oaap-invited/<instance>`; the verb `invited_users` checks both. Without
+  that, §3's marker silently does not exist (K2).
+- **"Forgot password" is off** in the realms OAAP makes (K1). §6's last line
+  ("works afterwards by the realm's own flow") is not true today. Stage 1
+  switches `resetPasswordAllowed` on for a tenant whose switch
+  `people.invite` is on — or says plainly that an invited person who forgets
+  the password needs `resend`.
+- **One link does both** (K4): the person never sees a separate "confirm
+  address" step; the status `active` follows the first login, `emailVerified`
+  already comes with the click.
+- **Duplicates are refused by Keycloak itself** (K6), case-insensitively;
+  D8's `409` can pass Keycloak's answer through. Unicode variants not measured.
+- **`partner` works through the gateway as designed** (M1): only apps that
+  name the role reach the person; the identity headers carry the UUID.
+
+**Not measured:** the mail through the tenant's real mailbox (a sink stood
+in; RFC-0072 measured that path for Keycloak's "update your account" mail);
+the look of the mail (the realm's theme); a `partner` coming through a
+Keycloak login and RFC-0091's group mapping (the built-in login stood in —
+the gateway's part is the same); Unicode variants of an address.
 
 ## 2. The way, step by step
 
@@ -258,7 +306,7 @@ decision if a tenant without Keycloak ever needs it.
 
 | Stage | What | Measured by |
 |---|---|---|
-| **0** | Measure on `oaap-test`: a `partner` through the gateway into an app and in the portal; `execute-actions-email` with both actions on the pinned Keycloak (mail, link, lifespan, language); `duplicateEmailsAllowed`. | §1.4 answered |
+| **0** | Measure on `oaap-test`: a `partner` through the gateway into an app and in the portal; `execute-actions-email` with both actions on the pinned Keycloak (mail, link, lifespan, language); `duplicateEmailsAllowed`. — **measured 2026-11-24, §1.5** | §1.4 answered |
 | **1** | Connector verb `invited_users` (§3), tenant switch, identity's invite with the record before the first login (§5), mail (§6), the door and the manifest capability (§4), audit. | security requirements 1–7; a person invited, mailed, confirmed, logged in, found by `ref` |
 | **2** | Portal page "Eingeladene Personen" per app (lock, resend, raise to a platform role by hand); events once I-69 exists. | the tenant admin sees and acts on every invited person |
 | **3** | `bestand` uses it (RFC-0123 stage 1). | a contact ordered, confirmed, logged in, sees only their nodes |
@@ -319,6 +367,18 @@ Aufruf steht in der Prüfspur. Mandanten ohne Keycloak brauchen dafür einen
 Realm.
 
 **Entschieden (24.11.):** D1–D10 einzeln, jeweils wie empfohlen (§12).
+
+**Stufe 0 gemessen am 24.11. (§1.5).** Die Einladungsmail funktioniert mit
+dem gepinnten Keycloak wie gedacht. Ein Link führt auf Deutsch durch
+„Adresse bestätigen“ und „Passwort setzen“; danach gilt die Adresse als
+bestätigt. Der Link gilt nur einmal und läuft ab. Doppelte Adressen lehnt
+Keycloak selbst ab, auch in anderer Groß-/Kleinschreibung. Eine Person mit der
+Rolle `partner` kommt nur in Apps, die diese Rolle nennen, und die App bekommt
+ihre UUID. Gemessen in einem Wegwerf-Realm mit einer Mail-Senke, so dass keine
+Mail den Rechner verließ. **Zwei Befunde für Stufe 1:** Keycloak 26 verwirft
+die Markierung `oaap_invited_by` stillschweigend, solange sie nicht im
+Benutzerprofil erklärt ist (als Gruppe geht sie). Und „Passwort vergessen“ ist
+in den Realms, die OAAP anlegt, ausgeschaltet.
 
 **Stufen.** Stufe 0 misst, ob ein `partner` durchs Gateway in eine App kommt,
 die Keycloak-Mail mit beiden Aktionen und die Duplikat-Einstellung. Stufe 1
