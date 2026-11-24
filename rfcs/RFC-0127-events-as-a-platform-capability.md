@@ -577,6 +577,36 @@ built as stage 3.3. Asked as:
    signature alone and needed by D8). Opening the key-protected client door
    to the internet is a decision.
 
+### 1.19 Built and measured 2026-11-24: D13–D15, step 3.3
+
+Reference 0.1.373, `oaap.events.bus` 0.10 (§2.7, §2.8, §2.17),
+`oaap.data.twin` 0.16.5. Measured on `oaap-test` in `inv1` with `evprobe`
+0.5 as `inv1-evp-a` (publisher) and `inv1-evp-b` (subscriber), the client
+`ev33-e` made with `--events`, a writing client `ev33-w`, the remote reader
+`ev33-r` and the CloudEvents sink of §1.17; D15 from the PC through the edge
+at the node's external name.
+
+| # | What | Result |
+|---|---|---|
+| D14 | `add-client ev33-e --events` / with `--reads` too | made, "events only" / refused with the sentence |
+| D14 | `ev33-e`: `GET /twin/v1/types` | `200`, no type |
+| D14 | `ev33-e`: webhook without format / `oaap-v1` / `cloudevents` | `400` naming `cloudevents` / `400` / `201`, handshake answered |
+| D13 | `n=1` published, then `evp-b` granted | feed `[]`, push nothing — `n=1` lay in the store before the grant |
+| D13 | `n=2` published | feed `[2]`, push `2` once, signed |
+| D13 | revoked, `n=3` published, granted again, `n=4` | feed `[4]`, push `2, 4` — `n=3` never arrives |
+| D14 | the events-only client (granted before `n=1`) | its webhook carried `1, 2, 3, 4`, four signed batches |
+| D15 | outside, no key | **first `303` to the login form** — fixed: `401` before identity, `WWW-Authenticate: Bearer`, also for `Basic` |
+| D15 | outside, a wrong key / `ev33-e` / `ev33-w` | `401 malformed key` / `200 []` / `200 [t.inv1.EvTwin]` |
+| D15 | outside, `remote:ev33-r` / an app's twin key | `403`, the door is a client's only |
+| D15 | outside, `ev33-w` writes an object / `ev33-e` makes a receiver | `201` / `201`, its URL `/twin/v1/inbound/ev33-e/d15` |
+| D15 | outside, a forged `X-OAAP-User` beside a key / alone | the key decides / `401` |
+
+Container run on `oaap-test`: 11 files, `test_events_33` new (30 checks);
+`test_tenant_boundary` keeps its five old red checks. The first container
+run found a stand-in cursor in `test_events_bus` that still knew the old
+query. Measurement residue removed (clients, reader, the two probe
+instances, the sink, the hook allowance).
+
 ## 2. Words
 
 | Word | Meaning |
@@ -816,7 +846,7 @@ committed on its own:
 |---|---|---|
 | 3.1 | Grants to integration clients; webhooks in the CloudEvents format with the OPTIONS handshake; from the grant on — **built, 0.1.371, §1.17** | `oaap.events.bus` 0.8, `oaap.data.twin` 0.16.3 |
 | 3.2 | Receivers with a CloudEvents mapping: a CloudEvents sender (SAP's form) arrives as an event of a declared `ext.` type and is delivered — **built, 0.1.372, §1.18** | `oaap.events.bus` 0.9, `oaap.data.twin` 0.16.4 |
-| 3.3 | D13–D15: grants deliver from their moment for instances; `--events` clients; `/twin/v1` at the external name with the key | `oaap.events.bus`, `oaap.data.twin` |
+| 3.3 | D13–D15: grants deliver from their moment for instances; `--events` clients; `/twin/v1` at the external name with the key — **built, 0.1.373, §1.19** | `oaap.events.bus` 0.10, `oaap.data.twin` 0.16.5 |
 
 ### Security requirements (proposed)
 
@@ -1014,7 +1044,9 @@ reicht sie nach Freigabe weiter. Damit ist Stufe 3 fertig. Danach hat Jörg
 drei Fragen entschieden (D13–D15): Freigaben gelten auch für Apps erst ab
 ihrem Zeitpunkt; es gibt Clients nur für Ereignisse (`--events`); die
 Client-Tür `/twin/v1` wird an der externen Adresse erreichbar, nur mit
-Schlüssel. Gebaut wird das als Schritt 3.3. Stufe 3 bringt
+Schlüssel. Das ist als Schritt 3.3 gebaut und gemessen (0.1.373, §1.19).
+Dabei fiel auf, dass die externe Tür ohne Schlüssel zuerst auf die
+Anmeldeseite umleitete. Jetzt antwortet sie 401. Stufe 3 bringt
 Webhooks und Empfänger im CloudEvents-Format.
 
 **Nicht gelesen, nicht gemessen:** alles in §1.4, dazu der AsyncAPI-Text und die

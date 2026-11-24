@@ -1,8 +1,8 @@
 # oaap.events.bus — Events Between Apps, in the CloudEvents Envelope
 
 - **ID:** `oaap.events.bus`
-- **Version:** 0.9
-- **Maturity:** draft (0.9: **the way in** (RFC-0127 D8) — a client's
+- **Version:** 0.10
+- **Maturity:** draft (0.10: **Jörg's D13–D15** — a grant delivers from its moment on for instances too (feed and push), one rule for every receiver; integration clients for events only (`add-client --events`, the portal's box "Nur Ereignisse"); the clients' door `/twin/v1` at the node's external name, with the client's key and for clients only (no key `401`); §2.7, §2.8, §2.17; reference 0.1.373, measured on `oaap-test` and from outside 2026-11-24, RFC-0127 §1.19. 0.9: **the way in** (RFC-0127 D8) — a client's
   receiver declares `ext.` types; a CloudEvent (structured, batched or
   binary, SAP's form) becomes an event of the type its sender's type maps
   to, the original kept as `oaapextsource|type|id`, once per sender's
@@ -250,6 +250,15 @@ with nothing — the RFC-0062 rule for keys, applied to grants (measured on
 `oaap-test` 2026-11-24: before 0.3.1 such an instance found its
 predecessor's grant live).
 
+**From the moment of the grant on (0.10, RFC-0127 D13).** A grant opens its
+type only for events stored at or after `granted_at`, for an instance (feed
+and push) exactly as for a client (§2.15) — one rule, one function in the
+reference. What was in the store before the grant stays closed to the
+grantee; the past is read in the twin. A revoked and renewed grant starts at
+its new moment; what was published between revocation and renewal never
+reaches the grantee. Before 0.10 an instance's grant opened the store's past
+for its type (the stage-1 design).
+
 ### 2.8 The feed
 
 ```
@@ -261,7 +270,8 @@ Returns, in store order, the events of the instance's tenant whose type it
 holds a live grant for (and whose `subject` starts with the grant's prefix,
 when set) — and, from 0.2, the events **addressed to it** of a type it
 declares under `subscribes`, without a grant — after `since` (exclusive;
-empty = from the oldest kept). An event the instance published itself is not
+empty = from the oldest kept). A granted type is returned only from its live
+grant's moment on (0.10, §2.7). An event the instance published itself is not
 returned; an addressed event never reaches anyone but its addressee, a grant
 for the type included (grants on an addressed type are refused). `limit` defaults to 100. The
 feed is the catch-up behind the push of 0.3 and stays for apps that prefer to
@@ -472,7 +482,8 @@ The catalogue outward as **AsyncAPI 3.1.0** (the released version since
   the moment of its grant (`time >= granted_at`), never what was already in
   the store — measured 2026-11-24: without that rule a grant opened earlier
   events, including some from a time without any grant. A revoked and
-  renewed grant again starts at its own moment.
+  renewed grant again starts at its own moment. Since 0.10 the same rule holds
+  for instances (§2.7, D13).
 - **The webhook.** `POST /twin/v1/webhooks` takes `format: cloudevents`
   (default `oaap-v1`, the old body, kept for existing webhooks). Such a
   webhook gets one POST of `application/cloudevents-batch+json` (a JSON
@@ -525,6 +536,31 @@ The catalogue outward as **AsyncAPI 3.1.0** (the released version since
   sites lacked it and answered a sender with the login page (measured
   2026-11-24); an update rewrites them once.
 
+### 2.17 Clients for events only, and the clients' door outside (0.10, RFC-0127 D14, D15)
+
+- **A client for events only** (D14). `oaap data twin add-client <label>
+  --tenant <t> --events` (the portal: *Zugänge → Integration*, box "Nur
+  Ereignisse") makes a `client:<label>` that reads, writes and models nothing
+  in the twin — `--events` together with `--reads`, `--writes` or `--models`
+  is refused with the sentence, since a client with twin rights may be
+  granted events anyway. The record carries `events: true`; lists and audit
+  say "events only". Such a client is granted event types (§2.15), registers a
+  webhook with `format: cloudevents` and receivers with `events` (§2.16). A
+  webhook in the `oaap-v1` format is refused for any client that reads
+  nothing (it would carry nothing), naming `cloudevents`.
+- **The door at the node's external name** (D15). The generated external
+  sites pass `/twin/v1/*` (beside `/twin/v1/inbound/*`), checked by identity
+  exactly as at the node's own address (`/verify?roles=user&instance=oaap.twin`).
+  A request without a bearer is answered `401` with `WWW-Authenticate:
+  Bearer` before identity — not the login form, which a program cannot use
+  (measured 2026-11-24: `303` first). The gateway marks the call
+  (`X-OAAP-Twin-Door: external`, overwriting the sender's) and the twin
+  then lets only a `client:` through: an instance's key and a remote reader's
+  are for the node and the connector, never for the internet (`403` with the
+  sentence); a person's session counts nothing there. The apps' routes
+  `/twin/*` outside `/twin/v1` stay closed at the external name. An update
+  rewrites the external sites once.
+
 ## 3. Configuration
 
 None in 0.1 beyond the manifest. The limits (64 KB, 120 a minute, 30 days)
@@ -556,6 +592,10 @@ needs another value.
    `oaap.` (refused at install, `own_type_error`) nor reach the internal
    door (the gateway never serves `/internal/*`). An identity event about a
    person reaches only the instance that invited that person.
+10. (0.10) A grant never opens what was stored before its moment, for any
+    receiver. At the node's external name `/twin/v1` admits only an
+    integration client's key; an instance's key, a remote reader's key, a
+    person's session and no key are refused.
 
 ## 5. Conformance tests (described)
 
@@ -731,3 +771,17 @@ diese Ereignisse nach Freigabe wie alle anderen. Dabei fiel auf, dass die
 externe Adresse eines Knotens den Eingang gar nicht durchließ (Absender sahen
 die Anmeldeseite). Das ist behoben, und das Update schreibt die externen
 Seiten einmal neu.
+
+## Deutsche Zusammenfassung (Nachtrag v0.10)
+
+Jörgs drei Entscheidungen aus Stufe 3 (RFC-0127 D13–D15) sind gebaut.
+Erstens bekommt eine App einen freigegebenen Typ nur noch ab dem Moment der
+Freigabe, über den Feed wie über den Push, genau wie ein Integrations-Client.
+Was vorher im Speicher lag, bleibt ihr verschlossen; die Vergangenheit steht
+im Zwilling. Zweitens gibt es Clients nur für Ereignisse (`add-client
+--events`, im Portal das Kästchen „Nur Ereignisse"). Sie lesen und schreiben
+nichts im Zwilling, bekommen aber Freigaben, Webhooks im CloudEvents-Format
+und Empfänger. Drittens ist die Client-Tür `/twin/v1` jetzt auch an der
+externen Adresse erreichbar, mit derselben Schlüsselprüfung wie am Knoten.
+Dort kommen nur Integrations-Clients durch. Schlüssel von Apps und entfernten
+Lesern bekommen 403, ohne Schlüssel kommt 401 statt der Anmeldeseite.
