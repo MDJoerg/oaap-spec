@@ -1,8 +1,14 @@
 # oaap.events.bus — Events Between Apps, in the CloudEvents Envelope
 
 - **ID:** `oaap.events.bus`
-- **Version:** 0.8
-- **Maturity:** draft (0.8: **the way out** (RFC-0127 D7) — grants to
+- **Version:** 0.9
+- **Maturity:** draft (0.9: **the way in** (RFC-0127 D8) — a client's
+  receiver declares `ext.` types; a CloudEvent (structured, batched or
+  binary, SAP's form) becomes an event of the type its sender's type maps
+  to, the original kept as `oaapextsource|type|id`, once per sender's
+  source and id, delivered after a grant like any other; the node's
+  external name now passes `/twin/v1/inbound/*`; §2.16; reference 0.1.372,
+  measured from outside on `oaap-test` 2026-11-24, RFC-0127 §1.18. 0.8: **the way out** (RFC-0127 D7) — grants to
   integration clients, a webhook in the CloudEvents format carrying the
   client's twin changes and its granted types from the moment of the grant,
   the OPTIONS handshake before the first POST, §2.15; reference 0.1.371,
@@ -482,6 +488,43 @@ The catalogue outward as **AsyncAPI 3.1.0** (the released version since
   else is a failure with its reason and is asked again after the backoff.
   The webhook's record shows `format` and `handshake`.
 
+### 2.16 The way in: receivers for CloudEvents (0.9, RFC-0127 D8)
+
+- **Declaring.** A client's receiver (`oaap.data.twin` §2.26) may carry
+  `events: {types: [{type, title, from?, schema?, personal?}]}` beside or
+  instead of its twin `mapping`. `type` is ours, under
+  `ext.<client label without dashes>.` (`ext.s4erp.businesspartner.changed.v1`);
+  `from` is the sender's type (`sap.s4.beh.businesspartner.v1.BusinessPartner.Changed.v1`;
+  default: the same as `type`), one `from` per type; `schema` (the subset of
+  §2.3) checks `data`. A receiver with only `events` writes nothing into the
+  twin, so its client needs no `writes`.
+- **Receiving.** The sender posts to `/twin/v1/inbound/<client>/<name>`,
+  signed as the receiver says (`oaap`, `hmac-sha256`, `token`): one
+  structured CloudEvent (`application/cloudevents+json`, or JSON with
+  `specversion`), a batch (`application/cloudevents-batch+json`, 1–50) or
+  the binary mode (`ce-*` headers, the body is `data`). Every event must have
+  `specversion` 1.0, `id`, `source`, `type`, a declared `from`, and `data`
+  fitting the schema (text becomes `{"value": …}`) — **all or none** of a
+  delivery is taken; otherwise `422` with the sentence, which the receiver
+  keeps as its last answer.
+- **Stored** in the tenant's store as the declared type: `source`
+  `urn:oaap:tenant:<tid>:receiver:<client>/<name>`, `oaaporigin`
+  `client:<label>`, `subject` the sender's `subject` (else its `id`), and the
+  sender's `source`, `type` and `id` as **`oaapextsource`, `oaapexttype`,
+  `oaapextid`** (Jörg, 2026-11-24: our own type, the original kept). Once per
+  (sender's source, id): the same event again is answered `202` with
+  `replayed`, not stored again. Answer: `202 {accepted, stored, replayed}`.
+- **Delivered** like any event with audience `tenant`: an instance that
+  declares the type and a client receive it after the tenant admin's grant
+  (portal, `oaap events grant`); the catalogue, the portal page ("Von außen
+  (Empfänger)", with the sender's type) and the AsyncAPI export include the
+  receivers' types (publisher `receiver:<client>/<name>`).
+- **Reachable from outside.** The node's external name passes
+  `/twin/v1/inbound/*` like its own address does: no key, no session, every
+  identity header stripped, at most 1 MB. Before 0.9 the generated external
+  sites lacked it and answered a sender with the login page (measured
+  2026-11-24); an update rewrites them once.
+
 ## 3. Configuration
 
 None in 0.1 beyond the manifest. The limits (64 KB, 120 a minute, 30 days)
@@ -672,3 +715,19 @@ Admin freigeben; die Freigabe ist dann seine Erlaubnis, und Portal und
 Protokoll sagen das ausdrücklich. Zwilling-Typen und adressierte Typen sind
 für Clients nicht freigebbar. Das alte Webhook-Format bleibt für bestehende
 Webhooks unverändert.
+
+## Deutsche Zusammenfassung (Nachtrag v0.9)
+
+Der Weg nach innen. Ein Integrations-Client kann jetzt an seinem Empfänger
+Ereignistypen erklären. Sie heißen bei uns `ext.<client>.…`, und zu jedem
+steht dabei, welcher fremde Typ darauf abgebildet wird, zum Beispiel SAPs
+`sap.s4.beh.businesspartner.v1.BusinessPartner.Changed.v1`. Ein fremdes
+System schickt CloudEvents in jeder der drei Formen (einzeln, gebündelt,
+binär). Jedes landet unter unserem Typ im Speicher des Mandanten; Quelle, Typ
+und ID des Absenders bleiben erhalten. Dasselbe Ereignis zweimal wird nur
+einmal gespeichert. Ist auch nur eines in einer Lieferung falsch, wird keines
+übernommen, und der Absender bekommt den Grund. Apps und Clients bekommen
+diese Ereignisse nach Freigabe wie alle anderen. Dabei fiel auf, dass die
+externe Adresse eines Knotens den Eingang gar nicht durchließ (Absender sahen
+die Anmeldeseite). Das ist behoben, und das Update schreibt die externen
+Seiten einmal neu.

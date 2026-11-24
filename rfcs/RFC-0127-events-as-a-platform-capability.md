@@ -530,6 +530,50 @@ has in the store (feed and push read from their cursor, a stage-1 design: a
 new subscriber may catch up inside the tenant). For clients this is closed;
 whether instances should start at their grant too is a decision.
 
+### 1.18 Built and measured 2026-11-24: the way in, step 3.2
+
+Reference 0.1.372, `oaap.events.bus` 0.9 §2.16, `oaap.data.twin` 0.16.4.
+Measured on `oaap-test`: a throwaway client `s4-erp` with the receiver
+`bp` (signature `token` in `X-Api-Key`) declaring
+`ext.s4erp.businesspartner.changed.v1` from SAP's
+`sap.s4.beh.businesspartner.v1.BusinessPartner.Changed.v1` with a schema;
+`evprobe` 0.5 as `inv1-evp` declaring the type; grants on the portal page
+to `inv1-evp` and to the client `ev31-inv1` (whose webhook from §1.17 sends
+it on); a sender on the PC in S/4HANA's form (`source
+/default/sap.s4.beh/…`, `data {"BusinessPartner": "…"}`), **through the
+edge to the node's external name**:
+
+| # | Sent | Answer | Arrived |
+|---|---|---|---|
+| — | first try | **every request answered with the login page** | **found**: the generated external sites lacked `/twin/v1/inbound/*` (the base Caddyfile had it — the `/platform/*` mistake again, latent since RFC-0120 D13, measured then only at the node); fixed, the update rewrites the sites once |
+| E1 | one structured event | `202 accepted 1, stored 1` | at `inv1-evp`, signature valid: type ours, `source …:receiver:s4-erp/bp`, `oaaporigin client:s4-erp`, `oaapexttype` SAP's, `oaapextsource /default/sap.s4.beh/244572008`, `data` as sent |
+| E2 | the same id again | `202 replayed 1, stored 0` | nothing new |
+| E3 | a batch of two (one with `subject`) | `202 stored 2` | both; subject `BP-1000669` kept |
+| E4 | binary mode (`ce-*` headers) | `202 stored 1` | yes |
+| E5 | an undeclared sender type | `422` naming it | — |
+| E6 | `data` without `BusinessPartner` | `422 data.BusinessPartner: required` | — |
+| E7 | a batch with one bad event | `422` | **none** of the two |
+| E8 | a wrong key | `401` | — |
+| — | the client `ev31-inv1` | — | the four events in one signed batch out again |
+
+The receiver counts 7 received, 4 stored, 1 refused, the last sentence kept.
+Container run on `oaap-test`: 17 files green (with a real PostgreSQL);
+`test_tenant_boundary` keeps its five old red checks, the same before and
+after. **Found by the container run**: the new `ALTER TABLE receivers` stood
+before `CREATE TABLE receivers` — harmless on a node, fatal for a new
+tenant; moved, and a check keeps the order.
+
+**Stage 3 is complete.** Open, for Jörg:
+1. **An instance's grant opens the store's past** for its type (feed and
+   push read from their cursor; a stage-1 design). Closed for clients in 3.1.
+2. **A client that only sends events** still needs a twin right to be
+   created (`add-client` refuses one with none).
+3. **`/twin/v1` for integration clients is not reachable at the node's
+   external name** either (the same gap as the inbound route; only the
+   inbound route was opened here, since it is protected by the receiver's
+   signature alone and needed by D8). Opening the key-protected client door
+   to the internet is a decision.
+
 ## 2. Words
 
 | Word | Meaning |
@@ -768,7 +812,7 @@ committed on its own:
 | Step | What | Spec |
 |---|---|---|
 | 3.1 | Grants to integration clients; webhooks in the CloudEvents format with the OPTIONS handshake; from the grant on — **built, 0.1.371, §1.17** | `oaap.events.bus` 0.8, `oaap.data.twin` 0.16.3 |
-| 3.2 | Receivers with a CloudEvents mapping: a CloudEvents sender (SAP's form) arrives as an event of a declared `ext.` type and is delivered | `oaap.events.bus`, `oaap.data.twin` |
+| 3.2 | Receivers with a CloudEvents mapping: a CloudEvents sender (SAP's form) arrives as an event of a declared `ext.` type and is delivered — **built, 0.1.372, §1.18** | `oaap.events.bus` 0.9, `oaap.data.twin` 0.16.4 |
 
 ### Security requirements (proposed)
 
@@ -956,7 +1000,10 @@ und je Mandant herunterladen; der offizielle Parser nimmt ihn ohne Fehler an.
 Damit ist Stufe 2 fertig. Stufe 3, Schritt 3.1 (0.1.371, §1.17): Der
 Mandantenadmin gibt Integrations-Clients Ereignistypen frei; ihr Webhook im
 CloudEvents-Format trägt sie samt Zwilling-Änderungen, erst nach dem
-OPTIONS-Handshake und nur ab dem Moment der Freigabe. Stufe 3 bringt
+OPTIONS-Handshake und nur ab dem Moment der Freigabe. Schritt 3.2 (0.1.372,
+§1.18): Ein Empfänger nimmt CloudEvents eines fremden Systems (gemessen in
+SAPs Form, von außen über die Edge) unter einem eigenen `ext.`-Typ an und
+reicht sie nach Freigabe weiter. Damit ist Stufe 3 fertig. Stufe 3 bringt
 Webhooks und Empfänger im CloudEvents-Format.
 
 **Nicht gelesen, nicht gemessen:** alles in §1.4, dazu der AsyncAPI-Text und die
