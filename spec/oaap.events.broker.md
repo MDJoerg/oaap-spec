@@ -1,8 +1,13 @@
 # oaap.events.broker — The MQTT Broker per Node
 
 - **ID:** `oaap.events.broker`
-- **Version:** 0.5
-- **Maturity:** draft (0.5: a tenant key **reads** its own tree
+- **Version:** 0.6
+- **Maturity:** draft (0.6: the auth plugin **caches identity's answers
+  for 60 seconds**, §3 — without it a persistent session that came back
+  with a backlog got nothing until every queued message had been checked
+  with identity, one call each; a hub's bridge to an entry with 100000
+  queued gave up waiting and tried again every minute, RFC-0085 A4 §18.4,
+  measured 2026-11-24; 0.5: a tenant key **reads** its own tree
   and no longer writes there — only platform principals publish under
   `oaap/<tenant>/`, §2.4, RFC-0127 D11, closing the hole measured there
   in §1.5 (F3); 0.4: a persistent session expires after 7 days
@@ -257,6 +262,24 @@ surface, RFC-0027).
   updating has its running broker restarted once by the migration step
   (the configuration is written at container start); persistence keeps
   sessions and retained values across that restart.
+- **Answer cache (0.6):** the auth plugin keeps identity's answers —
+  who a key is, and whether it may read or write a topic — for **60
+  seconds** (`auth_opt_cache true`, `go-cache`, `auth_opt_auth_cache_seconds
+  60`, `auth_opt_acl_cache_seconds 60`, emptied at start). Mosquitto checks
+  the ACL again for every message it **sends**, also for the queued ones
+  of a persistent session that reconnects, and it does so before that
+  client receives anything. Measured on oaap-test (RFC-0085 §18.6): 10000
+  queued for a bridge took 30 s of identity calls (identity at 87 % CPU),
+  100000 never arrived because the bridge gave up waiting for its CONNACK
+  after 45 s and came again — the loop on oaapx01 of 2026-11-24. With the
+  cache: 100000 in 11 s, one connection; publishing 10000 took 1.3 s
+  instead of 63 s. **The price:** a revoked key, or a grant taken away,
+  can still work for up to 60 seconds (a node key revoked at the hub is
+  refused at its next minutely run at the latest one minute later). The
+  options MUST stand in the configuration after `auth_plugin`; in a file
+  of `data/broker-conf.d/` they are refused and the broker does not start
+  (measured). A node that reaches 0.6 by updating has its running broker
+  restarted once by the migration step, like 0.4.
 - **Start order (0.4):** the broker starts only once identity answers
   (waiting at most 90 s), and never with a configuration that lacks
   the auth plugin. Every delivery is an ACL call to identity; when
@@ -469,3 +492,20 @@ Abonnent hielt sie für echt. Die Ablehnung nennt den Grund. Heute schreibt
 kein Mandantenschlüssel legitim dorthin: Keine App spricht MQTT, das Relais
 und das Pflegeereignis des Knotens melden sich mit dem Plattform-Prinzipal
 `oaap.relay` an, Knotenschlüssel schreiben außerhalb von `oaap/`.
+
+## Deutsche Zusammenfassung (Nachtrag v0.6)
+
+Der Broker merkt sich die Antworten von identity jetzt 60 Sekunden lang:
+wer ein Schlüssel ist und ob er ein Thema lesen oder schreiben darf.
+Bisher fragte er für **jede** Nachricht neu, auch für jede, die beim
+Wiederverbinden einer gespeicherten Sitzung aus der Warteschlange kommt,
+und zwar bevor dieser Client überhaupt etwas bekommt. Gemessen am 24.11.
+auf oaap-test (RFC-0085 §18.6): 10000 wartende Nachrichten kosteten 30
+Sekunden Rückfragen, bei 100000 gab die Brücke der Zentrale nach 45
+Sekunden auf und kam von vorn. Das war die Schleife auf oaapx01. Mit dem
+Zwischenspeicher sind 100000 Nachrichten in 11 Sekunden durch, das Senden
+von 10000 dauert 1,3 statt 63 Sekunden. Der Preis: Ein widerrufener
+Schlüssel oder ein entzogenes Recht wirkt bis zu 60 Sekunden nach. Die
+Einstellung muss in der Vorlage hinter `auth_plugin` stehen; in einer
+Datei unter `data/broker-conf.d/` lehnt Mosquitto sie ab und startet
+nicht (gemessen). Beim Update startet ein laufender Broker einmal neu.

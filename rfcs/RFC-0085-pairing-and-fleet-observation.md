@@ -10,7 +10,12 @@
   submodels, with semantic IDs -- stage 4 data part and RFC-0086 stage 2
   built in reference 0.1.279 (§16)**; **amendment A3 (2026-11-15, Jörg:
   "Ja, bauen"): stage 3, pairing by file from the portal -- built in
-  reference 0.1.290 and measured on oaap-test (§17), not yet rolled out**
+  reference 0.1.290 and measured on oaap-test (§17), not yet rolled out**;
+  **amendment A4 (2026-11-24, after the oaapx02 outage): bridge watchdog,
+  daily reminders for the fleet's matters, the entry judges its own nodes
+  while their hub is away, go-auth answer cache against the backlog loop
+  -- built in reference 0.1.377 and measured on oaap-test (§18);
+  decisions D-A4.1–D-A4.5 asked of Jörg, not pushed, not rolled out**
 - **Date:** 2026-11-12
 - **Authors:** Jörg (the need: "monitor my nodes and get fleet management
   going; collect health data through a broker on oaapx01 and route it to
@@ -1215,6 +1220,337 @@ hand-made `bridge-oaapx01.conf` is replaced; the old operator key
 - oaapx02 was then paired by file through oaapx01, from the two portals
   (Jörg): it reached the hub within a minute with all four classes.
 
+## 18. Amendment A4 — what the oaapx02 outage taught (2026-11-24)
+
+**Status:** proposed and built in reference 0.1.377 (§18.6), measured on
+oaap-test; **decisions D-A4.1 to D-A4.4 are asked of Jörg (§18.5)**, the
+build follows the recommended answers. Not pushed, not rolled out.
+
+### 18.0 What happened (read on oaap-demo and, read-only on Jörg's word, on oaapx01)
+
+| When (UTC) | What |
+|---|---|
+| 20.11. 04:09 | oaapx01's broker starts (reference update); the hub's bridge connects at 04:10 from the LAN's public address 87.153.6.109 |
+| 20.11. 08:32:56 | oaap-demo's broker logs *Expiring client bridge-oaapx01 due to timeout* — and never again *Connecting bridge*. The LAN's public address had changed (today 91.1.39.149). |
+| 20.11. 08:38 | `bridge.down`/oaapx01 mailed once to the list *Flotte*. Nothing after that. |
+| 20.11.–24.11. | oaapx01 and oaapx02 stand at *unbekannt, Eingang getrennt* on the hub. Nobody judges them. |
+| 24.11. 05:23 | kernel 6.12.118 security notices, `reboot.planned` on two nodes |
+| 24.11. 05:32:04 | oaapx02's last `alive` at oaapx01 (seen in oaapx01's broker log, before: one a minute). oaapx02 does not come back (Hetzner; Jörg's matter). No mail. |
+| 24.11. 21:24 | oaap-demo's broker restarted on Jörg's word: the bridge tries again every ~50 s, oaapx01 accepts TCP but answers the TLS ClientHello only late or not at all; oaapx01's broker at **76 % CPU**, `mosquitto.db` 31 MB (the bridge session's backlog, `max_queued_messages 100000`); the hub never gets its CONNACK — abort, again, every ~60 s. |
+| 24.11. evening | Read by the parallel session with Jörg's word: the bridge session's queue on oaapx01 was **full** (100000/100000, *Outgoing messages are being dropped for client oaap-hub-oaap-demo*) — Mosquitto then drops the **newest** messages, the last minutes of a node exactly when they matter. While reconnecting, **oaap-demo's** broker ran at 99.9 % CPU (go-auth over HTTP, *No cache set*); its bridge lost the keepalive and reconnected, and the entry sent everything again. `keepalive_interval 300` instead of 30 did **not** help. |
+| 24.11. 21:37 | Resolved by hand: one connection with `cleansession true` (the backlog discarded), then back to `false`; the bridge file on oaap-demo is as before. The bridge is up, oaapx01 *da*; oaapx02's last `alive` 05:32:04 UTC (0.1.355). |
+
+Four gaps, one per part of the chain:
+
+1. **A stuck bridge has no watchdog** (§18.1).
+2. **A long matter is mailed once** (§18.2).
+3. **Behind a cut bridge nobody judges** (§18.3) — the entry saw oaapx02
+   fall silent in its own broker and said nothing.
+4. **The backlog of the persistent bridge session turns into a loop**
+   (§18.4).
+
+An open question the outage also raises, to be read on oaapx01 with
+Jörg's word: oaapx01's `hub.unreachable` (critical, daily reminder since
+stage 2) should have mailed from 20.11. 08:42 on. Either it did and went
+unnoticed, or the entry still believed the hub connected (a half-open TCP
+session the entry never timed out). `data/notify/state.json` and
+`metrics/broker-watch.json` on oaapx01 answer it.
+
+### 18.1 The bridge watchdog
+
+**Known fault.** Mosquitto issue #3049 describes exactly this: from 2.0.16
+on (the fleet runs 2.0.18), after *Expiring client <bridge local id> due
+to timeout* a bridge does not reconnect and forwards nothing, until the
+broker is restarted. No fix is published. Measurement 1 (§18.6) tried to
+reproduce it on oaap-test.
+
+**Rule (hub, minute job, `fleet_watch.kick_due`):** a bridge of this hub
+that has been **down for 10 minutes** and whose broker log shows **no
+`Connecting bridge entry-<e>` line in those 10 minutes** is stuck. The
+hub restarts its broker (`docker restart oaap-broker-1`; persistence
+keeps sessions and retained values, the direct nodes reconnect with their
+outbox). At most **every 30 minutes, doubling up to 6 hours** while it
+does not help; the count starts anew when the bridge is up again.
+
+A bridge that **keeps trying and fails** is not stuck — the entry is
+down, refuses, or chokes (§18.4). A restart of the hub's broker does not
+help it, so the watchdog leaves it alone; the matter `bridge.down` and
+its reminders (§18.2) carry it.
+
+Each restart is an audit line (`bridge.kick` in the fleet log), stands in
+`data/fleet/kicks.json`, in `oaap fleet hub show` beside the bridge, and
+in the text of `bridge.down` (*Der Wachhund hat den Broker … neu
+gestartet*).
+
+*For Jörg:* the watchdog is the automatic version of what you did by
+hand on 24.11.: "Broker neu starten". It only does it when the broker has
+clearly stopped trying, and with growing pauses, so it can never restart
+the broker every minute.
+
+### 18.2 Reminders for the fleet's matters
+
+RFC-0080 D6 reminds only **critical** matters daily. The fleet's matters
+are *health* (`node.silent`, `bridge.down`, `broker.queue`, `link.down`)
+and were mailed once. A catalogue entry may now say `remind: <hours>`;
+the four fleet types say 24 (`notify.remind_hours`). The reminder is the
+existing one: subject *Erinnerung: …*, body *Besteht weiterhin: …*, with
+the matter's current text (how long, what the watchdog did). Other health
+types (`disk.full`, `instance.down`) stay as D6 decided.
+
+With this, 20.11. would have sent `bridge.down` again on 21., 22., 23. and
+24.11.
+
+### 18.3 The entry judges its own nodes while their hub is away
+
+The entry has always seen its nodes: their `alive` is retained in its
+broker. Since A4 its minutely broker watch also reads the `alive` of the
+nodes **paired through it** (`data/fleet-pair/pair.json`, entry side;
+`oaap.watch` may read `oaap-node/#` already) into `broker-watch.json`
+(`nodes: {name: {hub, t}}`), and `fleet_watch.entry_conditions` judges
+them by the same five minutes as the hub:
+
+- A node is the **entry's** to report when it falls silent **while its
+  hub has been away for 10 minutes** (`hub.unreachable` time) — precisely:
+  its last `alive` plus five minutes plus one minute job is not before the
+  moment the hub left. The entry raises `node.silent` through its **own**
+  lists (oaapx01 is on the internet; it can mail when the house is dark).
+- A node that was **already silent before the hub left** was the hub's to
+  judge and is not opened a second time.
+- An entry's open `node.silent` **stays the entry's** until the node is
+  back — also after the hub returns. Then *Behoben* is true.
+- After a restart of the entry's broker the senders get the catch-up time
+  (`CATCHUP`, 17 minutes) as on the hub; a node with no `alive` in the
+  broker is *unknown* and keeps an open matter open.
+
+**The hub defers.** The entry names the nodes it holds a matter for in its
+broker document (`held`, class `broker`, which reaches the hub over the
+bridge). The hub shows such a node *SCHWEIGT (der Eingang oaapx01 meldet
+es)* and opens nothing of its own — one mail per silence, not two. A
+matter the hub had opened before stays open (no false *Behoben*). A
+broker document older than three minutes counts as none.
+
+`bridge.down` names the nodes behind it and says that the entry speaks
+for them; `hub.unreachable` at the entry says the same from its side.
+
+With this, oaapx01 would have mailed *Knoten schweigt: oaapx02* on 24.11.
+at about 05:38.
+
+### 18.4 The backlog: not the queue, the questions
+
+The obvious suspects were the size of the queue and the CPU. Measurement
+2 (§18.6) cleared both: a plain Mosquitto 2.0.18 hands a bridge 100000
+queued messages in 5 s. Measurement 3, through oaap-test's **real**
+broker, found the cause: **go-auth asks identity once for every message
+Mosquitto sends** — also for every queued message of a persistent session
+that reconnects, and before that client receives anything. One question
+costs about 3 to 6 ms. 10000 queued took 30 s (identity at 87 % CPU);
+the hub's bridge waits 1.5 × `keepalive_interval` = 45 s for its CONNACK,
+then gives up and comes again — and the entry starts over. 100000 can
+never get through. That is the loop of oaapx01 since 24.11. 21:24, and
+"TLS ClientHello not answered" was the single-threaded broker busy asking.
+
+The same happens on the **hub**: every bridged message it hands to a
+local subscriber (the fleet service, `oaap.watch`) is a question too —
+read on oaap-demo the same evening: 99.9 % CPU, its own bridge lost the
+keepalive, the entry started over. Both ends need the cache; a longer
+keepalive alone does not help (300 s measured on oaap-demo without
+effect; 120 s on oaap-test was enough only for 10000 messages).
+
+And a **full** queue is worse than a slow one: Mosquitto drops the
+**newest** messages once `max_queued_messages` is reached, so after a day
+away the hub would receive the oldest day and lose the last minutes. With
+the cache a day's backlog drains in seconds; the entry's own judgement
+(§18.3) no longer depends on the bridge; and `broker.queue` warns at half
+the bound — now with a daily reminder (§18.2).
+
+The fix, in the order of their effect:
+
+1. **go-auth's answer cache, 60 seconds**, on every broker (template,
+   `oaap.events.broker` 0.6). Measured: 100000 queued arrive in 11 s over
+   one connection, publishing is 50 times faster. The price: a revoked key
+   or a withdrawn grant can work up to 60 s longer.
+2. **A patient bridge:** `keepalive_interval 120` in the hub's bridge
+   file — up to three minutes for a CONNACK; measured without the cache,
+   10000 then got through in 34 s.
+3. **No local persistent session for the bridge:** `local_cleansession
+   true` — the hub's own broker keeps no session for its bridge client,
+   so there is nothing of it to expire (§18.1; a precaution: measurement 1
+   could not reproduce the fault, with or without it); what waits for the hub
+   stays where it belongs, in the entry's queue (`cleansession false`).
+   What the hub publishes towards the entry (`oaap-fleet/control/…`) while
+   the bridge is away is not kept — nothing uses that branch yet;
+   RFC-0089's commands will have to carry their own expiry anyway.
+4. The **bound stays** at 100000 (§5.1, D6: 24 hours) — with the cache
+   the backlog of a day drains in seconds. Sending `alive` outside the
+   queue (a second, clean bridge connection for the retained classes) was
+   considered and is not needed.
+
+Existing bridge files written by a pairing get the new form once
+(`bridge_files_upgrade`, minute job, old file kept in `data/fleet-pair/`,
+broker restarted once); a hand-made file is left alone.
+
+**What this means today:** the loop was ended by hand on 24.11. 21:37
+(the backlog discarded). It will come back after the next long outage
+until both ends have the cache — reference 0.1.377 on oaapx01 **and**
+oaap-demo (each update restarts its broker once).
+
+### 18.5 Decisions asked of Jörg
+
+Each with prepared answers; **(a) is recommended and built**.
+
+**D-A4.1 — The bridge watchdog.**
+(a) The hub restarts its own broker when a bridge has been down for 10
+minutes without a single connect attempt; every 30 minutes, doubling to
+6 hours; only bridges configured in `broker-conf.d`.
+(b) Only say it in `bridge.down` ("hängt, bitte Broker neu starten"), no
+automatic restart.
+(c) As (a), and additionally move the fleet to a Mosquitto newer than
+2.0.18 once a go-auth image for it exists (an RFC-0070 image step of its
+own; 2.0.19 also fixed spurious TLS errors, #3054).
+
+**D-A4.2 — Reminders.**
+(a) The four fleet matters (`node.silent`, `bridge.down`, `broker.queue`,
+`link.down`) daily while open, like critical ones.
+(b) Every matter daily, whatever its category (also `disk.full`,
+`instance.down`).
+(c) As today: once.
+
+**D-A4.3 — Who judges behind a cut bridge.**
+(a) The entry judges the nodes paired through it while their hub has been
+away for 10 minutes, mails through its own lists, keeps its matter until
+the node is back; the hub defers (`held`).
+(b) The entry always judges its own nodes and the hub never does (one
+judge per node; a bigger change, and the hub's portal would show the
+entry's verdict second-hand).
+(c) Nobody: keep *unbekannt*, rely on `bridge.down` and its reminders.
+
+**D-A4.4 — The backlog.**
+(a) go-auth cache 60 s on every broker, bridge `keepalive_interval 120`
+and `local_cleansession true`, bound unchanged (100000).
+(b) As (a) with a cache of 300 s (faster still, a revoked key lives five
+minutes).
+(c) No cache (every answer fresh): bridge `keepalive_interval 120` and a
+smaller bound on the entry (e.g. 10000, about an hour of the fleet) —
+older data is dropped and counted.
+
+**D-A4.5 — Order of the rollout (when Jörg gives the word).**
+(a) oaapx01 and oaap-demo together (both brokers get the cache; oaap-demo
+also the watchdog and the bridge file in the new form, which restarts its
+broker once), then the other nodes.
+(b) Only oaap-demo first, oaapx01 later — leaves the entry's side of the
+loop open until then.
+(The backlog of 20.–24.11. is already gone: the parallel session ended
+the loop by hand on 24.11. 21:37.)
+
+**Already decided by Jörg (24.11., "wie empfohlen", relayed by the
+parallel session) and built (§18.7, §18.8):** the disk forecast on the
+node, and the importance of mails.
+
+### 18.7 The disk forecast (`disk.trend`, `disk.soon`)
+
+The weekly reports of 23.11. showed oaap-demo +101.1 GB and oaap-test
++95.4 GB in one week (oaap-test peaked at 96 %: Docker images and build
+cache). `disk.full` only fires at a fixed threshold. **The node itself**
+now estimates when its data disk will be full — from its own metrics
+tiers (RFC-0051: `5m` for a day, `30m` for a week), so it warns also
+when the hub is blind (`services/disk_trend.py`, minute job):
+
+- **linear:** the least-squares slope of the last 24 hours;
+- **exponential**, only when the growth really accelerates: the mean rate
+  of the last 6 h at least that of the last 24 h, the 24-hour rate at
+  least 1.5 × the 7-day rate and at least 1 point a day (with at least 3
+  days of data). The rate is then taken to grow like e^(kt), k from the
+  24 h and 7 d windows (midpoints 72 h apart; at most a doubling a day),
+  integrated from the day's rate until the free space is used up;
+- the **earlier** credible time counts;
+- **noise guards:** below 0.25 percentage points a day is no growth; a
+  window needs 6 h of data and 12 points; **hysteresis** — a warning opens
+  below 48 h and closes above 60 h, a critical one opens below 12 h and
+  closes above 18 h.
+
+Two types, because the category decides reminder and importance:
+**`disk.trend`** (health, below 48 h) and **`disk.soon`** (critical, below
+12 h, reminded daily, never "report only"). The text names the fill
+level, the growth in points and GB a day, the estimate and its kind, and
+the usual causes (`docker system df`). RFC-0128 (freeing disk space,
+accepted the same day) couples its pressure run to `disk.trend` and
+`disk.full` (its stage 3); the type names are kept for it. oaap-demo today (181 GB free, about
+14 GB a day) would be about 12 days — no alarm. `disk.full` stays.
+
+**Measured backwards on oaap-test's own week** (tiers `2h` and `30m`,
+each moment judged only with the data it had then): the first design took
+k from the 6 h and 24 h windows and doubled at most hourly — it said
+*full in 27 hours* on 20.11. at 51 % and 0.15 points a day, and changed
+state nine times. With the rule above, four changes:
+
+| UTC | Fill | Matters | Estimate |
+|---|---|---|---|
+| 21.11. 21:30 | 69.2 % | `disk.trend` | exponential, 29 h (6.7 points a day) |
+| 22.11. 12:00 | 82.4 % | `disk.trend`, `disk.soon` | exponential, 11.9 h (26 points a day) |
+| 23.11. 03:00 | 63.8 % | `disk.trend` | linear, 28 h (after the clean-up) |
+| 23.11. 05:00 | 63.8 % | — | linear, 70 h |
+
+The disk actually stood at 94.4 % thirteen hours after the critical one
+(23.11. 01:00), before it was cleaned up — the warning came a day ahead,
+the critical one half a day.
+
+### 18.8 How important a mail looks
+
+Sparingly, so nobody gets used to it:
+
+| Mail | Symbol before the subject | Headers |
+|---|---|---|
+| critical begins (or a critical event) | 🔴 | `Importance: high`, `X-Priority: 1` |
+| a health matter begins | 🟠 | — |
+| reminder | 🔁 | only if critical |
+| *Behoben* | ✅ | — |
+| operations, security notices, events of health, weekly report, test | none | — |
+
+The symbol stands first, before a list's prefix (`🔴 [MESSUNG] [oaap-demo]
+…`), because that is what the eye catches in a full inbox
+(`notify.subject_mark`, `marked_subject`, `importance_headers`).
+
+### 18.6 Built and measured
+
+**Built (reference 0.1.377, not pushed):**
+`services/disk_trend.py` (new, §18.7), `services/fleet_watch.py` (`kick_due`, `bridge_attempts`,
+`bridge_connections`, `entry_node_rows`, `entry_conditions` with `held`,
+`entry_held_names`, `view`'s `owner`), `services/notify.py`
+(`remind_hours`, `remind: 24` for the four fleet types, `disk.trend`,
+`disk.soon`, `subject_mark`, `importance_headers`),
+`services/fleet_pair.py` (bridge form A4, `bridge_form`, `bridge_fields`),
+`services/broker/mosquitto.conf.template` (cache), `migrate.sh` (restart
+once for the cache), `appctl.py` (`fleet_bridge_watchdog`,
+`_broker_log_since`, `bridge_files_upgrade`, broker watch reads the paired
+nodes' `alive`, `_entry_held_write`, `oaap fleet hub show` shows the
+watchdog), portal text. Tests: `test/test_fleet_a4.py` (new),
+`test_fleet_affected.py` adjusted.
+
+**Measured on oaap-test (2026-11-24, throwaway containers, image
+`iegomez/mosquitto-go-auth:3.0.0-mosquitto_2.0.18`):**
+
+| # | What | Result |
+|---|---|---|
+| 1 | The stuck bridge reproduced? Three throwaway hubs (as today with `persistent_client_expiration 1h`; the same with `local_cleansession true`; without expiry) bridging to one entry that is **paused** for 70 minutes (TCP accepted, nothing answers) | **not reproduced:** all three came back by themselves within minutes after the pause (38–41 connect attempts each, never *Expiring*), and all three delivered a probe afterwards. The trigger of 20.11. is more than silence — likely the address change leaving a half-open connection. The watchdog does not need to know the trigger; `local_cleansession true` works (hub B) but its preventive value is **not proven** |
+| 2 | Backlog through a **plain** Mosquitto (no go-auth) | 10000 queued: bridge up after 0.27 s, all in 3.3 s; 100000: all in 5.3 s, entry CPU peak 60 %. *(`mosquitto_pub -l` delivers only ~34000 of 100000 in one run — a measuring trap, fed in parts of 10000.)* |
+| 3a | Backlog through oaap-test's **real** broker (go-auth asking identity, TLS 8883), 10000 queued, bridge `keepalive_interval 30` | publishing 10000 took 63 s; after reconnecting **nothing arrives**: *New bridge connected … Bad socket read/write: A TLS error occurred* (TLS), *Broken pipe* (plain port), again every ~50 s — the loop of oaapx01 |
+| 3b | the same, `keepalive_interval 120` | all 10014 after 34 s; meanwhile broker 27 % CPU, **identity 87 %** — the questions |
+| 3c | the same with **go-auth's cache** (60 s in the build; 300 s in the measurement), TLS, keepalive 30 | publishing 10000 in 1.3 s; 10000 queued arrive in < 3 s; **100000 in 11 s**, one connection |
+| 3d | `auth_opt_cache` lines in a file of `broker-conf.d` | *Error: An auth_opt_ option exists in the config file without an auth_plugin* — the broker does not start (oaap-test's broker was down about 4 minutes; the lines belong in the template) |
+| 4 | **Watchdog, live** on oaap-test as hub (profile `fleet-hub`), a hand-made bridge `a4e` to a throwaway entry | **found:** the first run restarted the broker for `sim-entry`, a simulation's retained `0` of 14.11. with no bridge configured — fixed: only bridges with a `connection entry-<e>` in `broker-conf.d`, for the watchdog and for `bridge.down`. Entry stopped: 12.5 minutes down, 7 connect attempts, **no restart** (correct). Bridge set to `start_type manual` (no attempt any more): *(see M4 below)* |
+| 5 | **The entry judges, live**: oaap-test as entry, `blnode` paired through it (pair file), hub `blhub` (a throwaway hub with a real operator key) killed at 22:12:25 | `hub.unreachable/blhub` at 22:23:20; the broker had restarted at 22:13:15, so the catch-up time held the node *unknown* until 22:30:15; **`node.silent/blnode` at 22:30:21** with the entry's text, `held: ["blnode"]` in the broker document. Hub back at 22:32: `hub.unreachable` closed, `node.silent` **stayed** with the entry. A fresh `alive` at 22:34:35: `node.silent` closed at 22:35:21. |
+| 6 | **Reminder, live**: `last_sent` of `bridge.down/a4e` set 25 h back | the next minute: `bridge.down remind` |
+| 7 | **Disk forecast** against oaap-test's real tiers | today: shrinking (−3.2 points a day), no forecast; backwards over the week see §18.7 |
+
+All routed to a test list `Flottentest`, delivery *only in the weekly
+report* — no mail left oaap-test during the measurement.
+
+Tests: `test_fleet_a4.py` (new, 90+ checks incl. appctl with a fake
+docker and a fake SMTP: the real `EmailMessage` carries `Importance` and
+`X-Priority` only when critical), `test_notify.py` and
+`test_fleet_affected.py` adjusted; Linux runner (`test/runner/run.sh`, on
+oaap-test without Docker Desktop) 14 files green.
+
 ## Decision record (2026-11-12)
 
 Jörg, in chat: "wie empfohlen, rollout später". All eleven decisions of
@@ -1466,3 +1802,94 @@ Schlüssel zu fragen.
 - **Gemessen auf oaap-test** mit echten Knotenobjekten, über den echten
   Gateway-Weg. Gegenproben: ohne Typ, fremder Typ, falscher Schlüssel,
   anderer Mandant. Ein Befund (unübersetzte Hinweisarten) wurde behoben.
+
+## Deutsche Zusammenfassung — Nachtrag A4 (24.11.2026, Ausfall von oaapx02)
+
+**Was geschah.** Am 20.11. um 08:32 UTC hängte sich die Brücke der Zentrale
+oaap-demo zu oaapx01 auf, kurz nachdem die öffentliche IP des Hausnetzes
+gewechselt hatte. Mosquitto 2.0.18 versuchte danach nie wieder, sich zu
+verbinden; das ist ein bekannter Fehler (#3049). `bridge.down` wurde einmal
+gemailt und dann vier Tage nicht mehr. oaapx01 und oaapx02 standen an der
+Zentrale nur auf „unbekannt“. Am 24.11. um 05:32 UTC verstummte oaapx02.
+oaapx01 sah das in seinem eigenen Broker, sagte aber nichts. Nach dem
+Neustart des Brokers auf oaap-demo am Abend kam die Brücke nicht durch:
+Der Rückstau auf oaapx01 erzeugte eine Schleife.
+
+**Die vier Lücken und was gebaut ist (Referenz 0.1.377, nicht gepusht):**
+
+1. **Wachhund.** Ist eine Brücke der Zentrale zehn Minuten getrennt und
+   steht in dieser Zeit kein einziger Verbindungsversuch im Broker-Log,
+   startet der Minutenjob den Broker der Zentrale neu. Das geschieht
+   höchstens alle 30 Minuten, mit doppeltem Abstand bis sechs Stunden, und
+   nur für Brücken, die wirklich konfiguriert sind. Eine Brücke, die es
+   weiter versucht und scheitert, fasst er nicht an, denn dort hilft ein
+   Neustart nicht.
+2. **Erinnerung.** Die vier Flottenlagen (Knoten schweigt, Brücke getrennt,
+   Warteschlange, Verbindung getrennt) kommen jetzt täglich wieder, solange
+   sie bestehen, genau wie kritische Lagen.
+3. **Urteil am Eingang.** Der Eingang liest die Lebenszeichen der Knoten,
+   die über ihn gekoppelt sind. Fehlt deren Zentrale seit zehn Minuten und
+   verstummt ein Knoten, meldet der Eingang `node.silent` über seine
+   eigenen Verteiler. oaapx01 hätte am 24.11. gegen 05:38 gemailt. Die
+   Lage bleibt beim Eingang, bis der Knoten zurück ist. Die Zentrale
+   überlässt ihm den Knoten, damit nur eine Mail kommt.
+4. **Rückstau.** Gemessen: Nicht die Größe der Warteschlange ist das
+   Problem. Ein nackter Mosquitto liefert 100000 Nachrichten in 5 Sekunden.
+   Der Fehler liegt darin, dass go-auth für jede Nachricht, die der Broker
+   verschickt, identity fragt, auch für jede wartende beim Wiederverbinden
+   und noch bevor die Brücke ihre Bestätigung (CONNACK) bekommt. Bei 10000
+   wartenden dauert das 30 Sekunden. Die Brücke wartet aber nur 45
+   Sekunden, gibt dann auf und kommt von vorn; bei 100000 kommt sie nie
+   durch. Abhilfe: go-auth merkt sich die Antworten 60 Sekunden lang. Dann
+   sind 100000 Nachrichten in 11 Sekunden durch. Dazu bekommt die Brücke
+   mehr Geduld (`keepalive_interval 120`) und keine eigene gespeicherte
+   Sitzung mehr in der Zentrale (`local_cleansession true`). Die Grenze
+   von 100000 bleibt.
+
+Die parallele Sitzung fand am selben Abend auf oaap-demo dasselbe von der
+anderen Seite: Der Broker der Zentrale lief mit 99,9 % CPU (go-auth ohne
+Zwischenspeicher), ein Keepalive von 300 Sekunden half nicht, und die
+Warteschlange auf oaapx01 war voll (Mosquitto verwirft dann die
+**neuesten** Nachrichten). Gelöst hat sie es einmalig von Hand
+(`cleansession true`, Rückstau verworfen); seit 21:37 UTC steht die
+Brücke. Damit es nicht wiederkommt, brauchen **beide** Seiten den
+Zwischenspeicher, also 0.1.377 auf oaapx01 und oaap-demo.
+
+5. **Platten-Vorhersage** (von Jörg entschieden, gebaut). Der Knoten
+   schätzt aus seinen eigenen Messwerten, wann die Datenplatte voll ist:
+   linear über 24 Stunden und exponentiell nur dann, wenn der Zuwachs
+   wirklich schneller wird: Der letzte Tag wächst mindestens 1,5-mal so
+   schnell wie die Woche und mindestens einen Punkt am Tag, und die
+   letzten 6 Stunden bestätigen das. Es zählt der frühere Zeitpunkt.
+   Rückblickend über die Woche von oaap-test gerechnet: Warnung am 21.11.
+   bei 69 %, kritisch am 22.11. bei 82 %, 13 Stunden später stand die
+   Platte auf 94 %. Der erste Entwurf hatte noch Fehlalarme bei winzigem
+   Zuwachs und wurde deshalb vorsichtiger gemacht. Unter 48 Stunden kommt `disk.trend` (Warnung), unter
+   12 Stunden `disk.soon` (kritisch, täglich erinnert). Ein Rauschschutz
+   (mindestens 0,25 Punkte am Tag, genug Daten) und eine Hysterese (zu
+   erst über 60 bzw. 18 Stunden) verhindern Fehlalarme. `disk.full` mit
+   fester Schwelle bleibt.
+6. **Wichtigkeit von Mails** (entschieden, gebaut). Im Betreff steht vorn
+   🔴 kritisch, 🟠 Warnung (Gesundheitslage beginnt), 🔁 Erinnerung oder
+   ✅ Behoben. Alles andere bleibt ohne Symbol. Nur kritische Mails tragen
+   `Importance: high` und `X-Priority: 1`.
+
+**Rollout nur auf Jörgs Wort** (D-A4.5).
+
+**Entscheidungen an Jörg (§18.5),** jeweils mit (a) als Empfehlung, so
+gebaut:
+- D-A4.1 Wachhund startet den Broker selbst neu (a), nur melden (b), (a)
+  plus neuere Mosquitto-Version (c);
+- D-A4.2 Erinnerung täglich für die Flottenlagen (a), für alle Lagen (b),
+  keine (c);
+- D-A4.3 der Eingang urteilt, solange die Zentrale fehlt (a), immer (b),
+  nie (c);
+- D-A4.4 Zwischenspeicher 60 s (a), 300 s (b), keiner und dafür kleinere
+  Warteschlange (c);
+- D-A4.5 Reihenfolge: oaapx01 und oaap-demo zusammen, dann der Rest (a),
+  oder erst nur oaap-demo (b).
+
+**Offene Frage:** oaapx01 hätte seit dem 20.11. `hub.unreachable`
+(kritisch, täglich) mailen müssen. Ob es das tat, zeigt
+`data/notify/state.json` auf oaapx01. Das lässt sich nur mit Jörgs Wort
+lesen.

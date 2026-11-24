@@ -1,7 +1,7 @@
 # oaap.core.notifications — Recipient Lists and Notifications
 
 - **ID:** `oaap.core.notifications`
-- **Version:** 0.13 (`recipe.request`: a tenant asks the operator and the node has no request inbox, or it did not answer -- operations, node, event, RFC-0109 §13; 0.12: the report ledger keeps per tenant and day also `bytes.instances` -- the size of each instance from the history's last `du`, RFC-0108 D3; 0.11: 0.11: `idp.door` -- a broker in front of a tenant's realm is open and was not at the last reading, security, tenant and node, RFC-0091 stage 1, reference 0.1.297; 0.10: `link.down` also for an **external end** whose tunnel app says its tunnel or the target is down -- one matter per end, named `<node>/<instance>/<target>`; its subject says *Verbindung getrennt* instead of *Tunnel getrennt*, RFC-0087 §8.1, reference 0.1.288; 0.9: `Dauer` counts from when the fault began where the condition knows it -- the fleet types -- not from the matter's opening, reference 0.1.287, RFC-0087 finding b; 0.8: the fleet type `link.down` -- a broken tunnel at the hub, one matter per tunnel naming what depends on it, RFC-0087 §6, reference 0.1.285; 0.7: a lock on a name **nobody has** -- an empty one included -- is no longer mailed; it is counted and appears in the node's weekly report as *Fremde Anmeldeversuche*, 2.2.1/2.9; 0.6: the **fleet** types `node.silent`, `bridge.down`,
+- **Version:** 0.14 (the fleet's matters `node.silent`, `bridge.down`, `broker.queue`, `link.down` are **reminded daily** like critical ones -- a catalogue entry may say `remind: <hours>`; `node.silent` may now also come from an **entry** for the nodes paired through it while their hub is away, RFC-0085 A4 §18.2/§18.3; the disk forecast `disk.trend` (health, under 48 h) and `disk.soon` (critical, under 12 h), computed on the node from its own metrics, §18.7; a symbol before the subject (🔴 critical begins, 🟠 a health matter begins, 🔁 reminder, ✅ Behoben) and `Importance: high` / `X-Priority: 1` only for critical mails, §18.8; 0.13: `recipe.request`: a tenant asks the operator and the node has no request inbox, or it did not answer -- operations, node, event, RFC-0109 §13; 0.12: the report ledger keeps per tenant and day also `bytes.instances` -- the size of each instance from the history's last `du`, RFC-0108 D3; 0.11: 0.11: `idp.door` -- a broker in front of a tenant's realm is open and was not at the last reading, security, tenant and node, RFC-0091 stage 1, reference 0.1.297; 0.10: `link.down` also for an **external end** whose tunnel app says its tunnel or the target is down -- one matter per end, named `<node>/<instance>/<target>`; its subject says *Verbindung getrennt* instead of *Tunnel getrennt*, RFC-0087 §8.1, reference 0.1.288; 0.9: `Dauer` counts from when the fault began where the condition knows it -- the fleet types -- not from the matter's opening, reference 0.1.287, RFC-0087 finding b; 0.8: the fleet type `link.down` -- a broken tunnel at the hub, one matter per tunnel naming what depends on it, RFC-0087 §6, reference 0.1.285; 0.7: a lock on a name **nobody has** -- an empty one included -- is no longer mailed; it is counted and appears in the node's weekly report as *Fremde Anmeldeversuche*, 2.2.1/2.9; 0.6: the **fleet** types `node.silent`, `bridge.down`,
 `broker.queue`, `node.loss`, `hub.unreachable`, and a closing mail names how
 long the matter lasted, RFC-0085 stage 2; 0.5: `exposure.found` -- an instance hands out a secret file, critical, tenant and node, RFC-0084; 0.4: the **weekly report** -- a daily ledger, one report per scope, delivery `now`/`report` per routing line -- 2.9, RFC-0083; 0.3: `{knoten}` is the node's alias once one is set, `{ort}` its place, the body names both names -- RFC-0082 stage 1)
 - **Maturity:** draft. 0.1 was RFC-0080 stage 1: lists, the catalogue,
@@ -55,6 +55,8 @@ the instance, the reason, a link to the portal page).
 | `backup.missing` | critical | both | yes | a backup schedule exists and is off, or no successful backup for 26 h — never on a node declared `none` (`oaap.data.backup` 2.6) |
 | `exposure.found` | critical | both | yes | an instance hands out a secret file when asked directly (`oaap.core.gateway` 0.2.22, RFC-0084) — one matter per instance, to its tenant and to the node; never only in the report |
 | `disk.full` | health | node | yes | the data disk ≥ warn threshold (default 90 %), closes below warn − 2 |
+| `disk.trend` | health | node | yes | 0.14: the node's forecast says the data disk is full in under 48 hours (linear over 24 h, exponential only when the growth accelerates, the earlier counts); closes above 60 h (RFC-0085 §18.7) |
+| `disk.soon` | critical | node | yes | 0.14: the same forecast under 12 hours, closes above 18 h; never report only |
 | `advisory.host` | security | node | yes | host packages have open security fixes |
 | `advisory.image` | security | tenant | yes | images of the tenant's instances have open security fixes — **one matter per tenant**, the text names the instances |
 | `reboot.planned` / `.started` / `.cancelled` | operations | both | no | the reboot plan files the event |
@@ -353,3 +355,23 @@ Neue Benachrichtigung `recipe.request` (Betrieb, nur der Knoten): Ein
 Mandant fragt beim Betreiber an, und der Knoten hat keinen Posteingang
 für Anfragen benannt oder der Posteingang antwortet nicht. Der Text ist
 derselbe, den der Vorgang trüge.
+
+## Deutsche Zusammenfassung (0.14 — Erinnerung für die Lagen der Flotte)
+
+Bisher kam nur eine kritische Lage täglich wieder (RFC-0080 D6). Die Lagen
+der Flotte sind „Gesundheit“ und kamen deshalb nur einmal: `bridge.down`
+zu oaapx01 wurde am 20.11. gemailt und dann vier Tage nicht mehr. Ein
+Eintrag im Katalog darf jetzt `remind: <Stunden>` sagen; `node.silent`,
+`bridge.down`, `broker.queue` und `link.down` sagen 24. Die Erinnerung ist
+die bekannte („Erinnerung: …“, „Besteht weiterhin: …“) mit dem aktuellen
+Text der Lage. Andere Gesundheitslagen wie `disk.full` bleiben, wie D6
+entschieden hat. Neu ist auch: `node.silent` kann von einem **Eingang**
+kommen, für die Knoten, die über ihn gekoppelt sind, solange ihre Zentrale
+fehlt (RFC-0085 §18.3).
+
+Dazu (0.14): Die neue Lage `disk.trend` warnt, wenn die Datenplatte nach
+der Schätzung des Knotens in weniger als 48 Stunden voll ist, `disk.soon`
+ist kritisch unter 12 Stunden (RFC-0085 §18.7). Im Betreff steht vorn ein
+Symbol: 🔴 Kritisches beginnt, 🟠 eine Gesundheitslage beginnt, 🔁
+Erinnerung, ✅ Behoben; alles andere bleibt ohne. Nur kritische Mails
+tragen die Kopfzeilen `Importance: high` und `X-Priority: 1` (§18.8).

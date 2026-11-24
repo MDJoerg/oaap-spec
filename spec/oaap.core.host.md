@@ -1,8 +1,8 @@
 # oaap.core.host — Platform Installer & Node Baseline
 
 - **ID:** `oaap.core.host`
-- **Version:** 0.3.10
-- **Maturity:** draft (0.3.10: profile **`fleet-hub`**, 2.5, RFC-0085 stage 2; 0.3.9: **what the node calls itself** -- alias, place, tags, 2.6, `oaap node alias|place|tags`, RFC-0082 stage 1; 0.3.8: reboot plan and protection verbs under
+- **Version:** 0.3.11
+- **Maturity:** draft (0.3.11: the `fleet-hub` minute job **restarts its broker when one of its bridges is stuck** -- down 10 minutes without a connect attempt, every 30 minutes doubling to 6 hours; a pairing's bridge file is rewritten in the form of A4 once; a `broker` node that is an entry **judges the nodes paired through it** while their hub is away, RFC-0085 A4 §18; 0.3.10: profile **`fleet-hub`**, 2.5, RFC-0085 stage 2; 0.3.9: **what the node calls itself** -- alias, place, tags, 2.6, `oaap node alias|place|tags`, RFC-0082 stage 1; 0.3.8: reboot plan and protection verbs under
   `oaap node care`, 2.3, RFC-0069; 0.3.7: `oaap status` states the node's care
   state and `oaap node care` sets it, 2.3, per `oaap.core.updates` 2.6;
   0.2.1 adds the `oaap user` rescue commands, 2.3;
@@ -353,6 +353,19 @@ compose call for `fleet` MUST name the `broker` and `store` profiles and
 the broker's overlay with it: a service whose dependency sits in an
 inactive profile is "undefined" to compose (measured on oaap-test
 2026-11-12). `oaap fleet hub show` states what the service sees.
+Since 0.3.11 (RFC-0085 A4 §18) the same minute job also watches the
+hub's own bridges: one that has been down for 10 minutes and whose
+broker log shows no `Connecting bridge entry-<e>` in that time is stuck
+(Mosquitto issue #3049); the job restarts `oaap-broker-1`, at most every
+30 minutes, doubling up to 6 hours, and records it in
+`data/fleet/kicks.json` and the fleet log (`bridge.kick`). A bridge file
+written by a pairing in an older form is rewritten with the same keys
+(the old one kept in `data/fleet-pair/`) and the broker restarted once;
+a hand-made file is never touched. On a `broker` node that is an entry,
+the broker watch reads the `alive` of the nodes paired through it and the
+minute job raises `node.silent` for one that falls silent while its hub
+has been away for 10 minutes; the entry's broker document names them
+(`held`) and the hub opens nothing of its own for them.
 
 **Restore** (`oaap.data.backup` 2.3): profiles describe the machine,
 not the service, and are therefore **not** restored from a backup.
@@ -698,3 +711,16 @@ fragwürdig.
 Das Profil wieder wegzunehmen nimmt dem Portal den Upload — es entfernt
 und ändert **nichts** an dem, was schon sideloaded wurde.
 
+
+## Deutsche Zusammenfassung (0.3.11 — Wachhund und Urteil am Eingang)
+
+Der Minutenjob einer Zentrale (`fleet-hub`) startet ihren Broker neu, wenn
+eine ihrer Brücken hängt: zehn Minuten getrennt und in dieser Zeit kein
+einziger Verbindungsversuch im Log (bekannter Fehler von Mosquitto 2.0.18,
+so am 20.11. mit der Brücke zu oaapx01 geschehen). Höchstens alle 30
+Minuten, der Abstand verdoppelt sich bis sechs Stunden; jeder Neustart
+steht in `data/fleet/kicks.json` und im Flottenprotokoll. Eine
+Brückendatei der Kopplung in alter Form wird einmal mit denselben
+Schlüsseln neu geschrieben. Ein Eingang beurteilt die über ihn gekoppelten
+Knoten jetzt selbst, solange ihre Zentrale fehlt, und meldet `node.silent`
+über seine eigenen Verteiler; die Zentrale überlässt ihm diese Knoten.
