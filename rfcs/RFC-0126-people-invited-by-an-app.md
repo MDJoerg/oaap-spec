@@ -261,7 +261,11 @@ tenant admin on a portal page "Eingeladene Personen" per app (D10).
   limit reached answers `429` and shows on the portal page.
 - Language from the call, else the tenant's. Text and look are the realm's
   theme (RFC-0042 colours where the theme takes them) — not designed here.
-- Forgot password works afterwards by the realm's own flow (RFC-0072).
+- Forgot password works afterwards by the realm's own flow (RFC-0072) — **once
+  the tenant's switch is on (D11)**: flipping `people.invite` on also sets the
+  realm's `resetPasswordAllowed`, which is off in every realm OAAP makes (§1.5
+  K1); flipping it off leaves it as it is, since other people may rely on it by
+  then.
 
 ## 7. How the app learns that the person confirmed (D7)
 
@@ -311,6 +315,16 @@ decision if a tenant without Keycloak ever needs it.
 | **2** | Portal page "Eingeladene Personen" per app (lock, resend, raise to a platform role by hand); events once I-69 exists. | the tenant admin sees and acts on every invited person |
 | **3** | `bestand` uses it (RFC-0123 stage 1). | a contact ordered, confirmed, logged in, sees only their nodes |
 
+### 11.1 Stage 1 in steps (2026-11-24)
+
+| Step | What |
+|---|---|
+| 1.1 | Connector verb `invited_users` (§3, D12): the switch per tenant on the node's command line (`server_admin`); on: user-profile attribute `oaap_invited_by` (administrators only, §1.5 K2), group `oaap-invited`, `resetPasswordAllowed` (D11), the client `oaap-people` with its three roles, its secret for identity; off: the client disabled |
+| 1.2 | Identity: `invite`, `resend`, `lock`, `unlock`, status reads — with the realm credential of 1.1, the record bound to `(provider, sub)` before the first login, role `partner`, limits, audit (§2, §4–§6) |
+| 1.3 | Manifest `people: {invite: true}`, `OAAP_PEOPLE_KEY` / `OAAP_PEOPLE_URL`, the gateway's door `/platform/people/` (§4) |
+| 1.4 | The first login finds the binding; `first_login` and the role sync never raise an invited person above `partner` (§5) |
+| 1.5 | Measured end to end on `oaap-test` in a throwaway tenant with its own realm, mail to a sink: security requirements 1–7, a person invited, mailed, confirmed, logged in, found by `ref` |
+
 ## 12. Decisions (Jörg, 2026-11-24, one by one, each as recommended)
 
 | # | Question | Decision | Not chosen |
@@ -324,6 +338,8 @@ decision if a tenant without Keycloak ever needs it.
 | **D7** | When does the platform record exist? | **At the invitation**, bound to `(provider, sub)`, so the app gets the UUID at once; status by reading, events later (§5, §7). | At the first login, the app waiting for it (no way to link before). |
 | **D8** | An address that already has a user? | **Refused with `409`**, never linked; linking an existing person is a tenant admin's act, later (§5). | Linking by address (forbidden by RFC-0041 K4); creating a second user. |
 | **D9** | Tenants without Keycloak? | **Need a realm** for this; no second mail path for now (§8). | A set-password mail from identity through the tenant's mailbox. |
+| **D12** | Who talks to Keycloak for an invitation? The connector's credential is the host's, over every realm OAAP made; identity holds none. (Jörg, 2026-11-24) | **A credential per realm**: flipping `people.invite` on makes, in that tenant's realm only, a confidential client `oaap-people` whose service account holds exactly `manage-users`, `view-users`, `query-groups`; identity gets only its secret; flipping off disables it (never deleted). | The host's credential mounted into identity (one compromise reaches every realm); a separate service holding the host's credential. |
+| **D11** | "Forgot password" is off in OAAP's realms (§1.5 K1). Switch it on? (Jörg, 2026-11-24, after stage 0) | **With the switch**: `people.invite` on also sets `resetPasswordAllowed` in the realm; off leaves it (§6). | Leave it off, a forgotten password only through `resend`. |
 | **D10** | What does the tenant admin see? | **A portal page per app with every invited person**, lock, resend, raise by hand; every call in the audit log (§4, stage 2). | Only the audit log. |
 
 ## Deutsche Zusammenfassung
@@ -379,6 +395,18 @@ Mail den Rechner verließ. **Zwei Befunde für Stufe 1:** Keycloak 26 verwirft
 die Markierung `oaap_invited_by` stillschweigend, solange sie nicht im
 Benutzerprofil erklärt ist (als Gruppe geht sie). Und „Passwort vergessen“ ist
 in den Realms, die OAAP anlegt, ausgeschaltet.
+
+**Entschieden nach Stufe 0 (24.11., D11):** „Passwort vergessen“ geht mit dem
+Schalter des Mandanten an. Schaltet der `server_admin` das Einladen ein, wird
+im Realm auch das Zurücksetzen des Passworts eingeschaltet. Beim Ausschalten
+bleibt es, wie es ist.
+
+**Entschieden am 24.11. (D12):** Für das Einladen bekommt identity nicht den
+Host-Zugang zu allen Realms, sondern einen eigenen Zugang **je Realm**. Schaltet
+der `server_admin` das Einladen für einen Mandanten ein, legt der Konnektor in
+dessen Realm einen Client `oaap-people` an, dessen Dienstkonto genau die Rechte
+„Benutzer verwalten“, „Benutzer lesen“ und „Gruppen abfragen“ hat. Beim
+Ausschalten wird er deaktiviert, nicht gelöscht.
 
 **Stufen.** Stufe 0 misst, ob ein `partner` durchs Gateway in eine App kommt,
 die Keycloak-Mail mit beiden Aktionen und die Duplikat-Einstellung. Stufe 1
