@@ -563,7 +563,10 @@ after. **Found by the container run**: the new `ALTER TABLE receivers` stood
 before `CREATE TABLE receivers` — harmless on a node, fatal for a new
 tenant; moved, and a check keeps the order.
 
-**Stage 3 is complete.** Open, for Jörg:
+**Stage 3 is complete.** Decided by Jörg the same day, each as recommended:
+D13 (grants deliver from their moment, instances too), D14 (`--events`
+clients), D15 (`/twin/v1` at the external name, with the key) — §13; to be
+built as stage 3.3. Asked as:
 1. **An instance's grant opens the store's past** for its type (feed and
    push read from their cursor; a stage-1 design). Closed for clients in 3.1.
 2. **A client that only sends events** still needs a twin right to be
@@ -813,6 +816,7 @@ committed on its own:
 |---|---|---|
 | 3.1 | Grants to integration clients; webhooks in the CloudEvents format with the OPTIONS handshake; from the grant on — **built, 0.1.371, §1.17** | `oaap.events.bus` 0.8, `oaap.data.twin` 0.16.3 |
 | 3.2 | Receivers with a CloudEvents mapping: a CloudEvents sender (SAP's form) arrives as an event of a declared `ext.` type and is delivered — **built, 0.1.372, §1.18** | `oaap.events.bus` 0.9, `oaap.data.twin` 0.16.4 |
+| 3.3 | D13–D15: grants deliver from their moment for instances; `--events` clients; `/twin/v1` at the external name with the key | `oaap.events.bus`, `oaap.data.twin` |
 
 ### Security requirements (proposed)
 
@@ -843,6 +847,9 @@ committed on its own:
 | **D9** | How is the catalogue shown outward? | **AsyncAPI 3.1 export** per app and per tenant; xRegistry once released (§4). | xRegistry now (rc); no export. |
 | **D10** | The twin's events? | **Into the store in the envelope** as `oaap.twin.object.*.v1` with group, instance and semantic ID; **the existing MQTT payload stays** for its readers (§11). | Replace the old payload at once; leave the twin outside. |
 | **D11** | The broker's ACL (F3)? | **Only platform principals publish under `oaap/<tenant>/`**, tenant keys read-only there — in stage 1, independent of the rest. | Leave it until apps use the broker. |
+| **D13** | From when does a grant deliver? (asked 2026-11-24 after §1.17/§1.18) | **From the moment of the grant, for instances too** — push and feed carry a granted type's events only from `granted_at`, as for clients since 3.1; one rule for every receiver. The past is read in the twin, not in the store. | The store's past open to a new instance (the stage-1 design); a choice per grant. |
+| **D14** | A client that only sends or receives events? | **Yes — `--events`** on `oaap data twin add-client` (and on the portal): it may hold receivers with `events` and webhooks for granted types, and reads or writes nothing in the twin. | Keep requiring a twin right (a right it does not need). |
+| **D15** | The clients' door `/twin/v1` at the node's external name? | **Yes, with the client's key** — the external sites pass `/twin/v1/*` as the node's own address does (identity checks the key, scoped `oaap.twin`; a person's session counts nothing there); measured from outside: no key 401, a key only its own types. | Off by default, switched per node; LAN or tunnel only. |
 | **D12** | Which first? | **`vorgaenge` → `bestand`** (addressed status), then identity → inviting app, then the twin with webhooks (§11). | The twin first; all at once. |
 
 ## Deutsche Zusammenfassung
@@ -1003,7 +1010,11 @@ CloudEvents-Format trägt sie samt Zwilling-Änderungen, erst nach dem
 OPTIONS-Handshake und nur ab dem Moment der Freigabe. Schritt 3.2 (0.1.372,
 §1.18): Ein Empfänger nimmt CloudEvents eines fremden Systems (gemessen in
 SAPs Form, von außen über die Edge) unter einem eigenen `ext.`-Typ an und
-reicht sie nach Freigabe weiter. Damit ist Stufe 3 fertig. Stufe 3 bringt
+reicht sie nach Freigabe weiter. Damit ist Stufe 3 fertig. Danach hat Jörg
+drei Fragen entschieden (D13–D15): Freigaben gelten auch für Apps erst ab
+ihrem Zeitpunkt; es gibt Clients nur für Ereignisse (`--events`); die
+Client-Tür `/twin/v1` wird an der externen Adresse erreichbar, nur mit
+Schlüssel. Gebaut wird das als Schritt 3.3. Stufe 3 bringt
 Webhooks und Empfänger im CloudEvents-Format.
 
 **Nicht gelesen, nicht gemessen:** alles in §1.4, dazu der AsyncAPI-Text und die
