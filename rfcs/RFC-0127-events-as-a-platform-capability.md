@@ -2,8 +2,8 @@
 
 - **Status:** **Accepted (2026-11-24)** — D1–D12 decided one by one the same
   day, each as recommended (§13). Nothing built.
-  **F3 measured** on `oaap-test` the same day (stage 0, §1.5); the rest of
-  stage 0 is open. The facts in §1 were read the same day in
+  **Stage 0 measured** on `oaap-test` the same day: F3 (§1.5) and the
+  relay's throughput (§1.6). The facts in §1 were read the same day in
   `oaap.events.broker` 0.4, RFC-0032, RFC-0120 §4.7/§13, `oaap.data.twin`,
   `oaap.core.notifications` 0.13, `oaap.apps.runtime` (§2.24/§2.25), reference
   0.1.359 (`services/twin/relay.py`, `twin/hooks.py`, `twin_inbound.py`,
@@ -135,8 +135,8 @@ CloudEvents-conformant):
 - ~~Whether an instance network reaches the broker at all~~ — read 2026-11-24,
   §1.5 (M6).
 - ~~F3 measured~~ — measured 2026-11-24, §1.5.
-- The relay's throughput beyond 200 rows per 2 s, and what a second event
-  source does to it.
+- ~~The relay's throughput beyond 200 rows per 2 s, and what a second event
+  source does to it~~ — measured 2026-11-24, §1.6.
 - SAP's AsyncAPI version and `x-sap-*` fields on the Accelerator Hub
   (help.sap.com not reachable for the reader); the AsyncAPI text itself.
 
@@ -171,6 +171,61 @@ unscoped key to by hand. Not measured: overwriting the retained topic of a
 **real** twin object (the ACL does not look at the type, so it is expected to
 behave the same), and whether `/broker/*` accepts a key as `Authorization`
 instead of a session.
+
+### 1.6 Measured 2026-11-24 on `oaap-test`: the relay's throughput (stage 0, part two)
+
+Reference 0.1.359 on `oaap-test` (a VM on a PC, not a Raspberry Pi). Two
+throwaway integration clients (RFC-0120, `--models`, a key for one day) in the
+throwaway tenants `s0` and `zzz-probe`, each registering a type `EvLoad` and
+then writing 3,000 objects through the door `/twin/v1/batch`, 500 per batch.
+Each object makes two events (`object.created`, `group.written`), both naming
+a group, so the relay writes a `states` row for each, stamped with the moment
+it handled the row. Producer times are `events.recorded_at`, relay times
+`states.recorded_at`. RFC-0123's load S5 in `s0` (§1.4 there, the same
+morning) was read afterwards from the same two columns.
+
+| Run | Sources | Events | Producer | Relay done after | Relay rate | Lag p50 / p90 / max |
+|---|---|---|---|---|---|---|
+| R1 (RFC-0123 S5) | 1 | 22,222 | 117 s (190/s) | 386 s | 57.6/s | 160 / 274 / 290 s |
+| R2 | 1 | 6,000 | 14 s (429/s) | 93 s | 64.4/s | 44 / 73 / 83 s |
+| R3 (R2 again) | 1 | 6,000 | 18 s (327/s) | 95 s | 63.3/s | 41 / 72 / 81 s |
+| R4 | **2 at once** | 2 × 6,000 | 26 s and 20 s | 146 s, both | **41.2/s each**, 82.4/s together | 71 / 114 / 126 s and 71 / 118 / 131 s |
+
+**What follows.**
+
+- **The relay is the narrow part, not the twin.** The door writes 190–430
+  events a second; the relay publishes about 60 a second for one tenant. A burst
+  (an import, a big batch) arrives at subscribers minutes late — 290 s for the
+  last of R1's events.
+- **The shape comes from the loop** (`relay.py`): per tenant at most 200 rows
+  per pass, one publish per row whose PUBACK it waits for, one commit per row,
+  and a fixed 2 s sleep after every pass over all tenants. One busy tenant:
+  about 3.1 s per 200 rows, i.e. about 1.1 s of work (≈5.5 ms a row) plus the
+  2 s sleep. Two busy tenants: one pass takes about 4.85 s (2 × ≈1.4 s + 2 s),
+  and each tenant still gets only 200 rows per pass.
+- **A second source slows every other one** — here by a third (64 → 41 a
+  second each), while the sum grows by only a quarter (64 → 82). The tenants
+  share one loop; a busy tenant lengthens everybody's pass.
+- **Ceilings at this cost:** one tenant stays below 100 a second even with no
+  work at all (200 rows per 2 s); all tenants together reach about 140–180 a
+  second (1 / 5.5–7 ms per row) once there are enough busy ones for the sleep
+  not to matter.
+- **For this RFC.** App events do not go through the relay (the door, §6), so
+  they do not take from it. But D10 makes the relay write every twin event a
+  second time, into the store — a second write per row, which lowers these
+  numbers further. Stage 1 therefore does **not** hang the delivery of app
+  events on this loop, and it gives the relay what `relay.py` itself names as
+  the later step ("revisited only if it becomes a cost"): no sleep while a
+  backlog remains, or LISTEN/NOTIFY, and publishing a batch without waiting for
+  each PUBACK before the next. At today's load (a few events a minute across
+  the fleet) none of this is a cost; under a burst it is.
+
+Not measured: how long a **quiet** tenant's single event waits while others
+have a backlog (by the loop at most one pass, about 5 s in R4); more than two
+sources; a Raspberry Pi. The runs leave about 12,000 retained topics on the
+broker (one per object) in the two probe tenants; they go with the tenants. The
+clients were removed afterwards (keys revoked, principals deactivated); the
+relay logged no error.
 
 ## 2. Words
 
@@ -373,7 +428,7 @@ checks that from its own records, so an app cannot spray events at strangers.
 
 | Stage | What | Measured by |
 |---|---|---|
-| **0** | Measure on `oaap-test`: F3 (a tenant key publishing on a twin topic) — **done 2026-11-24, §1.5**; the relay's throughput with a second source — open; whether an instance network reaches the broker — **read 2026-11-24, §1.5 M6**. | §1.4 answered |
+| **0** | Measure on `oaap-test`: F3 (a tenant key publishing on a twin topic) — **done 2026-11-24, §1.5**; the relay's throughput with a second source — **measured 2026-11-24, §1.6**; whether an instance network reaches the broker — **read 2026-11-24, §1.5 M6**. | §1.4 answered |
 | **1** | **The ACL fix** (only platform principals publish under `oaap/<tenant>/`). Envelope, store, catalogue in the manifest, publish door, grants, addressed events, push into the app, feed. First pair `vorgaenge` → `bestand`. | security requirements; a case moved in `vorgaenge` arrives once in `bestand`, after a stop of `bestand` through the feed |
 | **2** | Platform types (identity, twin in the envelope, D10); the portal page "Ereignisse" with the tenant's catalogue and grants; AsyncAPI export. | RFC-0126's activation arrives in the inviting app; AsyncAPI opens in an AsyncAPI viewer |
 | **3** | Webhooks out for any granted type in CloudEvents form with the OPTIONS handshake (D7); receivers in with a CloudEvents mapping (D8). | a CloudEvents sender (a test sender in SAP's format) arrives as an event and is delivered |
@@ -436,6 +491,18 @@ den Metrikzweig und den Brückenzweig verweigert der Broker. Apps sitzen nicht
 im Netz des Brokers; heute trifft die Lücke nur, wem ein Operator von Hand
 einen ungescopten Schlüssel gibt.
 
+**Durchsatz des Relais, gemessen am 24.11. (§1.6):** Das Relais schafft
+für einen Mandanten etwa 60 Ereignisse pro Sekunde, der Zwilling erzeugt
+bis zu 430. Bei einer großen Ladung kommt das letzte Ereignis erst nach
+Minuten an (bei 22 222 Ereignissen nach 290 Sekunden). Schreiben zwei
+Mandanten gleichzeitig, bekommt jeder nur noch 41 pro Sekunde, zusammen 82.
+Das liegt an der Schleife: höchstens 200 Zeilen je Mandant und Durchgang,
+nach jedem Durchgang 2 Sekunden Pause, und jede Nachricht wird einzeln
+bestätigt abgewartet. App-Ereignisse laufen nicht über das Relais. Stufe 1
+hängt ihre Zustellung deshalb nicht an diese Schleife und baut die Pause
+bei Rückstau und das Einzelabwarten aus. Heute, bei wenigen Ereignissen pro
+Minute, kostet das nichts; bei einem Import schon.
+
 **CloudEvents** (v1.0.2, im Original geprüft) legt nur den Umschlag fest:
 - Pflicht sind `id`, `source`, `specversion` und `type`.
 - Bindungen gibt es für HTTP, MQTT, Kafka, AMQP und NATS, dazu einen
@@ -476,7 +543,7 @@ die Kopplung an einen fremden Event Mesh (etwa SAP), Benachrichtigungen an
 Menschen und AAS-Ereignisse. Alles das kommt später auf diesem Umschlag.
 
 **Stufen.** Stufe 0 misst die Lücke, den Durchsatz des Relais und ob
-Instanznetze den Broker erreichen. Stufe 1 bringt die Lückenschließung,
+Instanznetze den Broker erreichen — am 24.11. erledigt (§1.5, §1.6). Stufe 1 bringt die Lückenschließung,
 Umschlag, Ablage, Katalog, Tür, Freigaben, adressierte Ereignisse und
 Zustellung, mit `vorgaenge` → `bestand` als erstem Paar. Stufe 2 bringt die
 Plattformtypen, die Portalseite und den AsyncAPI-Export. Stufe 3 bringt
