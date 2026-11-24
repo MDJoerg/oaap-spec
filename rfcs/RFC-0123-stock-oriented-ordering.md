@@ -2,7 +2,8 @@
 
 - **Status:** **Accepted (2026-11-23)** — D1–D11 decided in conversation (§12.1),
   D12–D20 decided one by one the same day, each as recommended (§12.2).
-  Nothing built. **Stage 0 measured 2026-11-24 on `oaap-test` (§1.4).**
+  Nothing built. **Stage 0 measured 2026-11-24 on `oaap-test` (§1.4);**
+  **its six consequences decided the same day as D21–D26 (§12.3).**
   The facts in §1.1 were read the same day in RFC-0031, RFC-0045, RFC-0061,
   RFC-0103 and RFC-0120 (the RFC texts, not the specifications and not the
   code). What was **not** read or measured is listed in §1.3.
@@ -141,7 +142,7 @@ row says *code*, it was read, not measured.
 | S9 | `oaap.core.authorization` says nothing against D13: an app that declares nothing keeps its own model (§1); RFC-0045's warning (A1, §6.3) is about derivation rules **in the platform**. | read |
 | S10 | A tenant has a twin only once an app with a twin binding is installed (or the fleet/asset readers). For `s0` the schema was made with the same function an install calls. | measured |
 
-**What follows for stage 1** (to be decided, not decided here):
+**What follows for stage 1** (decided 2026-11-24 as D21–D26, §12.3):
 
 1. **D14 must be built before the first contact logs in** (S1). Without it
    every contact of every customer reads every stock through the portal and
@@ -553,6 +554,56 @@ The alternatives that were on the table are named, so that nobody asks again.
 | **D19** | May a quote be accepted in parts? | No in the first version: the whole quote, with positions the provider rejected already taken out. Not chosen: positions can be deselected, with or without a second round. |
 | **D20** | Does the provider see a customer's stock through `bestand` or through the twin's portal? | Both: `bestand` for work on orders, the twin for everything else. The provider's people are not bound by responsibilities. Not chosen: only `bestand`; provider roles per group of accounts (too early for the pilot). |
 
+### 12.3 Decided 2026-11-24, one by one, after stage 0 (Jörg)
+
+Points 3 and 4 of §1.4 were answered with more than the offered options:
+follow the Asset Administration Shell (AAS) and the Digital Product Passport
+(DPP) as closely as possible, so that our twins can later be enriched from
+outside and enrich industry twins in turn (BaSyx is already among the ideas).
+What was read for that on 2026-11-24 is in §12.4.
+
+| # | Question | Decision |
+|---|---|---|
+| **D21** | Order of D14 against stage 1 (S1). | **The mark "read only through their app" is built first**, as its own platform step in `oaap.data.twin`, before the first contact logs in, and tested against every twin door (§10 no. 3). Not chosen: contacts without a tenant role as a stop-gap (unmeasured whether `bestand` reaches them); both. |
+| **D22** | How does a contact get a login (S7)? | **Its own RFC**: an app asks, the platform creates the user in the tenant's Keycloak and sends the confirmation mail (SMTP from RFC-0072). Stage 1 waits for it. Not chosen: the provider's team creates contacts by hand for the pilot; specifying it inside this RFC. |
+| **D23** | Where do `sortiment`'s types come from (S2)? | **Fixed types in its manifest**; `sortiment` is an ordinary app, RFC-0120 D8 stays. The article's structure follows the AAS: a **bill of material per IDTA 02011** ("Hierarchical Structures enabling Bills of Material"), hierarchical and nested by reference (`SameAs` to another BOM's entry node, not a copy), with **one BOM per view** (sales, engineering, manufacturing/assembly) — an article ordered in the portal is resolved in assembly by a manufacturing BOM that holds assemblies, purchased items and services. The stock tree follows the **location aspect** of the IEC 81346 extension of 02011. Built on D25. Not chosen: an app may hold `models`. |
+| **D24** | How does a responsibility carry its role (S3, D13)? | **Relations get attributes**, in the form of the AAS `AnnotatedRelationshipElement`, each attribute with a semantic ID — the role on a responsibility is the first use. A BOM does **not** put its quantity on the edge: as in 02011, a position is a node with a quantity (`BulkCount`), the edges stay plain. Built on D25. Not chosen: one relation type per role; a responsibility object between person and node; the quantity on the edge. |
+| **D25** | Where does the alignment with the AAS metamodel go? | **Its own RFC** "the twin after the AAS metamodel": a semantic ID for every attribute (an own glossary as concept descriptions, or derived from ECLASS / IEC CDD); groups as submodels with substructures (lists, tables, references); a default submodel for free attributes; attributes on relations (D24); the BOM of 02011 as the first submodel template. RFC-0031's line "standard outside, own model inside" stays; the AAS door (`oaap.data.aas`) and BaSyx come later on top. Not chosen: inside this RFC; an amendment to RFC-0031. |
+| **D26** | Reading the tree (S6, D20). | **`bestand` reads level by level** and never asks for the whole tree, **and the twin's tree read is fixed** (loading in bulk instead of one object per node; the portal page opens levels on demand), so the provider can look at a large stock in the portal as D20 wants. Not chosen: only level by level (would change D20). |
+| **D15** (confirmed) | The way back from a case (S8). | **As decided: `vorgaenge` publishes a status event** for cases opened from a backend, naming `context.object`; built **with stage 2**, not before — stage 1 does not need it. The fallback "read periodically" does not exist (S8) and is dropped. Not chosen: reading back first, the event later. |
+
+### 12.4 Read 2026-11-24 for D23–D25 (AAS and DPP)
+
+Checked in the original publications (IDTA PDFs, templates on
+`github.com/admin-shell-io/submodel-templates`) unless marked *inferred*.
+
+- **IDTA 02011 v1.1** (2024-06-14), submodel
+  `https://admin-shell.io/idta/HierarchicalStructures/1/1/Submodel`: one
+  `EntryNode` (the shell's own asset), nested `Node`s, per level `HasPart` /
+  `IsPartOf` / `SameAs` as plain `RelationshipElement`s, `BulkCount` **on the
+  node**, `ArcheType` `Full` · `OneDown` · `OneUp`. Only one of HasPart and
+  IsPartOf; edges stay inside the submodel; another BOM is joined by `SameAs`
+  to its entry node (self-managed entity, resolved through registry/discovery).
+  BOM views are explicitly **out of scope** of the template (§1.3 there);
+  one submodel instance per view is *inferred*.
+- **IDTA 02011-1** (IEC 81346 extension, 2025-08): aspect nodes for function
+  (=), product (-), **location (+)**, type (%), other (#); one aspect per
+  submodel.
+- No template for a bill of process; IDTA 02031 Process Parameters combines
+  with 02011 for step order; IDTA 02050 Purchase Order 1.0 exists (its
+  position structure not read). Services and purchased items have no own kind
+  in 02011 — a co-managed node with its own semantic ID is *inferred*.
+- **DPP4.0** lists Digital Nameplate 02006 v3.0, Carbon Footprint 02023,
+  Technical Data 02003, Maintenance Instructions 02018, Handover Documentation
+  02004 v2.0, Recycling/End-of-Life 02077 (coming). **IDTA 02099-1 "DPP Part 1:
+  Metadata"** v1.0 (2026-05-28): `DppMetadata` with `granularity` Model · Item
+  · Batch — Model is the article, Item the installed piece (*inferred* fit).
+  A shell is not yet a DPP; the DPP is the needed submodels plus this one.
+- Identity of an article and a piece: Nameplate 3.0 semantic IDs from IEC CDD,
+  e.g. ManufacturerProductDesignation `0112/2///61987#ABA567#009`, SerialNumber
+  `0112/2///61987#ABA951#009`.
+- Not read: 02050's positions, the battery passport templates' contents.
+
 ## Deutsche Zusammenfassung
 
 **Worum es geht.** Ein Dienstleister betreibt IT-Landschaften für Kunden über
@@ -642,6 +693,20 @@ größte Lücke für Stufe 1 und braucht ein eigenes RFC. Vorgänge lassen sich 
 dem Backend öffnen, aber nichts meldet zurück, und abfragen geht auch nicht.
 D15 ist damit ganz offen. Für Stufe 1 stehen sechs Punkte zur Entscheidung an
 (§1.4 unten).
+
+**Entschieden nach Stufe 0 (24.11., D21–D26, §12.3).** Die Marke „nur über
+ihre App lesbar“ wird zuerst gebaut, vor dem ersten Ansprechpartner (D21).
+Benutzer aus einer App mit Bestätigungsmail bekommen ein eigenes RFC (D22).
+`sortiment` erklärt feste Typen; der Artikel folgt der AAS-Stückliste
+IDTA 02011: hierarchisch, über Verweis verschachtelt, je Sicht (Verkauf,
+Konstruktion, Fertigung) eine Stückliste; der Bestand folgt dem Ortsaspekt
+nach IEC 81346 (D23). Beziehungen bekommen Attribute nach dem
+`AnnotatedRelationshipElement`, mit Semantik; die Menge einer Stückliste
+bleibt wie in 02011 am Knoten (D24). Der Zwilling nach dem AAS-Metamodell
+(Semantik für jedes Attribut, eigenes Glossar, Teilmodelle mit
+Unterstrukturen, Vorgabe-Teilmodell) wird ein eigenes RFC (D25). `bestand`
+liest Ebene für Ebene, und der Baum im Zwilling wird repariert (D26). D15
+bleibt: `vorgaenge` meldet Statusänderungen als Ereignis, gebaut mit Stufe 2.
 
 **Nicht gelesen, nicht gemessen:** das Datenmodell des Vorprojekts; der Chat
 Ende zu Ende als `user` (die MCP-Tür ist gemessen).
