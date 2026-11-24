@@ -1,8 +1,12 @@
 # oaap.events.bus — Events Between Apps, in the CloudEvents Envelope
 
 - **ID:** `oaap.events.bus`
-- **Version:** 0.7
-- **Maturity:** draft (0.7: **AsyncAPI 3.1.0 export** per instance and per
+- **Version:** 0.8
+- **Maturity:** draft (0.8: **the way out** (RFC-0127 D7) — grants to
+  integration clients, a webhook in the CloudEvents format carrying the
+  client's twin changes and its granted types from the moment of the grant,
+  the OPTIONS handshake before the first POST, §2.15; reference 0.1.371,
+  measured on `oaap-test` 2026-11-24, RFC-0127 §1.17. 0.7: **AsyncAPI 3.1.0 export** per instance and per
   tenant — portal downloads, `oaap events asyncapi`, the twin's internal
   route; §2.14; reference 0.1.370, checked with the official
   `@asyncapi/parser` 3.6.6 on `oaap-test` 2026-11-24, RFC-0127 §1.16. 0.6: **the portal page "Ereignisse"** — the
@@ -442,6 +446,42 @@ The catalogue outward as **AsyncAPI 3.1.0** (the released version since
   <label>` on stdout; behind both the twin's `GET /internal/bus/asyncapi`.
   An app reading its own document through its key, and MCP, come later.
 
+### 2.15 The way out: integration clients and webhooks (0.8, RFC-0127 D7)
+
+- **Grants to a client.** The tenant admin grants an event type to an
+  integration client `client:<label>` (`oaap.data.twin` §2.17) of the tenant
+  — on the portal page (section "Integrations-Clients") or with `oaap events
+  grant client:<label> <type>` — in the same table as an instance's grants.
+  Grantable: a type some instance of the tenant publishes with audience
+  `tenant`, and the platform's `tenant` types other than the twin's. Not
+  grantable, with the reason: the twin's types (a client receives the twin's
+  changes through its read rights), addressed types (app or platform; they
+  never leave the tenant), `listed` types. Removing the client revokes its
+  grants.
+- **Personal types** (Jörg, 2026-11-24): the grant to the client **is** the
+  admin's permission for that target. Portal ("Freigeben — verlässt den
+  Mandanten", the badge "personenbezogen") and command line say so when
+  granting; the audit line carries "personal, leaves the tenant".
+- **From the grant on.** A client receives a granted type's events only from
+  the moment of its grant (`time >= granted_at`), never what was already in
+  the store — measured 2026-11-24: without that rule a grant opened earlier
+  events, including some from a time without any grant. A revoked and
+  renewed grant again starts at its own moment.
+- **The webhook.** `POST /twin/v1/webhooks` takes `format: cloudevents`
+  (default `oaap-v1`, the old body, kept for existing webhooks). Such a
+  webhook gets one POST of `application/cloudevents-batch+json` (a JSON
+  array; at most 50 twin changes and 50 store events) with the client's
+  twin changes as `oaap.twin.object.*.v1` (§2.12; `id` `twin-<event id>`,
+  its own writes left out unless `own`) and its granted events in the
+  envelope of §2.1; signed `X-OAAP-Signature` like before; at least once, in
+  order per stream, backoff, stop after 10 failures, resume as before.
+- **The handshake** (CloudEvents webhook spec, abuse protection): before the
+  first POST the target is asked `OPTIONS` with `WebHook-Request-Origin`
+  (`OAAP_HOOK_ORIGIN`, else `<tenant label>.oaap`). Only a 2xx whose
+  `WebHook-Allowed-Origin` is that origin or `*` starts delivery; anything
+  else is a failure with its reason and is asked again after the backoff.
+  The webhook's record shows `format` and `handshake`.
+
 ## 3. Configuration
 
 None in 0.1 beyond the manifest. The limits (64 KB, 120 a minute, 30 days)
@@ -616,3 +656,19 @@ OAAP-eigene Angaben (Herausgeber, Publikum, Semantik-ID) stehen in
 `x-oaap-…`-Feldern. Zu holen ist es als Download auf der Portalseite
 „Ereignisse“ oder mit `oaap events asyncapi`. Das offizielle Prüfwerkzeug von
 AsyncAPI nimmt beide Dokumente ohne Fehler und ohne Warnung an.
+
+## Deutsche Zusammenfassung (Nachtrag v0.8)
+
+Der Weg nach außen. Der Mandantenadmin kann jetzt auch einem
+Integrations-Client (einem fremden Programm mit Schlüssel) Ereignistypen
+freigeben, im Portal oder mit `oaap events grant client:<name> <typ>`. Der
+Client bekommt sie in seinem Webhook, wenn er ihn im Format `cloudevents`
+anmeldet, zusammen mit seinen Zwilling-Änderungen, gebündelt und signiert.
+Vor dem ersten Senden fragt die Plattform das Ziel nach dem
+CloudEvents-Verfahren (OPTIONS), ob es diese Ereignisse haben will. Erst nach
+einem Ja geht etwas raus. Ein Client bekommt nur Ereignisse ab dem Moment
+seiner Freigabe, nie ältere aus dem Speicher. Personenbezogene Typen darf der
+Admin freigeben; die Freigabe ist dann seine Erlaubnis, und Portal und
+Protokoll sagen das ausdrücklich. Zwilling-Typen und adressierte Typen sind
+für Clients nicht freigebbar. Das alte Webhook-Format bleibt für bestehende
+Webhooks unverändert.

@@ -501,6 +501,35 @@ Stage 2 is complete. Not done: a rendered view (AsyncAPI Studio would have
 meant sending the document to an outside site), an app reading its own
 document with its key, MCP.
 
+### 1.17 Built and measured 2026-11-24: the way out, step 3.1
+
+Reference 0.1.371, `oaap.events.bus` 0.8 §2.15, `oaap.data.twin` 0.16.3.
+Jörg decided three questions first: a client gets its **twin changes and the
+types the tenant admin grants it** (not only the twin); an inbound event of
+a foreign type lands under **our own `ext.` type** with the original kept
+(step 3.2); for a `personal` type **the grant is the permission**. Measured
+on `oaap-test` in `inv1` with a throwaway client `ev31-inv1` (reads and
+writes `t.inv1.EvTwin`), a receiver container `ce-sink` in the platform
+network (named in `OAAP_TWIN_HOOK_ALLOW`), the probe `evprobe` as `inv1-evp`:
+
+| # | What | Result |
+|---|---|---|
+| W1 | webhook `format: cloudevents`; the receiver answers OPTIONS without `WebHook-Allowed-Origin` | four OPTIONS (`WebHook-Request-Origin: inv1.oaap`) with backoff 2, 4, 8 s, no POST; the webhook "retrying" with the reason |
+| W2 | the receiver allows | handshake recorded; a write by the client itself is not echoed (`own` false) |
+| W3 | grants on the portal page as `ev23-ta`: the probe's ping; a twin type; an identity type; an unknown client | "Freigegeben."; refused "through its read rights"; refused "does not leave the tenant"; refused |
+| W4 | the probe publishes; another client writes object `c1` | one POST each `application/cloudevents-batch+json`, signature valid: the pings (`source …:instance:inv1-evp`), and `created` + `changed` of `c1` (`id twin-22/23`, `oaaporigin client:ev22-inv1`) |
+| W5 | **found**: the first batch after the grant also carried three pings published **before** it, one of them while no grant existed at all | fixed: a client receives a type only from the moment of its grant (`time >= granted_at`); measured again: 21, 22 before the grant — not delivered; 23 after — delivered; revoked, 24 — not; granted again, 25 — delivered |
+| W6 | **found**: `oaap events grant client:…` revoked instead of granting (the grant branch had slipped under the instance condition) | fixed, covered by a test; measured in W5 |
+| W7 | **found**: after a successful handshake with nothing to send the webhook stayed "retrying" with the old reason | fixed: a yes clears the earlier failures |
+
+Container run on `oaap-test` (`test/runner/run.sh`, real PostgreSQL):
+`test_events_out`, `test_twin_sync`, `test_event_relay`,
+`test_events_platform`, `test_events_bus`, `test_cli_reference` green.
+**Open for Jörg:** an *instance's* grant still opens what its type already
+has in the store (feed and push read from their cursor, a stage-1 design: a
+new subscriber may catch up inside the tenant). For clients this is closed;
+whether instances should start at their grant too is a decision.
+
 ## 2. Words
 
 | Word | Meaning |
@@ -734,6 +763,13 @@ committed on its own:
 | 2.3 | The portal page "Ereignisse": the tenant's catalogue, grants and push state — **built, 0.1.369, §1.15** | `oaap.events.bus` 0.6 |
 | 2.4 | AsyncAPI 3.1 export per app and per tenant (D9) — **built, 0.1.370, §1.16** | `oaap.events.bus` 0.7 |
 
+### 12.3 Stage 3 in steps (2026-11-24)
+
+| Step | What | Spec |
+|---|---|---|
+| 3.1 | Grants to integration clients; webhooks in the CloudEvents format with the OPTIONS handshake; from the grant on — **built, 0.1.371, §1.17** | `oaap.events.bus` 0.8, `oaap.data.twin` 0.16.3 |
+| 3.2 | Receivers with a CloudEvents mapping: a CloudEvents sender (SAP's form) arrives as an event of a declared `ext.` type and is delivered | `oaap.events.bus`, `oaap.data.twin` |
+
 ### Security requirements (proposed)
 
 1. A publisher cannot set `source`, `id`, `time` or the `oaap*` extensions
@@ -917,7 +953,10 @@ Portalseite „Ereignisse“ zeigt den Katalog des Mandanten, und die Admins
 geben dort frei, widerrufen und setzen Zustellungen fort, alles im Protokoll.
 Schritt 2.4 (0.1.370, §1.16): Der Katalog lässt sich als AsyncAPI 3.1.0 je App
 und je Mandant herunterladen; der offizielle Parser nimmt ihn ohne Fehler an.
-Damit ist Stufe 2 fertig. Stufe 3 bringt
+Damit ist Stufe 2 fertig. Stufe 3, Schritt 3.1 (0.1.371, §1.17): Der
+Mandantenadmin gibt Integrations-Clients Ereignistypen frei; ihr Webhook im
+CloudEvents-Format trägt sie samt Zwilling-Änderungen, erst nach dem
+OPTIONS-Handshake und nur ab dem Moment der Freigabe. Stufe 3 bringt
 Webhooks und Empfänger im CloudEvents-Format.
 
 **Nicht gelesen, nicht gemessen:** alles in §1.4, dazu der AsyncAPI-Text und die
