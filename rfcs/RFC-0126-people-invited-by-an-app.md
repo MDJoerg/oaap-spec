@@ -1,6 +1,7 @@
 # RFC-0126: People Invited by an App — an App Asks, the Platform Creates the Login and Sends the Mail
 
-- **Status:** **Draft (2026-11-24)** — D1–D10 open (§12). Nothing built,
+- **Status:** **Accepted (2026-11-24)** — D1–D10 decided one by one the same
+  day, each as recommended (§12). Nothing built,
   **nothing measured**. The facts in §1 were read the same day in
   `oaap.core.identity`, RFC-0041, RFC-0055, RFC-0072, RFC-0091,
   `oaap.apps.runtime` (§2.24/§2.25 cases) and reference 0.1.359
@@ -262,9 +263,9 @@ decision if a tenant without Keycloak ever needs it.
 | **2** | Portal page "Eingeladene Personen" per app (lock, resend, raise to a platform role by hand); events once I-69 exists. | the tenant admin sees and acts on every invited person |
 | **3** | `bestand` uses it (RFC-0123 stage 1). | a contact ordered, confirmed, logged in, sees only their nodes |
 
-## 12. Decisions (open)
+## 12. Decisions (Jörg, 2026-11-24, one by one, each as recommended)
 
-| # | Question | Recommendation | Not chosen |
+| # | Question | Decision | Not chosen |
 |---|---|---|---|
 | **D1** | How does an app ask? | **A manifest capability `people: {invite: true}`** with key and URL like `cases` (§4). | The app as an OIDC client with admin rights in the realm (gives an app an admin credential, against RFC-0091); a portal form the app links to (no automation). |
 | **D2** | How is K3.3 (`never: users`) narrowed, and who allows it? | **One new verb `invited_users`** only for users OAAP created with a marker, only in realms OAAP provisions; a tenant switch, off by default, flipped by **`server_admin`** (§3). | Dropping `never: users`; the switch with the `tenant_admin`; a separate realm for external people (a second login page, a second place to manage). |
@@ -317,7 +318,7 @@ eingeladenen Personen und kann sie sperren oder von Hand höherstufen. Jeder
 Aufruf steht in der Prüfspur. Mandanten ohne Keycloak brauchen dafür einen
 Realm.
 
-**Entscheidungen D1–D10** sind offen, jeweils mit Empfehlung (§12).
+**Entschieden (24.11.):** D1–D10 einzeln, jeweils wie empfohlen (§12).
 
 **Stufen.** Stufe 0 misst, ob ein `partner` durchs Gateway in eine App kommt,
 die Keycloak-Mail mit beiden Aktionen und die Duplikat-Einstellung. Stufe 1

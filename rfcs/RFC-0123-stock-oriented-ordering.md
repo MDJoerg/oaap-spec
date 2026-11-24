@@ -446,7 +446,8 @@ the same three sentences:
 A contact is three things (D8):
 
 1. a **node** in the stock (type Person), under the account or a site;
-2. a **user** in the tenant's Keycloak, with platform role `user`;
+2. a **user** in the tenant's Keycloak, with platform role **`partner`** (no
+   platform authority; RFC-0126 D3 — was `user`), invited through RFC-0126;
 3. **responsibilities**: relations `responsible` from the person to a node,
    with the role as attribute, valid in time (F1), inherited down the tree.
 
@@ -565,7 +566,7 @@ What was read for that on 2026-11-24 is in §12.4.
 | # | Question | Decision |
 |---|---|---|
 | **D21** | Order of D14 against stage 1 (S1). | **The mark "read only through their app" is built first**, as its own platform step in `oaap.data.twin`, before the first contact logs in, and tested against every twin door (§10 no. 3). Not chosen: contacts without a tenant role as a stop-gap (unmeasured whether `bestand` reaches them); both. |
-| **D22** | How does a contact get a login (S7)? | **Its own RFC** (**RFC-0126**, draft 2026-11-24, proposes role `partner` instead of `user` for contacts): an app asks, the platform creates the user in the tenant's Keycloak and sends the confirmation mail (SMTP from RFC-0072). Stage 1 waits for it. Not chosen: the provider's team creates contacts by hand for the pilot; specifying it inside this RFC. |
+| **D22** | How does a contact get a login (S7)? | **Its own RFC** (**RFC-0126**, accepted 2026-11-24: an app invites through `people: {invite: true}`, role `partner` instead of `user` for contacts): an app asks, the platform creates the user in the tenant's Keycloak and sends the confirmation mail (SMTP from RFC-0072). Stage 1 waits for it. Not chosen: the provider's team creates contacts by hand for the pilot; specifying it inside this RFC. |
 | **D23** | Where do `sortiment`'s types come from (S2)? | **Fixed types in its manifest**; `sortiment` is an ordinary app, RFC-0120 D8 stays. The article's structure follows the AAS: a **bill of material per IDTA 02011** ("Hierarchical Structures enabling Bills of Material"), hierarchical and nested by reference (`SameAs` to another BOM's entry node, not a copy), with **one BOM per view** (sales, engineering, manufacturing/assembly) — an article ordered in the portal is resolved in assembly by a manufacturing BOM that holds assemblies, purchased items and services. The stock tree follows the **location aspect** of the IEC 81346 extension of 02011. Built on D25. Not chosen: an app may hold `models`. |
 | **D24** | How does a responsibility carry its role (S3, D13)? | **Relations get attributes**, in the form of the AAS `AnnotatedRelationshipElement`, each attribute with a semantic ID — the role on a responsibility is the first use. A BOM does **not** put its quantity on the edge: as in 02011, a position is a node with a quantity (`BulkCount`), the edges stay plain. Built on D25. Not chosen: one relation type per role; a responsibility object between person and node; the quantity on the edge. |
 | **D25** | Where does the alignment with the AAS metamodel go? | **Its own RFC** "the twin after the AAS metamodel" (**RFC-0125**, draft 2026-11-24): a semantic ID for every attribute (an own glossary as concept descriptions, or derived from ECLASS / IEC CDD); groups as submodels with substructures (lists, tables, references); a default submodel for free attributes; attributes on relations (D24); the BOM of 02011 as the first submodel template. RFC-0031's line "standard outside, own model inside" stays; the AAS door (`oaap.data.aas`) and BaSyx come later on top. Not chosen: inside this RFC; an amendment to RFC-0031. |
