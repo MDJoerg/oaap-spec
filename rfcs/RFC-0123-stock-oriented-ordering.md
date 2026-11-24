@@ -2,7 +2,7 @@
 
 - **Status:** **Accepted (2026-11-23)** — D1–D11 decided in conversation (§12.1),
   D12–D20 decided one by one the same day, each as recommended (§12.2).
-  Nothing built, nothing measured.
+  Nothing built. **Stage 0 measured 2026-11-24 on `oaap-test` (§1.4).**
   The facts in §1.1 were read the same day in RFC-0031, RFC-0045, RFC-0061,
   RFC-0103 and RFC-0120 (the RFC texts, not the specifications and not the
   code). What was **not** read or measured is listed in §1.3.
@@ -120,6 +120,45 @@ nodes forward.
 - The predecessor project's data model and screens (Jörg has them; not seen).
 
 Stage 0 (§11) answers these before anything is built on them.
+
+### 1.4 Measured 2026-11-24 (stage 0, `oaap-test`, reference 0.1.359)
+
+A throw-away tenant `s0` with a twin, an integration client `s0-sortiment`
+(`models`), a person `s0kunde` with platform role `user`. Two scripts as root
+on the node, 15/18 and a second round for the three that needed one. Where a
+row says *code*, it was read, not measured.
+
+| # | Finding | How |
+|---|---|---|
+| S1 | A person with role **`user` reads the whole twin**: the portal's start page, the list of every object of a type, every object page; through the MCP door `twin_search` finds the objects. Only writing is refused ("darf lesen, aber nicht schreiben"); a person without a tenant role is refused. | measured: portal with a real login; MCP door called inside the twin container with the headers an MCP gateway's door sets (s0 has no gateway, so the chat was not measured end to end) |
+| S2 | **An app instance cannot create types**: `POST /twin/v1/types` with an instance key answers 403 "the writes of /twin/v1 are an integration client's". An app's types come only from its manifest `data_model` at install, node-wide, fixed per package version. An integration client with `models` creates tenant types with status and relations. The platform shows that key with "for the program, never for an app". | measured (instance `raci`; client `s0-sortiment`) |
+| S3 | **Relations carry no attributes.** An attribute on a relation type (`s0Rolle` on `s0Verantwortlich`) is accepted and silently dropped; a relation row is key, target and validity only. F1 holds for RFC-0031's text, not for the reference. | measured + code (`twin_write.py`) |
+| S4 | A declared **status works**: `configured → ordered` in a batch passes, the jump `ordered → retired` is refused. A smaller declaration sent later answers 200 "unchanged" — additive, the removal is ignored without a word. | measured |
+| S5 | **Writing 11 111 nodes** (account → 10 sites → 100 buildings → 1 000 floors → 10 000 rooms) in 23 batches of 500: **121.6 s, 10.9 ms per node**. A relation names its target by key, so the target must exist: written bottom-up. A parent → child relation lives in the **parent's** group, so adding a child writes the parent. | measured |
+| S6 | **Reading the tree.** `/twin/v1/…/graph` depth 4: 0.4 s, but cut at 2 000 nodes (`truncated`). Export of the type: 1.0 s, 4 MB. Search by title: 0.56 s. The portal's tree read (one object load per node): depth 1 0.1 s, depth 2 0.8 s, depth 3 **8.2 s** (1 111 nodes), depth 4 **killed** by the worker timeout after 30 s (500). The portal itself gives up after 8 s, so its tree page fails from depth 3 on. The tree follows outgoing relations only. | measured |
+| S7 | **No app can create a user**, and there is **no e-mail confirmation**. Identity's `POST /internal/users` takes only the portal's key; the Keycloak connector declares `never: users` (`idp_admin.py:268`); `oaap user add` writes the platform's own identity store, not Keycloak. `VERIFY_EMAIL` / `execute-actions-email` appear nowhere. SMTP into a realm exists (RFC-0072). | code |
+| S8 | **Cases from a backend exist, the way back does not.** `/platform/cases/submit` (vorgaenge ≥ 0.2.0, manifest `cases: {submit: true}`): `kind` from the closed list, `title`, `body`, `queue`, `object {kind, id}`, `on_behalf_of`. No template, subkind or fields on this path; `cases.templates` (RFC-0061 §6) is specified, not built. vorgaenge publishes nothing on a status change, and the submit key cannot read a case back — D15's fallback (poll) is not possible either. | code |
+| S9 | `oaap.core.authorization` says nothing against D13: an app that declares nothing keeps its own model (§1); RFC-0045's warning (A1, §6.3) is about derivation rules **in the platform**. | read |
+| S10 | A tenant has a twin only once an app with a twin binding is installed (or the fleet/asset readers). For `s0` the schema was made with the same function an install calls. | measured |
+
+**What follows for stage 1** (to be decided, not decided here):
+
+1. **D14 must be built before the first contact logs in** (S1). Without it
+   every contact of every customer reads every stock through the portal and
+   through any assistant with the twin as source. This is platform work in
+   `oaap.data.twin`.
+2. **Contacts with a login need a platform capability** (S7): an app asks,
+   the platform creates the user and sends a confirmation mail. Nothing of it
+   exists; it is the largest gap and wants its own RFC.
+3. **Types** (S2): either `sortiment` declares a few fixed types in its
+   manifest (one node type, the article as an attribute) and is an ordinary
+   app, or an app may hold `models` — a change to RFC-0120 D8.
+4. **Responsibility** (S3, D13): one relation type per role, or a small
+   responsibility object between person and node.
+5. **`bestand` reads level by level** (S6) and never asks for the whole tree;
+   the twin's own tree read needs a fix before the provider can look at a
+   large stock in the portal (D20).
+6. **Stage 2 needs D15 built in `vorgaenge`** (S8) — there is no workaround.
 
 ## 2. Words
 
@@ -570,9 +609,8 @@ Verantwortlicher.
 Mandanten, und der Zwilling trennt heute nach Typen, nicht nach Teilbäumen.
 Ein Ansprechpartner von Kunde X darf deshalb nie an die eigenen Türen des
 Zwillings kommen (Portalseiten, MCP, Chat), sondern nur über `bestand`, das
-jede Anfrage gegen seine Zuständigkeit prüft. Was ein normaler Benutzer vom
-Zwilling heute sieht, ist **nicht gemessen** — das ist die erste Messung in
-Stufe 0.
+jede Anfrage gegen seine Zuständigkeit prüft. Stufe 0 hat gemessen, dass ein
+normaler Benutzer heute **alles** sieht (§1.4, S1).
 
 **Stufen (§11).** 0: messen, was in §1.3 offen ist. 1: Datenartikel, drei
 Spalten, Warenkorb, Ansprechpartner mit Login. 2: Angebot, Sperren, Storno,
@@ -590,5 +628,20 @@ Sortiment für alle · D18 je Formularfeld: frei, nur über Artikel, fest · D19
 ein Angebot wird nur ganz angenommen · D20 der Dienstleister arbeitet in
 `bestand` und im Zwilling.
 
-**Nicht gelesen, nicht gemessen:** die Spezifikationen und der Code selbst
-(nur die RFC-Texte), das Datenmodell des Vorprojekts, alles in §1.3.
+**Stufe 0 gemessen (24.11., oaap-test, Wegwerf-Mandant `s0`, §1.4).**
+Ein Benutzer mit Rolle `user` liest heute den **ganzen** Zwilling: im Portal
+und über die MCP-Tür. Nur Schreiben ist ihm verwehrt. D14 muss also gebaut
+sein, bevor sich der erste Ansprechpartner anmeldet. Eine App darf keine
+eigenen Typen anlegen, das darf nur ein Integrations-Client mit `models`.
+Beziehungen tragen keine Attribute, die Rolle an der Zuständigkeit wird still
+verworfen. Der Status funktioniert. 11 111 Knoten zu schreiben dauert gut zwei
+Minuten. Den Baum liest der Zwilling bis Tiefe 3 in 8 s, Tiefe 4 bricht nach
+30 s ab. `bestand` muss deshalb Ebene für Ebene lesen. Eine App kann keine
+Benutzer anlegen, und eine E-Mail-Bestätigung gibt es nirgends. Das ist die
+größte Lücke für Stufe 1 und braucht ein eigenes RFC. Vorgänge lassen sich aus
+dem Backend öffnen, aber nichts meldet zurück, und abfragen geht auch nicht.
+D15 ist damit ganz offen. Für Stufe 1 stehen sechs Punkte zur Entscheidung an
+(§1.4 unten).
+
+**Nicht gelesen, nicht gemessen:** das Datenmodell des Vorprojekts; der Chat
+Ende zu Ende als `user` (die MCP-Tür ist gemessen).
