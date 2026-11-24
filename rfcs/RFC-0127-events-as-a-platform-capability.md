@@ -10,7 +10,9 @@
   (addressed events, the case door's record) built**, reference 0.1.362,
   `oaap.events.bus` 0.2, measured (§1.9). **Step 1.4 (the push into the app)
   built**, reference 0.1.363, `oaap.events.bus` 0.3, measured (§1.10). **Step 1.5
-  (the first pair, `vorgaenge` 0.20.0 → stand-in) built and measured** (§1.11). The facts in §1 were read the same day in
+  (the first pair, `vorgaenge` 0.20.0 → stand-in) built and measured** (§1.11).
+  **Step 1.6 (the relay without the sleep under a backlog) built**, reference
+  0.1.365, measured (§1.12). **Stage 1 is complete.** The facts in §1 were read the same day in
   `oaap.events.broker` 0.4, RFC-0032, RFC-0120 §4.7/§13, `oaap.data.twin`,
   `oaap.core.notifications` 0.13, `oaap.apps.runtime` (§2.24/§2.25), reference
   0.1.359 (`services/twin/relay.py`, `twin/hooks.py`, `twin_inbound.py`,
@@ -385,6 +387,30 @@ after a stop of `bestand` through the feed") is met with the stand-in;
 `bestand` comes with RFC-0123 stage 1. Left on `oaap-test`: `vorgaenge`
 0.20.0 in `default` (with its events key), cases V-2026-0026 to -0028.
 
+### 1.12 Built and measured 2026-11-24: the relay, step 1.6
+
+Reference 0.1.365, `oaap.data.twin` 0.16.1 §2.13: a batch is published
+without waiting for each PUBACK and committed once, up to the last row
+confirmed in order; no sleep after a pass in which a tenant filled its
+batch. Measured on `oaap-test` exactly like §1.6 (the same two throwaway
+integration clients, recreated and removed again; the same tenants):
+
+| Run | Sources | Events | Producer | Relay rate | Lag p50 / p90 / max | §1.6 before |
+|---|---|---|---|---|---|---|
+| R5 | 1 | 6,000 | 26 s (230/s) | **192.6/s**, done 6 s after the producer | 8.5 / 10.3 / **11.2 s** | 64.4/s, 44 / 73 / 83 s |
+| R6 | **2 at once** | 2 × 6,000 | 31 s and 23 s | **131.2/s and 130.8/s**, 262/s together | 16.1 / 20.6 / 22.0 s and 17.8 / 25.0 / 27.8 s | 41.2/s each, 71 / 114 / 126 s and 71 / 118 / 131 s |
+
+**What follows.** The relay is now about three times faster and close to
+the producer: a burst of one source arrives seconds late instead of a
+minute or more. The door's own rate fell somewhat (230 instead of 330–430
+a second), since the relay now works while the producer writes on the same
+VM and database. Two sources still share the relay (131 each against 193
+alone), but the sum (262) is above one source's rate, not below it. The
+relay logged no error. The runs add about 6,000 probe objects in `s0` and
+3,000 in `zzz-probe` (and as many retained topics); they go with the
+tenants. Not measured: a Raspberry Pi; LISTEN/NOTIFY (not needed at this
+pace).
+
 ## 2. Words
 
 | Word | Meaning |
@@ -607,7 +633,7 @@ committed on its own:
 | 1.3 | Addressed events (`oaapto`) with the platform's own record of who may address whom — **built, 0.1.362, §1.9** (the case door records the pair) | `oaap.events.bus` 0.2 |
 | 1.4 | The push into the app (CloudEvents HTTP, HMAC, in order per subject, backoff, stop, resume) — **built, 0.1.363, §1.10** | `oaap.events.bus` 0.3 |
 | 1.5 | `vorgaenge` publishes the status of cases opened from a backend; the probe app as the opener receives it once, and after a stop through the feed — **built, `vorgaenge` 0.20.0, §1.11** | `vorgaenge` |
-| 1.6 | The relay without the sleep while a backlog remains (§1.6) | `oaap.data.twin` |
+| 1.6 | The relay without the sleep while a backlog remains (§1.6) — **built, 0.1.365, §1.12** | `oaap.data.twin` 0.16.1 |
 
 ### Security requirements (proposed)
 
@@ -736,6 +762,13 @@ Push an. Während die Probe gestoppt war, kam der nächste Wechsel, und nach dem
 Start lieferten Feed und Push ihn. Jedes Ereignis kam genau einmal an. Damit
 ist das Messziel von Stufe 1 erreicht, mit dem Stellvertreter statt `bestand`.
 Dabei gefunden und behoben: Freigaben überlebten das Entfernen einer Instanz.
+
+**Relais beschleunigt am 24.11. (§1.12, Schritt 1.6):** Das Relais schickt
+jetzt einen Stapel ab, ohne auf jede einzelne Bestätigung zu warten, und
+pausiert nicht mehr, solange ein Rückstau ansteht. Wie in §1.6 gemessen: Bei
+einer Quelle schafft es 193 statt 64 Ereignisse pro Sekunde, das letzte kam
+nach höchstens 11 statt 83 Sekunden an. Bei zwei Quellen schafft es je 131 statt
+41. **Damit ist Stufe 1 vollständig.**
 
 **Entschieden (24.11., D1–D12 einzeln, jeweils wie empfohlen):**
 - **Ein Umschlag:** CloudEvents 1.0 als JSON. `source`, `id` und Zeit setzt
