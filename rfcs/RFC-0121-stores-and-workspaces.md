@@ -614,7 +614,8 @@ freigeben" as the tenant's `tenant_admin` made the store system `git`
 
 **Findings:** (10) with `REQUIRE_SIGNIN_VIEW` the API answers 403 without a
 sign-in — the service waits on `/api/healthz`; (11) the version
-`15.0.11+oaap.1` is valid semver but not a valid Docker tag (`+`); (12) the
+`15.0.11+oaap.1` is valid semver but not a valid Docker tag (`+`) — fixed in
+runtime 0.2.88 (the tag carries `_`), measured with the real version; (12) the
 platform left the old single container running beside the two new ones on the
 same storage — fixed in runtime 0.2.88 (reference 0.1.376), measured with a
 fresh instance going from the old package to the new one.
