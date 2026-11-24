@@ -9,7 +9,8 @@
   reference 0.1.361, `oaap.events.bus` 0.1, measured (§1.8). **Step 1.3
   (addressed events, the case door's record) built**, reference 0.1.362,
   `oaap.events.bus` 0.2, measured (§1.9). **Step 1.4 (the push into the app)
-  built**, reference 0.1.363, `oaap.events.bus` 0.3, measured (§1.10). The facts in §1 were read the same day in
+  built**, reference 0.1.363, `oaap.events.bus` 0.3, measured (§1.10). **Step 1.5
+  (the first pair, `vorgaenge` 0.20.0 → stand-in) built and measured** (§1.11). The facts in §1 were read the same day in
   `oaap.events.broker` 0.4, RFC-0032, RFC-0120 §4.7/§13, `oaap.data.twin`,
   `oaap.core.notifications` 0.13, `oaap.apps.runtime` (§2.24/§2.25), reference
   0.1.359 (`services/twin/relay.py`, `twin/hooks.py`, `twin_inbound.py`,
@@ -350,6 +351,40 @@ Not measured: ten real failures in a row (with the backoff about 17
 minutes), the retention run of the service, an app with several services
 (the route uses `door_target`, measured for the setup door).
 
+### 1.11 Built and measured 2026-11-24: the first pair, step 1.5
+
+`vorgaenge` 0.20.0 (manifest 0.21): a status change of a case that an app's
+backend opened (`submitted_by` attested as `app:<instance>`) goes, in the
+same transaction, into an event outbox of the app and from there — at least
+once, through the door, `OAAP_EVENTS_KEY` — as an addressed
+`app.vorgaenge.case.statuschanged.v1` to exactly that instance: thin, `{case,
+from, to, object}`. A case of the feedback button sends nothing; without the
+key nothing is queued; a final refusal of the door (4xx) is not repeated.
+Installed on `oaap-test` in `default`; the stand-in receiver is the probe
+(`evprobe` 0.4.0, subscribing to the type with `addressed_only`, with an
+endpoint). The status was changed with the app's own `Store.set_status`
+inside its container (the same code the status form calls), not through the
+page.
+
+| # | What | Result |
+|---|---|---|
+| E1 | The probe opens a case through its case door | `201`, V-2026-0028; the record (`vorgaenge`, `evp-b`) is written |
+| E2 | Status `new` → `in_progress` | pushed to the probe within 5 s, signature valid, `oaapto: instance:evp-b`, data `{case, from: new, to: in_progress}` |
+| E3 | The probe stopped, status → `answered` | `vorgaenge` publishes (`202`, its outbox `sent`); the push fails with `HTTP 502`, cursor held |
+| E4 | The probe started again, reads its feed | both status events, in order, addressed to it |
+| E5 | The push after the backoff | the second one delivered; the probe holds **each of the two exactly once** |
+
+**Found and fixed (0.1.364, `oaap.events.bus` 0.3.1):** the probe installed
+again under a removed probe's name found that probe's grant still live —
+grants, push cursor and records outlived the instance. Now removal revokes
+and deletes them and a rename carries them over; measured: after removal and
+reinstallation the probe waits for a grant again and its push starts fresh.
+
+Stage 1's measure ("a case moved in `vorgaenge` arrives once in `bestand`,
+after a stop of `bestand` through the feed") is met with the stand-in;
+`bestand` comes with RFC-0123 stage 1. Left on `oaap-test`: `vorgaenge`
+0.20.0 in `default` (with its events key), cases V-2026-0026 to -0028.
+
 ## 2. Words
 
 | Word | Meaning |
@@ -571,7 +606,7 @@ committed on its own:
 | 1.2 | Envelope, manifest block `events` (manifest 0.21), catalogue on the node, the key and the door, the store, grants on the command line, the feed — **built, 0.1.361, §1.8** | `oaap.events.bus` 0.1 |
 | 1.3 | Addressed events (`oaapto`) with the platform's own record of who may address whom — **built, 0.1.362, §1.9** (the case door records the pair) | `oaap.events.bus` 0.2 |
 | 1.4 | The push into the app (CloudEvents HTTP, HMAC, in order per subject, backoff, stop, resume) — **built, 0.1.363, §1.10** | `oaap.events.bus` 0.3 |
-| 1.5 | `vorgaenge` publishes the status of cases opened from a backend; the probe app as the opener receives it once, and after a stop through the feed | `vorgaenge` |
+| 1.5 | `vorgaenge` publishes the status of cases opened from a backend; the probe app as the opener receives it once, and after a stop through the feed — **built, `vorgaenge` 0.20.0, §1.11** | `vorgaenge` |
 | 1.6 | The relay without the sleep while a backlog remains (§1.6) | `oaap.data.twin` |
 
 ### Security requirements (proposed)
@@ -692,6 +727,15 @@ nach 1,9 Sekunden da, jedes einmal, in Reihenfolge, mit gültiger Signatur.
 Antwortete die App mit Fehler oder war sie gestoppt, wurde gewartet und danach
 vollständig nachgeliefert. Nach zehn Fehlschlägen hält der Push an, und
 `resume` liefert nach. Eine App kommt an den internen Weg nicht heran.
+
+**Erstes Paar gebaut am 24.11. (§1.11, Schritt 1.5):** `vorgaenge` 0.20.0
+meldet jeden Statuswechsel eines Vorgangs, den das Backend einer App eröffnet
+hat, als adressiertes Ereignis an genau diese App zurück. Auf oaap-test mit
+der Probe als Stellvertreterin für `bestand` gemessen: Der Wechsel kam per
+Push an. Während die Probe gestoppt war, kam der nächste Wechsel, und nach dem
+Start lieferten Feed und Push ihn. Jedes Ereignis kam genau einmal an. Damit
+ist das Messziel von Stufe 1 erreicht, mit dem Stellvertreter statt `bestand`.
+Dabei gefunden und behoben: Freigaben überlebten das Entfernen einer Instanz.
 
 **Entschieden (24.11., D1–D12 einzeln, jeweils wie empfohlen):**
 - **Ein Umschlag:** CloudEvents 1.0 als JSON. `source`, `id` und Zeit setzt

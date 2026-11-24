@@ -1,8 +1,11 @@
 # oaap.events.bus — Events Between Apps, in the CloudEvents Envelope
 
 - **ID:** `oaap.events.bus`
-- **Version:** 0.3
-- **Maturity:** draft (0.3: **the push into the app** —
+- **Version:** 0.3.1
+- **Maturity:** draft (0.3.1: **what the bus keeps under an
+  instance's name follows the instance** — removal revokes its grants and
+  drops its push cursor and records, a rename carries them over, §2.7;
+  found on `oaap-test` 2026-11-24, reference 0.1.364. 0.3: **the push into the app** —
   `events.endpoint`, one signed CloudEvent per POST through the gateway's
   internal listener, in store order, at least once, backoff, stop after 10
   failures, `oaap events resume`; the service `bus`, §2.10; reference
@@ -208,6 +211,14 @@ subscriber's app id in the publisher's list. Every grant and revocation is
 written to the tenant's audit log (`events.grant`, `events.revoke`). A
 revocation stops the feed at once (§2.8).
 
+**Grants follow the instance (0.3.1).** Removing an instance revokes its
+live grants (`revoked_by` = `oaap (instance removed)`) and deletes its push
+cursor (§2.10) and its records (§2.9); renaming it carries all three to the
+new name. An instance installed again under a removed one's name starts
+with nothing — the RFC-0062 rule for keys, applied to grants (measured on
+`oaap-test` 2026-11-24: before 0.3.1 such an instance found its
+predecessor's grant live).
+
 ### 2.8 The feed
 
 ```
@@ -394,3 +405,12 @@ App nicht, wartet der Dienst immer länger (höchstens eine Stunde). Nach zehn
 Fehlschlägen in Folge hält er an, bis jemand `oaap events resume` aufruft.
 Der Feed bleibt daneben bestehen, zum Nachholen und für Apps, die lieber
 selbst abholen.
+
+## Deutsche Zusammenfassung (Nachtrag v0.3.1)
+
+Was der Bus unter dem Namen einer Instanz festhält, folgt jetzt der Instanz:
+Freigaben, der Stand des Pushs und die Einträge, wer wen adressieren darf.
+Wird die Instanz entfernt, werden ihre Freigaben widerrufen und der Rest
+gelöscht. Wird sie umbenannt, ziehen alle drei mit um. Gefunden auf
+oaap-test: Eine neu installierte Probe mit dem Namen einer entfernten fand
+deren Freigabe noch vor.
