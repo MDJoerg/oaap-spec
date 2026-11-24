@@ -6,7 +6,9 @@
   relay's throughput (§1.6). **Stage 1, step 1 (D11) built** the same day,
   reference 0.1.360, measured on `oaap-test` (§1.7). **Step 1.2 (the bus:
   envelope, manifest block, door, store, grants, feed) built** the same day,
-  reference 0.1.361, `oaap.events.bus` 0.1, measured (§1.8). The facts in §1 were read the same day in
+  reference 0.1.361, `oaap.events.bus` 0.1, measured (§1.8). **Step 1.3
+  (addressed events, the case door's record) built**, reference 0.1.362,
+  `oaap.events.bus` 0.2, measured (§1.9). The facts in §1 were read the same day in
   `oaap.events.broker` 0.4, RFC-0032, RFC-0120 §4.7/§13, `oaap.data.twin`,
   `oaap.core.notifications` 0.13, `oaap.apps.runtime` (§2.24/§2.25), reference
   0.1.359 (`services/twin/relay.py`, `twin/hooks.py`, `twin_inbound.py`,
@@ -300,6 +302,31 @@ session at the door (the `303` without a key is the same path), retention
 (the 30-day deletion runs with 1 % of publishes), a tenant without a twin
 through the real path (unit-tested: `409`).
 
+### 1.9 Built and measured 2026-11-24: addressed events, step 1.3
+
+Jörg, 2026-11-24: the platform's record comes from the case door (option A
+of three: the door records the pair; not "the subscriber declares it", not a
+record per case). Reference 0.1.362, `oaap.events.bus` 0.2, runtime 0.2.84.
+Staged on `oaap-test`. The probe (`evprobe` 0.2.0: an addressed type, a
+subscription to it with `addressed_only`, `cases: {submit: true}`) installed
+three times in the tenant `default`, which has a `vorgaenge` inbox and a
+twin, and once in `s0`; all four removed afterwards.
+
+| # | What | Result |
+|---|---|---|
+| A1 | `evp-a` addresses `evp-b`, no record | `403` "'evp-b' gave 'evp-a' nothing to address" |
+| A2 | `evp-b` opens a case through its case door | `201` from `vorgaenge` (V-2026-0026); the record holds (`vorgaenge`, `evp-b`, `cases`, 1); a second case counts 2 |
+| A3 | `oaapto` on a type that is not addressed · an addressed type without `oaapto` · an instance of `s0` · an instance that does not declare the type (`vorgaenge`) | `400` · `400` · `403` "no instance of this tenant" · `403` "does not declare" |
+| A4 | A record (`evp-a`, `evp-b`) **written by hand** — `vorgaenge` publishes nothing before step 1.5 — then `evp-a` addresses `evp-b` | `202`; in `evp-b`'s feed **without a grant**, with `oaapto: instance:evp-b`; `evp-c`'s and `evp-a`'s feeds empty |
+| A5 | A grant on the addressed type for `evp-c` · a grant on the other type | refused ("reaches only the instance it names") · granted, and `evp-c` still sees nothing addressed to `evp-b` |
+| A6 | `/platform/events/relate…` and `/platform/events/x` from an app | `404`, `404` — the record cannot be written through the events door |
+
+No error in the twin service's log. The hand-written record and the probes'
+rows were deleted; the two probe cases stay in `default`'s inbox (V-2026-0026,
+-0027). Not measured: the record when the twin service is down (the case
+door's second `forward_auth` then fails, and with it the case — a coupling
+this option brings; the twin service is a core service of the same node).
+
 ## 2. Words
 
 | Word | Meaning |
@@ -519,7 +546,7 @@ committed on its own:
 |---|---|---|
 | 1.1 | D11, the ACL fix — **built, 0.1.360, §1.7** | `oaap.events.broker` 0.5 |
 | 1.2 | Envelope, manifest block `events` (manifest 0.21), catalogue on the node, the key and the door, the store, grants on the command line, the feed — **built, 0.1.361, §1.8** | `oaap.events.bus` 0.1 |
-| 1.3 | Addressed events (`oaapto`) with the platform's own record of who may address whom | `oaap.events.bus` 0.2 |
+| 1.3 | Addressed events (`oaapto`) with the platform's own record of who may address whom — **built, 0.1.362, §1.9** (the case door records the pair) | `oaap.events.bus` 0.2 |
 | 1.4 | The push into the app (CloudEvents HTTP, HMAC, in order per subject, backoff, stop, resume) | `oaap.events.bus` 0.3 |
 | 1.5 | `vorgaenge` publishes the status of cases opened from a backend; the probe app as the opener receives it once, and after a stop through the feed | `vorgaenge` |
 | 1.6 | The relay without the sleep while a backlog remains (§1.6) | `oaap.data.twin` |
@@ -624,6 +651,16 @@ Ereignisse und mehr als 120 pro Minute werden abgelehnt. Vor der Freigabe und
 nach dem Widerruf kommt nichts an. Ein fremder Schlüssel kommt nicht durch die
 Tür, und ein anderer Mandant sieht nichts. Als Nächstes kommen adressierte
 Ereignisse (1.3) und der Push in die App (1.4).
+
+**Adressierte Ereignisse gebaut am 24.11. (§1.9, Schritt 1.3):** Wie du
+entschieden hast, merkt sich die Vorgangstür, welche Instanz bei welchem
+Posteingang einreicht. Nur an so eine Instanz darf der Posteingang später
+adressieren. Gemessen: Ohne Eintrag wird abgelehnt. Eine Einreichung legt
+den Eintrag an, eine zweite zählt ihn hoch. Ein adressiertes Ereignis kommt
+ohne Freigabe beim Empfänger an und nirgends sonst. Weil `vorgaenge` erst in
+Schritt 1.5 veröffentlicht, wurde für diesen Teil ein Eintrag von Hand
+gesetzt. Der Preis dieser Variante: Ist der Zwilling-Dienst ausgefallen,
+scheitert auch die Einreichung eines Vorgangs.
 
 **Entschieden (24.11., D1–D12 einzeln, jeweils wie empfohlen):**
 - **Ein Umschlag:** CloudEvents 1.0 als JSON. `source`, `id` und Zeit setzt

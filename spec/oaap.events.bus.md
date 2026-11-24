@@ -1,8 +1,12 @@
 # oaap.events.bus — Events Between Apps, in the CloudEvents Envelope
 
 - **ID:** `oaap.events.bus`
-- **Version:** 0.1
-- **Maturity:** draft (0.1: RFC-0127 stage 1 — envelope, catalogue in the
+- **Version:** 0.2
+- **Maturity:** draft (0.2: **addressed events** — `oaapto`, the
+  platform's own record of who submitted to which case inbox, delivery to
+  the named instance only, without a grant, §2.9; the events door serves
+  only `/` and `/feed`; reference 0.1.362, measured on `oaap-test`
+  2026-11-24, RFC-0127 §1.9. 0.1: RFC-0127 stage 1 — envelope, catalogue in the
   manifest, the publishing door, the tenant's event store, grants, the feed;
   addressed events and the push into the app follow as 0.2 and 0.3 of this
   spec, in the order of RFC-0127 §12.1). Built in reference 0.1.361 and
@@ -50,10 +54,11 @@ JSON format:
 | `oaaptenant` | platform | the tenant id |
 | `oaaporigin` | platform | `app:<app-id>` |
 | `oaapsemantic` | platform, from the catalogue | the type's `semantic_id`, when it declares one |
+| `oaapto` | publisher, checked (0.2) | only on an `addressed` type: `instance:<name>`, the one receiver (§2.9) |
 
 Whatever the publisher sends in a platform attribute is **replaced**, never
-trusted (RFC-0127 security requirement 1). `oaapto` is reserved for 0.2 and
-refused in 0.1 (`400`).
+trusted (RFC-0127 security requirement 1). `oaapto` is the publisher's,
+checked against the platform's record (§2.9).
 
 ### 2.2 The manifest block `events` (manifest 0.21)
 
@@ -129,7 +134,9 @@ the other instance keys (RFC-0062: removed with it, reissued on rename,
 renewed before expiry). An update that drops the `events` block takes both
 out of the environment.
 
-The gateway serves on that instance's site `handle /platform/events/*`: it
+The gateway serves on that instance's site exactly `/platform/events`,
+`/platform/events/` and `/platform/events/feed` (0.2: nothing else under it
+reaches the twin service — anything else is the static `/platform/*`, a 404): it
 asks identity for exactly that scope, no roles, and the instance's tenant;
 strips the path prefix; sets the source headers (instance, app, version,
 tenant) and passes to the twin service at `/bus/v1/…`. The twin service
@@ -147,9 +154,11 @@ POST $OAAP_EVENTS_URL/            Content-Type: application/cloudevents+json
 ```
 
 Binary mode (`ce-type`, `ce-subject` headers, `data` as the body) is accepted
-too. Refusals, each with a sentence: `400` (not an object, `oaapto`, a bad
-`subject`), `403` (a type the app does not declare under `publishes`),
-`409` (an `addressed` type before 0.2), `413` (`data` above 64 KB), `422`
+too (`ce-oaapto` for an addressed one). Refusals, each with a sentence:
+`400` (not an object, a bad `subject`, `oaapto` on a type that is not
+addressed, an addressed type without a valid `oaapto`), `403` (a type the
+app does not declare under `publishes`; an addressee it may not address,
+§2.9), `409` (a tenant without a twin), `413` (`data` above 64 KB), `422`
 (`data` against the schema, naming the first failing path), `429` (above 120
 events a minute per instance; `Retry-After`).
 
@@ -167,6 +176,8 @@ Two tables in the tenant's twin schema, created by the twin's schema step
 - **`bus_grants`** — one row per grant: `instance`, `type`, `subject_prefix`
   (optional filter), `granted_by`, `granted_at`, `revoked_by`, `revoked_at`.
   A revocation sets the two columns; a new grant is a new row.
+- **`bus_relations`** (0.2) — the record of §2.9: `publisher`, `addressee`,
+  `via` (`cases`), `first_at`, `last_at`, `times`; one row per pair.
 
 ### 2.7 Grants (RFC-0127 D4)
 
@@ -194,10 +205,43 @@ GET $OAAP_EVENTS_URL/feed?since=<id>&limit=<1..200>
 
 Returns, in store order, the events of the instance's tenant whose type it
 holds a live grant for (and whose `subject` starts with the grant's prefix,
-when set), after `since` (exclusive; empty = from the oldest kept). An event
-the instance published itself is not returned. `limit` defaults to 100. The
+when set) — and, from 0.2, the events **addressed to it** of a type it
+declares under `subscribes`, without a grant — after `since` (exclusive;
+empty = from the oldest kept). An event the instance published itself is not
+returned; an addressed event never reaches anyone but its addressee, a grant
+for the type included (grants on an addressed type are refused). `limit` defaults to 100. The
 feed is the catch-up behind the push of 0.3 and stays for apps that prefer to
 pull.
+
+### 2.9 Addressed events (0.2, RFC-0127 §6.2, D5)
+
+An `addressed` type reaches exactly one instance, the one `oaapto` names. The
+publisher may name only an instance that **gave it something to address**,
+and the platform decides that from **its own record**, never from what the
+publisher says (Jörg, 2026-11-24: the case door records the pair):
+
+- **The record.** The case door of an instance's site
+  (`/platform/cases/submit`, RFC-0061 §3.2) asks, after identity has
+  accepted that instance's own case key, a second question: `forward_auth`
+  to the twin service at `/bus/v1/relate?from=<submitting instance>&to=<the
+  inbox it passes to>`. The twin service checks that identity's principal is
+  `instance:<from>` and both are instances of one tenant, and writes or
+  counts the row (`publisher` = the inbox, `addressee` = the submitter,
+  `via` = `cases`). It copies nothing back and answers 200 even when it
+  cannot write (no twin, a database fault — logged): a case is never stopped
+  by the record; the addressed event is refused later instead, visibly. The
+  case request itself reaches the inbox unchanged.
+- **The check at publish.** For an addressed type: `oaapto` is
+  `instance:<name>`; `<name>` is an instance of the publisher's tenant that
+  declares the type under `subscribes`; and the record holds the pair
+  (publisher, `<name>`). Otherwise `403` with the reason.
+- **Delivery.** The event is stored with `oaapto` and returned only in the
+  addressee's feed (§2.8), without a grant; it is never part of a granted
+  feed and never goes onto the broker branch (RFC-0127 §9).
+
+In 0.2 the only source of the record is the case door — that is the pair
+RFC-0127 D12 begins with. A further source (identity for an invitation,
+RFC-0126) adds a `via`, not a new rule.
 
 ## 3. Configuration
 
@@ -218,6 +262,10 @@ needs another value.
    site; a person's session, another instance's key and an unscoped key are
    refused by identity before the twin service sees the request.
 6. An app cannot publish on the broker (`oaap.events.broker` 0.5).
+7. An addressed event reaches only the instance it names, and only an
+   instance the platform's record shows submitting to the publisher; tested
+   with no record, another tenant's instance and an instance that does not
+   declare the type (0.2).
 
 ## 5. Conformance tests (described)
 
@@ -232,6 +280,10 @@ needs another value.
 4. The same with the second app in another tenant: the grant is refused.
 5. The door on the first app's site refuses the second app's key and a
    logged-in person.
+6. (0.2) An instance opens a case through its case door; the record holds
+   (inbox, instance), a second case counts it. An addressed event without
+   a record is `403`; with one it reaches the addressee's feed without a
+   grant and no other feed, a grant on another type included.
 
 ## 6. Dependencies
 
@@ -244,7 +296,8 @@ door), `oaap.core.tenant` (the tenant audit log for grant and revoke).
 
 `draft` — `beta` once tests 1–5 pass on `oaap-test` and the first pair of
 RFC-0127 D12 runs there. Tests 1–5 passed on `oaap-test` on 2026-11-24
-(reference 0.1.361, RFC-0127 §1.8); the first pair is step 1.5.
+(reference 0.1.361, RFC-0127 §1.8); test 6 on 2026-11-24 (0.1.362, §1.9);
+the first pair is step 1.5.
 
 ## Deutsche Zusammenfassung (v0.1)
 
@@ -263,3 +316,16 @@ Mandanten-Admin freigegeben hat. In 0.1 geschieht das über die Kommandozeile
 Abgeholt wird über einen Feed (`GET $OAAP_EVENTS_URL/feed?since=`).
 Adressierte Ereignisse (0.2) und die Zustellung per Push in die App (0.3)
 folgen als nächste Schritte von Stufe 1.
+
+## Deutsche Zusammenfassung (Nachtrag v0.2)
+
+0.2 bringt adressierte Ereignisse. Ein Typ mit `audience: addressed` geht an
+genau eine Instanz, die `oaapto` nennt. Adressieren darf eine App nur eine
+Instanz, die ihr vorher etwas gegeben hat. Das weiß die Plattform aus einer
+eigenen Aufzeichnung, so wie du es entschieden hast: Reicht eine Instanz über
+ihre Vorgangstür einen Vorgang ein, stellt das Gateway nach identity eine
+zweite Frage an den Zwilling. Der merkt sich das Paar „Posteingang →
+Einreicher“ (eine Zeile je Paar, danach wird gezählt). Die Einreichung selbst
+läuft unverändert weiter, auch wenn die Aufzeichnung einmal nicht klappt.
+Adressierte Ereignisse brauchen keine Freigabe und erscheinen nur im Feed des
+Empfängers. Die Ereignistür lässt jetzt nur noch `/` und `/feed` durch.
