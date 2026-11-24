@@ -311,7 +311,11 @@ The app reads the status (`GET ?ref=`) — allowed here, unlike cases (RFC-0123
 S8), because the key may read **its own** invitations. When the events
 capability (I-69) exists, identity publishes `person.invited`,
 `person.activated`, `person.locked` in its envelope, and the app subscribes;
-reading stays as the fallback.
+reading stays as the fallback. **Built 2026-11-24** (RFC-0127 §1.13,
+`oaap.events.bus` 0.4 §2.11): `oaap.identity.person.activated.v1` at the
+first login, `…locked.v1` and `…unlocked.v1` with `by: app · admin`,
+addressed to the inviting instance; `person.invited` is not an event (the
+app made the call and has the answer).
 
 ## 8. Tenants without Keycloak (D9)
 

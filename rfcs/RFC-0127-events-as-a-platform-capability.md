@@ -411,6 +411,30 @@ relay logged no error. The runs add about 6,000 probe objects in `s0` and
 tenants. Not measured: a Raspberry Pi; LISTEN/NOTIFY (not needed at this
 pace).
 
+### 1.13 Built and measured 2026-11-24: identity's events, step 2.1
+
+Reference 0.1.367, `oaap.events.bus` 0.4 §2.11. Jörg decided two
+questions first: *activated* is the **first login** (not merely a set
+password), and there are three types — **locked and unlocked** both, with
+`by: app · admin`. Measured on `oaap-test` in the throwaway tenant `inv1`
+(realm and invitation client set up again, mail to a sink), with the probe
+app `peopleprobe` 0.2 as `inv1-pp-a` subscribing to the three types:
+
+| # | What | Result |
+|---|---|---|
+| I0 | invitation, first login of a person — **tenant without a twin** | identity handed the event over, the twin answered `stored: false`: **no store** (only twin bindings provisioned the schema). Fixed: an events block provisions it at install; `pp-a` 0.2.1 installed again, its push started |
+| I1 | a second person invited (`ref` node-22), link redeemed from the PC through the edge, first login | `activated` arrived at `pp-a` **once**, signature valid, 0.25 s after the event; `source …:identity`, `oaaporigin platform:identity`, `oaapto instance:inv1-pp-a`, `data` = user id and `ref`, no address |
+| I2 | the same person logs in a second time | no second `activated` |
+| I3 | the app locks, locks again, unlocks | `locked` (by app), nothing for the second lock, `unlocked` (by app) |
+| I4 | the tenant admin deactivates and reactivates (the portal's call to identity) | `locked` (by admin), `unlocked` (by admin) |
+| I5 | twin stopped; the app locks and unlocks | both kept in identity's outbox, in order; twin started — outbox empty after **17 s**, both delivered in order |
+| — | `oaap events list` | showed the platform types first as "waiting for a grant"; now "addressed by identity, no grant needed" |
+
+Seven events delivered, seven signatures valid, no error in the logs. Not
+measured: a scheduled deactivation (RFC-0046's worker in appctl does not
+go through identity's update and says nothing yet); a person invited by an
+instance that was removed since (the twin answers `stored: false`).
+
 ## 2. Words
 
 | Word | Meaning |
@@ -635,6 +659,15 @@ committed on its own:
 | 1.5 | `vorgaenge` publishes the status of cases opened from a backend; the probe app as the opener receives it once, and after a stop through the feed — **built, `vorgaenge` 0.20.0, §1.11** | `vorgaenge` |
 | 1.6 | The relay without the sleep while a backlog remains (§1.6) — **built, 0.1.365, §1.12** | `oaap.data.twin` 0.16.1 |
 
+### 12.2 Stage 2 in steps (2026-11-24)
+
+| Step | What | Spec |
+|---|---|---|
+| 2.1 | identity's events to the inviting app (activated = first login, locked, unlocked; by app · admin), the platform catalogue, the twin's internal door, identity's outbox — **built, 0.1.367, §1.13** | `oaap.events.bus` 0.4 |
+| 2.2 | The twin in the envelope (D10): the relay writes `oaap.twin.object.*.v1` into the store | `oaap.events.bus`, `oaap.data.twin` |
+| 2.3 | The portal page "Ereignisse": the tenant's catalogue, grants and push state | `oaap.events.bus` |
+| 2.4 | AsyncAPI 3.1 export per app and per tenant (D9) | `oaap.events.bus` |
+
 ### Security requirements (proposed)
 
 1. A publisher cannot set `source`, `id`, `time` or the `oaap*` extensions
@@ -806,7 +839,12 @@ Instanznetze den Broker erreichen — am 24.11. erledigt (§1.5, §1.6). Stufe 1
 (am 24.11. gebaut, 0.1.360, §1.7),
 Umschlag, Ablage, Katalog, Tür, Freigaben, adressierte Ereignisse und
 Zustellung, mit `vorgaenge` → `bestand` als erstem Paar. Stufe 2 bringt die
-Plattformtypen, die Portalseite und den AsyncAPI-Export. Stufe 3 bringt
+Plattformtypen, die Portalseite und den AsyncAPI-Export. Schritt 2.1 ist am
+24.11. gebaut und gemessen (0.1.367, §1.13): identity meldet der einladenden
+App die erste Anmeldung einer eingeladenen Person sowie Sperren und
+Entsperren, durch die App oder den Admin. Dabei fiel auf, dass ein Mandant
+ohne Zwilling keinen Ereignisspeicher hatte. Jetzt legt ihn die Installation
+einer App mit `events`-Block an. Stufe 3 bringt
 Webhooks und Empfänger im CloudEvents-Format.
 
 **Nicht gelesen, nicht gemessen:** alles in §1.4, dazu der AsyncAPI-Text und die

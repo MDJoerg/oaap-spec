@@ -1,8 +1,14 @@
 # oaap.events.bus — Events Between Apps, in the CloudEvents Envelope
 
 - **ID:** `oaap.events.bus`
-- **Version:** 0.3.1
-- **Maturity:** draft (0.3.1: **what the bus keeps under an
+- **Version:** 0.4
+- **Maturity:** draft (0.4: **the platform publishes** — platform types
+  in the platform's own catalogue, the first three from identity
+  (`oaap.identity.person.activated|locked|unlocked.v1`, addressed to the
+  instance that invited the person), the twin's internal door
+  `/internal/bus/platform`, and an events block now provisions the tenant's
+  store, §2.11; reference 0.1.367, measured on `oaap-test` 2026-11-24,
+  RFC-0127 §1.13. 0.3.1: **what the bus keeps under an
   instance's name follows the instance** — removal revokes its grants and
   drops its push cursor and records, a rename carries them over, §2.7;
   found on `oaap-test` 2026-11-24, reference 0.1.364. 0.3: **the push into the app** —
@@ -183,7 +189,10 @@ Two tables in the tenant's twin schema, created by the twin's schema step
   ULID, unique), `type`, `source_instance`, `source_app`, `subject`, `time`,
   `data` (jsonb), `semantic`, `oaapto` (0.2). A tenant without a twin has no
   store: publishing answers `409` ("this tenant has no twin yet"), the feed
-  answers empty. Retention 30 days by default (a later setting per
+  answers empty. **Since 0.4 installing an instance with an `events` block
+  provisions the tenant's twin schema** (idempotent, as a twin binding
+  does) — measured 2026-11-24: a tenant whose apps bound no twin had no
+  store, and the first platform event to its app was not kept. Retention 30 days by default (a later setting per
   tenant); the twin's own `events` table is untouched.
 - **`bus_grants`** — one row per grant: `instance`, `type`, `subject_prefix`
   (optional filter), `granted_by`, `granted_at`, `revoked_by`, `revoked_at`.
@@ -297,6 +306,51 @@ pushed:
 - **Where it starts.** An instance the service sees for the first time starts
   at the store's newest event; the past is the feed's.
 
+### 2.11 Platform types (0.4, RFC-0127 stage 2)
+
+The platform publishes in the same envelope and the same store. Its types are
+in the **platform catalogue** (in the reference: `bus_model.PLATFORM_TYPES`),
+not in a manifest; an app subscribes to them under `events.subscribes` like
+to any other type, and a subscription to an `oaap.` type the platform does
+not know is refused at install.
+
+| Type | Publisher | Audience | `subject` | `data` |
+|---|---|---|---|---|
+| `oaap.identity.person.activated.v1` | identity | addressed | the person's user id | `user_id`, `ref` |
+| `oaap.identity.person.locked.v1` | identity | addressed | the person's user id | `user_id`, `ref`, `by` (`app` · `admin`) |
+| `oaap.identity.person.unlocked.v1` | identity | addressed | the person's user id | `user_id`, `ref`, `by` (`app` · `admin`) |
+
+- **Meaning** (RFC-0126, Jörg 2026-11-24): *activated* is the person's
+  **first login** through the tenant's place — not merely a set password;
+  identity sees it without asking the realm. *locked* / *unlocked* follow a
+  real change of the person's state, by the inviting app (`/people/v1/<id>/
+  lock|unlock`) or by a tenant admin (portal, `by: admin`); repeating a lock
+  that holds already says nothing. `ref` is the app's own reference from
+  the invitation. No address and no name travel (thin, §8 of RFC-0127).
+- **Who receives.** Only the instance that invited the person — the
+  platform's own record `invited_by` is the relation (RFC-0127 §6.1's
+  second case), so no grant exists or is needed for these types; a person
+  no app invited produces no event.
+- **The envelope.** `source` `urn:oaap:tenant:<tid>:identity`, `oaaporigin`
+  `platform:identity`, `dataschema` `urn:oaap:events:schema:platform:<type>`,
+  `oaapsemantic` from the platform catalogue, `oaapto` the inviting
+  instance. Stored with `source_instance` `platform:<publisher>`, a value no
+  instance name can take, so the feed's and the push's rule ("never its
+  own") is unchanged.
+- **The way in.** A platform service hands an event to the twin's
+  **internal door** `POST /internal/bus/platform` with the platform key (the
+  twin's `/internal/*` guard), body `{tenant, publisher, type, subject,
+  data, to}`; never through the gateway. The door checks the type against
+  the platform catalogue (`403` for another publisher or an app type), the
+  schema (`422`), the addressee (same tenant, declares the type); an event
+  nobody declared, or for a tenant without a store, answers `200` with
+  `stored: false` and is not kept.
+- **identity's outbox.** identity holds no database: it writes each event to
+  `bus-outbox.json` first, then hands the queue to the door oldest first; it
+  stops at the first event the twin cannot take yet (down, restarting) so
+  the order per person holds, and tries again every 30 seconds; a refusal
+  (4xx) is final and logged; items older than 7 days are dropped.
+
 ## 3. Configuration
 
 None in 0.1 beyond the manifest. The limits (64 KB, 120 a minute, 30 days)
@@ -323,6 +377,11 @@ needs another value.
    instance the platform's record shows submitting to the publisher; tested
    with no record, another tenant's instance and an instance that does not
    declare the type (0.2).
+9. (0.4) Only a platform service holding the platform key publishes a
+   platform type, and only its own types; an app cannot publish under
+   `oaap.` (refused at install, `own_type_error`) nor reach the internal
+   door (the gateway never serves `/internal/*`). An identity event about a
+   person reaches only the instance that invited that person.
 
 ## 5. Conformance tests (described)
 
@@ -414,3 +473,19 @@ Wird die Instanz entfernt, werden ihre Freigaben widerrufen und der Rest
 gelöscht. Wird sie umbenannt, ziehen alle drei mit um. Gefunden auf
 oaap-test: Eine neu installierte Probe mit dem Namen einer entfernten fand
 deren Freigabe noch vor.
+
+## Deutsche Zusammenfassung (Nachtrag v0.4)
+
+Mit 0.4 veröffentlicht auch die Plattform selbst Ereignisse, im selben
+Umschlag und im selben Speicher. Die ersten drei kommen von identity:
+`activated` (eine von einer App eingeladene Person meldet sich zum ersten
+Mal an), `locked` und `unlocked` (die App oder der Mandantenadmin sperrt
+oder entsperrt sie, mit Angabe, wer es war). Sie gehen nur an die
+einladende Instanz und brauchen deshalb keine Freigabe. Adresse und Name
+reisen nicht mit, nur die Benutzer-ID und die eigene Referenz der App.
+identity schreibt jedes Ereignis zuerst in eine kleine Ausgangsdatei und
+liefert es dann über eine interne Tür des Zwillings ein. Ist der Zwilling
+gerade nicht da, bleibt es liegen und geht später in der richtigen
+Reihenfolge raus. Neu ist außerdem: Wird eine App mit `events`-Block
+installiert, legt der Knoten den Ereignisspeicher des Mandanten an. Ohne
+das ging auf oaap-test das erste Ereignis verloren.
