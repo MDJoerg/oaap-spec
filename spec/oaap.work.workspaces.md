@@ -1,7 +1,9 @@
 # oaap.work.workspaces — Workspaces and the Store Door of the MCP Gateway
 
 - **ID:** `oaap.work.workspaces`
-- **Version:** 0.4 (`GET …/_pick?what=folders` lists the folders of a store for the
+- **Version:** 0.5 (each system in `GET /mcp/_workspaces` carries `create_store`
+  from its connector's `about`; reference mcp-gateway 0.49.0, chat 0.24.1).
+  0.4 (`GET …/_pick?what=folders` lists the folders of a store for the
   mount's `folder`; the chat shows workspaces as cards and offers a folder per mount;
   reference mcp-gateway 0.48.0, chat 0.24.0).
   0.3 (`store_move` and `store_remove` in the door, offered only when a
@@ -81,6 +83,7 @@ refusal.
 | `GET /mcp/_workspaces` | the person's workspaces (with their light) and the store systems (`name`, `title`, `kind`, `light`, `active` — never a server) |
 | `GET /mcp/_workspaces/_pick?system=<s>[&what=areas][&area=][&offset=]` | `stores_stores` / `stores_areas` of that system, **as the person** — the picker |
 | `GET /mcp/_workspaces/_pick?system=<s>&what=folders&store=<id>[&path=/]` | (0.4) the sub-folders of one folder of that store (`stores_list`, folders only, never recursive, at most 200, hidden names left out), **as the person** — to choose a mount's `folder`; answers `{store, path, folders[{name,title,path}], more}` |
+| (0.5) systems in `GET /mcp/_workspaces` | each carries `create_store`: `true` / `false` from `stores_about` of its connector as the person (remembered ten minutes, asked with at most 5 s so a slow connector does not hold the list), `null` when unknown; the chat offers "Neu…" unless it is `false`, and `POST …/_pick` checks again |
 | `POST /mcp/_workspaces/_pick` | (0.3) body `{system, title, area?}`: `stores_create_store` of that system, **as the person**, only if its connector declares `create_store`; answers `store{id,title}`; written to the gateway's audit |
 | `POST /mcp/_workspaces` | save a workspace (body: §3) |
 | `POST /mcp/_workspaces/<id>/delete` | delete one's own workspace |
@@ -245,7 +248,9 @@ Dokument mit gelesener Revision. Seit 0.3 legt `POST …/_pick` als die Person
 eine neue Ablage an (Chat: Knopf „Neu…“ im Dialog Arbeitsraum). Seit 0.4 nennt
 `GET …/_pick?what=folders` die Unterordner einer Ablage, als die Person: damit
 wählt man beim Einhängen einen **Ordner**, und das Gespräch sieht nur ihn (eine
-Grenze der Tür, kein Recht im Produkt). Der Chat 0.24.0 zeigt Arbeitsräume als
+Grenze der Tür, kein Recht im Produkt). Seit 0.5 trägt jedes Ablagesystem in
+`GET /mcp/_workspaces` `create_store` aus der Selbstauskunft seines Konnektors: der
+Chat 0.24.1 sperrt „Neu…“, wo es `false` ist, und nennt den Grund. Der Chat 0.24.0 zeigt Arbeitsräume als
 Karten mit „Gespräch beginnen“ und Wahl des Assistenten, die Leiste gruppiert nach
 Arbeitsraum. Adresse ist `alias:/pfad`. Die
 Tür prüft Alias, Rolle, Ampel und Pfad, bevor sie den Konnektor als die Person
