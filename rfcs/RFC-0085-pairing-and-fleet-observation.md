@@ -15,7 +15,8 @@
   daily reminders for the fleet's matters, the entry judges its own nodes
   while their hub is away, go-auth answer cache against the backlog loop
   -- built in reference 0.1.377 and measured on oaap-test (§18);
-  decisions D-A4.1–D-A4.5 asked of Jörg, not pushed, not rolled out**
+  decisions D-A4.1–D-A4.5 taken by Jörg 2026-11-25, all (a) as built;
+  not pushed, not rolled out**
 - **Date:** 2026-11-12
 - **Authors:** Jörg (the need: "monitor my nodes and get fleet management
   going; collect health data through a broker on oaapx01 and route it to
@@ -1223,8 +1224,8 @@ hand-made `bridge-oaapx01.conf` is replaced; the old operator key
 ## 18. Amendment A4 — what the oaapx02 outage taught (2026-11-24)
 
 **Status:** proposed and built in reference 0.1.377 (§18.6), measured on
-oaap-test; **decisions D-A4.1 to D-A4.4 are asked of Jörg (§18.5)**, the
-build follows the recommended answers. Not pushed, not rolled out.
+oaap-test; **decisions D-A4.1 to D-A4.5 taken by Jörg on 2026-11-25, all
+(a) as recommended and built (§18.5)**. Not pushed, not rolled out.
 
 ### 18.0 What happened (read on oaap-demo and, read-only on Jörg's word, on oaapx01)
 
@@ -1394,9 +1395,10 @@ broker restarted once); a hand-made file is left alone.
 until both ends have the cache — reference 0.1.377 on oaapx01 **and**
 oaap-demo (each update restarts its broker once).
 
-### 18.5 Decisions asked of Jörg
+### 18.5 Decisions (Jörg, 2026-11-25)
 
-Each with prepared answers; **(a) is recommended and built**.
+Each with prepared answers; **(a) was recommended and built — Jörg chose
+(a) for all five on 2026-11-25.**
 
 **D-A4.1 — The bridge watchdog.**
 (a) The hub restarts its own broker when a bridge has been down for 10
@@ -1876,8 +1878,8 @@ Zwischenspeicher, also 0.1.377 auf oaapx01 und oaap-demo.
 
 **Rollout nur auf Jörgs Wort** (D-A4.5).
 
-**Entscheidungen an Jörg (§18.5),** jeweils mit (a) als Empfehlung, so
-gebaut:
+**Entscheidungen (§18.5), am 25.11. von Jörg alle mit (a) getroffen**,
+so wie gebaut:
 - D-A4.1 Wachhund startet den Broker selbst neu (a), nur melden (b), (a)
   plus neuere Mosquitto-Version (c);
 - D-A4.2 Erinnerung täglich für die Flottenlagen (a), für alle Lagen (b),
