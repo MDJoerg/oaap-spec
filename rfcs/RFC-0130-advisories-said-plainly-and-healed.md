@@ -1,7 +1,8 @@
 # RFC-0130: Security Advisories Said Plainly, and Healed by the Node
 
 - **Status:** **Accepted (2026-11-25)** — D1–D7 decided by Jörg the same day,
-  all (a) as recommended (§9). Nothing built.
+  all (a) as recommended (§9). **Stage 1 built and measured on `oaap-test`
+  (reference 0.1.378, §10)**; stages 2–4 not built.
   The facts in §1 were read the same day on `oaapx01` (reference 0.1.376).
 - **Date:** 2026-11-25
 - **Authors:** Jörg (the need, 2026-11-25, on a screenshot of the store on
@@ -54,10 +55,12 @@ upstream no longer rebuilds a way out.
 
 ### 2.1 One image name per instance (D2)
 
-A container runs the image **of its instance**: after the build the node tags
-the result `oaap-inst/<instance-key>[-<svc>]:<version-tag>` and creates the
-container from that tag. `oaap-app/<id>[-<svc>]:<version-tag>` stays as the
-build's name (and its layer cache); moving it touches no running instance.
+A container runs the image **of its instance**: the build itself is tagged
+`oaap-inst/<instance-key>[-<svc>]:<version-tag>` and the container is created
+from that tag (as built: no second, shared build name — Docker's layer cache
+does not need one). Instances built before keep `oaap-app/…` until their next
+install or rebuild, which moves them; the shared tag then stays where it is for
+the siblings that still run it.
 
 - A rebuild re-tags only its own instance; `oaap-prev/<name>[-<svc>]:prev`
   (RFC-0071) is unchanged.
@@ -65,15 +68,17 @@ build's name (and its layer cache); moving it touches no running instance.
   layers, cost the layers once.
 - RFC-0128 class B counts per instance tag; class A (dangling) shrinks, because
   no running image is ever left without a name.
-- Existing instances get their tag at the next recreate (update, rebuild,
-  restart through the platform) — no recreate for this alone.
+- Existing instances get their own name at their next install or rebuild —
+  no recreate for this alone. Removing an instance removes its own name.
 
 ### 2.2 A fresh upstream answer after every build (D3)
 
-A build that resolved its base (`base_record`) writes that digest as the
-upstream answer for the reference with `asked = now`, unless a newer answer is
-already there. "behind" then means what it says: upstream moved **after** the
-build.
+A rebuild pulls its base, so at that moment base and upstream are one. It
+records when (`base.pulled`); the reading takes an upstream answer asked
+**before** that moment as "not behind" and counts the age from the pull. Only a
+later answer can say "behind". (As built instead of writing into the reading's
+state file: no race with the minute job, no extra network call. An install does
+not pull its base and records nothing — the old rule stays for it.)
 
 ### 2.3 "unknown" is split
 
@@ -192,6 +197,31 @@ platform containers is shown apart from the apps'.
   to the node's list, plus the weekly line; success only in the weekly report
   (recommended); (b) every self-heal mails; (c) only the weekly report.
 
+## 10. Stage 1 as built (2026-11-25, reference 0.1.378)
+
+- `appctl.instance_image(name, service, version)` and `is_built_image()`; the
+  install builds `oaap-inst/<instance>[-<svc>]:<tag>`; the rebuild builds to its
+  instance's name and records it in the registry (also when nothing changed);
+  `oaap app remove` removes the instance's own name; restore and host care
+  accept both prefixes.
+- The rebuild stamps `base.pulled`; `images.summary` uses
+  `pulled_after_asked()`; rows carry `pulled`.
+- `images.summary` adds `unknown` (`unreadable` | `no-base` | `gone` |
+  `upstream`) with a German and an English sentence, shown by
+  `oaap node care images` and on the portal card "Abbild".
+- **Measured on `oaap-test`** (containerd image store, staged by hand):
+  before — `help`, `rzt-hilfe`, `vuebung-help` on three different images, only
+  `rzt-hilfe`'s tagged, the other two "removed"; `oaap app rebuild rzt-hilfe`
+  built `oaap-inst/rzt-hilfe:0.9.0` while `oaap-app/help:0.9.0` stayed on the old
+  image; a forced reading right after: `rzt-hilfe` **fresh** (not "behind"), the
+  two others **gone** with the new sentence (they come from a local source and
+  cannot be rebuilt). Two throwaway instances of one app version built
+  `oaap-inst/zz130-a` and `oaap-inst/zz130-b`, each readable; removing them
+  removed both names. Linux runner: 9 files green (`test_image_names` new).
+- Not measured: the portal card in a browser; a sibling pair on the old shared
+  tag where both can be rebuilt (on `oaap-test` the siblings come from local
+  sources).
+
 ## Deutsche Zusammenfassung
 
 **Anlass:** Am 25.11. zeigte der Store auf oaapx01 bei fast allen unseren Apps
@@ -222,6 +252,11 @@ nicht lesbar), und direkt nach dem Neubau stand fälschlich „hinter upstream�
    Wochenbericht steht eine Zeile.
 4. **Eigenes Broker-Abbild:** Das Mosquitto-Abbild wird upstream nicht mehr neu
    gebaut. Wir bauen ein eigenes, zusammen mit D-A4.1 (c).
+
+**Stufe 1 gebaut (0.1.378, §10):** Jede Instanz baut jetzt unter ihrem
+eigenen Namen, ein Neubau merkt sich, wann er die Basis gezogen hat (dann kein
+falsches „hinter upstream“ mehr), und „unbekannt“ nennt seinen Grund. Gemessen
+auf oaap-test.
 
 **Entschieden (25.11., D1–D7 alle wie empfohlen):** Selbstheilung standardmäßig
 an (abschaltbar), Abbild-Name je Instanz, der Bau schreibt den Upstream-Stand mit,
