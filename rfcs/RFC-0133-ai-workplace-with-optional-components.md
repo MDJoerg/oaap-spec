@@ -1,7 +1,7 @@
 # RFC-0133: The AI Workplace with Optional Components
 
 - **Status:** **Accepted (2026-11-25)** — D1–D7 decided by Jörg the same day,
-  one at a time, all as recommended (§6). Nothing built; stage 1 next.
+  one at a time, all as recommended (§6). **Stage 1 built** (§6a), not rolled out.
 - **Date:** 2026-11-25
 - **Authors:** Jörg (the need: "Ich möchte danach einen Aufbau machen: KI-Arbeitsplatz
   mit optionalen Komponenten wie bookstack, forgejo, bdt-team" and "Richte die
@@ -92,6 +92,25 @@ changes: an unknown app still refuses the profile.
 3. **On oaapx01 (Jörg's word):** a tenant with all four ticks; a person signs in to
    Forgejo, wiki and BDT, opens a workspace with all three stores.
 
+## 6a. As built (stage 1, 2026-11-25)
+
+- **mcp-gateway 0.51.0:** `setup_item` takes `stores` off a `profile` item,
+  runs the item as before, then switches the door on (`setup_profile_door`);
+  `test_setup` 139 (+9: a profile made after the store systems gets the door,
+  a present one gets it as `made`, `false`, baits: `"ja"`, a different profile
+  stays a conflict, a key's label never gets the door), `test_gateway` 587.
+- **Reference (0.1.380):** `upload_problems` lets an unknown app under `when`
+  through; `tenant_build_apps_refusal` refuses a set tick with its label
+  (`ticked_unknown_apps`); the start page greys the tick (`tick_apps`,
+  `unavailable_ticks`). Found while writing the profile: an `app.setup` item
+  could hold only lists of text -- a view's fixed tool list is a list of
+  objects -- so a list may now also hold **flat objects of text** (no nesting,
+  no secret names, parameters checked and filled). Linux runner: 12 files green.
+- **Profile `ki-arbeitsplatz` 3.0.0:** ticks `with_projects`, `with_bdt`,
+  `with_research` beside `with_wiki`, names `name_projects`, `name_bdt`,
+  `name_research`; every access profile of the chat with `stores: true`.
+  Needs mcp-gateway 0.51.0 in the store (an older gateway refuses `stores`).
+
 ## 6. Decisions (Jörg, 2026-11-25, all (a))
 
 - **D1 One profile or several.** (a) `ki-arbeitsplatz` 3.0 with four ticks
@@ -127,4 +146,4 @@ Reihenfolge die Haken laufen. (2) Ein Haken, dessen App ein Knoten nicht kennt
 (BDT-TEAM steht nur im Betreiber-Katalog von oaapx01), wird ausgegraut statt das
 ganze Profil abzulehnen. (3) Die BDT-Einstellungen für den Arbeitsplatz setzt
 das Profil selbst. Dazu bekommt Forgejo die Verwaltergruppe als Administratoren.
-Jörg hat D1–D7 am 25.11. einzeln entschieden, alle wie empfohlen: ein Profil mit vier Haken, Recherche direkt im Profil, `stores: true` am Zugangsprofil, BDT-Haken ausgrauen, 13 BDT-Werte im Profil, Verwaltergruppe als Forgejo-Admin, alle Haken aus.
+Stufe 1 ist gebaut (mcp-gateway 0.51.0, Referenz 0.1.380, Profil 3.0.0; §6a), nicht ausgerollt. Jörg hat D1–D7 am 25.11. einzeln entschieden, alle wie empfohlen: ein Profil mit vier Haken, Recherche direkt im Profil, `stores: true` am Zugangsprofil, BDT-Haken ausgrauen, 13 BDT-Werte im Profil, Verwaltergruppe als Forgejo-Admin, alle Haken aus.
