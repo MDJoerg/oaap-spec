@@ -1,7 +1,7 @@
 # RFC-0129: Connecting an App Afterwards — a Checklist per Instance
 
-- **Status:** **Draft (2026-11-25)** — discussed with Jörg the same day (I-70),
-  D1 and D4 decided in that conversation, the others asked (§9). Nothing built
+- **Status:** **Accepted (2026-11-25)** — discussed with Jörg the same day
+  (I-70); D1–D8 decided the same day, all as recommended (§9). Nothing built
   or measured.
 - **Date:** 2026-11-25
 - **Authors:** Jörg (the need, 2026-11-24: "Besser bzw. parallel wäre ein
@@ -163,14 +163,14 @@ eingerichtet". A stage of its own (§8), not designed further here.
 - **D1 — A checklist on the instance page, not a guided wizard?**
   **Decided (Jörg, 25.11.): try the checklist** — it is context-sensitive and
   shows the state later too, not only the first time.
-- **D2 — Its name, since *Einrichten* is taken (F7)?**
+- **D2 — Its name, since *Einrichten* is taken (F7)?** **Decided (25.11.): (a).**
   (a) **"Anschließen"** — a card on the instance page, *Einrichten* stays the
   recipes' page (recommended);
   (b) "Einrichten" anyway, and the recipes' button on the instance page is
   renamed "Rezepte…";
   (c) the checklist becomes part of RFC-0109's *Einrichten* page, per instance.
-- **D3 — Where do the steps come from?** *Open (Jörg, 25.11.: "kann ich noch
-  nicht entscheiden").*
+- **D3 — Where do the steps come from?** **Decided (25.11.): (a)** — after
+  first being left open in the discussion ("kann ich noch nicht entscheiden").
   (a) Derived from the manifest (`identity.oidc_client`, `generate`, `mcp`,
   `mcp_store`) plus the app's own word in `about` (§4) — no new manifest field
   (recommended);
@@ -178,19 +178,19 @@ eingerichtet". A stage of its own (§8), not designed further here.
   (c) only the app's own word: a generic setup door every app implements.
 - **D4 — BDT-Team before PCH?** **Decided (Jörg, 25.11.): yes** — Jörg works
   on BDT now and can shape its API.
-- **D5 — Products we control implement the contract themselves?**
+- **D5 — Products we control implement the contract themselves?** **Decided (25.11.): (a).**
   (a) Yes, in their own OAAP package; foreign products get a connector service
   (recommended);
   (b) always a connector service of ours, also for BDT and PCH.
-- **D6 — "Alles anschließen" on a failing step?**
+- **D6 — "Alles anschließen" on a failing step?** **Decided (25.11.): (a).**
   (a) stop there and say why (recommended);
   (b) carry on with the steps that do not depend on it.
-- **D7 — The probe for an admin who is no person in the realm (F6)?**
+- **D7 — The probe for an admin who is no person in the realm (F6)?** **Decided (25.11.): (a).**
   (a) yellow "nicht prüfbar", the step does not block (recommended);
   (b) red, the checklist is not green until a person of the realm checks.
 - **D8 — Outside the tenant through destinations and a personal credential
-  (§6)?** *Direction agreed by Jörg (25.11.: "vielleicht über Destinationen");
-  a stage of its own, designed later.*
+  (§6)?** **Decided (25.11.): yes, as a stage of its own, designed later**
+  (Jörg: "vielleicht über Destinationen").
 
 ## Deutsche Zusammenfassung
 
@@ -229,14 +229,15 @@ Destination. Jede Person hinterlegt dort einmal ihren eigenen Zugang, denn
 es gibt keinen technischen Benutzer für Inhalte. Das wird eine eigene, spätere
 Stufe.
 
-**Entschieden (25.11.):** Checkliste statt Assistent (D1); BDT-Team vor PCH
-(D4). **Offen:**
-- D2: Name (Empfehlung „Anschließen“)
-- D3: Woher kommen die Schritte? (Empfehlung: aus dem Manifest plus
-  Selbstauskunft der App, kein neues Feld)
-- D5: Eigene Produkte setzen den Vertrag selbst um (Empfehlung: ja)
-- D6: Bei einem Fehler anhalten (Empfehlung: ja)
-- D7: Probe ohne Realm-Person nur gelb (Empfehlung: ja)
-- D8: Destinationen für Ausnahmen, Richtung vereinbart, später
+**Entschieden (25.11., D1–D8, alle wie empfohlen):**
+- D1: Checkliste statt Assistent
+- D2: Name „Anschließen“
+- D3: Schritte aus dem Manifest plus Selbstauskunft der App, kein neues Feld
+- D4: BDT-Team vor PCH
+- D5: Eigene Produkte setzen den Vertrag selbst um
+- D6: „Alles anschließen“ hält beim ersten Fehler an
+- D7: Probe ohne Realm-Person nur gelb, blockiert nicht
+- D8: Ausnahmen außerhalb des Mandanten über Destination plus persönlichen
+  Zugang, als eigene spätere Stufe
 
 Gebaut ist nichts.
