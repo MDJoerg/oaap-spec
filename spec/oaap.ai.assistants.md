@@ -1,7 +1,7 @@
 # oaap.ai.assistants — Assistants: a View, a Prompt and a Model Name, Without Rights
 
 - **ID:** `oaap.ai.assistants`
-- **Version:** 0.9 (RFC-0119 §6: when the gateway names **`tools_gone: all`** for an assistant -- every tool of its view came from an app that was removed -- a chat starts no conversation with it and answers a running one with "Die Werkzeuge dieses Assistenten gibt es nicht mehr", instead of letting the model answer without tools; with `some` the conversation goes on; the chat's card says it, reference chat 0.21.0, `oaap.ai.mcp-gateway` 0.36). 0.8 (RFC-0117 stage 2: an entry of an exchange file MAY carry **`from`** -- `recipe:<id>@<major>`, the template the setup door made it from; a statement for the import, never part of the assistant: a gateway strips it on import and save, §3). 0.7 (RFC-0116 D9: **`view` is optional** -- an assistant without a view talks without tools: the chat asks no MCP gateway, sends the model no tools, and a tool call the model invents reaches no door; `gateway` without `view`, and `views: true` without `view`, are refused with a sentence, §2; additive. 0.6: RFC-0101 stage 3: optional field `support_queue`, the queue of the tenant's `vorgaenge` that a "not satisfied" case of this assistant goes to, §2, §2c; additive. 0.5: RFC-0101 stage 2: a person may rate an answer or a conversation with 0–5 stars; the rating names `assistant@rev` and is kept by the gateway that keeps the assistant, §2b. 0.4: RFC-0097 stage 1: assistants **live in the tenant's MCP gateway**, next to the views they name, with numbered revisions, a state `active | inactive` and the usage row's `assistant@rev`; the chat is the runtime; an assistant from the chat's configuration stays as "managed by configuration", §2a; additive for the format. 0.3: field `views`: the chat shows the views of MCP Apps,
+- **Version:** 0.10 (RFC-0132: a changing call may run under a **grant** -- one tool, in one reach (conversation, assistant, workspace), given in the confirmation, visible at every call, listed, paused or deleted by the person; deleting tools at most for one conversation; the chat sends `X-OAAP-Consent: click | grant:<scope>` with `X-OAAP-Confirmed: yes`, reference chat 0.30.0). 0.9 (RFC-0119 §6: when the gateway names **`tools_gone: all`** for an assistant -- every tool of its view came from an app that was removed -- a chat starts no conversation with it and answers a running one with "Die Werkzeuge dieses Assistenten gibt es nicht mehr", instead of letting the model answer without tools; with `some` the conversation goes on; the chat's card says it, reference chat 0.21.0, `oaap.ai.mcp-gateway` 0.36). 0.8 (RFC-0117 stage 2: an entry of an exchange file MAY carry **`from`** -- `recipe:<id>@<major>`, the template the setup door made it from; a statement for the import, never part of the assistant: a gateway strips it on import and save, §3). 0.7 (RFC-0116 D9: **`view` is optional** -- an assistant without a view talks without tools: the chat asks no MCP gateway, sends the model no tools, and a tool call the model invents reaches no door; `gateway` without `view`, and `views: true` without `view`, are refused with a sentence, §2; additive. 0.6: RFC-0101 stage 3: optional field `support_queue`, the queue of the tenant's `vorgaenge` that a "not satisfied" case of this assistant goes to, §2, §2c; additive. 0.5: RFC-0101 stage 2: a person may rate an answer or a conversation with 0–5 stars; the rating names `assistant@rev` and is kept by the gateway that keeps the assistant, §2b. 0.4: RFC-0097 stage 1: assistants **live in the tenant's MCP gateway**, next to the views they name, with numbered revisions, a state `active | inactive` and the usage row's `assistant@rev`; the chat is the runtime; an assistant from the chat's configuration stays as "managed by configuration", §2a; additive for the format. 0.3: field `views`: the chat shows the views of MCP Apps,
   RFC-0075 D2). 0.2 (RFC-0074 stage 3: visibility and confirmation enforced by the
   chat app `apps/chat` 0.2.0, §2; the confirmation reaches the gateway as
   `X-OAAP-Confirmed`, §5). 0.1 (RFC-0074 stage 1: the format, the rule "no rights", the
@@ -199,7 +199,11 @@ never keeps one beyond the request that brought it.
    tool call.
 4. A confirmed call carries `X-OAAP-Confirmed: yes` to the gateway, which
    records it (RFC-0074 §5.6). It is the chat's statement, recorded for
-   review — never a permission.
+   review — never a permission. (0.10) With it goes `X-OAAP-Consent`:
+   `click`, or `grant:<conversation|assistant|workspace>` when a grant of the
+   person covered the call (RFC-0132): one tool per grant, a deleting tool
+   (`destructiveHint`) at most for one conversation, visible at every call it
+   covers and revocable by the person.
 
 ## 6. Conformance tests
 
@@ -315,3 +319,11 @@ Meldet das Gateway für einen Assistenten `tools_gone: all` (alle Werkzeuge sein
 von einer entfernten App), beginnt der Chat kein Gespräch mehr mit ihm und antwortet in einem
 laufenden mit „Die Werkzeuge dieses Assistenten gibt es nicht mehr“, statt das Modell ohne
 Werkzeuge antworten zu lassen. Bei `some` geht das Gespräch weiter. Die Karte im Chat sagt es.
+
+## Deutsche Zusammenfassung (0.10, RFC-0132)
+
+Ein ändernder Aufruf darf unter einer **Freigabe** laufen: ein Werkzeug, in
+diesem Gespräch, für diesen Assistenten oder in diesem Arbeitsraum, erteilt im
+Bestätigungsdialog. Sie ist an jedem Aufruf zu sehen und in der Liste zu
+pausieren oder zu löschen. Löschende Werkzeuge gelten höchstens für ein
+Gespräch. Der Chat schickt dem Gateway `X-OAAP-Consent: click | grant:<Reichweite>`.
