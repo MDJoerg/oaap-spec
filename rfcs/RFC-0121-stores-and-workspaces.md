@@ -631,7 +631,8 @@ fresh instance going from the old package to the new one.
 
 Jörg works on BDT now and moved it before PCH (RFC-0129 D4). A letter
 explained the workspace scenario to the BDT session; its answer is condensed
-in `program/bdt-team-arbeitsraum.md` (German). Only **BDT-Team** is a
+in `program/bdt-team-arbeitsraum.md` (German), with the full feature list of
+BDT-Team (v0.897.0, 97 tiles) in the BDT repository (`docs/feature-liste-bdt-team.md`). Only **BDT-Team** is a
 candidate: app and hub in one package, data on the backend, prepared for
 OAAP; not the PWA with local data, not the public hub. **Nothing measured
 yet.**
