@@ -1,6 +1,7 @@
 # RFC-0130: Security Advisories Said Plainly, and Healed by the Node
 
-- **Status:** **Draft (2026-11-25)** — D1–D7 asked of Jörg (§9). Nothing built.
+- **Status:** **Accepted (2026-11-25)** — D1–D7 decided by Jörg the same day,
+  all (a) as recommended (§9). Nothing built.
   The facts in §1 were read the same day on `oaapx01` (reference 0.1.376).
 - **Date:** 2026-11-25
 - **Authors:** Jörg (the need, 2026-11-25, on a screenshot of the store on
@@ -164,7 +165,7 @@ platform containers is shown apart from the apps'.
 | **3** | self-heal in the window, matter, weekly line (§4) | `oaap-test` with a real window night: an image with an open advisory healed by itself; a forced failure falls back and mails |
 | **4** | own broker image (§5) | `oaap-test` broker swapped, fleet bridge and go-auth cache measured |
 
-## 9. Decisions asked of Jörg
+## 9. Decisions (Jörg, 2026-11-25: all (a) as recommended)
 
 - **D1 — The node rebuilds by itself in its window (stage 3)?**
   (a) yes, for every instance with `self`, on by default, `server_admin` can
@@ -222,5 +223,7 @@ nicht lesbar), und direkt nach dem Neubau stand fälschlich „hinter upstream�
 4. **Eigenes Broker-Abbild:** Das Mosquitto-Abbild wird upstream nicht mehr neu
    gebaut. Wir bauen ein eigenes, zusammen mit D-A4.1 (c).
 
-**Deine Entscheidungen:** D1–D7 (§9), jeweils mit Empfehlung (a). Gebaut ist
-nichts.
+**Entschieden (25.11., D1–D7 alle wie empfohlen):** Selbstheilung standardmäßig
+an (abschaltbar), Abbild-Name je Instanz, der Bau schreibt den Upstream-Stand mit,
+Klartexte je Zustand und Rolle wie in §3.1, Paket + Debian-Link ohne Schweregrad,
+eigenes Broker-Abbild, Mail nur bei Fehlschlag. Gebaut ist nichts.
