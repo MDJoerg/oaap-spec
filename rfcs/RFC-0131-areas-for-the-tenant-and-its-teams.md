@@ -1,7 +1,8 @@
 # RFC-0131: Areas for the Tenant and Its Teams
 
-- **Status:** Draft — D1 decided by Jörg (2026-11-25: the organisation manages
-  its members itself); D2–D8 open (§8). Nothing built.
+- **Status:** Draft — D1 and D2 decided by Jörg (2026-11-25: the organisation
+  manages its members itself; the page is in the portal); D3–D8 open (§8).
+  Nothing built.
 - **Date:** 2026-11-25
 - **Authors:** Jörg (the need, 2026-11-25: "wenn ich jetzt für das Unternehmen
   oder für einzelne Teams eine eigene Organisation anlegen würde … Das
@@ -119,6 +120,7 @@ person may create a repository there.
   (b) the platform, products follow at sign-in.
 - **D2 Where?** (a) the portal, tenant page "Organisation" (recommended:
   several apps need the same teams); (b) the MCP-Gateway page "Ablagen".
+  **Decided by Jörg 2026-11-25: (a).**
 - **D3 Who may create?** (a) the tenant admin (recommended); (b) also a role
   the tenant grants.
 - **D4 How in Forgejo?** (a) the administrator route for the owner, the
@@ -156,6 +158,5 @@ Namen (kein fremdes Präfix), der Konnektor legt in Forgejo die Organisation fü
 den Owner an (über den Admin-Weg, ohne dass das Plattformkonto Mitglied
 bleibt), privat. Mitglieder führt danach der Owner in Forgejo; die Plattform
 merkt sich nur Titel, Name, ersten Owner und wo angelegt. Stufe 2: „Neu…“ im
-Chat wählt den Bereich (unter dir oder eine Organisation). Offen: D2 Ort
-(Portal empfohlen), D3 wer anlegen darf, D4 Forgejo-Weg (erst messen), D5
+Chat wählt den Bereich (unter dir oder eine Organisation). D2 entschieden: im Portal. Offen: D3 wer anlegen darf, D4 Forgejo-Weg (erst messen), D5
 Namensregel, D6 Sichtbarkeit, D7 Owner ohne Konto, D8 Realm-Gruppe je Team.
