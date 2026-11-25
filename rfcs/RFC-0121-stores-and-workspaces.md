@@ -677,6 +677,21 @@ asked of Jörg with the next decisions, nothing changed yet):
 - **K4 — origin:** how chat, assistant and model reach the connector (§3.4):
   a header set by the store door, or an argument of `write`.
 
+**Second round (2026-11-25, BDT v0.899.0, committed, not deployed):** one door
+carries both tool sets, as the programme level proposed — `/mcp` keeps
+`bdt_kanaele`/`bdt_werkzeuge`/`bdt_aufrufen`/`bdt_ergebnis` and adds the
+**reading** `stores_*` tools (writing follows with the revision check), routed
+inside to the server gateway; the BDT-Team manifest moves to 0.23 with
+`mcp_store: {kind: bdt}`; the plain app package stays 0.17 without it; the
+separate door `/oaap/mcp` is dropped, so no platform change for several doors.
+`about.identity: "assertion"`; the key stays `X-OAAP-User-Id`, believed only
+with `BDT_TRUST_OAAP_IDENTITY=1` and, from now on, only when named in
+`OAAP_IDENTITY_HEADERS` (runtime 2.37, set by the node). `missing` as
+`{what, who, how}` (RFC-0129 §4): `server_gateway`, `project_key` (always
+`owner`: without the key the door cannot tell who owns the project),
+`identity`. In pxx the gateway already uses `/mcp` for an assistant "BDT"
+(view `bdt`).
+
 **Further fits seen by BDT** (not part of this RFC): fleet data in BDT's
 graph viewer (Cytoscape JSON, ~300 nodes) or better as AAS assets in its asset
 store, time series in its data studio — no pull interface yet (idea I-71);

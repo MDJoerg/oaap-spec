@@ -98,19 +98,27 @@ manifest is enough.
 
 ```json
 {"ready": false,
- "missing": [{"code": "account", "text": "Konto oaap-konnektor fehlt",
-              "who": "tenant_admin"}]}
+ "missing": [{"what": "project_key", "who": "owner",
+              "how": "Bist du selbst Owner, gib den Schlüssel unter „KI auf dem Server …“ frei, sonst bitte den Owner darum."}]}
 ```
 
 - `ready` absent = unknown (an older connector); the checklist then relies on
   S7.
-- `who`: `tenant_admin`, `server_admin` or `person` (something each person
-  sets up for themselves, e.g. a personal credential).
-- `text` is German, short, for the admin; never a secret or an address.
+- **Shape `{what, who, how}`** (aligned with BDT-Team's first implementation,
+  v0.899.0, 2026-11-25): `what` a short stable code; `who` who can fix it;
+  `how` one German sentence for that person, never a secret or an address.
+- `who`:
+  - `admin`: whoever administers the instance, its tenant's `tenant_admin`
+    or the `server_admin`; the checklist shows it to them. BDT's first draft
+    said `operator` for the same thing.
+  - `owner`: the owner of a store inside the product (a BDT hub project, a
+    Forgejo organisation). The platform cannot tell who that is; a product
+    that cannot check it says `owner` and names both ways in `how`.
+  - `person`: something each person sets up for themselves, such as a
+    personal credential or a realm sign-in.
 - Additive: the contract stays `oaap.work.stores/1`.
-- First candidates from BDT-Team (RFC-0121 §10.4, B13): `BDT_HUB_ALLOW_AGENTS`
-  off, no key for the service identity issued in the project (by its owner),
-  the person no member, no default store.
+- BDT-Team reports `server_gateway` (`admin`), `project_key` (`owner`) and
+  `identity` (`person`) (RFC-0121 §10.4).
 
 ## 5. Who builds a connector
 
