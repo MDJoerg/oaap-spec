@@ -8,7 +8,9 @@
   for Forgejo measured 2026-11-24 (§10.2)**: acting as the person works through
   the realm's subject and `Sudo`. **The Forgejo connector built and measured
   2026-11-24 (§10.3)**: a second service `oaap` in the Forgejo package
-  (Jörg: "Im Forgejo-Paket"). The
+  (Jörg: "Im Forgejo-Paket"). **Stage 0 for BDT-Team read 2026-11-25
+  (§10.4)** from the BDT side's answer: BDT implements the contract itself on
+  its server gateway (RFC-0129 D5); a project is not a file tree. The
   facts in §1 were read the same day in the specs, the manifests of `chat`
   0.21.0 and `projekt` 0.3.2, RFC-0067, RFC-0103, RFC-0110, RFC-0111, RFC-0114
   and the PCH repository (`pch-root`, 0.8.0); what was **not** read or measured
@@ -112,7 +114,8 @@ for a limited time (stage 4).
   what the contents API returns as a revision, how search answers per person.~~
   Measured 2026-11-24, §10.2. The package lives in `oaap-store/apps/forgejo`
   (15.0.11), not in `oaap-apps`.
-- **BDT:** its API for projects, folders and files, and how it knows a person.
+- ~~**BDT:** its API for projects, folders and files, and how it knows a person.~~
+  Answered by the BDT side 2026-11-25, §10.4 (not yet measured).
 - **PCH on the platform:** the package was never run against a real node (PCH
   open question 33).
 - **How the chat resolves "team"** for assistants today.
@@ -129,11 +132,11 @@ Stage 0 (§10) answers these before anything is built on them.
 |---|---|---|---|---|
 | **store kind** (Ablagetyp) — one connector | `forgejo` | `bookstack` | `bdt` | `pch` |
 | **store system** (Ablagesystem) — registered by the admin | a server | an instance | a hub | an instance |
-| **area** (Bereich) — optional | account, organisation | shelf | — | — |
-| **store** (Ablage) — what a workspace mounts | repository | book | project | project |
-| **folder** (Ordner) | directory | chapter | folder | folder |
-| **document** (Dokument) | file | page | file | file |
-| **section** (Abschnitt) | heading | heading | — | heading |
+| **area** (Bereich) — optional | account, organisation | shelf | — (§10.4) | — |
+| **store** (Ablage) — what a workspace mounts | repository | book | hub project | project |
+| **folder** (Ordner) | directory | chapter | node of a store (Ablage/Taxonomie) | folder |
+| **document** (Dokument) | file | page | info object (with a type) | file |
+| **section** (Abschnitt) | heading | heading | heading, read only | heading |
 
 The contract knows only these levels. A connector tells the names its product
 uses ("Regal", "Buch", "Repository"); the chat shows those, so nobody learns
@@ -624,6 +627,66 @@ fresh instance going from the old package to the new one.
 `ws375` has no chat); the update of an existing production Forgejo
 (`projects.joomp.de`) — it needs reference 0.1.376 on that node first (finding 12).
 
+### 10.4 Stage 0 for BDT-Team (read 2026-11-25, from the BDT side's answer)
+
+Jörg works on BDT now and moved it before PCH (RFC-0129 D4). A letter
+explained the workspace scenario to the BDT session; its answer is condensed
+in `program/bdt-team-arbeitsraum.md` (German). Only **BDT-Team** is a
+candidate: app and hub in one package, data on the backend, prepared for
+OAAP; not the PWA with local data, not the public hub. **Nothing measured
+yet.**
+
+| # | Finding |
+|---|---|
+| B1 | **Where the data is.** Each person works in the browser (IndexedDB); BDT-Team's embedded hub syncs objects per hub project — each with a revision `rev`, written with `If-Match`, rights per *Bereich*. |
+| B2 | **The door is not on the hub.** Writing hub objects directly would need every tile's object format and skip its rules. BDT's **server gateway** (v0.876.0, BDT-Team only) loads a working copy of the hub project **per person** in Node and runs BDT's own MCP channels on it. `/oaap/mcp` becomes a third door there; the eleven tools map onto the channel `kb` (knowledge store). BDT implements the contract itself (RFC-0129 D5). |
+| B3 | **Levels.** Store = hub project; folder = node of a store (a project has several: the default store and taxonomies such as a Kanban backlog; `/` lists them); document = info object with a type. No `area` (at most the project group, display only). |
+| B4 | **Not a file tree.** An object may hang at several nodes (its path is its first place in the default store); titles may repeat in one node (an ambiguous path answers with the candidate ids, never a guess). BDT proposes a stable address `/@id/<id>`. `folders: any`, `list` one level. |
+| B5 | **Types.** Markdown and posts read and written (`kb` writes Markdown only today); source types (Mermaid, story, Gherkin, CDS, JSON, BPMN, Marp) readable, writable later with a format check; whiteboard, architecture workspace, UI mockup, graph only as a summary — they are written through BDT's own channels with plan and confirmation. `read` always carries `type`; `write` accepts only types `about` names writable. |
+| B6 | **The BDT *Bereich* is a zone of responsibility inside a project** (owner, writers, readers, locks `423`, `403 area_forbidden`), across folders — not an `area`. It shows through `may`: at a document from its zone, at a folder for `create` from the default zone. |
+| B7 | **Person.** The hub reads `X-OAAP-User-Id`, `X-OAAP-User`, `X-OAAP-Email`, `X-OAAP-User-Idp`, `X-OAAP-Roles`; accounts are keyed on **`X-OAAP-User-Id`**; without the header 401. The bridge trusts it only with `BDT_TRUST_OAAP_IDENTITY=1`. |
+| B8 | **Writes as `ki:<userId>`**, a service identity bound to one person, never wider than that person, its origin ("KI für Person X") visible in the hub as `writtenBy`. Per project the owner sets the AI level: *proposal* (default), an AI zone, or direct. |
+| B9 | **Proposal is the default.** At level *proposal* a write becomes a proposal the person takes over in BDT: `propose: true` in `about`, `may` with `mode: propose|direct`. `kb` never deletes; `remove` is not declared. |
+| B10 | **Revision per call** (rule 5) is BDT's biggest new piece: the working copy does not carry the revision from `read` to `write` today. Concurrent edits: auto-sync ~3 s after saving, real conflicts go to BDT's conflict list; for the contract BDT recommends refusing with the current revision and no automatic merge. |
+| B11 | **Search:** full text per project as the person (`kb_search`); no vector search on the server. |
+| B12 | **Assets** (AAS: types, submodel templates, relations with attributes) are structured objects, not files: readable as a Markdown profile under `/@assets/<universe>/<type>/<name>`, not `binary`; written only through BDT's channel `asset` with a plan. |
+| B13 | **Prerequisites (RFC-0129 `missing`):** `BDT_HUB_ALLOW_AGENTS` off; no key for the service identity issued in the project (by its owner); the person is no member; no default store. |
+
+**Answers of the programme level** (sent back with the next letter):
+
+- **A1 — The key of a person.** BDT keeps **`X-OAAP-User-Id`**, no
+  migration: `oaap.core.identity` 2.2 makes it the person's UUID, immutable,
+  never reused, "the thing an app anchors on". It is not `sub` — that is in
+  `X-OAAP-User-Idp` and empty without a realm binding. "Through `sub`" in the
+  letter came from Forgejo, which only knows the realm's subject.
+- **A2 — `ki:<userId>` and "no technical user for content" (§8.2).** Read as
+  compatible: one identity per person, never wider than that person, visible
+  as such — the same promise as Forgejo's `Sudo`, not a shared account.
+  *To be confirmed by Jörg.*
+
+**Contract questions raised by BDT** (candidates for `oaap.work.stores` 0.2,
+asked of Jörg with the next decisions, nothing changed yet):
+
+- **K1 — stable addresses:** an `id` in `list`/`read` and the address
+  `/@id/<id>` beside the path; an ambiguous path answers with candidates.
+- **K2 — a type per document:** `type` in `read`/`list`; `about` names the
+  writable types.
+- **K3 — a proposal as the result of `write`:** `proposed: true` and the
+  address where the person takes it over in the product.
+- **K4 — origin:** how chat, assistant and model reach the connector (§3.4):
+  a header set by the store door, or an argument of `write`.
+
+**Further fits seen by BDT** (not part of this RFC): fleet data in BDT's
+graph viewer (Cytoscape JSON, ~300 nodes) or better as AAS assets in its asset
+store, time series in its data studio — no pull interface yet (idea I-71);
+cases and events as CloudEvents (RFC-0127); assistants with BDT's specialist
+channels; its public help via MCP (`/mcp/help`) in a tenant's chat.
+
+**Next:** A1 and a sample node JSON to BDT; BDT writes the concept for
+`/oaap/mcp` on its server gateway (`docs/roadmap-mcp-gateway.md`), Jörg
+releases it; then BDT builds and we measure on `oaap-test` (two persons, a
+foreign project refused, an old revision refused, forged headers refused).
+
 ## 11. Conformance (described; every line gets a bait)
 
 1. A call to a connector without an assertion is refused.
@@ -819,6 +882,19 @@ alten Container weiterlaufen – zwei Forgejo auf derselben Datenbank. Behoben
 in Plattform 0.1.376; vorher darf das neue Paket auf keinen Knoten mit
 Forgejo im Betrieb (projects.joomp.de). Nicht gemessen: Arbeitsraum im Chat
 mit Forgejo.
+
+**BDT-Team, Stufe 0 gelesen (25.11., §10.4):** Die BDT-Seite setzt den
+Vertrag selbst um, als dritte Tür `/oaap/mcp` auf ihrem Server-Gateway, das je
+Person eine Arbeitskopie des Hub-Projekts lädt. Abgebildet wird auf die
+Wissensablage (`kb`). Ein BDT-Projekt ist kein Dateibaum: Ablage =
+Hub-Projekt, Ordner = Knoten einer Ablage, Dokument = Infoobjekt mit Typ. Ein
+Objekt kann an mehreren Stellen hängen, daher kommt die stabile Adresse
+`/@id/…`. Der BDT-„Bereich“ ist eine Rechtezone im Projekt, kein `area`. BDT
+schreibt als `ki:<userId>`, an die Person gebunden. Standard ist „Vorschlag“,
+den die Person in BDT übernimmt. Die Revision je Aufruf ist auf BDT-Seite neu.
+Unsere Antwort: BDT behält `X-OAAP-User-Id` als Schlüssel. `ki:<userId>` halten
+wir für vereinbar, das bestätigst du. Offene Vertragsfragen K1–K4: Id-Adresse,
+Typ, Vorschlag als Ergebnis von `write`, Herkunft. Gemessen ist noch nichts.
 
 **Entschieden (23.11.):** D1–D7, deine sieben Antworten, und D8–D17 wie
 empfohlen („Wie empfohlen“):

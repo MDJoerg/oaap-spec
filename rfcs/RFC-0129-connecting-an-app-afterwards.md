@@ -108,6 +108,9 @@ manifest is enough.
   sets up for themselves, e.g. a personal credential).
 - `text` is German, short, for the admin; never a secret or an address.
 - Additive: the contract stays `oaap.work.stores/1`.
+- First candidates from BDT-Team (RFC-0121 §10.4, B13): `BDT_HUB_ALLOW_AGENTS`
+  off, no key for the service identity issued in the project (by its owner),
+  the person no member, no default store.
 
 ## 5. Who builds a connector
 
