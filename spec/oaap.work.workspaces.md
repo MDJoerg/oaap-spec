@@ -1,7 +1,10 @@
 # oaap.work.workspaces — Workspaces and the Store Door of the MCP Gateway
 
 - **ID:** `oaap.work.workspaces`
-- **Version:** 0.2 (RFC-0121 §5, **the chat**: a conversation starts in a workspace and
+- **Version:** 0.3 (`store_move` and `store_remove` in the door, offered only when a
+  `work` mount's connector declares them; `POST /mcp/_workspaces/_pick` creates a new store
+  as the person; reference mcp-gateway 0.47.0, chat 0.23.0 — RFC-0121 §10.5).
+  0.2 (RFC-0121 §5, **the chat**: a conversation starts in a workspace and
   sends `X-OAAP-Workspace`; the chat hands the model the workspace, the state and the last log
   entries before the first message; `/stand`, `/abschluss`, `/ablegen`; a conversation can be
   private; the door's tools carry their effect class in `_meta`; a section may be named with
@@ -74,6 +77,7 @@ refusal.
 |---|---|
 | `GET /mcp/_workspaces` | the person's workspaces (with their light) and the store systems (`name`, `title`, `kind`, `light`, `active` — never a server) |
 | `GET /mcp/_workspaces/_pick?system=<s>[&what=areas][&area=][&offset=]` | `stores_stores` / `stores_areas` of that system, **as the person** — the picker |
+| `POST /mcp/_workspaces/_pick` | (0.3) body `{system, title, area?}`: `stores_create_store` of that system, **as the person**, only if its connector declares `create_store`; answers `store{id,title}`; written to the gateway's audit |
 | `POST /mcp/_workspaces` | save a workspace (body: §3) |
 | `POST /mcp/_workspaces/<id>/delete` | delete one's own workspace |
 
@@ -90,7 +94,9 @@ wins. The door is not part of any view and needs no approval there.
 
 **Tools.** `workspace_info`, `store_list`, `store_read`, `store_outline`,
 `store_search` always; `store_write`, `store_edit`, `store_folder` only when
-the workspace has a `work` mount.
+the workspace has a `work` mount; `store_move` and `store_remove` (0.3) only
+when, in addition, the connector of a `work` mount declares `move` / `remove`
+in `about` (the gateway keeps that answer ten minutes; no answer → not offered).
 
 | Tool | Arguments |
 |---|---|
@@ -102,6 +108,13 @@ the workspace has a `work` mount.
 | `store_write` | `path`, `text`, `revision?`, `title?`, `shrink_ok?` |
 | `store_edit` | `path`, `revision`, `op` (`replace` with `old`/`new`; `section_replace`, `section_append`, `section_insert_after`, `section_delete` with `section`, `body`), `shrink_ok?` |
 | `store_folder` | `path`, `title?` |
+| `store_move` | `path`, `to` (same alias; a new path or an existing folder), `title?` — never across mounts, never the mount itself |
+| `store_remove` | `path`, `revision` (as read), `title?` — `destructiveHint: true` |
+
+Before `store_move` and `store_remove` the door asks the connector's `about`
+and refuses with a sentence if the verb is not declared — the connector is then
+not asked to move or delete. Moving between two mounts is not a verb: read,
+write there, remove here — each step with its own consent.
 
 **Resolution, in this order, before the connector is called:** the address is
 `alias:/path`; the alias must be mounted in this workspace; a writing tool on a
@@ -209,7 +222,11 @@ oder `app.py store set`): Name, Typ, Konnektor-Server, Ampel.
 das Profil eingeschaltet (Vorgabe: aus) und ist eine Person da, bekommt die
 Sicht die Werkzeuge `workspace_info`, `store_list`, `store_read`,
 `store_outline`, `store_search` und – mit einer Arbeitsablage –
-`store_write`, `store_edit`, `store_folder`. Adresse ist `alias:/pfad`. Die
+`store_write`, `store_edit`, `store_folder`, seit 0.3 auch `store_move` und
+`store_remove`, wenn der Konnektor sie in `about` nennt (Forgejo ja, BookStack
+nein). Verschieben geht nur innerhalb einer Ablage, Löschen nur für ein
+Dokument mit gelesener Revision. Seit 0.3 legt `POST …/_pick` als die Person
+eine neue Ablage an (Chat: Knopf „Neu…“ im Dialog Arbeitsraum). Adresse ist `alias:/pfad`. Die
 Tür prüft Alias, Rolle, Ampel und Pfad, bevor sie den Konnektor als die Person
 ruft; sie liest Abschnitte und Zeilen selbst, verlangt beim Ändern die
 gelesene Revision und schützt vor dem Halbieren langer Dokumente. Gelesenes ist

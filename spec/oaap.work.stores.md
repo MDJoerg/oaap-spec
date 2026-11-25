@@ -1,7 +1,9 @@
 # oaap.work.stores — The Store Contract: a Few Verbs, Answered as the Person
 
 - **ID:** `oaap.work.stores`
-- **Version:** 0.1 (RFC-0121 stage 1: the verbs, the levels, what a connector
+- **Version:** 0.2 (`stores_move` and `stores_remove` defined, declared in `about`;
+  second connector Forgejo, reference package `forgejo` 15.0.11+oaap.2 — RFC-0121 §10.5).
+  0.1 (RFC-0121 stage 1: the verbs, the levels, what a connector
   declares, identity `assertion`, the profile `oaap.work.stores/1` as fixed MCP
   tool names; first connector BookStack, reference `bookstack` 0.2.0)
 - **Status:** draft
@@ -55,9 +57,22 @@ these **fixed names** (profile `oaap.work.stores/1`):
 | `stores_may` | `store`, `path?` | `read`, `create`, `update`, `remove`: `true`, `false` or `null` (unknown) — answered by the product |
 | `stores_entry` | `store` | `path` of the document a reader begins with, or `null` |
 | `stores_create_store` | `title`, `area?` | `id`, `title` — only if declared |
+| `stores_move` | `store`, `path`, `to`, `title?` | `from`, `path`, `kind` (`document`|`folder`), `files` — only if `move` is declared |
+| `stores_remove` | `store`, `path`, `revision`, `title?` | `path`, `removed`, `note` — only if `remove` is declared |
 
-`move`, `remove` and `history` are reserved names for 0.2; a connector of 0.1
-offers none of them.
+**Move** (0.2) renames a document or a folder inside one store. If `to` is an
+existing folder, the source goes into it. It never overwrites: an existing
+target is refused. A folder is not moved into itself. A connector whose product
+has history moves in **one** change (Forgejo: one commit), so a reader never
+sees a copy beside its original. It may refuse a folder larger than it can move
+in one change and says so.
+
+**Remove** (0.2) deletes **one document** with the revision it was read at; a
+stale or missing revision is refused and names the current one. `remove` in
+`about` says how far it goes: `documents` (folders are refused) or `true`. A
+connector says in `note` whether the product keeps the document in its history.
+
+`history` stays a reserved name.
 
 A refusal is a tool result with `isError: true` and one sentence in German for
 the person — never a stack trace, never an address or credential.
@@ -68,7 +83,7 @@ else to enforce. Whoever needs that answer asks `stores_may`, as the person.
 ### 3.1 What a connector declares in `about`
 
 `revisions` (bool), `history` (bool), `folders` (`none`|`one`|`any`), `move`,
-`remove`, `create_store`, `propose` (bools), `binary` (`none`|`listed`),
+`create_store`, `propose` (bools), `remove` (`false`|`documents`|`true`), `binary` (`none`|`listed`),
 `sections` (bool: the product edits sections itself), `may` (`full`|`read`:
 how much of `stores_may` the product can answer before a write), `origin`
 (`author`|`trailer`|`summary`: what the product keeps of a write's origin),
@@ -115,6 +130,10 @@ the MCP gateway (`oaap.work.workspaces` §2).
 4. A path with `..`, a hidden name or more levels than declared is refused.
 5. A product's refusal (no right) comes back as a sentence, not as "not found",
    when the product says so (BookStack: a role without "access system API").
+6. (0.2) `stores_move` onto an existing path is refused and changes nothing; a
+   person with read access only is refused by the product.
+7. (0.2) `stores_remove` without a revision, with an old one, or on a folder
+   (with `remove: documents`) is refused and the product is not changed.
 
 ## 7. Dependencies
 
@@ -125,8 +144,9 @@ adapter answers this contract, D9).
 ## 8. Maturity
 
 0.1: BookStack connector in the package `bookstack` 0.2.0, measured
-2026-11-23. Forgejo, PCH, BDT and a system outside the tenant (`personal`)
-follow (RFC-0121 §10).
+2026-11-23. Forgejo connector in `forgejo` 15.0.11+oaap.1 (2026-11-24), with
+move and remove in 15.0.11+oaap.2 (2026-11-25, RFC-0121 §10.5). PCH, BDT and a
+system outside the tenant (`personal`) follow (RFC-0121 §10).
 
 ## Deutsche Zusammenfassung
 
@@ -142,7 +162,9 @@ Dokument. BookStack: Regal, Buch, Kapitel (eine Ebene), Seite. Pfade sind
 
 **Schnittstelle.** MCP-Werkzeuge mit festen Namen `stores_about`,
 `stores_stores`, `stores_list`, `stores_read`, `stores_write`, `stores_folder`,
-`stores_search`, `stores_may`, `stores_entry`, `stores_create_store`. Ein
+`stores_search`, `stores_may`, `stores_entry`, `stores_create_store`; seit 0.2
+`stores_move` (verschieben/umbenennen, überschreibt nie, bei Forgejo ein Commit)
+und `stores_remove` (eine Datei mit der gelesenen Revision, keine Ordner). Ein
 Schreiben auf ein bestehendes Dokument nennt die gelesene Revision. Was ein
 Konnektor kann, sagt er in `about`; das Gateway bietet nur das an.
 

@@ -703,6 +703,51 @@ channels; its public help via MCP (`/mcp/help`) in a tenant's chat.
 releases it; then BDT builds and we measure on `oaap-test` (two persons, a
 foreign project refused, an old revision refused, forged headers refused).
 
+### 10.5 Move, remove, and a new store from the picker (built 2026-11-25)
+
+Asked by Jörg after the first test in `pxx` ("verschieben scheinbar nicht"):
+the gateway's usage table showed no move call at all — the door had no such
+tool and the Forgejo connector declared `move: false`. Built:
+
+- **Contract** `oaap.work.stores` 0.2: `stores_move` (document or folder, into
+  an existing folder or to a new path, never overwriting) and `stores_remove`
+  (one document, with the read revision); `remove` in `about` is
+  `false | documents | true`.
+- **Forgejo** 15.0.11+oaap.2: move is one commit through Forgejo's
+  `POST /repos/{o}/{r}/contents` with `operation: update` and `from_path`
+  (Forgejo 15's API, read from its swagger on `ws375-git`); the content is sent
+  along, so the file is not emptied. A folder moves in one commit up to 50
+  files. Remove deletes one file with its blob sha; folders are refused. Both
+  carry the trailer. `about`: `move: true`, `remove: "documents"`.
+- **Gateway** 0.47.0, door: `store_move`, `store_remove`, offered only when a
+  `work` mount's connector declares them (cached `about`, ten minutes); before
+  the call the door asks `about` again and refuses a verb that is not declared.
+  Move stays inside one mount; remove is `destructiveHint: true`.
+- **A new store** (§5.1 "create a new store from the picker"): the gateway's
+  `POST /mcp/_workspaces/_pick` calls `stores_create_store` as the person, if
+  declared; the chat 0.23.0 has a button "Neu…" beside the store in the
+  workspace dialog. The product decides (Forgejo: a private repository of the
+  person, or in an organisation where they may create one). In the conversation
+  itself the model gets no tool for it: a new store changes what the person
+  owns, and it would have to be mounted into the workspace anyway.
+
+Unit tests: connector 29/29, door 54/54, gateway 586/586, chat 249/249 + 19/19.
+
+**Measured on `oaap-test`** (`ws375-git`, Forgejo 15.0.11, the new `stores.py`
+copied into the running `oaap` service; anna375/bert375 through the realm and
+the portal, `/oaap/mcp` of the instance): 25/25 — 13 tools, `about` with
+`move: true`, `remove: documents`; a file into an existing folder in one commit
+(Forgejo lists it as added + removed), its text unchanged at the new place and
+gone at the old; rename; a folder with two files (one a level deeper) in one
+commit; baits refused and nothing changed: target exists, folder into itself,
+anna in bert's private repository and bert in anna's; remove without, with a
+wrong revision, of a folder, and by anna refused; with the read revision one
+commit with the trailer.
+
+**Not measured:** the gateway 0.47.0 door and `POST …/_pick` and the chat's
+button against a real Forgejo — `ws375` has no chat; first in `pxx` after the
+update, by Jörg.
+
 ## 11. Conformance (described; every line gets a bait)
 
 1. A call to a connector without an assertion is refused.
@@ -777,6 +822,13 @@ foreign project refused, an old revision refused, forged headers refused).
   means there.
 
 ## Deutsche Zusammenfassung
+
+**Nachtrag 25.11. (§10.5):** Verschieben und Löschen gebaut — Vertrag 0.2,
+Forgejo +oaap.2 (Verschieben in einem Commit, auch Ordner bis 50 Dateien;
+Löschen nur Dateien mit gelesener Revision), Gateway 0.47.0 bietet beides nur
+an, wo der Konnektor es nennt; neue Ablage über „Neu…“ im Dialog Arbeitsraum
+(Chat 0.23.0). Gemessen am echten Forgejo auf oaap-test 25/25; Gateway und Chat
+gegen Forgejo noch nicht (erst in pxx).
 
 **Worum es geht.** Ein Gespräch im Chat beginnt heute mit einem Assistenten und
 weiß nichts von deiner Arbeit. Dieser RFC bringt zwei Dinge: einen
