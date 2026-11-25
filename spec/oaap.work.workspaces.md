@@ -1,7 +1,10 @@
 # oaap.work.workspaces — Workspaces and the Store Door of the MCP Gateway
 
 - **ID:** `oaap.work.workspaces`
-- **Version:** 0.3 (`store_move` and `store_remove` in the door, offered only when a
+- **Version:** 0.4 (`GET …/_pick?what=folders` lists the folders of a store for the
+  mount's `folder`; the chat shows workspaces as cards and offers a folder per mount;
+  reference mcp-gateway 0.48.0, chat 0.24.0).
+  0.3 (`store_move` and `store_remove` in the door, offered only when a
   `work` mount's connector declares them; `POST /mcp/_workspaces/_pick` creates a new store
   as the person; reference mcp-gateway 0.47.0, chat 0.23.0 — RFC-0121 §10.5).
   0.2 (RFC-0121 §5, **the chat**: a conversation starts in a workspace and
@@ -77,6 +80,7 @@ refusal.
 |---|---|
 | `GET /mcp/_workspaces` | the person's workspaces (with their light) and the store systems (`name`, `title`, `kind`, `light`, `active` — never a server) |
 | `GET /mcp/_workspaces/_pick?system=<s>[&what=areas][&area=][&offset=]` | `stores_stores` / `stores_areas` of that system, **as the person** — the picker |
+| `GET /mcp/_workspaces/_pick?system=<s>&what=folders&store=<id>[&path=/]` | (0.4) the sub-folders of one folder of that store (`stores_list`, folders only, never recursive, at most 200, hidden names left out), **as the person** — to choose a mount's `folder`; answers `{store, path, folders[{name,title,path}], more}` |
 | `POST /mcp/_workspaces/_pick` | (0.3) body `{system, title, area?}`: `stores_create_store` of that system, **as the person**, only if its connector declares `create_store`; answers `store{id,title}`; written to the gateway's audit |
 | `POST /mcp/_workspaces` | save a workspace (body: §3) |
 | `POST /mcp/_workspaces/<id>/delete` | delete one's own workspace |
@@ -144,11 +148,21 @@ instructions (RFC-0116).
 verb, procedure, person, outcome; a refusal names who refused — `gateway` (the
 door) or `server` (the product through its connector).
 
-## 5. In the chat (0.2, reference chat 0.22.0)
+## 5. In the chat (0.2, reference chat 0.22.0; 0.4, chat 0.24.0)
 
-**Starting.** The chat lists the person's workspaces through `/mcp/_workspaces` and
-offers them next to the assistant before the first message; a workspace dialog
-creates one (system → store from `_pick`, alias, role, home) and deletes one. A
+**Starting.** The chat lists the person's workspaces through `/mcp/_workspaces`.
+Since 0.4 they have their own view (`#arbeitsraeume`, above the assistants), one
+card per workspace: light, mounts with folder and role, the last conversations, an
+assistant choice (preset: the one last used in this workspace), "private" and
+**Gespräch beginnen**; "Ändern" saves the same id, "Löschen" deletes the workspace
+(not its stores, not its conversations). The sidebar groups conversations by
+workspace — not by store, so a conversation appears once — and lists every
+workspace, each with "+ Neues Gespräch". Below the conversation only a note names
+the workspace (in a draft with "×" to start without it). The dialog creates or
+changes one (system → store from `_pick`, "Neu…", **folder** chosen from
+`_pick?what=folders`, alias, role, home). The folder bounds what the conversation
+sees; it is not a right in the product. (0.2: the workspace was a choice next to
+the assistant below the conversation.) A
 conversation in a workspace remembers `workspace: {id, title}` and `private`; it
 needs an assistant **with a view** (the door joins the view). It is refused with a
 sentence when the workspace is not the person's, or when the conversation's light is
@@ -201,6 +215,8 @@ K13 a mount above the request's light is refused (in the chat: the conversation 
 started) · K8 a filed conversation is the history (verbatim, the chat writes it) · K9 a
 private conversation asks for no log entry. Reference tests: `test_workspaces.py` (43),
 chat `test_workspace.py` (19); measured: `oaap-lab/arbeitsraum-messung` (27/27, chat 19/19).
+0.4: `test_workspaces.py` 62 (folder picker; `/a` does not contain `/ab`), chat
+`test_workspace.py` 25; the page was driven in a browser against a stand-in server.
 
 ## 8. Dependencies
 
@@ -226,7 +242,12 @@ Sicht die Werkzeuge `workspace_info`, `store_list`, `store_read`,
 `store_remove`, wenn der Konnektor sie in `about` nennt (Forgejo ja, BookStack
 nein). Verschieben geht nur innerhalb einer Ablage, Löschen nur für ein
 Dokument mit gelesener Revision. Seit 0.3 legt `POST …/_pick` als die Person
-eine neue Ablage an (Chat: Knopf „Neu…“ im Dialog Arbeitsraum). Adresse ist `alias:/pfad`. Die
+eine neue Ablage an (Chat: Knopf „Neu…“ im Dialog Arbeitsraum). Seit 0.4 nennt
+`GET …/_pick?what=folders` die Unterordner einer Ablage, als die Person: damit
+wählt man beim Einhängen einen **Ordner**, und das Gespräch sieht nur ihn (eine
+Grenze der Tür, kein Recht im Produkt). Der Chat 0.24.0 zeigt Arbeitsräume als
+Karten mit „Gespräch beginnen“ und Wahl des Assistenten, die Leiste gruppiert nach
+Arbeitsraum. Adresse ist `alias:/pfad`. Die
 Tür prüft Alias, Rolle, Ampel und Pfad, bevor sie den Konnektor als die Person
 ruft; sie liest Abschnitte und Zeilen selbst, verlangt beim Ändern die
 gelesene Revision und schützt vor dem Halbieren langer Dokumente. Gelesenes ist
