@@ -3,7 +3,8 @@
 - **Status:** Draft — D1–D5 decided by Jörg (2026-11-25: the organisation
   manages its members itself; the page is in the portal; only the tenant admin
   creates areas; Forgejo through the administrator route for the owner; the
-  name rule is enforced; private by default); D7–D8 open (§8).
+  name rule is enforced; private by default; an owner without an account is
+  refused with a sentence); D8 open (§8).
   Nothing built.
 - **Date:** 2026-11-25
 - **Authors:** Jörg (the need, 2026-11-25: "wenn ich jetzt für das Unternehmen
@@ -134,7 +135,7 @@ person may create a repository there.
 - **D6 Visibility?** (a) private (recommended); (b) limited (all signed-in
   persons of the product). **Decided by Jörg 2026-11-25: (a).**
 - **D7 Owner not yet in the product?** (a) refuse with a sentence (recommended);
-  (b) create the account beforehand.
+  (b) create the account beforehand. **Decided by Jörg 2026-11-25: (a).**
 - **D8 Also a realm group per team?** (a) not now (recommended; RFC-0045 can
   add it); (b) yes, `/Teams/<slug>`.
 
@@ -161,5 +162,5 @@ Namen (kein fremdes Präfix), der Konnektor legt in Forgejo die Organisation fü
 den Owner an (über den Admin-Weg, ohne dass das Plattformkonto Mitglied
 bleibt), privat. Mitglieder führt danach der Owner in Forgejo; die Plattform
 merkt sich nur Titel, Name, ersten Owner und wo angelegt. Stufe 2: „Neu…“ im
-Chat wählt den Bereich (unter dir oder eine Organisation). D2 entschieden: im Portal. D3 entschieden: nur der Mandanten-Admin. D4 entschieden: Admin-Weg für den Owner. D5 entschieden: Namensregel erzwungen. D6 entschieden: privat. Offen: D4 Forgejo-Weg (erst messen), D5
+Chat wählt den Bereich (unter dir oder eine Organisation). D2 entschieden: im Portal. D3 entschieden: nur der Mandanten-Admin. D4 entschieden: Admin-Weg für den Owner. D5 entschieden: Namensregel erzwungen. D6 entschieden: privat. D7 entschieden: Owner ohne Konto wird mit Satz abgelehnt. Offen: D4 Forgejo-Weg (erst messen), D5
 Namensregel, D6 Sichtbarkeit, D7 Owner ohne Konto, D8 Realm-Gruppe je Team.
