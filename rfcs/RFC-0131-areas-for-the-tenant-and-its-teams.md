@@ -1,11 +1,8 @@
 # RFC-0131: Areas for the Tenant and Its Teams
 
-- **Status:** Draft — D1–D5 decided by Jörg (2026-11-25: the organisation
-  manages its members itself; the page is in the portal; only the tenant admin
-  creates areas; Forgejo through the administrator route for the owner; the
-  name rule is enforced; private by default; an owner without an account is
-  refused with a sentence); D8 open (§8).
-  Nothing built.
+- **Status:** **Accepted (2026-11-25)** — D1–D8 decided by Jörg the same day,
+  one at a time (§8): D1–D7 as recommended, D8 (b): every team also gets a
+  realm group. Nothing built; stage 0 (measure the Forgejo route) comes first.
 - **Date:** 2026-11-25
 - **Authors:** Jörg (the need, 2026-11-25: "wenn ich jetzt für das Unternehmen
   oder für einzelne Teams eine eigene Organisation anlegen würde … Das
@@ -20,10 +17,12 @@
   (connecting an app afterwards), RFC-0118 (one face for all apps)
 - **Changes (when accepted):** `oaap.work.stores` (a verb `stores_create_area`,
   declared in `about`), `oaap.core.portal` (a tenant page "Organisation"),
-  `oaap.work.workspaces` (stage 2: "Neu…" chooses the area)
+  `oaap.work.workspaces` (stage 2: "Neu…" chooses the area), `oaap.core.identity`
+  (a realm group per team, through the realm connector's verb `groups`, RFC-0045)
 - **Not part of this RFC:** members of a team kept by the platform (D1: the
-  organisation keeps them); a team as a realm group for rights in other apps
-  (D8); renaming or deleting an organisation (done in the product).
+  organisation keeps them; the realm group is created, not filled); rights in
+  other apps hung on the realm group (RFC-0045 can use it later); renaming or
+  deleting an organisation (done in the product).
 
 ## Summary
 
@@ -90,8 +89,14 @@ On the tenant's pages in the portal (tenant admin): the company and its teams
 as rows — title, name, owner, and per store system that declares
 `create_area` whether the area exists there (read through `stores_areas` as
 the admin) with a button "In <system> anlegen". "Neues Team" asks title,
-slug, owner (chosen from the tenant's persons). Every creation is written to
-the audit. The page stores only what it needs to show the rows: title, name,
+slug, owner (chosen from the tenant's persons). Creating a team also creates
+the realm group `/Teams/<slug>` (D8) through the realm connector's verb
+`groups` (RFC-0045: GET/POST only, creates groups, only when the connector's
+address is the tenant's issuer) — once, and a group that exists is taken as
+it is. The platform does not fill or sync it: the organisation keeps its
+members (D1); the group is there for rights other apps may hang on it later.
+The company area gets no group of its own (the tenant is the company).
+Every creation is written to the audit. The page stores only what it needs to show the rows: title, name,
 owner at creation, created where and when — no members.
 
 ## 5. "Neu…" into an area (stage 2)
@@ -115,6 +120,8 @@ person may create a repository there.
 3. The platform's account is not a member of the new organisation.
 4. The owner must exist in the product; no account is created on their behalf.
 5. Visibility is private unless chosen.
+6. The realm group gives no platform role (RFC-0045: a group never grants
+   one); it is created only in the tenant's own realm.
 
 ## 8. Decisions
 
@@ -137,13 +144,15 @@ person may create a repository there.
 - **D7 Owner not yet in the product?** (a) refuse with a sentence (recommended);
   (b) create the account beforehand. **Decided by Jörg 2026-11-25: (a).**
 - **D8 Also a realm group per team?** (a) not now (recommended; RFC-0045 can
-  add it); (b) yes, `/Teams/<slug>`.
+  add it); (b) yes, `/Teams/<slug>`. **Decided by Jörg 2026-11-25: (b)** —
+  created with the team, not filled by the platform (§4).
 
 ## 9. Stages
 
 0. Measure on `oaap-test` (`ws375-git`, Forgejo 15): the administrator route
    for another user, who ends up in *Owners*, refusals (name taken, unknown
-   user), visibility.
+   user), visibility; the realm connector creating `/Teams/<slug>` in the
+   test realm.
 1. Verb in the contract and the Forgejo connector; page "Organisation".
 2. "Neu…" in the chat chooses the area.
 3. Further products (BookStack shelves, BDT projects) as their connectors
@@ -162,5 +171,14 @@ Namen (kein fremdes Präfix), der Konnektor legt in Forgejo die Organisation fü
 den Owner an (über den Admin-Weg, ohne dass das Plattformkonto Mitglied
 bleibt), privat. Mitglieder führt danach der Owner in Forgejo; die Plattform
 merkt sich nur Titel, Name, ersten Owner und wo angelegt. Stufe 2: „Neu…“ im
-Chat wählt den Bereich (unter dir oder eine Organisation). D2 entschieden: im Portal. D3 entschieden: nur der Mandanten-Admin. D4 entschieden: Admin-Weg für den Owner. D5 entschieden: Namensregel erzwungen. D6 entschieden: privat. D7 entschieden: Owner ohne Konto wird mit Satz abgelehnt. Offen: D4 Forgejo-Weg (erst messen), D5
-Namensregel, D6 Sichtbarkeit, D7 Owner ohne Konto, D8 Realm-Gruppe je Team.
+Chat wählt den Bereich (unter dir oder eine Organisation).
+
+**Angenommen am 25.11.2026**, alle Entscheidungen von Jörg einzeln: D1 die
+Organisation führt ihre Mitglieder selbst; D2 Seite im Portal; D3 nur der
+Mandanten-Admin legt an; D4 Forgejo über den Admin-Weg für den Owner (vorher
+an `ws375-git` messen); D5 Namensregel erzwungen; D6 privat; D7 Owner ohne
+Konto wird mit Satz abgelehnt; D8 **jedes Team bekommt gleich eine Gruppe
+im Realm** `/Teams/<kurzname>` (über das Verb `groups` aus RFC-0045, nur
+angelegt, nicht befüllt — die Gruppe ist für Rechte, die andere Apps später
+daran hängen; sie vergibt keine Plattformrolle). Nichts gebaut; zuerst
+Stufe 0, die Messung.
