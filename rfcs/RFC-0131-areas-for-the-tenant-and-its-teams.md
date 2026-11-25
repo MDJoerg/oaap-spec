@@ -1,8 +1,9 @@
 # RFC-0131: Areas for the Tenant and Its Teams
 
-- **Status:** Draft — D1–D3 decided by Jörg (2026-11-25: the organisation
+- **Status:** Draft — D1–D4 decided by Jörg (2026-11-25: the organisation
   manages its members itself; the page is in the portal; only the tenant admin
-  creates areas); D4–D8 open (§8).
+  creates areas; Forgejo through the administrator route for the owner);
+  D5–D8 open (§8).
   Nothing built.
 - **Date:** 2026-11-25
 - **Authors:** Jörg (the need, 2026-11-25: "wenn ich jetzt für das Unternehmen
@@ -127,6 +128,7 @@ person may create a repository there.
 - **D4 How in Forgejo?** (a) the administrator route for the owner, the
   platform's account not in it (recommended, measured first); (b) as the owner
   with `Sudo` — needs "may create organisations" for every person.
+  **Decided by Jörg 2026-11-25: (a).**
 - **D5 Names enforced?** (a) tenant / `<tenant>-<slug>` enforced (recommended);
   (b) free names.
 - **D6 Visibility?** (a) private (recommended); (b) limited (all signed-in
@@ -159,5 +161,5 @@ Namen (kein fremdes Präfix), der Konnektor legt in Forgejo die Organisation fü
 den Owner an (über den Admin-Weg, ohne dass das Plattformkonto Mitglied
 bleibt), privat. Mitglieder führt danach der Owner in Forgejo; die Plattform
 merkt sich nur Titel, Name, ersten Owner und wo angelegt. Stufe 2: „Neu…“ im
-Chat wählt den Bereich (unter dir oder eine Organisation). D2 entschieden: im Portal. D3 entschieden: nur der Mandanten-Admin. Offen: D4 Forgejo-Weg (erst messen), D5
+Chat wählt den Bereich (unter dir oder eine Organisation). D2 entschieden: im Portal. D3 entschieden: nur der Mandanten-Admin. D4 entschieden: Admin-Weg für den Owner. Offen: D4 Forgejo-Weg (erst messen), D5
 Namensregel, D6 Sichtbarkeit, D7 Owner ohne Konto, D8 Realm-Gruppe je Team.
