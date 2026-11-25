@@ -1,6 +1,7 @@
 # RFC-0133: The AI Workplace with Optional Components
 
-- **Status:** Draft (2026-11-25) — D1–D7 open (§6)
+- **Status:** **Accepted (2026-11-25)** — D1–D7 decided by Jörg the same day,
+  one at a time, all as recommended (§6). Nothing built; stage 1 next.
 - **Date:** 2026-11-25
 - **Authors:** Jörg (the need: "Ich möchte danach einen Aufbau machen: KI-Arbeitsplatz
   mit optionalen Komponenten wie bookstack, forgejo, bdt-team" and "Richte die
@@ -91,7 +92,7 @@ changes: an unknown app still refuses the profile.
 3. **On oaapx01 (Jörg's word):** a tenant with all four ticks; a person signs in to
    Forgejo, wiki and BDT, opens a workspace with all three stores.
 
-## 6. Decisions (open)
+## 6. Decisions (Jörg, 2026-11-25, all (a))
 
 - **D1 One profile or several.** (a) `ki-arbeitsplatz` 3.0 with four ticks
   (recommended: one place, the base stays the same); (b) a separate profile per
@@ -126,4 +127,4 @@ Reihenfolge die Haken laufen. (2) Ein Haken, dessen App ein Knoten nicht kennt
 (BDT-TEAM steht nur im Betreiber-Katalog von oaapx01), wird ausgegraut statt das
 ganze Profil abzulehnen. (3) Die BDT-Einstellungen für den Arbeitsplatz setzt
 das Profil selbst. Dazu bekommt Forgejo die Verwaltergruppe als Administratoren.
-Offen sind D1–D7, einzeln zu entscheiden.
+Jörg hat D1–D7 am 25.11. einzeln entschieden, alle wie empfohlen: ein Profil mit vier Haken, Recherche direkt im Profil, `stores: true` am Zugangsprofil, BDT-Haken ausgrauen, 13 BDT-Werte im Profil, Verwaltergruppe als Forgejo-Admin, alle Haken aus.
