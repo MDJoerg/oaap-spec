@@ -90,6 +90,12 @@ how much of `stores_may` the product can answer before a write), `origin`
 `identity` (§3.2). The store door offers only what is declared; nothing is
 emulated silently.
 
+These fields stand at the top level of the answer (Forgejo). A connector may
+also put them into an object `capabilities` (BDT-TEAM 0.903); the gateway
+reads both since mcp-gateway 0.49.1, and a field at the top level wins
+(clarified 2026-11-25). `stores_create_store` answers the new store's `id`;
+`store` is read as the same.
+
 ### 3.2 As the person
 
 | Identity | Meaning | 0.1 |
@@ -166,7 +172,7 @@ Dokument. BookStack: Regal, Buch, Kapitel (eine Ebene), Seite. Pfade sind
 `stores_move` (verschieben/umbenennen, überschreibt nie, bei Forgejo ein Commit)
 und `stores_remove` (eine Datei mit der gelesenen Revision, keine Ordner). Ein
 Schreiben auf ein bestehendes Dokument nennt die gelesene Revision. Was ein
-Konnektor kann, sagt er in `about`; das Gateway bietet nur das an.
+Konnektor kann, sagt er in `about`; das Gateway bietet nur das an. Die Angaben stehen oben in der Antwort oder in einem Objekt `capabilities`; das Gateway liest beides (seit 0.49.1).
 
 **Als die Person.** 0.1 kennt nur `assertion`: Die Plattform nennt die Person
 mit ihrer Realm-Kennung; der BookStack-Konnektor findet daran das Konto und
