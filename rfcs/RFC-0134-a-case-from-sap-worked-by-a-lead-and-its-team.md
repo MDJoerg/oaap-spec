@@ -582,7 +582,14 @@ agent's id), the frame names the team explicitly, and a task addressed to a labe
 reaches the same specialist; and small models sometimes write a tool call as text
 -- the run now reads such a call for a tool it offers anyway (`{"name", "arguments"}`,
 also inside `<tool_call>` or a JSON fence, `name {...}`, `name({...})`) under the
-same rules as a real call. Not in this stage: the supervisor per agent
+same rules as a real call. **Re-measured on oaap-test** (0.8.1, same setup,
+case V-2026-0025 through the gate): the lead gave its task to „Recherche (KI)“
+on the first try (before: a `vorgaenge` label); the recorded reviewer reply of
+V-2026-0024 now parses as `in_ordnung`; live, the reviewer again wrote its call
+as text, the run read it, and the model's own verdict (`none`, with its reason)
+arrived instead of the raw JSON. The task and the lead's next run hit the AI
+gateway's 180 s timeout (4B on CPU, one call at a time, up to 6 min 49 s per
+call) -- an environment limit, not a rule. Not in this stage: the supervisor per agent
 and the context JSON from Jörg's ideas I-77/I-78.
 
 ## Non-goals
@@ -650,7 +657,7 @@ und ein prüfender Spezialist je Bereich – nie der, der die Arbeit gemacht hat
 öffnet den Vorgang wieder, und der Leiter ist wieder dran. Auf oaap-test gemessen: Die Regeln
 halten mit echtem Tor, echten Schlüsseln und unterschriebener Freigabe; der Leiter schloss einmal
 selbst ohne Änderung, SAP las den Schließtext am Tor. Das 4B-Modell schloss nicht selbst mit
-Beleg und schrieb das Urteil des Prüfers als Text – die Güte misst erst bec. Die zwei Befunde (Labels aus Vorgänge im Verlauf, Werkzeugaufruf als Text) sind in Spezialisten 0.8.1 behoben. Führungskraft je Agent und Kontext-JSON (I-77/I-78) sind nicht dabei.
+Beleg und schrieb das Urteil des Prüfers als Text – die Güte misst erst bec. Die zwei Befunde (Labels aus Vorgänge im Verlauf, Werkzeugaufruf als Text) sind in Spezialisten 0.8.1 behoben und auf oaap-test nachgemessen: Der Leiter beauftragte sein Team gleich beim richtigen Namen, und das als Text geschriebene Urteil des Prüfers kam an. Führungskraft je Agent und Kontext-JSON (I-77/I-78) sind nicht dabei.
 
 **Entschieden am 26.11. (Jörg, einzeln):** D1 neue Tür mit Referenz-ID für jeden
 Auslöser; D2 sofort die Nummer, SAP fragt nach, Lösung per MCP nach SAP; D3 der
