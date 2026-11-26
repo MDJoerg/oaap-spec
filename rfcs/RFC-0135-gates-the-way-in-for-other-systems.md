@@ -3,7 +3,9 @@
 - **Status:** **Accepted (2026-11-26)** — D1–D9 decided by Jörg one at a time,
   all as recommended (§9). Stage 0: SM59 ping measured (§11). **Stage 1 built
   (2026-11-26, reference 0.1.383, `vorgaenge` 0.21.0), measured on oaap-test
-  (§12), not pushed.** Stage 2 (page, twin) next.
+  (§12), pushed.** **Stage 2a — the portal page „Tore“ — built (2026-11-26,
+  reference 0.1.384), measured on oaap-test (§13), not pushed.** Stage 2b
+  (twin, events, counts) next.
 - **Date:** 2026-11-26
 - **Authors:** Jörg (the need: "eine Verwaltung, wo wir die Trigger/Tore pflegen
   und auch Zuordnungen von Tor zu Vorgangstyp + Agenten … später eine 1:n
@@ -308,6 +310,54 @@ charset.
 page „Tore“, twin assets, events, light, „last delivery“ in the ping); a rate
 limit per access beyond the case app's 600 per gate and hour.
 
+## 13. Stage 2a built: the page „Tore“ (2026-11-26)
+
+Jörg: the people who set up an interface have no command line — gates belong
+in the portal. **What there is** (reference 0.1.384; `oaap.core.portal`
+0.3.64 §2.21, `oaap.core.identity` 0.6.17):
+
+- **`/tore`** in the group *Kommunikation*, for `tenant_admin` and
+  `server_admin` (`?tenant=` for the latter): per gate address, SM59 user,
+  process and target, fields, last use and a **light** (red without target or
+  valid access, yellow when a key runs out within 14 days, green otherwise);
+  the accesses with expiry and last use; the processes with the gates that
+  feed them. Forms for process, gate (a change keeps the fields), access,
+  revoke, remove.
+- Every change is one request **`gate-admin`**; the host judges role and
+  tenant again from the actor's record (`appctl.gate_job`) and runs the same
+  `cmd_gate` as the command line; refusals go to the tenant's log.
+- **The key is made by the portal** and shown once with the SM59 parameters;
+  the host and identity get only `generate_password_hash(secret)`
+  (`issue_key(..., secret_hash=)`). One function `gate_issue_access` for CLI
+  and portal.
+- `test_gates_portal.py` (worker with the real identity, view, templates).
+
+**Measured on oaap-test** (tenant `vuebung`, as its tenant_admin with the
+gateway's headers at the portal, the ping from outside through the edge):
+
+| Step | Answer |
+|---|---|
+| `GET /tore` | 200; gate `sap-support`, process with target `vuebung-vorgaenge`, light green |
+| `POST /tore/access` | 200, the key shown once with SM59 path; the list afterwards names the access, no key |
+| the same POST with a foreign `Origin` | 403 |
+| ping from outside with Basic `sap-support:<key from the portal>` and `sap-user` | 200, ping text naming the access „Messung Portal 26.11.“ |
+| wrong user, same key | 401 |
+| template `fields` with the key | 200 |
+| `POST /tore/revoke` | 303 „… closed: 1 key(s) revoked, principal deactivated“ |
+| ping after revoking | 401 |
+| tenant log | `gate.access` / `gate.revoke` with the person (`vuebung.carl`) |
+
+**Findings:** (1) a request whose `X-OAAP-User` names nobody active is
+refused by the host ("must be requested by a signed-in, active user") — as
+designed; the page then shows every light red, because identity lists no keys
+for an unknown actor. (2) The host's answers are the CLI's English sentences
+on a German page (as on other portal pages that reuse CLI functions) — to be
+given German sentences when the page grows.
+
+**Not yet (stage 2b):** fields edited on the page, the twin asset per gate,
+the events `oaap.gate.delivered` / `oaap.gate.refused`, counts per day and
+refusal reason (the light's "usual rhythm"), "last delivery" in the ping.
+
 ## Non-goals
 
 - Storing payloads on the platform.
@@ -364,3 +414,15 @@ Nummer, Status und die letzte Antwort. Auf oaap-test von außen gemessen (§12),
 alle Fälle wie vorgesehen. Befund, gleich behoben: Umlaute in Latin-1 wurden
 still verfälscht; jetzt gilt UTF-8 streng oder `charset=iso-8859-1`, sonst
 eine klare Ablehnung.
+
+**Stufe 2a gebaut (26.11., Referenz 0.1.384, nicht gepusht):** die Portalseite
+**„Tore“** (Kommunikation, für Mandanten- und Server-Admins): Tore mit Adresse,
+SM59-Benutzer, Prozess und Ziel, Feldern, letzter Nutzung und Ampel; Zugänge;
+Prozesse; Formulare für Prozess, Tor, Zugang, Entziehen, Entfernen. Jede
+Änderung prüft der Knoten neu und führt sie mit derselben Funktion wie
+`oaap gate` aus. Den Schlüssel macht das Portal und zeigt ihn einmal mit den
+SM59-Angaben; Knoten und identity sehen nur den Hash. Auf oaap-test gemessen
+(§13): Seite, Zugang, Ping von außen mit dem Portal-Schlüssel 200, Entziehen,
+danach 401. Befund: die Rückmeldungen sind noch die englischen Sätze der
+Kommandozeile. Noch offen (2b): Felder auf der Seite, Zwilling, Ereignisse,
+Zählungen.
