@@ -2,7 +2,10 @@
 
 - **Status:** **Accepted (2026-11-26)** — D1–D8 decided by Jörg one at a
   time, all as recommended (§9). **Stage 0 measured 2026-11-26 on oaap-test
-  (§11)**: curl, Python and Node-RED 4.1 redeem; findings F1–F3. Stage 1 next.
+  (§11)**: curl, Python and Node-RED 4.1 redeem; findings F1–F3. **Stage 1
+  built and measured 2026-11-26 (§12)**: reference 0.1.386, identity 0.6.19,
+  portal 0.3.66 -- on oaap-test through the edge; findings F4–F6. Not pushed,
+  not rolled out.
 - **Date:** 2026-11-26
 - **Authors:** Jörg (the need, I-76: couplings — destinations, Node-RED, SAP,
   AI gateways in a cascade, across tenants and nodes — "angenehm aber sicher",
@@ -302,6 +305,64 @@ the Node-RED image).
 **Not measured (Jörg's side):** ABAP redeeming itself (`cl_http_client`,
 whether a program could take the place of a person at SM59).
 
+## 12. Stage 1 built and measured (2026-11-26)
+
+**Built** (reference 0.1.386): `platform/services/coupling.py` (the ticket,
+code and link, states, `pin` over the public key and `ca`, shared by host,
+identity and portal); identity 0.6.19 §2.15.1 (tickets with the hashes of
+code and link, the inactive principal, redemption under the user store's
+lock, the browser page, withdraw, the list, audit `coupling.*`); the
+gateway's block `/platform/couple/*` on a tenant's place where the tenant has
+a gate (stage 1), the tenant and the client address set by the gateway;
+`oaap gate couple` / `oaap gate withdraw` and the portal's request
+`gate-admin` ops `couple` / `withdraw` (German sentences); portal 0.3.66
+(two buttons, the ticket page, „wartet auf Einlösung“ at the gate, the page
+„Kopplungen“). `test/test_coupling.py` (89 checks; real identity, the real
+spool worker).
+
+**Measured on oaap-test** -- tenant `vuebung`, gate `sap-support`, the
+request through the edge (oaap-demo) to the node's gateway and identity:
+
+| What | Result |
+|---|---|
+| `oaap gate couple`, window 15 min | a ticket line of 939 characters (no `pin`/`ca`: the address is publicly trusted) |
+| POST the code (JSON) | 200, `oaapk_…`, SM59 host/path/user, expiry from redemption |
+| the gate's ping with that key (Basic) | 200 |
+| the same code again / an unknown code / a client-sent `X-OAAP-Couple-Tenant` | 410 / 404 / 404 |
+| the browser link: GET (a Teams user agent), HEAD | 200, the button, no key -- the ticket stays open |
+| the click (POST) / a second click / the page afterwards / the ticket's code | 200 with key and SM59 / 410 / 410 / 410 |
+| withdraw, then redeem / withdraw again | 410 / refused „not open (withdrawn)“ |
+| the portal as the tenant admin (`vuebung.carl`): „Kopplung erzeugen“, 60 min, 7 days | through the real spool: the ticket page with line, file, link and `curl`; its code redeemed through the edge: 200, key until +7 days |
+| the page „Kopplungen“ | open, redeemed and ended tickets; no code on it |
+| `couplings.json` | no code or link in plain text |
+| the tenant log | `coupling.issue`, `.redeem` (from the client's address, via code or link), `.refused` (with the reason), `.withdraw` |
+
+Measurement accesses revoked and open tickets withdrawn afterwards.
+
+**Findings:**
+
+- **F4 Caddy orders a bare `handle`.** The first build put `uri
+  strip_prefix` and `rewrite` side by side in the `handle` block; Caddy sorts
+  them by its directive order, `rewrite` first, and identity got
+  `/couple-door/platform/couple/redeem` -- a 404 from Flask on every request.
+  The gate blocks already used `route { … }`; the door does now too, and the
+  test holds the order. A unit test of the generated text could not have seen
+  it; only the request through the gateway did.
+- **F5 Every unredeemed ticket left an inactive principal.** By design (D4)
+  the principal is made with the ticket; a withdrawn or expired one stayed in
+  the user store for good. Now a ticket that ended unredeemed more than 30
+  days ago leaves the store with its principal, if that never held a key.
+- **F6 The QR code waits.** A ticket without `ca` is about 940 characters, with
+  `ca` about 2 KB -- a QR code of that size is hard to scan. Stage 1 offers
+  line, file and link; the QR code (D1) comes with a short form (for
+  instance only the browser link, or the redemption URL with the code).
+
+**Not measured in stage 1:** a ticket with `pin` and `ca` against a real
+non-public address (every tenant on oaap-test is behind the edge with a
+public certificate; the pin form is held by the test against openssl); what
+Teams and Outlook (Safe Links) do with a link (F3, with Jörg, the door is now
+public on oaap-test); ABAP redeeming itself (Jörg).
+
 ## Non-goals
 
 - A secret store for the receiver (where Node-RED or SAP keeps the key is
@@ -365,3 +426,25 @@ der Klick (POST). Befunde:
 - D6 zuerst nur Tor-Zugänge;
 - D7 App-Schlüssel hält die Plattform;
 - D8 Zertifikat nur bei nicht öffentlicher Adresse festnageln.
+
+**Stufe 1 gebaut und gemessen (26.11., Referenz 0.1.386, nicht gepusht):**
+Auf der Seite „Tore“ ist **„Kopplung erzeugen“** jetzt der Standard,
+„Schlüssel sofort zeigen“ bleibt als zweiter Knopf. Das Portal zeigt das
+Ticket einmal: als Zeile, als Datei, als Link für einen Menschen und als
+`curl`-Aufruf für ein Programm. Eine offene Kopplung steht beim Tor als
+„wartet auf Einlösung“, die neue Seite **„Kopplungen“** listet alles. Auf
+oaap-test über den Edge gemessen: Einlösen 200 mit Schlüssel, der Ping mit
+diesem Schlüssel 200, danach 410. Ein unbekannter Code bekommt 404, der
+Browser-Link bei GET/HEAD verbraucht nichts, der Klick löst ein,
+Zurückziehen geht. Das Portal erzeugt Kopplungen über den echten Spool.
+Befunde:
+- **F4:** Caddy sortiert Anweisungen in einem `handle`-Block selbst. Der
+  erste Bau schickte jede Anfrage an die falsche Adresse. Jetzt steht die Tür
+  in einem `route`-Block, wie die Tore.
+- **F5:** Jedes nie eingelöste Ticket ließ einen inaktiven Prinzipal zurück.
+  Jetzt räumt das 30-Tage-Aufräumen ihn mit weg.
+- **F6:** Ein Ticket ist rund 940 Zeichen lang, mit Zertifikat rund 2 KB. Das
+  ist zu groß für einen guten QR-Code. Der QR-Code kommt später mit einer
+  kurzen Form.
+Noch nicht gemessen: ein Ticket mit `pin`/`ca` an einer echten nicht
+öffentlichen Adresse; Teams/Outlook (mit dir); ABAP (du).

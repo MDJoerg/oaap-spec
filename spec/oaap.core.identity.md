@@ -1,7 +1,7 @@
 # oaap.core.identity — Identity & Roles
 
 - **ID:** `oaap.core.identity`
-- **Version:** 0.6.18 (0.6.18: **the ping names the last delivery** -- „Zuletzt angenommen: <time>“ from the node's counts (`gate-stats.json` beside `gates.json`, read-only), JSON `last_delivery`, §2.15; RFC-0135 stage 2b, reference 0.1.385). 0.6.17 (0.6.17: **a key from a hash** -- `issue_key` takes `secret_hash`, the hash of a secret its caller made; the record stores that hash and no readable key exists here; only a werkzeug password hash (scrypt or pbkdf2) is taken, §2.15; RFC-0135 stage 2, the portal's page „Tore“, reference 0.1.384). 0.6.16 (0.6.16: **a gate's access** -- Basic with the key as password and the gate's user name, taken at a gate only; one check for ping, templates, delivery and reading, the same 401 for every failure; `sap-user` never read, §2.15; RFC-0135 stage 1, reference 0.1.383). 0.6.15 (0.6.15: **an agent's assertion** -- fixed claims on a machine principal (`oaap machine propagate`) and the door `/platform/assertion` on every instance site, answered by identity only for a key limited to that instance, §2.11.1; RFC-0134 D10 a, reference 0.1.382). 0.6.14 (0.6.14: the authorization request MAY carry **`login_hint`** (OIDC Core 3.1.2.1) -- taken from the start's own parameter or from the `login_hint` in the return target, passed only when it is a plain name (`[A-Za-z0-9][A-Za-z0-9._@+-]{0,99}`), otherwise silently dropped; it prefills the provider's name field and proves nothing; the chat's QR code for the phone carries the verified e-mail, reference 0.1.379). 0.6.13 (0.6.13: **people invited by an app** -- `/people/v1` behind the gateway's door `/platform/people`: invite, resend, lock, unlock, read; the record made before the first login, role `partner`, limits, audit; RFC-0126 stage 1, reference 0.1.366). Before: 0.6.12 (bootstrap: **machine principals do not count** as users -- an app installed before the first administrator no longer locks the first-run wizard, and the first administrator is added next to the machine principals, never written over them, §2.5; found on a laptop demo node, I-68; reference 0.1.356). 0.6.11 (the people's key door `POST /internal/keys` refuses keys for the platform's machine principals (`instance:`, `remote:`, `client:`) and any scope with a dot (a platform capability such as `oaap.twin`, `oaap.authz.admin`, `oaap.cases.submit:<x>`), for every actor, audited as `key.refused`; one exception, RFC-0120 D2: a `client:` principal of the actor's own tenant with scope exactly `oaap.twin` and role `user` only -- until then a tenant_admin could mint them and act as an app on the twin, the authorization door or the cases door; the platform mints such keys itself, RFC-0120 §1.6, reference 0.1.346). 0.6.10 (the via check of 2.13 also for `oaap.ai.client:<chat>`, RFC-0104 stage 2). 0.6.9 (a seventh header **`X-OAAP-User-Idp`**: the person's binding at the tenant's OIDC identity provider as `<issuer> <sub>`, empty without one -- on the one list, so stripped, copied and kept out of the log like the others, 2.14, reference 0.1.307, RFC-0095 D2). 0.6.8 (**every node has its assertion key**: made at installation, on every update and at every app installation, never replaced -- 2.11, reference 0.1.302). 0.6.7 (**the discovery door**: `/verify?discover=` passes a gateway's catalog requests to a source without a person, the body parsed as JSON, the app seeing the gateway's machine principal -- 2.12.1, RFC-0073 §16, reference 0.1.300). 0.6.6 (**a client-sent `X-OAAP-Groups`/`X-OAAP-Tenant` is
+- **Version:** 0.6.19 (0.6.19: **coupling tickets** -- a gate access handed over as a ticket with a one-time redemption code instead of a shown key: identity keeps the ticket with the SHA-256 of code and browser link, makes the principal inactive with it and the key only at redemption; the door `/couple-door/*` behind the gateway's `/platform/couple/*` answers 200 once, then 410, an unknown code 404 and counts it for the brake; the browser link redeems only on POST; `/internal/couplings` lists what the actor may see, §2.15.1; RFC-0136 stage 1, reference 0.1.386). 0.6.18 (0.6.18: **the ping names the last delivery** -- „Zuletzt angenommen: <time>“ from the node's counts (`gate-stats.json` beside `gates.json`, read-only), JSON `last_delivery`, §2.15; RFC-0135 stage 2b, reference 0.1.385). 0.6.17 (0.6.17: **a key from a hash** -- `issue_key` takes `secret_hash`, the hash of a secret its caller made; the record stores that hash and no readable key exists here; only a werkzeug password hash (scrypt or pbkdf2) is taken, §2.15; RFC-0135 stage 2, the portal's page „Tore“, reference 0.1.384). 0.6.16 (0.6.16: **a gate's access** -- Basic with the key as password and the gate's user name, taken at a gate only; one check for ping, templates, delivery and reading, the same 401 for every failure; `sap-user` never read, §2.15; RFC-0135 stage 1, reference 0.1.383). 0.6.15 (0.6.15: **an agent's assertion** -- fixed claims on a machine principal (`oaap machine propagate`) and the door `/platform/assertion` on every instance site, answered by identity only for a key limited to that instance, §2.11.1; RFC-0134 D10 a, reference 0.1.382). 0.6.14 (0.6.14: the authorization request MAY carry **`login_hint`** (OIDC Core 3.1.2.1) -- taken from the start's own parameter or from the `login_hint` in the return target, passed only when it is a plain name (`[A-Za-z0-9][A-Za-z0-9._@+-]{0,99}`), otherwise silently dropped; it prefills the provider's name field and proves nothing; the chat's QR code for the phone carries the verified e-mail, reference 0.1.379). 0.6.13 (0.6.13: **people invited by an app** -- `/people/v1` behind the gateway's door `/platform/people`: invite, resend, lock, unlock, read; the record made before the first login, role `partner`, limits, audit; RFC-0126 stage 1, reference 0.1.366). Before: 0.6.12 (bootstrap: **machine principals do not count** as users -- an app installed before the first administrator no longer locks the first-run wizard, and the first administrator is added next to the machine principals, never written over them, §2.5; found on a laptop demo node, I-68; reference 0.1.356). 0.6.11 (the people's key door `POST /internal/keys` refuses keys for the platform's machine principals (`instance:`, `remote:`, `client:`) and any scope with a dot (a platform capability such as `oaap.twin`, `oaap.authz.admin`, `oaap.cases.submit:<x>`), for every actor, audited as `key.refused`; one exception, RFC-0120 D2: a `client:` principal of the actor's own tenant with scope exactly `oaap.twin` and role `user` only -- until then a tenant_admin could mint them and act as an app on the twin, the authorization door or the cases door; the platform mints such keys itself, RFC-0120 §1.6, reference 0.1.346). 0.6.10 (the via check of 2.13 also for `oaap.ai.client:<chat>`, RFC-0104 stage 2). 0.6.9 (a seventh header **`X-OAAP-User-Idp`**: the person's binding at the tenant's OIDC identity provider as `<issuer> <sub>`, empty without one -- on the one list, so stripped, copied and kept out of the log like the others, 2.14, reference 0.1.307, RFC-0095 D2). 0.6.8 (**every node has its assertion key**: made at installation, on every update and at every app installation, never replaced -- 2.11, reference 0.1.302). 0.6.7 (**the discovery door**: `/verify?discover=` passes a gateway's catalog requests to a source without a person, the body parsed as JSON, the app seeing the gateway's machine principal -- 2.12.1, RFC-0073 §16, reference 0.1.300). 0.6.6 (**a client-sent `X-OAAP-Groups`/`X-OAAP-Tenant` is
   stripped** on every app route, 2.6; 0.6.5: **a bearer that is not ours** goes to the app when a
   session comes with it, 2.3, I-44; 0.6.4: **a chat acts as the person**, procedure A,
   RFC-0074 stage 1: `/verify?via=`, 2.13, and procedure I takes the
@@ -908,6 +908,48 @@ whose scope is exactly `oaap.gate:<tenant>/<name>`.
   scrypt or pbkdf2, otherwise refused) and returns no secret. The readable key
   never passes the spool, the host or identity.
 
+#### 2.15.1 Coupling tickets (0.6.19, RFC-0136 stage 1)
+
+A gate access MAY be handed over as a **coupling ticket** instead of a shown
+key. The issuer (the portal, or `oaap gate couple` on the host) makes a
+redemption code (`c1_` + 32 random bytes, base64url) and a browser link id (a
+random UUID) and hands identity only their **SHA-256**; the ticket itself
+(`OAAP-COUPLE1.<base64url(JSON)>`, RFC-0136 §2) is built by the issuer and
+never stored.
+
+- **Issue** (`coupling_create`, called by the host): the gate MUST exist; a
+  machine principal `gate-<name>-<n>` is created **inactive** with the ticket,
+  no key (RFC-0136 D4). The record in `couplings.json` holds tenant, gate,
+  scope, principal, label, address, the gate's user, key validity, the two
+  hashes, `issued`, `until` (the window: 1 minute to 7 days, default 15
+  minutes) and the issuer. Audited `coupling.issue`.
+- **Redeem** -- `POST /couple-door/redeem` with `{"code"}` (JSON or form) and
+  `POST /couple-door/<uuid>`; the tenant comes from `X-OAAP-Couple-Tenant`,
+  which only the gateway's block on the tenant's place sets after stripping a
+  client's. Under the user store's lock: a code of this tenant, open and in
+  its window → the principal is activated, `issue_key` makes a key limited to
+  `oaap.gate:<tenant>/<gate>` with `created_by` `coupling:<id>`, the ticket is
+  marked redeemed (time, client address, key, `via` code or link) → `200`
+  with `kind, key, user, address, expires, label, sm59`. A redeemed,
+  expired or withdrawn ticket, a removed gate → `410` with one sentence
+  (audited `coupling.refused` with the reason); an unknown code, a code of
+  another tenant or a malformed one → `404` with one sentence, counted per
+  client address (`X-OAAP-Client`, set by the gateway) for the login brake;
+  a braked address → `429`. Every answer is `no-store`.
+- **The browser link**: `GET`/`HEAD /couple-door/<uuid>` shows the label, the
+  gate and a button and redeems **nothing** (a link preview spends nothing);
+  the button's `POST` redeems and shows the key once with the SM59
+  parameters; a second `POST` → `410`.
+- **Withdraw** (`coupling_withdraw`, called by the host for the portal and
+  `oaap gate withdraw`): an open ticket of the tenant becomes withdrawn, its
+  principal stays inactive without a key. Audited `coupling.withdraw`.
+- **List**: `GET /internal/couplings?actor=` -- a `server_admin` every
+  tenant, a `tenant_admin` their own (from the actor's own record), nobody
+  else; never a hash.
+- A ticket that ended unredeemed more than 30 days ago leaves the store, and
+  with it the inactive principal it made if that never held a key; a freed
+  name may be given again (the log tells the two apart by ticket and key id).
+
 - Session secret and setup token are generated at install time
   (`oaap.core.host`); the user store lives in the platform data
   directory and is included in platform backups (future
@@ -1456,3 +1498,16 @@ Spool, Knoten und identity sehen nur den Hash.
 Der Ping eines Tors endet jetzt mit „Zuletzt angenommen: <Zeit>“ (oder „noch
 nie“). identity liest das aus der Zählung des Knotens (`gate-stats.json` neben
 `gates.json`); im JSON steht es als `last_delivery`.
+
+## Deutsche Zusammenfassung (Nachtrag 0.6.19 — Kopplungen, RFC-0136 Stufe 1)
+
+Ein Zugang zu einem Tor kann jetzt als **Kopplung** übergeben werden statt als
+gezeigter Schlüssel. Wer ausstellt (Portal oder `oaap gate couple`), macht
+einen Einlöse-Code und einen Link; identity bekommt nur deren SHA-256, legt den
+Prinzipal **inaktiv** an und erzeugt den Schlüssel erst beim Einlösen. Die Tür
+`/platform/couple/redeem` antwortet einmal mit 200 und dem Schlüssel samt
+SM59-Angaben, danach mit 410; ein unbekannter Code bekommt 404 und zählt für
+die Bremse. Der Browser-Link zeigt bei GET nur eine Seite mit Knopf, erst der
+Klick (POST) löst ein. Zurückziehen geht, solange das Ticket offen ist. Die
+Liste zeigt jedem Verwalter nur seinen Mandanten. Alles steht im Protokoll
+(`coupling.issue`, `.redeem`, `.refused`, `.withdraw`).
