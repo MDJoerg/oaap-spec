@@ -1,8 +1,8 @@
 # oaap.events.bus — Events Between Apps, in the CloudEvents Envelope
 
 - **ID:** `oaap.events.bus`
-- **Version:** 0.10
-- **Maturity:** draft (0.10: **Jörg's D13–D15** — a grant delivers from its moment on for instances too (feed and push), one rule for every receiver; integration clients for events only (`add-client --events`, the portal's box "Nur Ereignisse"); the clients' door `/twin/v1` at the node's external name, with the client's key and for clients only (no key `401`); §2.7, §2.8, §2.17; reference 0.1.373, measured on `oaap-test` and from outside 2026-11-24, RFC-0127 §1.19. 0.9: **the way in** (RFC-0127 D8) — a client's
+- **Version:** 0.11
+- **Maturity:** draft (0.11: **the gates' events** -- `oaap.gate.delivery.accepted.v1` / `oaap.gate.delivery.refused.v1`, published by the node from its count of the gateway's access log, audience `tenant`, no payload, §2.11; RFC-0135 stage 2b, reference 0.1.385. 0.10: **Jörg's D13–D15** — a grant delivers from its moment on for instances too (feed and push), one rule for every receiver; integration clients for events only (`add-client --events`, the portal's box "Nur Ereignisse"); the clients' door `/twin/v1` at the node's external name, with the client's key and for clients only (no key `401`); §2.7, §2.8, §2.17; reference 0.1.373, measured on `oaap-test` and from outside 2026-11-24, RFC-0127 §1.19. 0.9: **the way in** (RFC-0127 D8) — a client's
   receiver declares `ext.` types; a CloudEvent (structured, batched or
   binary, SAP's form) becomes an event of the type its sender's type maps
   to, the original kept as `oaapextsource|type|id`, once per sender's
@@ -351,6 +351,8 @@ not know is refused at install.
 | `oaap.identity.person.activated.v1` | identity | addressed | the person's user id | `user_id`, `ref` |
 | `oaap.identity.person.locked.v1` | identity | addressed | the person's user id | `user_id`, `ref`, `by` (`app` · `admin`) |
 | `oaap.identity.person.unlocked.v1` | identity | addressed | the person's user id | `user_id`, `ref`, `by` (`app` · `admin`) |
+| `oaap.gate.delivery.accepted.v1` | node | tenant | `gate:<name>` | `gate`, `status` |
+| `oaap.gate.delivery.refused.v1` | node | tenant | `gate:<name>` | `gate`, `status`, `reason` (`anmeldung` · `inhalt` · `zu_gross` · `zu_viele` · `ziel`) |
 
 - **Meaning** (RFC-0126, Jörg 2026-11-24): *activated* is the person's
   **first login** through the tenant's place — not merely a set password;
@@ -377,6 +379,14 @@ not know is refused at install.
   schema (`422`), the addressee (same tenant, declares the type); an event
   nobody declared, or for a tenant without a store, answers `200` with
   `stored: false` and is not kept.
+- **The gates' types** (0.11, RFC-0135 stage 2b, D10). The node counts
+  every marked request of a gate in the gateway's access log once a minute;
+  one event per delivery (POST 2xx) and per refusal, never for a ping. No
+  payload, no access, no case number (the log has none; the case does). An
+  app or integration client of the tenant receives them after a grant like
+  any `tenant` type. The node's outbox (at most 1000, 7 days) goes to the
+  same internal door every minute, from inside the twin's container, oldest
+  first, stopping at the first event the bus cannot take yet.
 - **identity's outbox.** identity holds no database: it writes each event to
   `bus-outbox.json` first, then hands the queue to the door oldest first; it
   stops at the first event the twin cannot take yet (down, restarting) so
@@ -785,3 +795,12 @@ und Empfänger. Drittens ist die Client-Tür `/twin/v1` jetzt auch an der
 externen Adresse erreichbar, mit derselben Schlüsselprüfung wie am Knoten.
 Dort kommen nur Integrations-Clients durch. Schlüssel von Apps und entfernten
 Lesern bekommen 403, ohne Schlüssel kommt 401 statt der Anmeldeseite.
+
+## Deutsche Zusammenfassung (Nachtrag v0.11)
+
+Zwei neue Plattformtypen für die **Tore** (RFC-0135 Stufe 2b):
+`oaap.gate.delivery.accepted.v1` und `oaap.gate.delivery.refused.v1`. Der
+Knoten zählt jede Minute das Zugriffsprotokoll des Gateways und schickt je
+Lieferung und je Ablehnung ein Ereignis, mit Tor, Status und Grund, ohne
+Nutzlast, ohne Zugang. Apps und Integrations-Clients des Mandanten bekommen
+sie nach einer Freigabe wie andere Typen des Mandanten.

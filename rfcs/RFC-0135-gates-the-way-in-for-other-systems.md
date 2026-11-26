@@ -4,8 +4,10 @@
   all as recommended (§9). Stage 0: SM59 ping measured (§11). **Stage 1 built
   (2026-11-26, reference 0.1.383, `vorgaenge` 0.21.0), measured on oaap-test
   (§12), pushed.** **Stage 2a — the portal page „Tore“ — built (2026-11-26,
-  reference 0.1.384), measured on oaap-test (§13), not pushed.** Stage 2b
-  (twin, events, counts) next.
+  reference 0.1.384), measured on oaap-test (§13), pushed.** **Stage 2b —
+  fields on the page, German sentences, counts from the access log (D10 a),
+  events, the twin — built (2026-11-26, reference 0.1.385), measured on
+  oaap-test (§14), not pushed.**
 - **Date:** 2026-11-26
 - **Authors:** Jörg (the need: "eine Verwaltung, wo wir die Trigger/Tore pflegen
   und auch Zuordnungen von Tor zu Vorgangstyp + Agenten … später eine 1:n
@@ -210,6 +212,17 @@ Each with a recommendation; to be decided one at a time.
 - **D9 Answer format.** (a) JSON by default, `number=…`/`ref=…` lines on request
   (recommended); (b) JSON only.
   → **Decided 2026-11-26: (a)** (Jörg).
+- **D10 Where a delivery is counted** (raised in stage 2b: identity only
+  judges the login, the outcome is the target's). (a) from the gateway's
+  access log, which the node reads every minute anyway: every request of a
+  gate is marked there, counted per gate and reason (recommended -- nothing
+  on the way of a delivery changes, every later kind of target is counted
+  alike; but up to a minute late, no access and no case number); (b) the
+  delivery passes identity, which checks the fields and hands over (exact,
+  but the payload crosses the security core and identity needs a way to the
+  apps); (c) `vorgaenge` reports each outcome to a platform door (exact, but
+  the platform believes the app, and every kind of target must report).
+  → **Decided 2026-11-26: (a)** (Jörg).
 
 ## 10. Stages
 
@@ -358,6 +371,75 @@ given German sentences when the page grows.
 the events `oaap.gate.delivered` / `oaap.gate.refused`, counts per day and
 refusal reason (the light's "usual rhythm"), "last delivery" in the ping.
 
+## 14. Stage 2b built: counts, events, the twin (2026-11-26)
+
+**What there is** (reference 0.1.385; `oaap.core.portal` 0.3.65,
+`oaap.core.identity` 0.6.18, `oaap.events.bus` 0.11):
+
+- **Fields on the page.** A field editor per gate (name, type, length,
+  required, where it goes, choices, description, sample; two blank rows to
+  add, a tick to remove). It is the request `gate-admin` op `fields`; the
+  host runs the same `cmd_gate add` (`fields_doc`), keeps process and user,
+  and judges the list with `gates.check_fields` -- the templates follow at
+  once.
+- **German sentences.** The page answers in German: one table
+  (`appctl._GATE_DE`) turns every refusal of `cmd_gate`, `check_fields` and
+  `acting_tenant` into the page's sentence; a test holds every `die()` of
+  `cmd_gate` and every refusal of the field list against it; what it does
+  not know stays visible as „Der Knoten lehnt ab: …“. A change that went
+  through says what is now true ("Felder von „x“ gespeichert: 5 Felder, 3
+  Pflicht").
+- **Counting (D10 a).** Every request of a known gate carries `log_append
+  oaap_gate <tenant>/<name>` into the gateway's access log -- the delivery
+  route and the ping/template route; the rest of `/gate/` is not marked.
+  The minutely sampler hands the marked lines it reads anyway
+  (`traffic.measure`) to `gate_stats.fold`: per gate and UTC day
+  deliveries (POST 2xx), pings (GET of the gate 2xx) and refusals by
+  reason -- `anmeldung` (401), `zu_gross` (413), `zu_viele` (429), `ziel`
+  (5xx), `inhalt` (any other POST); templates and reading by `ref` are not
+  counted. Last delivery, ping and refusal. 30 days kept;
+  `gate-stats.json` beside `gates.json` (0644, no secret). Only a gate
+  `gates.json` knows is counted, so a forged field adds nothing.
+- **Events** `oaap.gate.delivery.accepted.v1` / `oaap.gate.delivery.refused.v1`
+  (platform types, publisher `node`, audience `tenant`, subject
+  `gate:<name>`, data `gate`, `status`, `reason`) -- one per delivery and
+  refusal, no payload, no access. The host keeps an outbox (at most 1000,
+  7 days) and hands it every minute to the twin's `/internal/bus/platform`
+  (`gate_events.py` in the twin's container, identity's rule: oldest
+  first, stop at the first the bus cannot take yet). (The names differ from
+  §7's sketch: a platform type has at least four parts, RFC-0127.)
+- **The light** (§7) now also: yellow on refusals today, yellow when a gate
+  used on at least three days is quiet for longer than three times its
+  usual gap (at least two days); green „in Gebrauch“ with deliveries. One
+  rule (`gates_view.light`) for the page and the twin.
+- **The ping** ends with „Zuletzt angenommen: <time> (gezaehlt jede
+  Minute)“ or „noch nie“; JSON `last_delivery`.
+- **The page** shows per gate today, 14 days, and the last delivery, ping
+  and refusal with its reason.
+- **The twin** (RFC-0088's tenant reader, `assets_model` 0.2.0): the node
+  answers for itself as `platform:tore` with the same rules as an app's
+  door -- a **gate** (state, light, target, delivered and refused today,
+  last delivery, last ping; a state series) and each valid **access**
+  (expiry; relation *opens* the gate). Every five minutes, with the run
+  that is there.
+
+**Measured on oaap-test** (tenant `vuebung`, gate `sap-support`, from
+outside through the edge with the existing access, 2026-11-26):
+
+| Step | Answer |
+|---|---|
+| ping, delivery, unknown field, wrong key | 200, 201 `V-2026-0026`, 422 `unbekannte Felder: prio`, 401 |
+| access log | the four lines carry `oaap_gate <tenant>/sap-support`, the 401 of forward_auth too |
+| `gate-stats.json` after the next minute | 1 delivered, 1 ping, refused `anmeldung` 1, `inhalt` 1, with times |
+| bus of the tenant | `…accepted.v1` (201), `…refused.v1` (422 `inhalt`, 401 `anmeldung`), `platform:node`, outbox empty |
+| page „Tore“ | „1 angenommen, 2 abgelehnt (Anmeldung 1, Inhalt 1), 1 Ping“; light yellow „heute 2 abgelehnt“ |
+| ping again | last line „Zuletzt angenommen: 2026-11-26T18:35:58Z (gezaehlt jede Minute)“ |
+| field editor on a gate `mess-2b` | saved: „Felder von „mess-2b“ gespeichert: 5 Felder, 3 Pflicht“; without title: „Felder: genau ein Feld geht in den Titel.“; bad name: „Feldname „prio x“: …“; refusals in the tenant log; gate removed |
+| twin of `vuebung` | `platform:tore/gate/sap-support` with light yellow, state idle, target, 2 delivered / 2 refused today, last delivery and ping; `…/access/sap-support · Messung Claude` |
+
+**Not here:** the access and the case number of a delivery (the log has
+neither; they are in the case); a rate limit per access.
+
 ## Non-goals
 
 - Storing payloads on the platform.
@@ -426,3 +508,35 @@ SM59-Angaben; Knoten und identity sehen nur den Hash. Auf oaap-test gemessen
 danach 401. Befund: die Rückmeldungen sind noch die englischen Sätze der
 Kommandozeile. Noch offen (2b): Felder auf der Seite, Zwilling, Ereignisse,
 Zählungen.
+
+## Deutsche Zusammenfassung (Nachtrag: Stufe 2b, D10)
+
+**D10 entschieden (Jörg, 26.11., wie empfohlen):** Gezählt wird aus dem
+**Zugriffsprotokoll** des Gateways, das der Knoten ohnehin jede Minute
+liest. Am Lieferweg ändert sich nichts, und jede künftige Zielart wird gleich
+gezählt; dafür bis zu einer Minute Verzug, kein Zugang und keine
+Vorgangsnummer (die stehen im Vorgang).
+
+**Stufe 2b gebaut (26.11., Referenz 0.1.385, nicht gepusht):**
+- **Felder auf der Seite:** ein Feld-Editor je Tor, geprüft vom Knoten mit
+  derselben Regel wie `--fields`.
+- **Deutsche Sätze:** Jede Absage und jede Bestätigung der Seite ist
+  deutsch, aus einer Tabelle. Ein Test hält jede Absage der Kommandozeile
+  dagegen.
+- **Zählung:** Jede Anfrage eines Tors ist im Protokoll markiert. Je Tor und
+  Tag zählt der Knoten Annahmen, Pings und Ablehnungen nach Grund (Anmeldung,
+  Inhalt, zu groß, zu viele, Ziel), dazu die letzte Annahme, den letzten Ping
+  und die letzte Ablehnung. 30 Tage, gefälschte Markierungen zählen nicht.
+- **Ereignisse:** `oaap.gate.delivery.accepted.v1` und `…refused.v1`, je
+  Lieferung und Ablehnung, ohne Nutzlast, freigebbar wie andere Typen des
+  Mandanten.
+- **Ampel:** zusätzlich gelb bei Ablehnungen heute oder wenn ein regelmäßig
+  benutztes Tor ungewohnt still ist.
+- **Ping:** nennt die letzte Annahme. Die **Seite** zeigt heute, 14 Tage und
+  das Zuletzt.
+- **Zwilling:** Tor und Zugänge als Assets des Mandanten, mit Ampel, Ziel,
+  heutigen Zahlen und letzter Annahme.
+
+Auf oaap-test von außen gemessen (§14): Lieferung, Ablehnungen, Zählung,
+Ereignisse im Bus, Seite, Ping, Feld-Editor und Zwilling, alle wie
+vorgesehen.
