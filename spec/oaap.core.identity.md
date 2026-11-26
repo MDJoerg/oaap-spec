@@ -1,7 +1,7 @@
 # oaap.core.identity — Identity & Roles
 
 - **ID:** `oaap.core.identity`
-- **Version:** 0.6.15 (0.6.15: **an agent's assertion** -- fixed claims on a machine principal (`oaap machine propagate`) and the door `/platform/assertion` on every instance site, answered by identity only for a key limited to that instance, §2.11.1; RFC-0134 D10 a, reference 0.1.382). 0.6.14 (0.6.14: the authorization request MAY carry **`login_hint`** (OIDC Core 3.1.2.1) -- taken from the start's own parameter or from the `login_hint` in the return target, passed only when it is a plain name (`[A-Za-z0-9][A-Za-z0-9._@+-]{0,99}`), otherwise silently dropped; it prefills the provider's name field and proves nothing; the chat's QR code for the phone carries the verified e-mail, reference 0.1.379). 0.6.13 (0.6.13: **people invited by an app** -- `/people/v1` behind the gateway's door `/platform/people`: invite, resend, lock, unlock, read; the record made before the first login, role `partner`, limits, audit; RFC-0126 stage 1, reference 0.1.366). Before: 0.6.12 (bootstrap: **machine principals do not count** as users -- an app installed before the first administrator no longer locks the first-run wizard, and the first administrator is added next to the machine principals, never written over them, §2.5; found on a laptop demo node, I-68; reference 0.1.356). 0.6.11 (the people's key door `POST /internal/keys` refuses keys for the platform's machine principals (`instance:`, `remote:`, `client:`) and any scope with a dot (a platform capability such as `oaap.twin`, `oaap.authz.admin`, `oaap.cases.submit:<x>`), for every actor, audited as `key.refused`; one exception, RFC-0120 D2: a `client:` principal of the actor's own tenant with scope exactly `oaap.twin` and role `user` only -- until then a tenant_admin could mint them and act as an app on the twin, the authorization door or the cases door; the platform mints such keys itself, RFC-0120 §1.6, reference 0.1.346). 0.6.10 (the via check of 2.13 also for `oaap.ai.client:<chat>`, RFC-0104 stage 2). 0.6.9 (a seventh header **`X-OAAP-User-Idp`**: the person's binding at the tenant's OIDC identity provider as `<issuer> <sub>`, empty without one -- on the one list, so stripped, copied and kept out of the log like the others, 2.14, reference 0.1.307, RFC-0095 D2). 0.6.8 (**every node has its assertion key**: made at installation, on every update and at every app installation, never replaced -- 2.11, reference 0.1.302). 0.6.7 (**the discovery door**: `/verify?discover=` passes a gateway's catalog requests to a source without a person, the body parsed as JSON, the app seeing the gateway's machine principal -- 2.12.1, RFC-0073 §16, reference 0.1.300). 0.6.6 (**a client-sent `X-OAAP-Groups`/`X-OAAP-Tenant` is
+- **Version:** 0.6.16 (0.6.16: **a gate's access** -- Basic with the key as password and the gate's user name, taken at a gate only; one check for ping, templates, delivery and reading, the same 401 for every failure; `sap-user` never read, §2.15; RFC-0135 stage 1, reference 0.1.383). 0.6.15 (0.6.15: **an agent's assertion** -- fixed claims on a machine principal (`oaap machine propagate`) and the door `/platform/assertion` on every instance site, answered by identity only for a key limited to that instance, §2.11.1; RFC-0134 D10 a, reference 0.1.382). 0.6.14 (0.6.14: the authorization request MAY carry **`login_hint`** (OIDC Core 3.1.2.1) -- taken from the start's own parameter or from the `login_hint` in the return target, passed only when it is a plain name (`[A-Za-z0-9][A-Za-z0-9._@+-]{0,99}`), otherwise silently dropped; it prefills the provider's name field and proves nothing; the chat's QR code for the phone carries the verified e-mail, reference 0.1.379). 0.6.13 (0.6.13: **people invited by an app** -- `/people/v1` behind the gateway's door `/platform/people`: invite, resend, lock, unlock, read; the record made before the first login, role `partner`, limits, audit; RFC-0126 stage 1, reference 0.1.366). Before: 0.6.12 (bootstrap: **machine principals do not count** as users -- an app installed before the first administrator no longer locks the first-run wizard, and the first administrator is added next to the machine principals, never written over them, §2.5; found on a laptop demo node, I-68; reference 0.1.356). 0.6.11 (the people's key door `POST /internal/keys` refuses keys for the platform's machine principals (`instance:`, `remote:`, `client:`) and any scope with a dot (a platform capability such as `oaap.twin`, `oaap.authz.admin`, `oaap.cases.submit:<x>`), for every actor, audited as `key.refused`; one exception, RFC-0120 D2: a `client:` principal of the actor's own tenant with scope exactly `oaap.twin` and role `user` only -- until then a tenant_admin could mint them and act as an app on the twin, the authorization door or the cases door; the platform mints such keys itself, RFC-0120 §1.6, reference 0.1.346). 0.6.10 (the via check of 2.13 also for `oaap.ai.client:<chat>`, RFC-0104 stage 2). 0.6.9 (a seventh header **`X-OAAP-User-Idp`**: the person's binding at the tenant's OIDC identity provider as `<issuer> <sub>`, empty without one -- on the one list, so stripped, copied and kept out of the log like the others, 2.14, reference 0.1.307, RFC-0095 D2). 0.6.8 (**every node has its assertion key**: made at installation, on every update and at every app installation, never replaced -- 2.11, reference 0.1.302). 0.6.7 (**the discovery door**: `/verify?discover=` passes a gateway's catalog requests to a source without a person, the body parsed as JSON, the app seeing the gateway's machine principal -- 2.12.1, RFC-0073 §16, reference 0.1.300). 0.6.6 (**a client-sent `X-OAAP-Groups`/`X-OAAP-Tenant` is
   stripped** on every app route, 2.6; 0.6.5: **a bearer that is not ours** goes to the app when a
   session comes with it, 2.3, I-44; 0.6.4: **a chat acts as the person**, procedure A,
   RFC-0074 stage 1: `/verify?via=`, 2.13, and procedure I takes the
@@ -863,6 +863,41 @@ with the node's connector credential.
   `people.unlock`, with the instance and the result, refusals included.
 
 
+### 2.15 A gate's access (0.6.16, RFC-0135 stage 1)
+
+A **gate** is a named way in of one tenant, `/gate/<name>` on the tenant's
+place (RFC-0135 §2). The gates live in a file the node owns (`gates.json`,
+read-only for identity); each **access** is a machine principal with one key
+whose scope is exactly `oaap.gate:<tenant>/<name>`.
+
+- **Basic is taken here and nowhere else.** At a gate the credential is either
+  `Authorization: Bearer <key>` or `Authorization: Basic base64(user:key)` --
+  the password is the key, the user is the gate's user name (by default the
+  gate's name). A Basic password that is not in the platform's key form is no
+  gate credential. On every other path Basic stays the app's business (the
+  rule of I-44 for foreign bearers).
+- **One rule, one function** (`gate_access`): the gate exists in the tenant
+  the gateway names; the key is valid, its scope is exactly this gate's (an
+  unlimited key or one of an instance or of another gate does not pass); the
+  principal is a machine of the same tenant; with Basic the user name matches.
+  Every failure gives the **same** answer -- `401`, short text (or JSON on
+  `Accept: application/json`), `WWW-Authenticate: Basic realm="OAAP-Tor
+  <name>"` -- so an address tells a stranger nothing (D6).
+- A client's **`sap-user`** header (SM59 sends it) is never read: it says what
+  SAP believes, not who calls.
+- **The gate door** `/gate-door/<name>[/template]`: reached only from the
+  gateway's block on the tenant's place, which names the tenant in
+  `X-OAAP-Gate-Tenant` (and the target in `X-OAAP-Gate-Target`) after stripping
+  what a client sent. `GET` on the address is the **ping** (RFC-0135 §4), `GET
+  .../template?form=sample|placeholders|fields` the templates (§5), both after
+  the check above. Anything else that reaches the door (a delivery to a gate
+  without a target) is `503` after the check.
+- **`/verify?gate=<tenant>/<name>`** (forward_auth of a delivery and of a
+  reading by `ref`): the same check; on success `204` with the identity
+  headers of the principal (no assertion -- a key is not a person) plus
+  `X-OAAP-Gate-Access` (the principal) and `X-OAAP-Gate-Label` (the key's
+  label, percent-encoded).
+
 - Session secret and setup token are generated at install time
   (`oaap.core.host`); the user store lives in the platform data
   directory and is included in platform backups (future
@@ -1382,3 +1417,17 @@ etwa wenn der QR-Code des Chats die Adresse samt `?login_hint=` trägt. Nur ein
 schlichter Name passiert, alles andere fällt still weg, die Anmeldung läuft trotzdem.
 Keycloak füllt damit nur das Namensfeld vor. Kennwort, `state`, `nonce` und PKCE
 bleiben, wie sie sind (Referenz 0.1.379).
+
+## Deutsche Zusammenfassung (Nachtrag 0.6.16 — der Zugang eines Tors, RFC-0135 Stufe 1)
+
+Ein **Tor** ist ein benannter Weg in einen Mandanten (`/gate/<name>` auf dem
+Ort des Mandanten). Jeder **Zugang** ist ein Maschinenkonto mit einem
+Schlüssel, der genau auf dieses Tor beschränkt ist. identity nimmt am Tor
+**Basic** an – Passwort = Schlüssel, Benutzer = Benutzername des Tors – und
+nur dort; sonst bleibt Basic Sache der App. Eine Regel in einer Funktion: Tor
+im Mandanten vorhanden, Schlüssel gültig und genau für dieses Tor, Maschine
+desselben Mandanten, bei Basic der richtige Benutzer. Jeder Fehlschlag gibt
+dieselbe kurze 401 – ein unbekanntes Tor sieht aus wie ein falscher
+Schlüssel. Die Kopfzeile `sap-user` aus SM59 wird nie gelesen. Ping und
+Vorlagen beantwortet identity selbst; Lieferung und Lesen nach `ref` prüft
+`/verify?gate=` und nennt den Zugang.

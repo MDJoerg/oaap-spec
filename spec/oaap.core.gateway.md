@@ -1,7 +1,7 @@
 # oaap.core.gateway — HTTP Gateway (outline)
 
 - **ID:** `oaap.core.gateway`
-- **Version:** 0.2.24 (0.2.24: a kernel **without** MPTCP has no switch to set, and a container runtime refuses a container that asks for one -- there the gateway starts without it, since nothing on that kernel can negotiate MPTCP, section „Plain TCP listeners“; found on WSL2, I-68; reference 0.1.356). 0.2.23 (0.2.23: **login on every route** per instance -- an operator switch on the instance record makes every route of that instance ask identity, the manifest's `public` ones included, RFC-0092; 0.2.22: 0.2.22: **secret files refused** on every instance site -- see that section, RFC-0084)
+- **Version:** 0.2.25 (0.2.25: **gates** -- a block `/gate/*` on the tenant's place: delivery and reading pass identity's gate check and go to the target with the gate's description in headers no client can set; ping and templates to identity; gate headers stripped on every instance site, section „Gates on the tenant's place“; RFC-0135 stage 1, reference 0.1.383). 0.2.24 (0.2.24: a kernel **without** MPTCP has no switch to set, and a container runtime refuses a container that asks for one -- there the gateway starts without it, since nothing on that kernel can negotiate MPTCP, section „Plain TCP listeners“; found on WSL2, I-68; reference 0.1.356). 0.2.23 (0.2.23: **login on every route** per instance -- an operator switch on the instance record makes every route of that instance ask identity, the manifest's `public` ones included, RFC-0092; 0.2.22: 0.2.22: **secret files refused** on every instance site -- see that section, RFC-0084)
 - **Maturity:** draft (outline — full specification to follow;
   an edge route covers **two** levels below its host (`*.*.host`), so a
   tenant's instances behind an edge are forwarded, 2026-11-07 after a
@@ -624,6 +624,35 @@ default is the kind of surface this spec exists to name.
 - Clients that offer MPTCP fall back to TCP without noticing; no
   function of the platform depends on it.
 
+## Gates on the tenant's place (0.2.25, RFC-0135 stage 1)
+
+A tenant with at least one gate gets one block `/gate/*` on every site of
+its place -- `<label>.<node>`, its own domain (RFC-0115), and the apex for the
+default tenant. Nothing else of the place changes.
+
+- **First, strip**: the gate headers (`X-OAAP-Gate-Tenant`, `-Target`,
+  `-Access`, `-Label`, `-Name`, `-Process`, `-Fields`) and the identity
+  headers, whatever a client sent. The gate headers are also stripped at site
+  level on **every instance site**, so the target can believe them.
+- **Body limit**: 64 KB (`413` above).
+- **Delivery and reading** (`POST /gate/<name>`, `GET|HEAD /gate/<name>/<ref>`),
+  only when the gate's process has a target: forward_auth to
+  `/verify?gate=<tenant>/<name>` (copying the identity headers and
+  `X-OAAP-Gate-Access`/`-Label`), then the path becomes
+  `/platform/cases/gate[/<ref>]` and goes to the target -- the tenant's
+  `vorgaenge` instance the process names, else its production one, never a
+  rehearsal, never another tenant's. The gateway adds `X-OAAP-Gate-Name`,
+  `-Tenant`, `-Process` and `-Fields` (base64url of compact JSON, written
+  from the gate's record) and the source headers with `gate:<name>` as the
+  instance and `gate` as the app; the `Authorization` header (the key) does
+  not travel on.
+- **Ping and templates** (`GET|HEAD /gate/<name>`, `/gate/<name>/template`),
+  and everything else under `/gate/`: to identity's gate door with the tenant
+  and the target key in headers. An unknown gate goes there too and gets the
+  answer of a wrong key.
+- The block is rewritten with the place sites whenever a gate, a process or
+  the instances change.
+
 ## Dependencies
 
 `oaap.core.identity`
@@ -992,3 +1021,14 @@ Instanzsatz, nie im Manifest). Dann fragt jede Route dieser Instanz die
 Anmeldung ab, auf jedem Eingang, auch die Routen, die das Paket als
 `public` erklärt. Routen mit Rollen, `/auth/*`, die `/platform/*`-Blöcke
 und Türen mit eigenem Schlüssel bleiben unverändert (RFC-0092).
+
+## Deutsche Zusammenfassung (Nachtrag 0.2.25 — Tore, RFC-0135 Stufe 1)
+
+Hat ein Mandant ein Tor, bekommt jede Site seines Ortes einen Block
+`/gate/*`. Zuerst werden die Tor- und die Identitäts-Kopfzeilen gestrichen
+(die Tor-Kopfzeilen auch auf jeder Instanz-Site), Inhalte über 64 KB
+abgelehnt. Eine Lieferung (`POST`) und das Lesen nach `ref` fragen identity
+(`/verify?gate=`) und gehen dann an `/platform/cases/gate` der
+`vorgaenge`-Instanz des Mandanten – mit der Beschreibung des Tors in
+Kopfzeilen, die kein Client setzen kann, ohne den Schlüssel. Ping, Vorlagen
+und alles Unbekannte unter `/gate/` beantwortet identity.

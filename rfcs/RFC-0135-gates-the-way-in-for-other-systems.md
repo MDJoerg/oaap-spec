@@ -1,7 +1,9 @@
 # RFC-0135: Gates — The Way In for Other Systems
 
 - **Status:** **Accepted (2026-11-26)** — D1–D9 decided by Jörg one at a time,
-  all as recommended (§9). Nothing built; stage 0 (SM59) next.
+  all as recommended (§9). Stage 0: SM59 ping measured (§11). **Stage 1 built
+  (2026-11-26, reference 0.1.383, `vorgaenge` 0.21.0), measured on oaap-test
+  (§12), not pushed.** Stage 2 (page, twin) next.
 - **Date:** 2026-11-26
 - **Authors:** Jörg (the need: "eine Verwaltung, wo wir die Trigger/Tore pflegen
   und auch Zuordnungen von Tor zu Vorgangstyp + Agenten … später eine 1:n
@@ -246,6 +248,66 @@ is a plain GET on the path prefix (D6), and `sap-user` must be ignored, never
 read as an identity. Open: the POST from ABAP (template and form fields) —
 Jörg, later.
 
+## 12. Stage 1 built (2026-11-26)
+
+**What there is** (reference 0.1.383, `vorgaenge` 0.21.0; specs
+`oaap.core.identity` 0.6.16 §2.15, `oaap.core.gateway` 0.2.25):
+
+- `gates.py`, one module for the field list, the three templates, the check
+  of a delivery and the ping text -- shared by appctl and identity and copied
+  verbatim into `vorgaenge` (a test holds the two copies equal).
+- `gates.json` beside `tenants.json` (owned by the node, read-only for
+  identity): gates (name, user name, process, fields) and processes (kind
+  `case`, queue, case kind, instance, label).
+- `oaap gate list|show|add|remove|process|access|revoke` (CLI first, D1). An
+  access is a machine principal `gate-<name>-<n>` with one key limited to
+  `oaap.gate:<tenant>/<name>`; `access` prints the key once together with the
+  SM59 parameters. Every change is audited (`gate.create`, `gate.process`,
+  `gate.access`, `gate.revoke`, `gate.remove`).
+- identity: Basic with the key as password at gates only, one check
+  (`gate_access`) for ping, templates, delivery and reading, the same 401 for
+  every failure, `sap-user` never read.
+- gateway: a `/gate/*` block on the tenant's place (label host, own domain,
+  apex for the default tenant); gate headers stripped there and on every
+  instance site (cases block format 13).
+- `vorgaenge`: `/platform/cases/gate` -- checks the delivery against the field
+  list in the attested header, creates the case in the process's queue with
+  the access as reporter, keeps the technical fields, one case per `ref` and
+  access (also after closing), `GET .../<ref>` reads number, status and the
+  last answer; JSON or `number=`/`ref=` lines.
+
+**Measured on oaap-test** (tenant `vuebung`, gate `sap-support`, process to
+`vuebung-vorgaenge`, from outside through the edge, 2026-11-26):
+
+| Call | Answer |
+|---|---|
+| no login / wrong key / right key with wrong user / unknown gate | 401, the same sentence |
+| ping with Basic and SM59's headers (`sap-user: MMUSTER`) | 200, ping text; `sap-user` ignored |
+| ping with Bearer and `Accept: application/json` | 200, JSON |
+| templates `placeholders`, `fields` | 200 |
+| POST JSON with an unknown field | 422 `unbekannte Felder: prio` |
+| POST JSON | 201 `V-2026-0016` |
+| the same `ref` again | 200, the same number, `existing` |
+| POST form fields, `?answer=text` | 201, `number=V-2026-0017` / `ref=…` |
+| GET `/<ref>?answer=text` | 200, number, status, updated, answer |
+| GET a foreign `ref` | 404 |
+| POST > 64 KB | 413 |
+| POST with forged `X-OAAP-Gate-*` headers | 201 -- the case names the real access |
+| the gate's key at the `vorgaenge` instance site | 404, never reaches the app |
+
+**Finding, fixed in the same stage:** a client that sent `ü` as Latin-1
+(`%FC`, Windows curl) was stored with a replacement character, silently. Now
+the gate decodes UTF-8 strictly, or ISO-8859-1 when the Content-Type says
+`charset=iso-8859-1`; anything else is refused with a sentence that names the
+way out. The placeholder template and the ping say so. Measured after the fix:
+without charset 400 with the hint, with `charset=iso-8859-1` 201 and `Prüfung`
+stored, UTF-8 201 and `Prüfung` stored. For SAP: send UTF-8, or name the
+charset.
+
+**Not yet:** the POST from ABAP (Jörg's side, steps prepared); stage 2 (portal
+page „Tore“, twin assets, events, light, „last delivery“ in the ping); a rate
+limit per access beyond the case app's 600 per gate and hour.
+
 ## Non-goals
 
 - Storing payloads on the platform.
@@ -290,3 +352,15 @@ Absender; D5 JSON und Formularfelder, unbekannte Felder abgelehnt; D6 Ping nur
 mit gültigem Zugang, gleiche 401 für unbekanntes Tor und falschen Schlüssel; D7
 Tor und Prozess getrennt (1:n); D8 Zwilling, Ereignisse und Ampel; D9 JSON und
 auf Wunsch Textzeilen.
+
+**Stufe 1 gebaut (26.11., Referenz 0.1.383, `vorgaenge` 0.21.0, nicht
+gepusht):** Tore werden mit `oaap gate` verwaltet (Prozess, Tor, Zugang,
+Sperren, Entfernen). Ein Zugang ist ein Maschinenkonto mit einem Schlüssel nur
+für dieses Tor. Die Plattform beantwortet Ping und Vorlagen und prüft die
+Anmeldung (Basic mit Schlüssel als Passwort oder Bearer). Die Lieferung geht
+mit beglaubigten Kopfzeilen an `vorgaenge`; dort wird gegen dieselbe Feldliste
+geprüft und der Vorgang angelegt, einmal je `ref`. Lesen nach `ref` gibt
+Nummer, Status und die letzte Antwort. Auf oaap-test von außen gemessen (§12),
+alle Fälle wie vorgesehen. Befund, gleich behoben: Umlaute in Latin-1 wurden
+still verfälscht; jetzt gilt UTF-8 streng oder `charset=iso-8859-1`, sonst
+eine klare Ablehnung.
