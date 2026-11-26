@@ -757,7 +757,7 @@ to the pinned target. The gateway only proves on whose behalf it calls.
 - **The light** is the operator's: a demo system with demo data `yellow`,
   customer systems `red` by default (decision P5).
 
-#### 3.10.1 Procedure P for an agent (0.44.0, RFC-0134 D10 a; mcp-gateway 0.52.0)
+#### 3.10.1 Procedure P for an agent (0.44.0, RFC-0134 D10 a; mcp-gateway 0.52.0, 0.52.1)
 
 - A server entry with `auth propagate` MAY hold a **credential**: the platform
   key of an agent (a machine principal with fixed claims, identity 2.11.1),
@@ -775,6 +775,10 @@ to the pinned target. The gateway only proves on whose behalf it calls.
   with the agent (no person needed).
 - Measured as procedure `P`; the backend user is the agent's (`sap_user` of its
   fixed claim), visible in connect's audit `destination.propagation.issue`.
+- **Which server needs a person (0.52.1):** X, I, P and U — except P with an
+  agent's platform key (`oaapk_…`). Such an entry keeps its key on a later save
+  without a new one, may stand in a view that takes keys (a specialist's view),
+  and its catalog is read with the agent. Any other credential on P is refused.
 
 ### 3.11 Renaming a server (0.12)
 

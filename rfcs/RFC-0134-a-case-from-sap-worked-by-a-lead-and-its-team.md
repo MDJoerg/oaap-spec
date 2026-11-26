@@ -2,8 +2,8 @@
 
 - **Status:** **Accepted (2026-11-26)** — D1–D9 decided by Jörg one at a time,
   eight as recommended; D8 with the random sample (b) (§10). Nothing built.
-  **Stage 0:** M1 and M3 measured 2026-11-26 (§12); M2 waits for a choice of
-  way, M4 is Jörg's side.
+  **Stage 0:** M1, M2 and M3 measured 2026-11-26 (§12); M4 (SAP sends the
+  POST) is Jörg's side.
 - **Date:** 2026-11-25
 - **Authors:** Jörg (the need: "wir starten einen Prozess aus unserem Chat per
   MCP im SAP … Falls wir mal keine Lösung haben, wollen wir durch KI die
@@ -391,6 +391,33 @@ holds the agent's key and fetches the assertion when no person is on the call
 — a person always goes first. Tests: mcp-gateway 593 (+6), reference
 `test_propagation` +14 checks, seven reference files green in the Linux
 runner. Not rolled out; M2 itself still needs the SAP user in `a4h`.
+
+**M2 measured (2026-11-26, `bec` on oaapx01 0.1.382, `bec-tools` 0.52.1).**
+Jörg created the SAP user `ERC_SPZ_TEST` in `a4h`. Set up: machine principal
+`spz-test` in `bec` with `oaap machine propagate … --set sap_user=ERC_SPZ_TEST`,
+a key limited to `bec-tools` (30 days), held sealed by the server entry
+`spz-erc-read` (`destination:sap-a4h/zmcp2/erc/read`, `auth propagate`); view
+`spz-test` (ways `key`, read) with the six read tools; a view key as the
+specialist would hold it.
+- `/platform/assertion` with the agent's key: 200, audience `bec-tools`, `usr
+  spz-test`, `prop {sap_user: ERC_SPZ_TEST}`; a client-sent query is ignored
+  (still `bec-tools`); no key: 401.
+- The catalog of `spz-erc-read` was read **as the agent**: 6 tools.
+- With the view key: `get_statistics` and `search_incidents` returned real
+  data from `a4h` (769 ms, 293 ms), measured as procedure `P`, outcome `ok`.
+- connect's audit: `destination.propagation.issue sap-a4h … backend
+  ERC_SPZ_TEST`, actor `spz-test`.
+
+Found on the way and fixed in **mcp-gateway 0.52.1** (pushed on Jörg's word):
+the gateway dropped any credential of a `propagate` entry, and refused a
+person-kind server in a view that takes keys — both written for persons only.
+Now one rule, `needs_person`: X, I, P and U need a person, except P with an
+agent's platform key (`oaapk_…`); any other credential on P stays refused.
+Tests 596/0.
+
+Open finding: the gateway's usage row has an empty `user_sub` for the agent's
+calls (only connect's audit names the agent). A later step should record the
+agent (for example `agent:spz-test`) on the row.
 
 **M4 — SAP sends the POST:** Jörg's side, open.
 
