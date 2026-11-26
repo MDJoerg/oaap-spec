@@ -1,7 +1,8 @@
 # RFC-0134: A Case From SAP, Worked by a Lead and Its Team of Specialists
 
-- **Status:** Draft (2026-11-25) — D1–D9 open (§10), to be decided one at a time.
-  Nothing built.
+- **Status:** **Accepted (2026-11-26)** — D1–D9 decided by Jörg one at a time,
+  eight as recommended; D8 with the random sample (b) (§10). Nothing built;
+  stage 0 next.
 - **Date:** 2026-11-25
 - **Authors:** Jörg (the need: "wir starten einen Prozess aus unserem Chat per
   MCP im SAP … Falls wir mal keine Lösung haben, wollen wir durch KI die
@@ -212,7 +213,8 @@ A case can carry the mark **„zur Prüfung“** with a reason. It is set by:
 
 - the lead, through its tool, when it judges so;
 - the platform, without asking the lead: closed without any write; a limit
-  reached; a write that ran under a lifted approval; (D8: plus a sample of N %);
+  reached; a write that ran under a lifted approval; and a **random sample** of
+  the cases the lead closed (D8: share per queue, a tenant setting, default 10 %);
 - a person of the queue, by hand.
 
 Marked cases have their own list in the queue. A **review** is an entry type
@@ -239,30 +241,40 @@ Each with a recommendation; to be decided one at a time.
   and the MCP door, so every trigger files the same way (§3a) (recommended);
   (b) a small OAAP app (for example Node-RED) as the only relay that uses the
   backend door; (c) widen the backend door to machine principals.
+  → **Decided 2026-11-26: (a)** (Jörg).
 - **D2 What SAP gets back.** (a) the number at once, then it reads the status by
   `ref`; the solution itself goes into SAP through the MCP write (recommended);
   (b) additionally a webhook to SAP on every status change, in the first stage.
+  → **Decided 2026-11-26: (a)** (Jörg).
 - **D3 The lead.** (a) a specialist with the switch „leitet“ and a team list
   (recommended); (b) a separate orchestrator app.
+  → **Decided 2026-11-26: (a)** (Jörg).
 - **D4 Tasks.** (a) a new entry pair `task`/`task_result`, whole view of the
   tasked specialist, one result, depth one, one task at a time, 8 per case
   (recommended); (b) the same with tasks running in parallel; (c) sub-cases per
   task.
+  → **Decided 2026-11-26: (a)** (Jörg).
 - **D5 Whose SAP rights.** (a) a technical SAP user per specialist, one SAP MCP
   server entry per user (recommended); (b) the responsible person's rights
   through principal propagation — an RFC of its own.
+  → **Decided 2026-11-26: (a)** (Jörg).
 - **D6 Writing the solution into SAP.** (a) always a signed approval by a person
   in the first stages; lifting per tool and lead only later and by the tenant
   administrator (recommended); (b) lifted from the start for the solution tool.
+  → **Decided 2026-11-26: (a)** (Jörg).
 - **D7 Closing.** (a) the lead closes cases from external senders with proof,
   mark `closed_by_lead`; persons as reporters unchanged (recommended); (b) the
   lead only proposes, a person closes.
+  → **Decided 2026-11-26: (a)** (Jörg).
 - **D8 The review mark.** (a) set by the lead, by fixed platform rules and by
   persons; reviewed by a person or a reviewer specialist; „Nacharbeit“ reopens
   (recommended); (b) the same plus a random sample (N % of closed cases);
   (c) persons only.
+  → **Decided 2026-11-26: (b)** (Jörg): (a) plus a random sample of the cases
+  the lead closed; the share is a tenant setting per queue, default 10 %.
 - **D9 Where the agents' conversation lives.** (a) in the case only, the chat
   links to it (recommended); (b) additionally a chat conversation per case.
+  → **Decided 2026-11-26: (a)** (Jörg).
 
 ## 11. Stages
 
@@ -324,5 +336,12 @@ Vieles steht schon aus RFC-0105. Neu sind vier Dinge: eine Tür für fremde
 Systeme, der Leiter mit Aufträgen, das Schließen durch den Leiter und das
 Prüfmerkmal. Stufe 0 misst vorher in `bec`, ob der SAP-Schlüssel die Tür
 erreicht, ob ein Spezialist mit eigenem SAP-Benutzer die SAP-Werkzeuge
-erreicht und ob ein Modell dort zehn Werkzeugschritte trägt. D1–D9 sind offen
-und werden einzeln entschieden.
+erreicht und ob ein Modell dort zehn Werkzeugschritte trägt.
+
+**Entschieden am 26.11. (Jörg, einzeln):** D1 neue Tür mit Referenz-ID für jeden
+Auslöser; D2 sofort die Nummer, SAP fragt nach, Lösung per MCP nach SAP; D3 der
+Leiter ist ein Spezialist mit Schalter „leitet“; D4 Aufträge nacheinander,
+höchstens 8 je Vorgang; D5 eigener technischer SAP-Benutzer je Spezialist; D6
+Schreiben nach SAP zunächst immer mit Freigabe; D7 der Leiter schließt mit
+Beleg; D8 Prüfung durch Leiter, Regeln und Menschen **plus Stichprobe** (Anteil
+je Bereich, Standard 10 %); D9 das Gespräch der Agenten steht nur im Vorgang.
