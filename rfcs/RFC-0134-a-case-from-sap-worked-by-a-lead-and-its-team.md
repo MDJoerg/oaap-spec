@@ -114,6 +114,24 @@ MCP call into SAP (§6), which is where SAP keeps knowledge. A push to SAP when
 the status changes (an event per RFC-0127, delivered as a webhook) is a later
 stage; until then SAP reads.
 
+### 3a. One door for every trigger (added 2026-11-26)
+
+SAP is the first sender, not the only one. Jörg (2026-11-26): the trigger can
+come from the chat, from a flow tool such as Node-RED (idea I-74), from a web
+form — "wir brauchen aber eine einheitliche Vorgehensweise und das sind unsere
+Vorgänge". So the door of §3 is written for **any** sender, not for SAP:
+
+- an **external system** (SAP) as a machine principal, as above;
+- an **app on the node** (a Node-RED instance, a form app) through the same
+  `ref`, read and note semantics — today's backend door (`OAAP_CASES_KEY`)
+  gains `ref` and reading, so an app does not need a second key;
+- the **chat**, which already files through the MCP door of `vorgaenge`
+  (`create_case`), gains the same `ref`.
+
+Whatever filed the case, the lead, the tasks, closing and review (§4–§8) are
+the same. The case is the one shape every automated piece of work takes in a
+tenant; the trigger only decides who is the reporter.
+
 ## 4. The lead (`spezialisten`)
 
 A lead is a specialist (RFC-0105 §2) with the switch **„leitet“**. It is the
@@ -215,9 +233,11 @@ a coloured dot (RFC-0103) — it does not hold a second copy (D9).
 
 Each with a recommendation; to be decided one at a time.
 
-- **D1 The door for SAP.** (a) a new door in `vorgaenge` for registered
-  external senders (machine principal, key scoped to the instance, `ref`
-  idempotent) (recommended); (b) a small OAAP app as a relay that uses the
+- **D1 The door for SAP and other triggers.** (a) a new door in `vorgaenge`
+  for registered external senders (machine principal, key scoped to the
+  instance, `ref` idempotent), and the same `ref` semantics on the backend door
+  and the MCP door, so every trigger files the same way (§3a) (recommended);
+  (b) a small OAAP app (for example Node-RED) as the only relay that uses the
   backend door; (c) widen the backend door to machine principals.
 - **D2 What SAP gets back.** (a) the number at once, then it reads the status by
   `ref`; the solution itself goes into SAP through the MCP write (recommended);
@@ -295,6 +315,10 @@ eines Menschen. Danach **schließt er den Vorgang selbst**, mit Beleg und dem
 neuen Merkmal „durch die Leitung“. Vorgänge können **„zur Prüfung“** markiert
 werden: vom Leiter, durch feste Regeln oder von Menschen. Eine Prüfung ergibt
 „in Ordnung“ oder „Nacharbeit“, und Nacharbeit öffnet den Vorgang wieder.
+
+Seit 26.11. (§3a) gilt die Tür nicht nur für SAP: Auch eine Node-RED-Instanz
+(I-74), ein Webformular oder der Chat legen Vorgänge mit derselben Referenz-ID
+an. Der Vorgang ist die eine Form jeder automatisierten Arbeit im Mandanten.
 
 Vieles steht schon aus RFC-0105. Neu sind vier Dinge: eine Tür für fremde
 Systeme, der Leiter mit Aufträgen, das Schließen durch den Leiter und das
