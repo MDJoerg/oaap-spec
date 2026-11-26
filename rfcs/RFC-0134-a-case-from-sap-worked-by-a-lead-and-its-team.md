@@ -1,9 +1,11 @@
 # RFC-0134: A Case From SAP, Worked by a Lead and Its Team of Specialists
 
 - **Status:** **Accepted (2026-11-26)** — D1–D9 decided by Jörg one at a time,
-  eight as recommended; D8 with the random sample (b) (§10). Nothing built.
+  eight as recommended; D8 with the random sample (b) (§10).
   **Stage 0:** M1, M2 and M3 measured 2026-11-26 (§12); M4 (SAP sends the
-  POST) is Jörg's side.
+  POST) is Jörg's side. **Stage 1** became gates (RFC-0135, built 2026-11-26).
+  **Stage 2 built 2026-11-26** (`vorgaenge` 0.22.0, `spezialisten` 0.7.0,
+  measured on oaap-test, §13).
 - **Date:** 2026-11-25
 - **Authors:** Jörg (the need: "wir starten einen Prozess aus unserem Chat per
   MCP im SAP … Falls wir mal keine Lösung haben, wollen wir durch KI die
@@ -293,7 +295,7 @@ Each with a recommendation; to be decided one at a time.
      `lokal` did not, RFC-0105 §13);
   4. SAP can send the POST (destination with TLS and bearer key) — Jörg's side.
 - **Stage 1 — the door** (§3): senders, filing with `ref`, reading, adding.
-- **Stage 2 — the lead and tasks** (§4, §5).
+- **Stage 2 — the lead and tasks** (§4, §5). Built 2026-11-26 (§13).
 - **Stage 3 — closing and review** (§7, §8).
 - **Stage 4 — end to end in `bec`** with a real unknown question: filed by SAP,
   worked by the lead and two specialists, the solution written into SAP after
@@ -425,6 +427,77 @@ agent (for example `agent:spz-test`) on the row.
 
 **M4 — SAP sends the POST:** Jörg's side, open.
 
+## 13. Stage 2 built (2026-11-26)
+
+`vorgaenge` 0.22.0 and `spezialisten` 0.7.0, on Jörg's word ("2").
+
+**`vorgaenge`.** A task is stored like a consultation (same table, column
+`kind = task`), so it reuses the one-answer rule, the wake-up and the
+"involved" read right, but it has its own limits and does not count against
+the consultation limits (3 to specialists, 2 specialist answers in a row).
+
+| Call | Who | Rule |
+|---|---|---|
+| `GET /api/spez/case/<n>` | a specialist who may read the case | adds `taskable` (only for the responsible one: every other specialist as name and user id, never a person), `tasks_used`, `tasks_max`, `tasks_open` (tasks addressed to me) |
+| `POST /api/spez/case/<n>/task {to, text, run, assistant}` | only the responsible specialist | one open task at a time; at most `VORGAENGE_TASKS_MAX` per case (tenant setting 1–8, default 8); refused after a stop; entry `task` (internal, numbered), sub-status `waiting_task` (set only by a task, not in the status form), target recorded as `tasked` and may read the case while it is open |
+| `POST /api/spez/case/<n>/answer {consult: seq, text}` | only the tasked specialist, once | entry `task_result` (internal); with nothing open the case returns to `in_progress` and the lead's turn comes |
+
+Depth one needs no extra rule: a tasked specialist is never responsible, so
+it can neither write steps nor give tasks.
+
+**`spezialisten`.** A specialist has the switch **„leitet“**, a **team** (names
+of other specialists of this app, checked on save; not itself) and **tasks per
+case** (1–8; the smaller of this and the tenant setting applies). The lead's run
+gets the tool `auftrag` (to, task) with exactly the team members `vorgaenge`
+allows, plus a lead frame; after a task the run ends with `waiting_task`. When
+the limit is reached the tool disappears and the frame tells the model to sum
+up and give back. A tasked run (`Run.task`) reads the case and the task as
+quoted data, uses its **whole view** in several steps within its own run limits,
+and writes exactly one result, listing the tools it used. **Deviation from §5,
+deliberately narrower:** in a task, a writing tool is not executed and not
+planned — the model is told so and describes the needed call in its result; the
+lead plans it and a person approves it (§6). One plan per case keeps one
+approval path.
+
+**Finding on oaap-test, fixed before release:** `vorgaenge` knows an agent by
+its principal's label (here "RFC-0134 Stufe 2: Beauftragter Recherche"),
+`spezialisten` by its own name ("Recherche (KI)"). Matching the team by name
+left the team empty. The team is now matched by the agent's **user id**
+(`spezialisten` learns it from each agent's first `turn`); the model still sees
+the names of this app.
+
+**Tests:** `vorgaenge` `test_tasks.py` new (25 checks: rules, limits, stop,
+depth one, separation from consultations, what persons and the reporter see);
+all ten `vorgaenge` test files green. `spezialisten` +18 checks (lead, wrong
+team member, waiting, tasked run with the whole view, a writing tool refused in
+a task, one result, the lead reads it and gives back, the reporter sees
+nothing); all green. `check-store`, `check-design` clean.
+
+**Measured on oaap-test** (tenant `vuebung`, both apps installed; a second agent
+`spez-recherche` with a key limited to the `vorgaenge` instance; both
+specialists on the AI gateway's `standard` alias = qwen3 4B on CPU; the lead's
+instruction a short playbook; the case delivered from outside through the gate
+`sap-support`, process pointed at queue `analyse` for the measurement and back
+to `eingang` afterwards):
+
+| What | Result |
+|---|---|
+| without a playbook (old RFC-0105 instruction) | the lead browsed other cases with its view tools and never tasked; the 10-minute limit ended the run, the case went back to the persons (V-2026-0021) |
+| with the playbook, case V-2026-0022 through the gate | lead's first run: one task to Recherche after 80 s, status `waiting_task`, run ended `waiting_task` |
+| tasked run | started on the next poll; the model call hit the 180 s timeout; exactly one `task_result` ("no result: … timeout") was written and the case returned to `in_progress` by itself |
+| lead's second run | read the result and gave a **second, more precise task** (now naming M_BEST_EKO, ACTVT 01, EKORG 1000) |
+| second tasked run, lead's third run | both timed out; the lead's run ended with an error entry and gave back to the persons (status `triage`) |
+
+So the platform side holds end to end with a real gate, real agents, real keys
+and a real model: task, waiting, wake-up, one result, limits and give-back. The
+**quality of the answers** is not measured: a 4B model on CPU is too slow for a
+tasked run with tool schemas. That part belongs to `bec` with the model of M3.
+
+Not yet in this stage: closing by the lead and the review mark (stage 3), and
+what Jörg's ideas of 2026-11-26 add (I-77 supervisor per agent, I-78 context
+JSON and playbook at the process). The playbook above is the first, informal
+form of I-78: the lead's instruction carries the rules of the process.
+
 ## Non-goals
 
 - Linking `reported_for` to a platform person (the person sees the case in the
@@ -464,6 +537,20 @@ Systeme, der Leiter mit Aufträgen, das Schließen durch den Leiter und das
 Prüfmerkmal. Stufe 0 misst vorher in `bec`, ob der SAP-Schlüssel die Tür
 erreicht, ob ein Spezialist mit eigenem SAP-Benutzer die SAP-Werkzeuge
 erreicht und ob ein Modell dort zehn Werkzeugschritte trägt.
+
+**Stufe 2 gebaut (26.11., §13):** Vorgänge 0.22.0 und Spezialisten 0.7.0. Ein
+Spezialist mit dem Schalter „leitet“ hat ein Team und gibt mit dem Werkzeug `auftrag`
+Teilaufgaben, immer nur eine zur Zeit und höchstens 8 je Vorgang (der Mandant kann
+weniger einstellen). Der Vorgang steht dann auf „wartet auf Auftrag“. Der Beauftragte
+liest mit seiner ganzen Sicht und liefert genau ein Ergebnis. Etwas ändern darf er im
+Auftrag nicht: Er beschreibt den nötigen Aufruf, und der Leiter legt ihn zur Freigabe
+vor. Das ist bewusst enger als §5. Auf oaap-test lief der Weg echt durch: Tor →
+Vorgang → Auftrag → Ergebnis → zweiter, genauerer Auftrag → Zurückgeben. Das lokale
+4B-Modell war für den Beauftragten zu langsam (Zeitlimit 180 s). Die Güte der
+Antworten misst erst bec. Befund und gleich behoben: Vorgänge und Spezialisten kennen
+denselben Agenten unter verschiedenen Namen, also gleicht das Team jetzt über die
+Benutzerkennung ab. Offen bleiben Stufe 3 (Schließen, Prüfmerkmal) und aus I-77/I-78
+die Führungskraft je Agent und das Kontext-JSON.
 
 **Entschieden am 26.11. (Jörg, einzeln):** D1 neue Tür mit Referenz-ID für jeden
 Auslöser; D2 sofort die Nummer, SAP fragt nach, Lösung per MCP nach SAP; D3 der
