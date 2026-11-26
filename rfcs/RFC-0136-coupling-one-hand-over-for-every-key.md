@@ -357,11 +357,27 @@ Measurement accesses revoked and open tickets withdrawn afterwards.
   line, file and link; the QR code (D1) comes with a short form (for
   instance only the browser link, or the redemption URL with the code).
 
+**F3 measured with Jörg (2026-11-26, 21:53–22:05 UTC):** two browser links
+of real tickets on oaap-test, one sent by Jörg to himself in **Teams**, one
+by mail from a private account to **Gmail**, both opened and looked at,
+neither clicked; the gateway's access log and the tickets read afterwards.
+
+| Channel | What reached the link | Ticket |
+|---|---|---|
+| Teams (chat with oneself) | one `GET` 7 s after sending, from 52.112.x (Microsoft), user agent `SkypeUriPreview Preview/0.5` -- the link preview | open |
+| Gmail (first mail) | nothing -- the mail did not arrive in the inbox (filtered; a `duckdns.org` link is a phishing signal) | open |
+| Gmail (forwarded again, arrived, opened) | nothing in 12 minutes -- Gmail fetches no link ahead (it proxies images only) | open |
+
+So a preview GETs once and spends nothing, as designed; nobody POSTed.
+**F7 Mail may not deliver a ticket link at all** when the address is a free
+dynamic-DNS name: a tenant's own domain is the address to hand over by mail.
+Both tickets withdrawn afterwards.
+
 **Not measured in stage 1:** a ticket with `pin` and `ca` against a real
 non-public address (every tenant on oaap-test is behind the edge with a
-public certificate; the pin form is held by the test against openssl); what
-Teams and Outlook (Safe Links) do with a link (F3, with Jörg, the door is now
-public on oaap-test); ABAP redeeming itself (Jörg).
+public certificate; the pin form is held by the test against openssl);
+Outlook / Microsoft 365 Safe Links (no such mailbox here -- a customer's);
+ABAP redeeming itself (Jörg).
 
 ## Non-goals
 
@@ -446,5 +462,12 @@ Befunde:
 - **F6:** Ein Ticket ist rund 940 Zeichen lang, mit Zertifikat rund 2 KB. Das
   ist zu groß für einen guten QR-Code. Der QR-Code kommt später mit einer
   kurzen Form.
+**F3 mit dir gemessen (26.11. abends):** Teams holt den Link einmal per GET
+für die Vorschau (Microsoft, `SkypeUriPreview`) und verbraucht nichts. Gmail
+holt gar nichts, weder beim Zustellen noch beim Öffnen. Die erste Mail kam
+gar nicht erst im Posteingang an. **F7:** Ein Link auf eine kostenlose
+`duckdns`-Adresse kann per Mail herausgefiltert werden; per Mail besser die
+eigene Domain des Mandanten verwenden.
 Noch nicht gemessen: ein Ticket mit `pin`/`ca` an einer echten nicht
-öffentlichen Adresse; Teams/Outlook (mit dir); ABAP (du).
+öffentlichen Adresse; Outlook/Microsoft 365 (kein solches Postfach hier);
+ABAP (du).
