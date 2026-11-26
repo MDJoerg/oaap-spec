@@ -234,7 +234,17 @@ path, headers without secrets, authentication scheme and user, body up to 4 KB)
 under `/gate/probe/log`. Checked from outside: 401 without login, ping 200,
 templates, POST JSON 201, POST form fields with text answer 201, unknown field
 422. Certificate chain: Let's Encrypt `YE1` → ISRG `Root YE` → `ISRG Root X2`
-→ `ISRG Root X1` (for STRUST). Waiting for the SM59 side.
+→ `ISRG Root X1` (for STRUST).
+
+**SM59 connection test measured (2026-11-26, a4h → probe):** one `GET
+/gate/probe`, **Basic sent pre-emptively** on the first request (no 401
+challenge needed), user `probe`, answered 200 with the ping text. SM59 adds
+`User-Agent: SAP NetWeaver Application Server (1.0;758)`, `sap-language: E` and
+`sap-user: probe`; no `Accept`. TLS with the Let's Encrypt chain worked. For the
+gate this means: Basic with the key as password works as designed (D3), the ping
+is a plain GET on the path prefix (D6), and `sap-user` must be ignored, never
+read as an identity. Open: the POST from ABAP (template and form fields) —
+Jörg, later.
 
 ## Non-goals
 
