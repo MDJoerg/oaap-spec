@@ -269,6 +269,51 @@ case("mcp_content braucht Manifest 0.19",
      app("0.18", mcp={"path": "/mcp"}, mcp_content={"untrusted": True}), False)
 case("mcp_content.untrusted 'ja' wird abgelehnt",
      app("0.19", mcp={"path": "/mcp"}, mcp_content={"untrusted": "ja"}), False)
+case("mcp_content ohne MCP-Tür wird abgelehnt",
+     app("0.19", mcp_content={"untrusted": True}), False)
+
+# Bis 2026-11-26 endete das Schema bei 0.19: zwölf echte Manifeste (0.20-0.23)
+# fielen durch, und niemand merkte es, weil validate.py nur ohne Dateien lief.
+print("\n=== 0.20: assistant_templates (oaap.apps.runtime 2.41, RFC-0119) ===")
+case("0.20 mit assistant_templates.path",
+     app("0.20", mcp={"path": "/mcp"}, assistant_templates={"path": "assistants/"}), True)
+case("assistant_templates braucht Manifest 0.20",
+     app("0.19", mcp={"path": "/mcp"}, assistant_templates={"path": "assistants/"}), False)
+case("assistant_templates ohne MCP-Tür wird abgelehnt",
+     app("0.20", assistant_templates={"path": "assistants/"}), False)
+case("assistant_templates.path mit .. wird abgelehnt",
+     app("0.20", mcp={"path": "/mcp"}, assistant_templates={"path": "../x"}), False)
+
+print("\n=== 0.21: events (oaap.apps.runtime 2.42, oaap.events.bus, RFC-0127) ===")
+EV = {"publishes": [{"type": "app.demo.order.created.v1", "title": "Auftrag angelegt",
+                     "schema": "events/order-created.json", "audience": "tenant"}],
+      "subscribes": [{"type": "app.cases.case.closed.v1", "why": "Auftrag abschließen"}],
+      "endpoint": "/oaap/events"}
+case("0.21 mit events", app("0.21", events=EV), True)
+case("events braucht Manifest 0.21", app("0.20", events=EV), False)
+case("events.publishes ohne schema wird abgelehnt",
+     app("0.21", events={"publishes": [{"type": "app.demo.order.created.v1", "title": "x"}]}), False)
+case("events.subscribes ohne why wird abgelehnt",
+     app("0.21", events={"subscribes": [{"type": "app.cases.case.closed.v1"}]}), False)
+case("events-Typ mit zu wenigen Teilen wird abgelehnt",
+     app("0.21", events={"subscribes": [{"type": "app.demo.v1", "why": "x"}]}), False)
+case("events.audience unbekannt wird abgelehnt",
+     app("0.21", events={"publishes": [dict(EV["publishes"][0], audience="alle")]}), False)
+
+print("\n=== 0.22: people (oaap.apps.runtime 2.43, RFC-0126) ===")
+case("0.22 mit people.invite", app("0.22", people={"invite": True}), True)
+case("people braucht Manifest 0.22", app("0.21", people={"invite": True}), False)
+case("people.invite 'ja' wird abgelehnt", app("0.22", people={"invite": "ja"}), False)
+
+print("\n=== 0.23: mcp_store (oaap.apps.runtime 2.32.7, RFC-0121) ===")
+case("0.23 mit mcp_store.kind",
+     app("0.23", mcp={"path": "/oaap/mcp"}, mcp_store={"kind": "bookstack"}), True)
+case("mcp_store braucht Manifest 0.23",
+     app("0.22", mcp={"path": "/oaap/mcp"}, mcp_store={"kind": "bookstack"}), False)
+case("mcp_store ohne MCP-Tür wird abgelehnt",
+     app("0.23", mcp_store={"kind": "bookstack"}), False)
+case("mcp_store.kind in Großbuchstaben wird abgelehnt",
+     app("0.23", mcp={"path": "/oaap/mcp"}, mcp_store={"kind": "BookStack"}), False)
 
 files = sys.argv[1:]
 if files:

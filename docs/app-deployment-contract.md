@@ -1,4 +1,4 @@
-# OAAP App Deployment Contract (draft v0.9.1)
+# OAAP App Deployment Contract (draft v0.10)
 
 **Audience:** developers and AI coding agents (Codex, Claude Code, …)
 building an app that will be deployed on an OAAP platform.
@@ -43,7 +43,7 @@ image on a security notice, and **closed tenants** whose instances
 reach the outside only through a destination (RFC-0068). It also says
 plainly that the **instance name is not the app id**. Found while
 preparing an external app (again BDT) for a rebuild: the briefing and
-the starter package handed to app agents still described September. v0.9.1 (2026-11-18): guarantee 1 names all **six** identity headers, says **no other `X-OAAP-*` header is identity** (no `X-OAAP-Groups`, no `X-OAAP-Tenant` — the gateway strips both since reference 0.1.296), and what an app receives with an **API key** and through an **MCP door**.
+the starter package handed to app agents still described September. v0.9.1 (2026-11-18): guarantee 1 names all **six** identity headers, says **no other `X-OAAP-*` header is identity** (no `X-OAAP-Groups`, no `X-OAAP-Tenant` — the gateway strips both since reference 0.1.296), and what an app receives with an **API key** and through an **MCP door**. v0.10 (2026-11-26) catches up with **manifest 0.16 to 0.23**: an app's own sign-in through its tenant's realm (`identity.oidc_client`), the **help it brings** (`docs`), the **setup door** (`setup`), **foreign content** behind an MCP door (`mcp_content`), **assistant templates** (`assistant_templates`), **events** published and received (`events`), **inviting people** (`people`) and the MCP door as a **store connector** (`mcp_store`); the seventh identity header `X-OAAP-User-Idp` in guarantee 1; plus the facts every instance is told (`OAAP_EGRESS`, `OAAP_IDENTITY_HEADERS`, `OAAP_PORTAL_URL`). Found when Jörg asked whether the Studio's briefing and starter package were current: they stopped at 0.18, the schema at 0.19, and the starter's own `docs.readers` value was one the node refuses.
 
 Give this document to your coding agent as a working instruction:
 "Make the app deployable on OAAP according to this contract."
@@ -81,7 +81,7 @@ schema rejects, and do not rely on that as a safety net.
 Example for a typical single-service web app:
 
 ```yaml
-oaap_manifest: "0.15"       # newest format; a node reads older ones too
+oaap_manifest: "0.23"       # newest format; a node reads older ones too
 
 app:
   id: montage-doku          # stable, lowercase, [a-z0-9-]
@@ -221,7 +221,7 @@ conformant provider MUST deliver them (pinned formally in the
 `oaap.apps.runtime` / `oaap.core.gateway` capability specs):
 
 1. **Identity headers cannot be spoofed.** The gateway strips **all
-   six** `X-OAAP-*` identity headers from every incoming client
+   seven** `X-OAAP-*` identity headers from every incoming client
    request on **all** routes — including `public` ones — and sets them
    itself after authentication. If the header is present, it is
    authentic.
@@ -230,8 +230,11 @@ conformant provider MUST deliver them (pinned formally in the
    in**. A route cannot be "public and additionally roles": as soon as a
    real role is declared next to `public`, login is required.
    **Read no other `X-OAAP-*` header as identity.** The platform sets
-   exactly six: `X-OAAP-User`, `X-OAAP-User-Id`, `X-OAAP-Roles`,
-   `X-OAAP-Display-Name`, `X-OAAP-Email`, `X-OAAP-User-Assertion`.
+   exactly seven: `X-OAAP-User`, `X-OAAP-User-Id`, `X-OAAP-Roles`,
+   `X-OAAP-Display-Name`, `X-OAAP-Email`, `X-OAAP-User-Assertion` and
+   `X-OAAP-User-Idp` (the person's binding at the tenant's identity
+   provider as `<issuer> <sub>`, empty without one; since reference
+   0.1.307). The list as this node has it is in `OAAP_IDENTITY_HEADERS`.
    There is **no `X-OAAP-Groups`** and **no `X-OAAP-Tenant`** — an app
    knows its tenant from its own instance, and groups are a platform
    visibility switch, not something an app is told. Since reference
@@ -540,7 +543,7 @@ both live in or next to your repository, not in chat sessions:
    artifact you tested, unchanged, so make sure the package you hand
    over is the one you mean.
 
-## What the platform offers your app (manifest 0.3–0.15)
+## What the platform offers your app (manifest 0.3–0.23)
 
 Every section below is **optional** and follows one rule: **the app
 declares, a person in the tenant grants, the app checks.** A
@@ -561,11 +564,27 @@ or nobody has granted it yet.
 | Offer tools to AI assistants | `mcp: {path: /mcp}` (≥ 0.11) | calls on behalf of the person asking | `oaap.apps.runtime` 2.32 |
 | Group the portal tile | `launchpad: {group: …}` (≥ 0.4) | — | `oaap.apps.runtime` 2.16 |
 | Survive security notices | `care: {rebuild: self}` (≥ 0.10) | a node that rebuilds for you | `oaap.apps.runtime` 2.31 |
+| Bring your help along | `docs` (≥ 0.17) | your folders in the tenant's help, read by its assistants | `oaap.apps.runtime` 2.36 |
+| Be set up by a tenant build | `setup: {path: …}` (≥ 0.18) | `OAAP_SETUP_KEY` | `oaap.apps.runtime` 2.39 |
+| Say your MCP door delivers foreign content (web pages, outside mail) | `mcp_content: {untrusted: true}` (≥ 0.19) | a gateway that proposes reading-only views | `oaap.apps.runtime` 2.32.6 |
+| Bring assistant templates for your tools | `assistant_templates: {path: assistants/}` (≥ 0.20, needs `mcp`) | your templates offered in the tenant | `oaap.apps.runtime` 2.41 |
+| Publish and receive events | `events: {publishes, subscribes, endpoint}` (≥ 0.21) | `OAAP_EVENTS_URL`, `OAAP_EVENTS_KEY` (`OAAP_EVENTS_SECRET` with an endpoint) | `oaap.apps.runtime` 2.42, `oaap.events.bus` |
+| Invite people into the tenant | `people: {invite: true}` (≥ 0.22) | `OAAP_PEOPLE_URL`, `OAAP_PEOPLE_KEY` | `oaap.apps.runtime` 2.43 |
+| Authenticate non-browser clients yourself (Git over HTTPS) | `identity: {oidc_client: …}` (≥ 0.16) | `OAAP_OIDC_ISSUER`, `OAAP_OIDC_CLIENT_ID`, `OAAP_OIDC_CLIENT_SECRET` | `oaap.apps.runtime` 2.35 |
 
 Sections for platform-near apps (`mcp_sources`, `mcp_client`,
-`ui_sandbox`, `link_state`, `assets`) are described in
-`oaap.apps.runtime` 2.32–2.34; an ordinary business app does not need
-them. `openapi` is reserved and refused.
+`ui_sandbox`, `link_state`, `assets`, `docs_sources`, `ai_client`,
+`ai_gateway`, `mcp_store`) are described in `oaap.apps.runtime`
+2.32–2.39; an ordinary business app does not need them. `openapi` is
+reserved and refused. A block added after 0.18 is a top-level block of
+its own, so an older node skips it instead of refusing the app.
+
+Three facts every instance is told, without declaring anything:
+`OAAP_EGRESS` (`closed` or `open` — stop offering what cannot work in a
+closed tenant, and say why), `OAAP_IDENTITY_HEADERS` (the identity
+headers this platform sets; believe no others) and `OAAP_PORTAL_URL`
+(the instance's own page in the portal, for a link from your admin
+page).
 
 ### The digital twin
 
@@ -635,7 +654,38 @@ role list.
   receives the same `X-OAAP-*` headers as on its pages and must check
   the same rights. Describe tools precisely — the gateway holds a
   tool's description and blocks it after a change until a person
-  confirms again.
+  confirms again. Mark a tool that only reads with the MCP annotation
+  `readOnlyHint: true`: an MCP gateway takes a tool without it as
+  writing (since `mcp-gateway` 0.53.0) and never puts it into a
+  reading-only view by default.
+
+### Events, invitations, setup, help (manifest 0.17–0.22)
+
+- **Events** (`events`, ≥ 0.21): declare each event you publish
+  (`type` like `app.<id>.<entity>.<what>.v1`, each part lower-case letters
+  and digits only, so `montage-doku` becomes `montagedoku`; `title`, a JSON `schema`
+  file in the package, `audience`: `tenant`, `addressed` or `listed`)
+  and each you want (`type`, `why`). Publish with `POST` to
+  `OAAP_EVENTS_URL` and `OAAP_EVENTS_KEY` as bearer; read granted
+  events from its `/feed`, or declare `endpoint` and the platform
+  pushes them there, signed with `OAAP_EVENTS_SECRET`. A tenant admin
+  grants each subscription; the declaration grants nothing.
+- **Inviting people** (`people: {invite: true}`, ≥ 0.22): your app asks
+  `OAAP_PEOPLE_URL` to invite someone by mail; the platform makes the
+  login (role `partner`, raised only by the tenant) and sends the mail.
+  The tenant's switch decides whether your app
+  may, and it is off by default — say so on your page instead of failing.
+- **Setup door** (`setup: {path: /oaap/setup}`, ≥ 0.18): a tenant build
+  (a recipe in the portal) sets your app up through this path with
+  `Authorization: Bearer <OAAP_SETUP_KEY>` and `X-OAAP-Setup-Actor`.
+  Ignore identity headers there and refuse every call without the key.
+- **Help** (`docs`, ≥ 0.17): name folders of Markdown in your package;
+  the node copies them into the tenant's help, where people and the
+  tenant's assistants read them. `readers` takes `end-user`,
+  `power-user`, `admin`, `developer`, `consultant`, `operator`.
+- **Assistant templates** (`assistant_templates`, ≥ 0.20): one JSON
+  recipe per file that builds an assistant on your MCP tools; an invalid
+  template is dropped with a reason and never fails the install.
 
 ## Recommendations (SHOULD)
 
@@ -773,3 +823,5 @@ Werkzeuge für KI-Assistenten im Namen der fragenden Person. **Pflege**:
 dem Knoten, bei Sicherheitsmeldungen selbst neu zu bauen. Und: Die
 **App-Kennung ist nicht der Instanzname** — den wählt, wer anlegt, und
 er ist umbenennbar; nie Namen oder Adressen in den Code schreiben.
+
+**Neu in v0.10 — Manifest 0.16 bis 0.23 nachgetragen:** eigene Anmeldung über den Realm des Mandanten für Clients ohne Browser (`identity.oidc_client`), **Hilfe mitbringen** (`docs`; `readers` nur end-user, power-user, admin, developer, consultant, operator), die **Einrichtungstür** (`setup`, `OAAP_SETUP_KEY`), **fremder Inhalt** hinter einer MCP-Tür (`mcp_content`), **Assistenten-Vorlagen** (`assistant_templates`, nur mit MCP-Tür), **Ereignisse** senden und empfangen (`events`, `OAAP_EVENTS_URL`/`_KEY`, Abo gewährt der Mandanten-Admin), **Personen einladen** (`people.invite`, Schalter des Mandanten standardmäßig aus) und die MCP-Tür als **Ablage-Anschluss** (`mcp_store`). Dazu drei Tatsachen, die jede Instanz bekommt: `OAAP_EGRESS`, `OAAP_IDENTITY_HEADERS`, `OAAP_PORTAL_URL`. Lesende MCP-Werkzeuge tragen `readOnlyHint: true` — ohne nimmt das MCP-Gateway sie seit 0.53.0 als schreibend. Anlass: Jörgs Frage, ob Briefing und Starter-Paket des Studios aktuell sind — sie endeten bei 0.18, das Schema bei 0.19.
