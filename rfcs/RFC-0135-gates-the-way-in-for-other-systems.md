@@ -1,7 +1,7 @@
 # RFC-0135: Gates — The Way In for Other Systems
 
-- **Status:** Draft (2026-11-26) — D1–D9 open (§9), to be decided one at a time.
-  Nothing built.
+- **Status:** **Accepted (2026-11-26)** — D1–D9 decided by Jörg one at a time,
+  all as recommended (§9). Nothing built; stage 0 (SM59) next.
 - **Date:** 2026-11-26
 - **Authors:** Jörg (the need: "eine Verwaltung, wo wir die Trigger/Tore pflegen
   und auch Zuordnungen von Tor zu Vorgangstyp + Agenten … später eine 1:n
@@ -178,25 +178,34 @@ Each with a recommendation; to be decided one at a time.
   route `/gate/<name>` on the tenant's place, the target is an app's door
   (recommended — one place for every way in, 1:n and the twin come with it);
   (b) inside `vorgaenge` only, as RFC-0134 §3 planned.
+  → **Decided 2026-11-26: (a)** (Jörg).
 - **D2 Address.** (a) `/gate/<name>` on the tenant's host (recommended — one
   certificate, one host in SM59 for all gates); (b) a host of its own per gate.
+  → **Decided 2026-11-26: (a)** (Jörg).
 - **D3 Logging in.** (a) Bearer and Basic with the key as password and the
   gate's user name, both per access (recommended); (b) Bearer only.
+  → **Decided 2026-11-26: (a)** (Jörg).
 - **D4 Accesses.** (a) one machine principal per access, its key limited to the
   gate, own label and expiry, several per gate (recommended); (b) one shared
   key per gate.
+  → **Decided 2026-11-26: (a)** (Jörg).
 - **D5 Payload.** (a) JSON and form fields, both checked against the field
   list; unknown fields refused with their names (recommended); (b) unknown
   fields kept as technical fields.
+  → **Decided 2026-11-26: (a)** (Jörg).
 - **D6 Ping and refusals.** (a) the ping text of §4 for a valid access; the same
   short 401 for an unknown gate and a wrong key (recommended); (b) a ping
   without login that only says "gate exists".
+  → **Decided 2026-11-26: (a)** (Jörg).
 - **D7 Gate and process.** (a) separate objects, a gate points to one process, a
   process has many gates (recommended); (b) the gate holds its target itself.
+  → **Decided 2026-11-26: (a)** (Jörg).
 - **D8 Transparency.** (a) twin asset per gate, events without payload, light on
   the portal page (recommended); (b) only a log on the gate page.
+  → **Decided 2026-11-26: (a)** (Jörg).
 - **D9 Answer format.** (a) JSON by default, `number=…`/`ref=…` lines on request
   (recommended); (b) JSON only.
+  → **Decided 2026-11-26: (a)** (Jörg).
 
 ## 10. Stages
 
@@ -248,5 +257,12 @@ Annahmen je Tag, Ablehnungen und Ablauf der Schlüssel, dazu Ereignisse ohne
 Nutzlast und eine Ampel auf der Portalseite „Tore“. Das RFC ersetzt RFC-0134
 §3/§3a (Absenderliste). Die Kopplungsdatei mit Einlösecode (I-76) kommt später
 als eigenes RFC und hängt sich an die Zugänge. Stufe 0 misst vorher mit einer
-echten SM59-Destination aus a4h. D1–D9 sind offen und werden einzeln
-entschieden.
+echten SM59-Destination aus a4h.
+
+**Entschieden am 26.11. (Jörg, einzeln, alle wie empfohlen):** D1 Tore als
+Plattformfähigkeit mit Portalseite „Tore“; D2 Adresse `/gate/<name>` am
+Mandanten; D3 Bearer und Basic (Schlüssel als Passwort); D4 ein Zugang je
+Absender; D5 JSON und Formularfelder, unbekannte Felder abgelehnt; D6 Ping nur
+mit gültigem Zugang, gleiche 401 für unbekanntes Tor und falschen Schlüssel; D7
+Tor und Prozess getrennt (1:n); D8 Zwilling, Ereignisse und Ampel; D9 JSON und
+auf Wunsch Textzeilen.
