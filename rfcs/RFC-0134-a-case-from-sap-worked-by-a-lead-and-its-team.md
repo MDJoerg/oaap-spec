@@ -592,6 +592,59 @@ gateway's 180 s timeout (4B on CPU, one call at a time, up to 6 min 49 s per
 call) -- an environment limit, not a rule. Not in this stage: the supervisor per agent
 and the context JSON from Jörg's ideas I-77/I-78.
 
+## 15. Stage 4 in `bec` (2026-11-26, in progress)
+
+**Decided with Jörg, one at a time:** the team is the lead plus three specialists —
+„Berechtigung (KI)“ (SAP authorisation tools `bc/access-support`, read), „Fallhistorie (KI)“
+(Error Center ERC, read) and **„Recherche (KI)“ (web search; the `recherche` app was added to
+`bec` for it, closer to §2)**; one technical SAP user per agent that touches SAP
+(`ERC_SPZ_LEAD`, `ERC_SPZ_BER`, `ERC_SPZ_HIS`, D5); the gate key goes to Jörg, who enters it in
+SM59 — and the whole setup must later be possible in the portal, because the people who set up
+interfaces have no CLI (RFC-0135 stage 2); approvals are Jörg's.
+
+**Set up on oaapx01 (0.1.383):** `spezialisten` and `recherche` in `bec`; gate `sap-support` →
+process → queue `sap-support` of `bec-vorgaenge`, access „SAP A4H 001“; one collection with a
+`case_handler` role in context `queue=sap-support`; four agents with `authz agent-add` — each is
+one machine principal, so the same identity appears in the case and, through `machine propagate
+sap_user=…` and a second key for `bec-tools`, in SAP's change documents; in `bec-tools` one
+`propagate` server entry per agent and SAP service and one view per specialist (the lead's up to
+`write` with `approval signed`, holding `propose_solution` and `add_analysis`); one AI key per agent
+(`claude-sonnet-5-5`, yellow). „Prüfen“ 12/12; the queue's first responder is the lead, light
+yellow.
+
+**Measured:**
+- Gate ping as SM59 does it: 200 with the diagnosis; wrong key 401.
+- connect issues each agent's own SAP user (`destination.propagation.issue … backend
+  ERC_SPZ_LEAD / ERC_SPZ_BER / ERC_SPZ_HIS`); SAP answers with ERC statistics, incidents and a
+  business-level answer of the BC tools.
+- **V-2026-0004** (Jörg's first POST from SAP, a placeholder text): the lead searched ERC, saw
+  nothing usable, marked the case for review and gave it back in 35 s — nothing invented.
+- **V-2026-0005** (ERC incident 12, short dump `DBIF_RSQL_SQL_ERROR` in `/UI5/CX_UI5_LOG`): the
+  lead read the incident, solutions (none), similar incidents (13, 15) and occurrences, gave a
+  precise task to „Recherche (KI)“; the incident has no ABAP stack (`USER_NAME_CLEARED`), no
+  message and no SQL code, so the lead planned nothing, marked for review and gave back concrete
+  next steps (ST22 dump key, SM21, DB log). Correct by its rules.
+
+**Findings:**
+1. `spezialisten` 0.8.1 threw away everything at a run's limit: the web research read for ten
+   steps and delivered „no complete result“. **Fixed in 0.8.2** (one last turn without tools: what
+   is proven, what is a guess, what is open — as the task result, consult answer, review note or
+   the lead's note). Re-run of V-2026-0005 with 20 steps: the research now delivered its
+   intermediate state.
+2. The web search from the data centre is unreliable: DuckDuckGo answers with a CAPTCHA, Google CSE
+   with „too many requests“, `community.sap.com` with 403 (RFC-0116 had seen the same). The research
+   said so and marked every statement as a guess.
+3. `view add` without `--effect` takes a writing tool as **read**: `propose_solution` and
+   `add_analysis` stood as read in the lead's view, so the lead would have written to SAP without
+   approval. Corrected at once with `view tailor --effect write`; the gateway's default must be the
+   source's class, else write.
+4. Re-assigning a case to a specialist does not wake it (the turn ignores `role` entries); a
+   person adds a comment. By design, but not obvious on the case page.
+
+**Not reached yet:** a case with a provable cause, so that the lead plans `propose_solution`,
+Jörg approves, the draft lands in ERC, the lead closes with the proof, and the same question again
+is answered by SAP without a case.
+
 ## Non-goals
 
 - Linking `reported_for` to a platform person (the person sees the case in the
@@ -658,6 +711,8 @@ und ein prüfender Spezialist je Bereich – nie der, der die Arbeit gemacht hat
 halten mit echtem Tor, echten Schlüsseln und unterschriebener Freigabe; der Leiter schloss einmal
 selbst ohne Änderung, SAP las den Schließtext am Tor. Das 4B-Modell schloss nicht selbst mit
 Beleg und schrieb das Urteil des Prüfers als Text – die Güte misst erst bec. Die zwei Befunde (Labels aus Vorgänge im Verlauf, Werkzeugaufruf als Text) sind in Spezialisten 0.8.1 behoben und auf oaap-test nachgemessen: Der Leiter beauftragte sein Team gleich beim richtigen Namen, und das als Text geschriebene Urteil des Prüfers kam an. Führungskraft je Agent und Kontext-JSON (I-77/I-78) sind nicht dabei.
+
+**Stufe 4 in bec (26.11., läuft, §15):** Team Leiter + Berechtigung + Fallhistorie + Web-Recherche, eigene SAP-Benutzer je Agent, Tor-Schlüssel in SM59 von Jörg. Gemessen: Ping wie SM59, jeder Agent liest SAP unter eigenem Benutzer; V-2026-0005 (ERC-Störfall 12) vom Leiter sauber bearbeitet, aber ohne belegte Ursache (Dump ohne Stack) zur Prüfung zurück. Befunde: an der Grenze ging alles verloren (behoben in Spezialisten 0.8.2), Websuche aus dem Rechenzentrum unzuverlässig, `view add` nahm Schreibwerkzeuge als lesend (sofort korrigiert). Offen: ein Fall mit belegbarer Ursache bis zum Lösungsentwurf in ERC und zur zweiten Frage ohne Vorgang.
 
 **Entschieden am 26.11. (Jörg, einzeln):** D1 neue Tür mit Referenz-ID für jeden
 Auslöser; D2 sofort die Nummer, SAP fragt nach, Lösung per MCP nach SAP; D3 der
