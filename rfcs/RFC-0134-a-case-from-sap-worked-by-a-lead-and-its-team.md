@@ -350,6 +350,48 @@ user is known") — by design: RFC-0065 D8 forbids a technical fallback for a
 Both need the SAP user in `a4h` (SU01, read rights on the support services;
 for (A) also the certificate mapping). To be chosen with Jörg before M2.
 
+Jörg chose **(A)** on 2026-11-26. Reading the code for it showed that (A)
+touches three places, not one:
+
+1. **identity** mints the assertion (`X-OAAP-User-Assertion`) only for a
+   *person*, and takes the claims only from the person's sign-in
+   (`user_assertion`). A machine principal needs a **fixed claim** on its
+   record, set by the operator or tenant administrator (`sap_user` matches
+   `[A-Z0-9_]{1,12}` — SAP user names are at most 12 characters), honoured
+   only for kind `machine` and never read from a sign-in.
+2. **The MCP gateway** passes an assertion to a destination only for a person
+   who came through the chat's door (procedure A); a call with a key is refused
+   ("mit einem Schlüssel geht es nicht"). And a specialist does not call the
+   gateway *as* its agent: it holds a **view key** of the gateway; the agent
+   hangs at the **server entry** (procedure T: the entry carries the agent's
+   platform key outward to a platform source).
+3. So the gateway must **obtain an assertion for the agent** before it calls
+   the destination. Today only the platform's forward authentication mints
+   one, and only for a request that arrives at the instance.
+
+**D10 How the gateway gets the agent's assertion** (new, to be decided):
+- (a) **a reserved platform path** `/platform/assertion` on the gateway's own
+  site: the server entry holds the agent's key (limited to the gateway
+  instance, as today); the gateway calls its own site with it; the platform
+  answers itself — never the app — with an assertion for that principal,
+  addressed to that instance, carrying the fixed claim. Connect checks it as
+  it checks a person's. (recommended: one new door, owned by the platform,
+  the rest unchanged)
+- (b) connect accepts the agent's platform key directly at a propagation
+  destination, instead of an assertion. Fewer steps, but connect learns a
+  second way to know a caller.
+- (c) back to (B): a server entry with the technical user's password.
+→ **Decided 2026-11-26: (a)** (Jörg). **Built the same day** (reference
+0.1.382, `oaap.core.identity` 0.6.15 §2.11.1, mcp-gateway 0.52.0 /
+`oaap.ai.mcp-gateway` 0.44.0 §3.10.1): `oaap machine propagate NAME --tenant T
+--set sap_user=USER`, identity's `/agent-assertion` behind the site block
+`/platform/assertion` (only a key limited to exactly that instance, a machine
+of the same tenant with a fixed claim), and a `propagate` server entry that
+holds the agent's key and fetches the assertion when no person is on the call
+— a person always goes first. Tests: mcp-gateway 593 (+6), reference
+`test_propagation` +14 checks, seven reference files green in the Linux
+runner. Not rolled out; M2 itself still needs the SAP user in `a4h`.
+
 **M4 — SAP sends the POST:** Jörg's side, open.
 
 ## Non-goals
