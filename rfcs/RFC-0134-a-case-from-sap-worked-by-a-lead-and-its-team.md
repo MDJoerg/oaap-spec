@@ -1,8 +1,9 @@
 # RFC-0134: A Case From SAP, Worked by a Lead and Its Team of Specialists
 
 - **Status:** **Accepted (2026-11-26)** — D1–D9 decided by Jörg one at a time,
-  eight as recommended; D8 with the random sample (b) (§10). Nothing built;
-  stage 0 next.
+  eight as recommended; D8 with the random sample (b) (§10). Nothing built.
+  **Stage 0:** M1 and M3 measured 2026-11-26 (§12); M2 waits for a choice of
+  way, M4 is Jörg's side.
 - **Date:** 2026-11-25
 - **Authors:** Jörg (the need: "wir starten einen Prozess aus unserem Chat per
   MCP im SAP … Falls wir mal keine Lösung haben, wollen wir durch KI die
@@ -298,6 +299,59 @@ Tests per stage as in RFC-0105 §11: the real `vorgaenge` in its own process, a
 fake model and a fake MCP server; then a measurement on `oaap-test` (tenant
 `vuebung`), then `bec`.
 
+## 12. Stage 0 measured (2026-11-26)
+
+**M1 — a machine key at `vorgaenge`** (oaap-test, tenant `vuebung`, then `bec`
+read-only on oaapx01; probe principal `rfc134-probe`, key scoped to the
+`vorgaenge` instance, revoked right after):
+
+| Call with the machine key | Answer |
+|---|---|
+| `GET /`, `GET /api/spez/turn` | 200; the app sees the principal as an ordinary user id |
+| `POST /platform/cases/submit`, `/platform/cases/node` | 403 from the gateway ("limited to instance …") |
+| `POST /handover` | 403 from the app ("no partner registered for this key") |
+| MCP door: `initialize`, `tools/list` | 200, all tools listed |
+| MCP door: `create_case` (oaap-test only) | **200, case V-2026-0015 created** |
+
+Findings:
+1. **The app cannot tell a machine from a person.** The gateway sends the same
+   identity headers for both (`X-OAAP-User`, `-User-Id`, `-Roles`, …); there is
+   no kind. So the sender check of §3 must be by **user id against the list of
+   registered senders** in `vorgaenge` — exactly what D1 (a) says.
+2. **A door for machines exists already, unnamed:** any principal of the tenant
+   with role `user` and a key on the instance can file a case through the MCP
+   door today — without `ref`, without a sender list, into the default queue.
+   That is within the tenant's rights (a user may report), but it is the
+   unregistered twin of §3. Stage 1 therefore builds §3 on the same store
+   function as `create_case` and gives the MCP door the same `ref` (§3a).
+
+**M3 — ten tool steps** (`bec-models`, alias `claude-sonnet-5-5`, own key,
+budget 300 000 tokens, revoked right after; fake tools of an SAP authorisation
+case, SAP not touched): **14 tool calls in 5 rounds, 17 s, 15 375 tokens, 0
+malformed calls**. The model checked all four roles of the user one by one,
+read SU53, the object's fields and the org levels, searched known solutions
+and roles, and reported the right cause (`M_BEST_EKO`, ACTVT 01, EKORG 1000)
+through the reporting tool. It **called tools in parallel within a round**
+(up to 4) — allowed inside one run; D4 (one *task* at a time) is about
+specialists, not tool calls.
+
+**M2 — a specialist with its own SAP user: not measured, one finding first.**
+Procedure P takes the SAP user name from a claim of the **person's sign-in**
+(`idp.propagate`, written only by an IdP login; `propagate.backend_user`). An
+agent or machine principal has no IdP sign-in, so P refuses it ("no backend
+user is known") — by design: RFC-0065 D8 forbids a technical fallback for a
+*person*. D5 (a) needs one of:
+- (A) a **fixed propagation claim on the agent principal**, set by the tenant
+  administrator (for example `sap_user=OAAP_SPEZ_ANALYSE`), and the same P
+  chain as for persons — a platform change; not a fallback, because the agent
+  never acts for a person;
+- (B) a **separate server entry with basic authentication** for the technical
+  SAP user, the password entered by a person.
+Both need the SAP user in `a4h` (SU01, read rights on the support services;
+for (A) also the certificate mapping). To be chosen with Jörg before M2.
+
+**M4 — SAP sends the POST:** Jörg's side, open.
+
 ## Non-goals
 
 - Linking `reported_for` to a platform person (the person sees the case in the
@@ -345,3 +399,14 @@ höchstens 8 je Vorgang; D5 eigener technischer SAP-Benutzer je Spezialist; D6
 Schreiben nach SAP zunächst immer mit Freigabe; D7 der Leiter schließt mit
 Beleg; D8 Prüfung durch Leiter, Regeln und Menschen **plus Stichprobe** (Anteil
 je Bereich, Standard 10 %); D9 das Gespräch der Agenten steht nur im Vorgang.
+
+**Stufe 0 (26.11., §12):** M1: Ein Maschinenschlüssel erreicht `vorgaenge`; die
+App sieht ihn wie eine Person (keine Kopfzeile sagt „Maschine“), also prüft die
+Tür gegen die Liste der eingetragenen Absender. Schon heute kann jeder Schlüssel
+mit Rolle `user` über die MCP-Tür einen Vorgang anlegen, nur ohne `ref` und
+ohne Absenderliste; Stufe 1 baut darauf auf. M3: Claude Sonnet in bec machte 14
+fehlerfreie Werkzeugaufrufe in 17 s und fand die richtige Ursache. M2: Das
+Verfahren P kennt nur Personen (SAP-Benutzer aus der Anmeldung); ein Agent
+braucht entweder einen festen Anspruch (A, Plattformänderung) oder einen eigenen
+Server-Eintrag mit Benutzer und Passwort (B). Wahl offen, M4 (POST aus SAP) bei
+Jörg.
