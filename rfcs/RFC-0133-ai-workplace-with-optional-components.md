@@ -1,7 +1,8 @@
 # RFC-0133: The AI Workplace with Optional Components
 
 - **Status:** **Accepted (2026-11-25)** — D1–D7 decided by Jörg the same day,
-  one at a time, all as recommended (§6). **Stage 1 built** (§6a), not rolled out.
+  one at a time, all as recommended (§6). **Stage 1 built** (§6a); in use: tenant `cds`
+  was set up with the profile, the test tenant `kit3` is removed (Jörg, 2026-11-26).
 - **Date:** 2026-11-25
 - **Authors:** Jörg (the need: "Ich möchte danach einen Aufbau machen: KI-Arbeitsplatz
   mit optionalen Komponenten wie bookstack, forgejo, bdt-team" and "Richte die

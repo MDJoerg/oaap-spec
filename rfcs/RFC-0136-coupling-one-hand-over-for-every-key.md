@@ -1,7 +1,8 @@
 # RFC-0136: Coupling — One Hand-Over for Every Key
 
 - **Status:** **Accepted (2026-11-26)** — D1–D8 decided by Jörg one at a
-  time, all as recommended (§9). Nothing built; stage 0 (measure) next.
+  time, all as recommended (§9). **Stage 0 measured 2026-11-26 on oaap-test
+  (§11)**: curl, Python and Node-RED 4.1 redeem; findings F1–F3. Stage 1 next.
 - **Date:** 2026-11-26
 - **Authors:** Jörg (the need, I-76: couplings — destinations, Node-RED, SAP,
   AI gateways in a cascade, across tenants and nodes — "angenehm aber sicher",
@@ -88,6 +89,11 @@ This RFC makes that **one procedure for every key of the platform**:
 - `pin` is set when the address is not publicly trusted (an internal node, a
   self-signed gateway); the redeeming program checks the certificate against
   it, as `fleet_pair` does. For a public address the normal chain applies.
+  After stage 0 (§11, F1) such a ticket carries **two** forms of the same
+  trust: `pin` as `sha256//<base64 of the SHA-256 of the public key>` -- what
+  `curl --pinnedpubkey` takes, and it survives a renewed certificate with the
+  same key -- and `ca`, the server's certificate as PEM, for clients that
+  cannot pin but trust a CA file (Node-RED's TLS configuration, SAP STRUST).
 
 ## 3. Redemption
 
@@ -247,6 +253,55 @@ Each with a recommendation; to be decided one at a time.
 - **Stage 3 — apps:** the manifest block `coupling`, the door
   `/platform/coupling/v1`, app keys checked by the gateway.
 
+## 11. Stage 0 measured (2026-11-26)
+
+On oaap-test, in a throwaway Docker network: a stub of the redemption door
+(`POST /platform/couple/redeem`, the browser page `/platform/couple/<uuid>`)
+behind a **self-signed** certificate, and against it the clients a coupling
+is for. Dummy keys only; everything removed afterwards (containers, network,
+the Node-RED image).
+
+| Client | Trust | Result |
+|---|---|---|
+| curl 8.14 | none | refused (certificate) |
+| curl | `--pinnedpubkey sha256//<SPKI>` with `-k` | 200, key |
+| curl | wrong pin | refused |
+| curl | `--cacert` the server's certificate | 200, key |
+| curl | the same code again / an unknown code | 410 / 404 |
+| curl | the code as a form field | 200, key |
+| Python (`http.client`, as `fleet_pair`) | SHA-256 of the certificate compared | 200; a wrong fingerprint stops before the request |
+| Node-RED 4.1.12, `http request` node | TLS configuration with the certificate as CA | 200, the key reaches the flow |
+| Node-RED | without TLS configuration | refused: `DEPTH_ZERO_SELF_SIGNED_CERT` |
+| a link preview (GET and HEAD of the browser link) | -- | the page is shown, **nothing redeemed** |
+| the click (POST) | -- | 200 with the key; the second click 410 |
+
+**Findings:**
+
+- **F1 Pinning has two forms.** curl pins the public key
+  (`sha256//base64`), Python compares whatever it is told, Node-RED cannot pin
+  at all -- it trusts a CA file, and a self-signed certificate works as one;
+  SAP imports a certificate into STRUST. A ticket for a non-public address
+  therefore carries `pin` (public key, base64) **and** `ca` (the certificate
+  as PEM) -- amended in §2; `fleet_pair`'s hex fingerprint of the whole
+  certificate stays readable in `OAAP-PAIR1`.
+- **F2 Where Node-RED keeps the key.** A flow can redeem, but it cannot write
+  its own node credentials at runtime: what it receives lands in the message
+  and, if kept, in the flow or global context (memory, or plain on disk with
+  the file store). For Node-RED the coupling therefore says how to use the
+  key: either the redeeming flow keeps it in a context store the operator
+  chose, or a person redeems through the browser link and pastes the key into
+  the `http request` node's credentials (Basic or Bearer). The platform's
+  own Node-RED (I-74) will want a door of its own.
+- **F3 A link preview spends nothing** -- by construction (GET and HEAD show
+  the page; only the POST of the button redeems). Not measured: what Teams,
+  Outlook (Safe Links) and other mail scanners really do with a link; a
+  scanner that submits forms would spend it. The platform's own chat makes
+  no previews (read in its code). To measure with Jörg once the door is on a
+  public address (stage 1).
+
+**Not measured (Jörg's side):** ABAP redeeming itself (`cl_http_client`,
+whether a program could take the place of a person at SM59).
+
 ## Non-goals
 
 - A secret store for the receiver (where Node-RED or SAP keeps the key is
@@ -285,6 +340,21 @@ Dieses RFC macht daraus **ein Verfahren für alle Schlüssel der Plattform**:
   selben Verfahren, 3 eine Tür für **Apps**. Eine App erklärt `coupling` im
   Manifest und lässt Schlüssel für ihre **eigene** API ausstellen. Die
   Plattform hält, prüft, lässt ablaufen und widerruft sie.
+
+**Stufe 0 gemessen (26.11., oaap-test, Stub mit selbstsigniertem Zertifikat):**
+curl, Python und Node-RED 4.1 lösen ein. Einmal 200, danach 410, unbekannt
+404, Formularfeld geht. Eine Linkvorschau (GET/HEAD) verbraucht nichts, erst
+der Klick (POST). Befunde:
+- **F1:** curl nagelt den öffentlichen Schlüssel fest, Node-RED kann gar nicht
+  festnageln und vertraut nur einer CA-Datei, SAP importiert ein Zertifikat.
+  Deshalb trägt ein Ticket für eine nicht öffentliche Adresse beides: `pin`
+  und `ca` (Zertifikat als PEM).
+- **F2:** Node-RED kann einlösen, aber seine eigenen Zugangsdaten nicht zur
+  Laufzeit schreiben. Der Schlüssel landet im Kontext (Speicher oder Datei).
+  Sonst löst ein Mensch über den Link ein und trägt ihn in den Knoten ein.
+- **F3:** Was Teams, Outlook und Mail-Scanner wirklich mit einem Link tun, ist
+  noch nicht gemessen. Das messen wir mit dir, sobald die Tür öffentlich
+  erreichbar ist. ABAP als Einlöser misst du.
 
 **Entschieden am 26.11. (Jörg, einzeln, alle wie empfohlen):**
 - D1 Zeile, Datei und QR mit gleichem Inhalt;
