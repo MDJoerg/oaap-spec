@@ -1,7 +1,7 @@
 # RFC-0136: Coupling — One Hand-Over for Every Key
 
-- **Status:** Draft (2026-11-26) — D1–D8 open, each with a recommendation (§9),
-  to be decided one at a time.
+- **Status:** **Accepted (2026-11-26)** — D1–D8 decided by Jörg one at a
+  time, all as recommended (§9). Nothing built; stage 0 (measure) next.
 - **Date:** 2026-11-26
 - **Authors:** Jörg (the need, I-76: couplings — destinations, Node-RED, SAP,
   AI gateways in a cascade, across tenants and nodes — "angenehm aber sicher",
@@ -197,34 +197,41 @@ Each with a recommendation; to be decided one at a time.
 - **D1 Form of the ticket.** (a) one line `OAAP-COUPLE1.<base64url(JSON)>`,
   the same content as a JSON file and a QR code (recommended — copy, file and
   phone carry one thing, as `OAAP-PAIR1`); (b) a JSON file only.
+  → **Decided 2026-11-26: (a)** (Jörg).
 - **D2 Where the secret comes from.** (a) a one-time redemption code in the
   ticket, the key handed out at redemption (recommended — a leaked ticket is
   worthless after use or expiry); (b) the key in the ticket, encrypted with a
   passphrase that travels separately.
+  → **Decided 2026-11-26: (a)** (Jörg).
 - **D3 Window.** (a) 15 minutes by default, the issuer may choose up to 7 days
   (recommended — a hand-over by mail to someone who acts tomorrow); (b) always
   15 minutes.
+  → **Decided 2026-11-26: (a)** (Jörg).
 - **D4 When the key is born.** (a) at redemption, by identity; until then the
   access exists inactive, „wartet auf Einlösung“ (recommended — before
   redemption there is nothing to steal, also not on the platform); (b) at
   issue, kept until redeemed.
+  → **Decided 2026-11-26: (a)** (Jörg).
 - **D5 A person as receiver (SAP).** (a) the ticket's browser link: a page
   that creates and shows the key once after a click (recommended — SM59 takes
   only user and password; the link is single-use, a mail preview does not
   spend it); (b) only the administrator's direct display, as today.
+  → **Decided 2026-11-26: (a)** (Jörg).
 - **D6 Kinds in the first stage.** (a) gate accesses only, then platform keys
   and the fleet pairing (recommended — one user, measured, then widened);
   (b) all kinds at once.
+  → **Decided 2026-11-26: (a)** (Jörg).
 - **D7 Keys of an app's own API (stage 3).** (a) the platform holds them
   (identity, limited to the app's instance and a scope; the gateway checks;
   the app gets the scope in a header) (recommended — expiry, revocation and
   audit in one place for every app); (b) the app keeps its own keys, the
   platform only hands over the ticket.
+  → **Decided 2026-11-26: (a)** (Jörg).
 - **D8 Certificate pinning.** (a) the fingerprint in the ticket only when the
   address is not publicly trusted; the redeemer checks it then (recommended —
   internal nodes and self-signed gateways work, public ones keep the normal
   chain); (b) always pinned.
-
+  → **Decided 2026-11-26: (a)** (Jörg).
 ## 10. Stages
 
 - **Stage 0 — measure:** what the receivers can do: Node-RED (`http request`
@@ -279,7 +286,7 @@ Dieses RFC macht daraus **ein Verfahren für alle Schlüssel der Plattform**:
   Manifest und lässt Schlüssel für ihre **eigene** API ausstellen. Die
   Plattform hält, prüft, lässt ablaufen und widerruft sie.
 
-**Offen: D1–D8**, einzeln zu entscheiden, je mit Empfehlung:
+**Entschieden am 26.11. (Jörg, einzeln, alle wie empfohlen):**
 - D1 Zeile, Datei und QR mit gleichem Inhalt;
 - D2 Einlösecode statt Geheimnis;
 - D3 15 Minuten, bis 7 Tage wählbar;
