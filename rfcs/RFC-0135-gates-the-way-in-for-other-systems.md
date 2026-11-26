@@ -222,6 +222,20 @@ Each with a recommendation; to be decided one at a time.
   processes, light), twin assets, events.
 - **Stage 3 — coupling** (I-76, own RFC) plugs into accesses.
 
+## 11. Stage 0 prepared (2026-11-26)
+
+A probe app `gate-probe` 0.1.0 runs on oaap-test, tenant `vuebung`, at
+`https://gate-probe.vuebung.oaap-test.oaap-demo.duckdns.org/gate/probe`
+(public route; the app checks Basic itself: user `probe`, password in
+`test/.env` as `OAAP_TEST_GATEPROBE_PASSWORD`). It answers like a gate —
+ping, three templates, JSON or form fields, strict fields (422 with names),
+answer as JSON or `number=`/`ref=` lines — and records what arrived (method,
+path, headers without secrets, authentication scheme and user, body up to 4 KB)
+under `/gate/probe/log`. Checked from outside: 401 without login, ping 200,
+templates, POST JSON 201, POST form fields with text answer 201, unknown field
+422. Certificate chain: Let's Encrypt `YE1` → ISRG `Root YE` → `ISRG Root X2`
+→ `ISRG Root X1` (for STRUST). Waiting for the SM59 side.
+
 ## Non-goals
 
 - Storing payloads on the platform.
