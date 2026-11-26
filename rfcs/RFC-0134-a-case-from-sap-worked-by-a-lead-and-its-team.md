@@ -641,9 +641,28 @@ yellow.
 4. Re-assigning a case to a specialist does not wake it (the turn ignores `role` entries); a
    person adds a comment. By design, but not obvious on the case page.
 
-**Not reached yet:** a case with a provable cause, so that the lead plans `propose_solution`,
-Jörg approves, the draft lands in ERC, the lead closes with the proof, and the same question again
-is answered by SAP without a case.
+**V-2026-0006 — end to end up to the draft in SAP** (ERC incident 100, message `SDME_OBJ/439`
+in the gateway log `/IWBEP/ RUNTIM`, sent by SAP through the gate at 14:56):
+- the lead read the incident, solutions (none), similar incidents and occurrences; task to
+  „Recherche (KI)“ — no source (search blocked), said so; task to „Fallhistorie (KI)“ — found the
+  trace: incident 100 belongs to a group of Fiori Page Builder errors of the same second and user
+  (incidents 99, 101, 102: „page may not be changed in language DE, original language EN“);
+- the lead read 99 and 102 itself and planned `add_analysis`; Jörg approved with a signature; the
+  next run wrote the analysis into ERC as `ERC_SPZ_LEAD`;
+- the lead planned `propose_solution` (title, problem, cause marked as a hypothesis, resolution
+  with SE91 / original language EN / SLG1 and `/IWFND/ERROR_LOG`, workaround); Jörg approved; the
+  draft was created in ERC (status D, origin AI_MCP, `created: true`);
+- the lead closed with `abschliessen` and **proof #98** (the executed `propose_solution`) at
+  15:31:20 — `closed_by_lead`; the 10 % sample did not draw it;
+- `GET /gate/sap-support/0000000100` with SAP's key returns status `closed` and the closing text as
+  `answer` (cause as a hypothesis, the recommendation, „a solution draft waits in the Error Center“).
+Elapsed model time about four minutes; the rest was waiting for the two approvals.
+
+Small finding: both plans carry „(ohne Begründung des Modells)“ — Sonnet called the tool without
+the one sentence of reasoning the frame asks for; the arguments are shown in full anyway.
+
+**Not reached yet:** a person releases the draft in ERC (four-eyes rule; the agent cannot), then
+the same question again is answered by SAP without a case.
 
 ## Non-goals
 
@@ -712,7 +731,7 @@ halten mit echtem Tor, echten Schlüsseln und unterschriebener Freigabe; der Lei
 selbst ohne Änderung, SAP las den Schließtext am Tor. Das 4B-Modell schloss nicht selbst mit
 Beleg und schrieb das Urteil des Prüfers als Text – die Güte misst erst bec. Die zwei Befunde (Labels aus Vorgänge im Verlauf, Werkzeugaufruf als Text) sind in Spezialisten 0.8.1 behoben und auf oaap-test nachgemessen: Der Leiter beauftragte sein Team gleich beim richtigen Namen, und das als Text geschriebene Urteil des Prüfers kam an. Führungskraft je Agent und Kontext-JSON (I-77/I-78) sind nicht dabei.
 
-**Stufe 4 in bec (26.11., läuft, §15):** Team Leiter + Berechtigung + Fallhistorie + Web-Recherche, eigene SAP-Benutzer je Agent, Tor-Schlüssel in SM59 von Jörg. Gemessen: Ping wie SM59, jeder Agent liest SAP unter eigenem Benutzer; V-2026-0005 (ERC-Störfall 12) vom Leiter sauber bearbeitet, aber ohne belegte Ursache (Dump ohne Stack) zur Prüfung zurück. Befunde: an der Grenze ging alles verloren (behoben in Spezialisten 0.8.2), Websuche aus dem Rechenzentrum unzuverlässig, `view add` nahm Schreibwerkzeuge als lesend (sofort korrigiert). Offen: ein Fall mit belegbarer Ursache bis zum Lösungsentwurf in ERC und zur zweiten Frage ohne Vorgang.
+**Stufe 4 in bec (26.11., läuft, §15):** Team Leiter + Berechtigung + Fallhistorie + Web-Recherche, eigene SAP-Benutzer je Agent, Tor-Schlüssel in SM59 von Jörg. Gemessen: Ping wie SM59, jeder Agent liest SAP unter eigenem Benutzer; V-2026-0005 (ERC-Störfall 12) vom Leiter sauber bearbeitet, aber ohne belegte Ursache (Dump ohne Stack) zur Prüfung zurück. Befunde: an der Grenze ging alles verloren (behoben in Spezialisten 0.8.2), Websuche aus dem Rechenzentrum unzuverlässig, `view add` nahm Schreibwerkzeuge als lesend (sofort korrigiert). V-2026-0006 (ERC-Störfall 100) ging den ganzen Weg: Aufträge an Recherche und Fallhistorie, add_analysis und propose_solution je nach Jörgs unterschriebener Freigabe in SAP geschrieben, vom Leiter mit Beleg #98 geschlossen, SAP liest den Schließtext am Tor. Offen: Lösungsentwurf in ERC freigeben (Person), dann dieselbe Frage noch einmal ohne Vorgang.
 
 **Entschieden am 26.11. (Jörg, einzeln):** D1 neue Tür mit Referenz-ID für jeden
 Auslöser; D2 sofort die Nummer, SAP fragt nach, Lösung per MCP nach SAP; D3 der
