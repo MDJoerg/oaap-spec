@@ -116,6 +116,10 @@ MCP call into SAP (§6), which is where SAP keeps knowledge. A push to SAP when
 the status changes (an event per RFC-0127, delivered as a webhook) is a later
 stage; until then SAP reads.
 
+> **2026-11-26:** §3 and §3a are to be replaced by **gates** (RFC-0135, draft):
+> the sender list becomes the gate's accesses; `ref`, reading by `ref` and the
+> note move to the gate. Stage 1 of this RFC waits for RFC-0135.
+
 ### 3a. One door for every trigger (added 2026-11-26)
 
 SAP is the first sender, not the only one. Jörg (2026-11-26): the trigger can
