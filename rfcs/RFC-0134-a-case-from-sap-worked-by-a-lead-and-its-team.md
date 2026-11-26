@@ -6,7 +6,7 @@
   POST) confirmed by Jörg 2026-11-26. **Stage 1** became gates (RFC-0135, built
   2026-11-26). **Stage 2 built 2026-11-26** (`vorgaenge` 0.22.0, `spezialisten`
   0.7.0, measured on oaap-test, §13). **Stage 3 built 2026-11-26**
-  (`vorgaenge` 0.23.0, `spezialisten` 0.8.0, tests only, §14).
+  (`vorgaenge` 0.23.0, `spezialisten` 0.8.0, measured on oaap-test, §14).
 - **Date:** 2026-11-25
 - **Authors:** Jörg (the need: "wir starten einen Prozess aus unserem Chat per
   MCP im SAP … Falls wir mal keine Lösung haben, wollen wir durch KI die
@@ -551,9 +551,34 @@ proof refused with the reason from `vorgaenge`, closed with the right one, the
 lead marks and goes on, the reviewer's frame and tools, write tools never run in
 a review, rework, "no verdict"); all green. `check-store`, `check-design` clean.
 
-**Not measured on oaap-test yet.** The platform flow would be the same as in
-§13; the model part needs `bec` (Sonnet, M3). Not in this stage: the supervisor
-per agent and the context JSON from Jörg's ideas I-77/I-78.
+**Measured on oaap-test** (2026-11-26, tenant `vuebung`, same setup as §13:
+lead „Analyse (KI)“, reviewer specialist „Recherche (KI)“ for queue `analyse`,
+both on qwen3 4B on CPU; sample 100 % for the measurement; cases delivered from
+outside through the gate `sap-support`; the persons' part — answering the lead's
+consultations and approving its plan — done with the same store functions the
+forms call, as a test person):
+
+| What | Result |
+|---|---|
+| V-2026-0023 (ST3-A): plan `comment_case`, approved with a signature | executed by the next run (#132); the door lists it under `proofs` |
+| the lead's tool `pruefen_markieren` | used by the model on its own; reason `lead` |
+| close while a consultation is open (real door, agent key) | refused: "Eine Rückfrage oder ein Auftrag ist noch offen." |
+| run limit (3 runs per case) | automatic reason `limit`, case given back |
+| reviewer on V-2026-0023 | picked it up as soon as nobody worked on it; the model call timed out → `none` ("no verdict"), the mark stayed |
+| V-2026-0024 (ST3-B): the lead closed **by itself** with `abschliessen` without proof | `closed_by_lead`, automatic reason `no_write`; `GET /gate/sap-support/ST3-B` returns the closing text as `answer` |
+| reviewer on V-2026-0024 | the model wrote the `pruefung_abgeben` call ("in_ordnung") as **text**, not as a tool call → counted as `none`, correct by the rule |
+| V-2026-0023 reassigned to the lead, close through the real door with proof #999 / #132 | #999 refused ("belegt nichts"); #132 accepted, `closed_by_lead`; the gate returns the closing text; the internal comment #131 never reached the gate |
+
+So the platform rules hold end to end with real keys, a real gate and a signed
+approval. **Not reached on oaap-test:** the model closing *with* proof by itself
+(it consulted a person and tried tasks under names from `vorgaenge` instead of
+its team list, then hit the run limit) and the random sample (both cases were
+already marked; the sample only draws unmarked cases). A 4B model is not enough
+for the lead or the reviewer; the quality belongs to `bec` (Sonnet, M3). Two
+small findings for later: the lead's case data shows team members under their
+`vorgaenge` labels, which tempts the model to use those names; and small models
+sometimes write a tool call as text. Not in this stage: the supervisor per agent
+and the context JSON from Jörg's ideas I-77/I-78.
 
 ## Non-goals
 
@@ -617,8 +642,10 @@ Schließtext ist öffentlich und ist das, was SAP beim Nachfragen liest. Zur Pr�
 Vorgang außerdem durch den Leiter, von Hand, bei einer Grenze, bei einem Aufruf ohne
 Einzelfreigabe und als Stichprobe (je Bereich, Standard 10 %). Prüfen können die Zuständigen
 und ein prüfender Spezialist je Bereich – nie der, der die Arbeit gemacht hat. „Nacharbeit“
-öffnet den Vorgang wieder, und der Leiter ist wieder dran. Getestet, auf oaap-test noch nicht
-gemessen. Führungskraft je Agent und Kontext-JSON (I-77/I-78) sind nicht dabei.
+öffnet den Vorgang wieder, und der Leiter ist wieder dran. Auf oaap-test gemessen: Die Regeln
+halten mit echtem Tor, echten Schlüsseln und unterschriebener Freigabe; der Leiter schloss einmal
+selbst ohne Änderung, SAP las den Schließtext am Tor. Das 4B-Modell schloss nicht selbst mit
+Beleg und schrieb das Urteil des Prüfers als Text – die Güte misst erst bec. Führungskraft je Agent und Kontext-JSON (I-77/I-78) sind nicht dabei.
 
 **Entschieden am 26.11. (Jörg, einzeln):** D1 neue Tür mit Referenz-ID für jeden
 Auslöser; D2 sofort die Nummer, SAP fragt nach, Lösung per MCP nach SAP; D3 der
