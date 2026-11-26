@@ -356,6 +356,14 @@ Measurement accesses revoked and open tickets withdrawn afterwards.
   `ca` about 2 KB -- a QR code of that size is hard to scan. Stage 1 offers
   line, file and link; the QR code (D1) comes with a short form (for
   instance only the browser link, or the redemption URL with the code).
+  **Done 2026-11-26 (reference 0.1.387, portal 0.3.67):** the short form is
+  the **browser link** -- a QR code beside it on the ticket page (74–100
+  characters, version 5–6, made in the portal by the encoder of the app
+  wegweiser, checked bit for bit against segno), with the sentence that
+  scanning redeems nothing. Not the redemption URL with the code: a phone
+  that scans opens a page, and only the click on it redeems -- the rule of
+  the link (§3). Measured on oaap-test: the SVG on the page is exactly the
+  encoding of the link shown there; three tickets made, all withdrawn.
 
 **F3 measured with Jörg (2026-11-26, 21:53–22:05 UTC):** two browser links
 of real tickets on oaap-test, one sent by Jörg to himself in **Teams**, one
@@ -459,7 +467,9 @@ Befunde:
   in einem `route`-Block, wie die Tore.
 - **F5:** Jedes nie eingelöste Ticket ließ einen inaktiven Prinzipal zurück.
   Jetzt räumt das 30-Tage-Aufräumen ihn mit weg.
-- **F6:** Ein Ticket ist rund 940 Zeichen lang, mit Zertifikat rund 2 KB. Das
+- **F6 (erledigt 26.11., 0.1.387):** Der QR-Code trägt den Browser-Link,
+  nicht das Ticket – Scannen öffnet die Seite, erst der Knopf löst ein.
+  Ursprünglich: Ein Ticket ist rund 940 Zeichen lang, mit Zertifikat rund 2 KB. Das
   ist zu groß für einen guten QR-Code. Der QR-Code kommt später mit einer
   kurzen Form.
 **F3 mit dir gemessen (26.11. abends):** Teams holt den Link einmal per GET

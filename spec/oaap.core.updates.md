@@ -1,7 +1,7 @@
 # oaap.core.updates — Platform Updates
 
 - **ID:** `oaap.core.updates`
-- **Version:** 0.10 (the node door of a cases inbox also carries a tenant's **request to the operator** -- `object: request`, `from` naming tenant and person -- and answers `op: read` with state and replies, never an internal entry, 2.7.6, `oaap.core.tenant` 1.14, RFC-0109 §13; reference vorgaenge 0.12.0). 0.9
+- **Version:** 0.11 (**freeing disk space** -- a care measure that removes images the node no longer needs, in classes: build cache, older versions of an image it built, images without an instance after seven days; foreign images only by a person one by one; data never; nightly after the backup, on disk pressure before the mail, by hand in the portal and with `oaap node care space`; journald capped at 2 GB, 2.10; RFC-0128, reference 0.1.387). 0.10 (the node door of a cases inbox also carries a tenant's **request to the operator** -- `object: request`, `from` naming tenant and person -- and answers `op: read` with state and replies, never an internal entry, 2.7.6, `oaap.core.tenant` 1.14, RFC-0109 §13; reference vorgaenge 0.12.0). 0.9
 - **Maturity:** draft — accepted by Jörg 2026-08-06 (CLI trigger
   implemented and validated on real hardware); 0.1.1 (2026-08-07)
   updates the reserved portal-trigger role to `server_admin` per
@@ -657,6 +657,58 @@ kept (RFC-0071 stage 2), the rebuild by itself in the window (stage 3),
 the platform's own images pulled by `oaap update` (stage 4), the app's
 own dependencies (stage 5).
 
+### 2.10 Freeing disk space (0.11, RFC-0128)
+
+Every new version of an app builds a new image and the old one stays; the
+build cache grows with every build. The node frees what it no longer needs,
+in classes (RFC-0128 §2):
+
+| Class | What | Rule |
+|---|---|---|
+| A | the build cache no image shares, dangling layers | always |
+| B | an older version of an image the node built (`oaap-inst/…`, before RFC-0130 `oaap-app/…`) in a repository a registered instance uses | always -- per repository the image in service, the `-prev` of a rebuild and the **previous version** (the newest tag built before the one in service) stay |
+| C | an image the node built that no registered instance uses (its repository is nobody's, or the `-prev` of an instance that is gone) | after **seven days counted from the first run that saw it so**, not from its build |
+| D | an image the platform did not build | never by itself -- listed with size, removable one by one by the `server_admin`; a base an image was built from says so ("ein Neubau lädt es dann neu") |
+| E | volumes, instance storage, backups, retained packages | never; nothing in the measure names them |
+
+Never a candidate, whatever its class: an image a container uses (running or
+stopped -- a sleeping instance is a stopped container), an image a registered
+instance needs to start (its service images, its `-prev`; a rehearsal is
+registered like any), an image younger than a day (a deploy may be writing
+it), the platform's own images (what compose builds and what its files name).
+Removal is `docker rmi` without force (Docker refuses an image in use by
+itself) and, for A, `docker image prune -f` and `docker builder prune -f` --
+not `-a --filter until=…`, which freed 0 B of 66 GB on Docker 29.7.1 (RFC-0128
+§10, F11).
+
+**When.** Nightly (D1): the minute job starts a run in its own process once a
+day -- after the nightly backup finished when the node has one, else from
+03:00 local -- never while a backup copies; one run at a time. **On
+pressure** (D5): before `disk.full` opens and before a new `disk.trend` or
+`disk.soon`, at most every six hours, a run A-C, the disk measured again; the
+matter's text then says what was freed ("Vor dieser Meldung hat der Knoten
+aufgeräumt: 8,0 GB freigegeben; Platte 92 % → 84 %") and, still above the
+threshold, names the foreign images by size -- what only a person may
+remove. **By hand:** `sudo oaap node care space [--dry-run] [--class A,B,C]`,
+`sudo oaap node care space rmi <image>` (class D only, from the plan of now),
+and the portal page **Platz** (`oaap.core.portal` 2.22).
+
+**Told.** One line per run in the node's tenant log, `space.freed` (cause
+nightly, pressure, portal or hand; the sentence with bytes freed and the disk
+before and after; the bytes as a number), and `space.foreign` per removed
+foreign image with name and size. The weekly report (RFC-0083) carries one
+line "Platz freigegeben: X in N Läufen" instead of seven events; a removed
+foreign image stays an event. The plan of the last measurement is
+`apps/space.json` (0644, what the portal reads -- never Docker), the first
+sightings of class C and the last run `apps/space-state.json` (0600). Sizes
+are those `docker image ls` shows (unpacked); shared layers make a class's
+sum an upper bound, the disk before and after is the measured truth.
+
+**journald** (D4): install and `oaap update` (migrate.sh) write
+`/etc/systemd/journald.conf.d/oaap.conf` with `SystemMaxUse=2G` -- a drop-in
+of our own, so an operator's `journald.conf` stays theirs -- and restart
+journald only when the file changed.
+
 ## 3. Configuration
 
 - Recorded source: repository URL, branch/ref, working-copy path
@@ -1157,3 +1209,26 @@ ankündigt, schreibt er jetzt auch die **Anfrage eines Mandanten an den
 Betreiber** (`object: request`, `from` nennt Mandant und Person) und
 liest mit `op: read` Stand und Antworten zurück – nie interne Einträge,
 nur an eigenen Vorgängen.
+
+## Deutsche Zusammenfassung (0.11 — Plattenplatz freigeben, §2.10, RFC-0128)
+
+Der Knoten gibt Images frei, die er nicht mehr braucht: **A** den
+Build-Cache, den kein Image mehr teilt, und verwaiste Schichten; **B** ältere
+Versionen eines Images, das er selbst gebaut hat – es bleiben je App das
+laufende Image, das `-prev` eines Neubaus und die vorige Version; **C** Images
+ohne Instanz nach 7 Tagen, gezählt ab dem ersten Lauf, der sie so sah;
+**D** fremde Images nie von selbst, nur einzeln durch den Server-Admin (ein
+Basis-Image sagt dazu, dass ein Neubau es neu lädt); **E** Daten nie. Nie
+angefasst wird, was ein Container benutzt (auch ein schlafender), was eine
+Instanz zum Start braucht und was jünger als ein Tag ist.
+
+**Wann:** nachts nach der Sicherung (ohne Sicherung ab 3 Uhr), bei Druck
+**vor** der Mail „Platte fast voll“ bzw. der Vorhersage (höchstens alle 6
+Stunden – die Mail sagt dann, was es gebracht hat, und nennt noch übrige
+fremde Images), von Hand mit `oaap node care space [--dry-run]` oder im Portal
+auf der Seite **Platz**. Jeder Lauf steht im Protokoll des Knotens, der
+Wochenbericht bekommt eine Zeile „Platz freigegeben“. **journald** ist auf
+2 GB begrenzt (eigene Drop-in-Datei).
+
+Wichtig gemessen: Auf Docker 29 räumt `docker builder prune -a --filter
+until=…` gar nichts; `docker builder prune -f` gab auf oaap-test 66 GB frei.

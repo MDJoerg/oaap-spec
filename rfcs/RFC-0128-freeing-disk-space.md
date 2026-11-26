@@ -1,8 +1,10 @@
 # RFC-0128: Freeing Disk Space — a Care Measure of the Node
 
 - **Status:** **Accepted (2026-11-24)** — D1–D6 decided the same day (§9):
-  D1, D2, D3, D5, D6 as recommended, D4 with 2 GB instead of 1 GB. Nothing
-  built yet. The facts in §1 were
+  D1, D2, D3, D5, D6 as recommended, D4 with 2 GB instead of 1 GB. **Stages
+  1–4 built and measured on `oaap-test` 2026-11-26** (reference 0.1.387,
+  `oaap.core.updates` 0.11 §2.10, `oaap.core.portal` 0.3.67 §2.22; §10,
+  findings F10–F12). The facts in §1 were
   measured the same day on `oaap-demo` and in reference 0.1.376.
 - **Date:** 2026-11-24
 - **Authors:** Jörg (the need, 2026-11-24: "unnötigen Plattenplatz freigeben.
@@ -98,8 +100,9 @@ Still above the threshold afterwards: the mail lists class D by size, so the
   growth of the week, per class what can go and how much; a button "Jetzt
   freigeben" (A, B, C, after the same preview); class D as a list with size,
   age and a button per image, each asking once more.
-- **CLI:** `oaap care space [--dry-run] [--class A,B,C]`, `oaap care space rmi
-  <image>` for one foreign image.
+- **CLI:** `oaap node care space [--dry-run] [--class A,B,C]`, `oaap node care
+  space rmi <image>` for one foreign image (built under `oaap node care`, where
+  the node's other care verbs are).
 
 ## 5. Who may do what
 
@@ -152,6 +155,48 @@ Volumes and data of apps; a quota per tenant; deduplicating images across nodes
   7 days** (as recommended) — long enough to reinstall a removed app the same week without a
   build.
 
+## 10. Built and measured (2026-11-26, reference 0.1.387)
+
+Built: `platform/services/space.py` (the classes as functions a test runs
+without Docker), `oaap node care space [--dry-run] [--class] | rmi`, the
+nightly run from the minute job in its own process, the pressure run before
+`disk.full` / `disk.trend` / `disk.soon`, the request `space` and the portal
+page „Platz“, `space.freed` / `space.foreign` in the node's log and the line in
+the weekly report, the journald drop-in in migrate.sh. `test/test_space.py`
+(74 checks: every class with its counter-check, the portal's doors and bait,
+the job, the pressure sentence, the report line).
+
+**Measured on `oaap-test`** (356 images, 50 instances, four of them sleeping,
+76 containers, 93 volumes):
+
+| Step | Result |
+|---|---|
+| dry run | B 120 older versions, C 0 (118 images without an instance, the clock started: "Frist noch 7 Tage"), D 13, A 3414 cache entries |
+| run (`sudo oaap node care space`, 1 min 49 s) | **15.5 GB freed, 68 % → 62 %**, 120 images removed; afterwards every image an instance names present (also those of the four sleeping), the same 76 containers, the same 63 running, the foreign images and the 93 volumes unchanged; per app the image in service and the previous version left (chat 0.22.1 + 0.22.0, studio 0.8.2 + 0.8.0, ai-gateway 0.14.0 + 0.13.0) |
+| build cache (F11) | `docker builder prune -af --filter until=24h` -- and `unused-for=24h`, `until=72h`, `buildx prune` -- freed **0 B** of 66 GB reclaimable; `docker builder prune -f` freed **66.2 GB (62 % → 42 %)** and kept the 1.6 GB images share |
+| second run | 55 MB, 41 % → 41 % -- idempotent |
+| portal as `server_admin` | page 200 with disk, last run and 13 foreign images with a button; `traefik/whoami` removed by its button through the real spool, `space.foreign` in the log with its size |
+| bait | a `tenant_admin` 403 at GET, run and rmi; `caddy:2` (not listed) never reaches the spool; a foreign origin 403; at the node `rmi caddy:2` (a container uses it), `rmi oaap-app/chat:0.22.1` (an instance needs it), `rmi` of a sleeping instance's image -- all refused with the reason; `--class D` refused |
+| pressure | a run with cause `pressure`, the sentence for the mail with the foreign images by size (warn set to 50 % for the call), the second call within six hours empty |
+| journald | `/etc/systemd/journald.conf.d/oaap.conf` written by the update, the journal at 1 GB |
+
+**Findings:**
+
+- **F10 `docker image inspect` gives the packed size** with the containerd
+  image store (53 MB for an image `docker image ls` shows as 214 MB): the
+  sizes now come from `docker image ls`.
+- **F11 `docker builder prune -a --filter until=…` frees nothing** on Docker
+  29.7.1 / buildx 0.36.1, whatever the filter; `prune -f` frees the cache no
+  image shares. Class A uses `prune -f` -- a day of cached builds is not kept.
+- **F12 Base images are foreign but needed by a rebuild** (`python:3.13-slim`,
+  `node:22-slim`): still class D, never automatic, but the list says "Grundlage
+  von N gebauten Image(s) -- ein Neubau lädt es dann neu".
+
+**Not measured:** a rehearsal on the node (none existed; the rule is the
+registry's, held by the test); the first nightly run (due after the next
+backup); a real `disk.full` with its mail (the pressure run was called
+directly, no disk was filled).
+
 ## Deutsche Zusammenfassung
 
 **Worum es geht:** Ein Knoten sammelt Images, die er nicht mehr braucht. Jede
@@ -178,3 +223,14 @@ und per `oaap care space [--dry-run]`.
 vor der Mail; es bleiben laufendes Image, Vorgänger und vorige Version;
 fremde Images nur von Hand, Images ohne Instanz nach 7 Tagen; journald auf
 **2 GB** begrenzt (statt der empfohlenen 1 GB). Gebaut ist noch nichts.
+
+**Gebaut und gemessen (26.11., 0.1.387):** Stufen 1–4 auf oaap-test. Der erste
+Lauf gab **15,5 GB** frei (68 % → 62 %, 120 alte Versionen), nichts Laufendes
+und kein schlafendes Image angefasst, Volumes unverändert; je App blieben das
+laufende Image und die vorige Version. **Befund F11:** Auf Docker 29 räumt
+`docker builder prune -a --filter until=…` gar nichts; `docker builder prune
+-f` gab **66 GB** frei (62 % → 42 %). F10: Größen jetzt aus `docker image ls`
+(inspect zeigt die gepackte Größe). F12: Basis-Images bleiben „fremd“, die
+Liste sagt aber, dass ein Neubau sie braucht. Portalseite „Platz“ und alle
+Köder gemessen. Offen: erster Nachtlauf, eine echte „Platte voll“-Mail, eine
+Generalprobe auf dem Knoten.
