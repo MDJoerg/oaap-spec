@@ -3,9 +3,10 @@
 - **Status:** **Accepted (2026-11-26)** — D1–D9 decided by Jörg one at a time,
   eight as recommended; D8 with the random sample (b) (§10).
   **Stage 0:** M1, M2 and M3 measured 2026-11-26 (§12); M4 (SAP sends the
-  POST) is Jörg's side. **Stage 1** became gates (RFC-0135, built 2026-11-26).
-  **Stage 2 built 2026-11-26** (`vorgaenge` 0.22.0, `spezialisten` 0.7.0,
-  measured on oaap-test, §13).
+  POST) confirmed by Jörg 2026-11-26. **Stage 1** became gates (RFC-0135, built
+  2026-11-26). **Stage 2 built 2026-11-26** (`vorgaenge` 0.22.0, `spezialisten`
+  0.7.0, measured on oaap-test, §13). **Stage 3 built 2026-11-26**
+  (`vorgaenge` 0.23.0, `spezialisten` 0.8.0, tests only, §14).
 - **Date:** 2026-11-25
 - **Authors:** Jörg (the need: "wir starten einen Prozess aus unserem Chat per
   MCP im SAP … Falls wir mal keine Lösung haben, wollen wir durch KI die
@@ -296,7 +297,7 @@ Each with a recommendation; to be decided one at a time.
   4. SAP can send the POST (destination with TLS and bearer key) — Jörg's side.
 - **Stage 1 — the door** (§3): senders, filing with `ref`, reading, adding.
 - **Stage 2 — the lead and tasks** (§4, §5). Built 2026-11-26 (§13).
-- **Stage 3 — closing and review** (§7, §8).
+- **Stage 3 — closing and review** (§7, §8). Built 2026-11-26 (§14).
 - **Stage 4 — end to end in `bec`** with a real unknown question: filed by SAP,
   worked by the lead and two specialists, the solution written into SAP after
   approval, closed; the same question again is answered by SAP without a case.
@@ -498,6 +499,62 @@ what Jörg's ideas of 2026-11-26 add (I-77 supervisor per agent, I-78 context
 JSON and playbook at the process). The playbook above is the first, informal
 form of I-78: the lead's instruction carries the rules of the process.
 
+## 14. Stage 3 built (2026-11-26)
+
+`vorgaenge` 0.23.0 and `spezialisten` 0.8.0, on Jörg's word ("weiter mit Stufe 3").
+
+**Closing (§7).** `POST /api/spez/case/<n>/close {text, proof | no_write}` — only
+the responsible specialist; only a case whose reference is a gate delivery
+(RFC-0135; this replaces "the door of §3"); nothing open (consultation, task,
+plan waiting for approval). The **proof** is the number of an entry in this case:
+a tool call that the lead's run executed **after** a person's approval of its
+plan, or under a lifted approval, and that did not fail (`spezialisten` now marks
+every failed call with `failed`). Without proof, `no_write` must say why; the
+case then goes to review by itself. The case becomes `closed` with the mark
+`closed_by_lead`; the closing text is a public status entry, so the gate's read
+(`GET /gate/<name>/<ref>`) returns it as the answer. A person can still reopen
+it; the lead has no reopen tool.
+
+**The review mark (§8).** Stored on the case as a list of reasons; each new
+reason is an internal entry `review_mark`:
+
+| Reason | Set by |
+|---|---|
+| `lead` | the lead's tool `pruefen_markieren` |
+| `person` | a person who may triage the queue, form on the case |
+| `no_write` | closing without proof |
+| `limit` | a run ended at a limit |
+| `lifted` | a call ran under a lifted approval |
+| `sample` | D8 (b): a random share of the cases the lead closed with proof; per queue, default 10 %, set by the tenant administrator on the queue page |
+
+A **review** is an internal entry `review` with `ok` („in Ordnung“) or `rework`
+(„Nacharbeit“, text required); it clears the mark. Rework reopens an ended case;
+the lead stays responsible and its turn comes again. Reviewers: persons who may
+triage the queue, and a **reviewer specialist** per queue (queue page). The
+reviewer specialist gets marked cases only when nobody works on them any more
+(ended or given back), never cases it closed or is responsible for, reads them
+only while marked, has read tools only and gives exactly one verdict per mark
+(tool `pruefung_abgeben`); without a clear verdict (limit, no tool call, error)
+it writes `none` ("no verdict"), the mark stays and the persons review. Nobody
+reviews their own work. The overview has the view „zur Prüfung“, including
+ended cases. Mark and review are internal: the reporter (the other system) sees
+neither.
+
+**Tests:** `vorgaenge` `test_close_review.py` new (52 checks: who may close,
+gate only, proof rules including "approved before executed" and "failed is no
+proof", the closing text as the gate's answer, every automatic reason, the
+sample with a fixed roll, marks by lead and person, reviewer rules, rework
+reopens and wakes the lead, "no verdict", the queue setting, what the reporter
+sees); all eleven `vorgaenge` test files green. `spezialisten` +14 checks (the
+lead gets `abschliessen` only on a gate case, the proofs in its frame, a wrong
+proof refused with the reason from `vorgaenge`, closed with the right one, the
+lead marks and goes on, the reviewer's frame and tools, write tools never run in
+a review, rework, "no verdict"); all green. `check-store`, `check-design` clean.
+
+**Not measured on oaap-test yet.** The platform flow would be the same as in
+§13; the model part needs `bec` (Sonnet, M3). Not in this stage: the supervisor
+per agent and the context JSON from Jörg's ideas I-77/I-78.
+
 ## Non-goals
 
 - Linking `reported_for` to a platform person (the person sees the case in the
@@ -551,6 +608,17 @@ Antworten misst erst bec. Befund und gleich behoben: Vorgänge und Spezialisten 
 denselben Agenten unter verschiedenen Namen, also gleicht das Team jetzt über die
 Benutzerkennung ab. Offen bleiben Stufe 3 (Schließen, Prüfmerkmal) und aus I-77/I-78
 die Führungskraft je Agent und das Kontext-JSON.
+
+**Stufe 3 gebaut (26.11., §14):** Vorgänge 0.23.0 und Spezialisten 0.8.0. Der Leiter
+schließt einen Vorgang, den ein anderes System durch ein Tor geliefert hat, selbst – aber
+nur mit Beleg (der freigegebene und gelungene Aufruf in diesem Vorgang) oder mit der
+Begründung, warum nichts zu ändern war; dann geht der Vorgang von selbst zur Prüfung. Sein
+Schließtext ist öffentlich und ist das, was SAP beim Nachfragen liest. Zur Prüfung kommt ein
+Vorgang außerdem durch den Leiter, von Hand, bei einer Grenze, bei einem Aufruf ohne
+Einzelfreigabe und als Stichprobe (je Bereich, Standard 10 %). Prüfen können die Zuständigen
+und ein prüfender Spezialist je Bereich – nie der, der die Arbeit gemacht hat. „Nacharbeit“
+öffnet den Vorgang wieder, und der Leiter ist wieder dran. Getestet, auf oaap-test noch nicht
+gemessen. Führungskraft je Agent und Kontext-JSON (I-77/I-78) sind nicht dabei.
 
 **Entschieden am 26.11. (Jörg, einzeln):** D1 neue Tür mit Referenz-ID für jeden
 Auslöser; D2 sofort die Nummer, SAP fragt nach, Lösung per MCP nach SAP; D3 der
