@@ -664,6 +664,21 @@ the one sentence of reasoning the frame asks for; the arguments are shown in ful
 **Not reached yet:** a person releases the draft in ERC (four-eyes rule; the agent cannot), then
 the same question again is answered by SAP without a case.
 
+### 15.x The small findings, fixed (2026-11-26)
+
+- `view add` without `--effect` took a writing tool as read: fixed in
+  mcp-gateway 0.53.0 (the tool's own class, `read` only confirmed).
+- An assignment alone did not wake a specialist (a comment was needed):
+  `vorgaenge` 0.23.1 counts a role change **to** the specialist by someone
+  else as new.
+- Plans „ohne Begründung des Modells“: `spezialisten` 0.8.3 asks the model in
+  one turn without tools for the reason; without an answer the plan names the
+  call.
+- The gateway's usage row had no `user_sub` for the agent (M2): mcp-gateway
+  0.53.1 records the agent's user id from the platform's assertion.
+
+Built and tested (oaap-apps), not yet in `bec`.
+
 ## Non-goals
 
 - Linking `reported_for` to a platform person (the person sees the case in the
