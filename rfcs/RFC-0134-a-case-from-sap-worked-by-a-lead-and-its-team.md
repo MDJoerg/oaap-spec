@@ -575,9 +575,14 @@ approval. **Not reached on oaap-test:** the model closing *with* proof by itself
 its team list, then hit the run limit) and the random sample (both cases were
 already marked; the sample only draws unmarked cases). A 4B model is not enough
 for the lead or the reviewer; the quality belongs to `bec` (Sonnet, M3). Two
-small findings for later: the lead's case data shows team members under their
-`vorgaenge` labels, which tempts the model to use those names; and small models
-sometimes write a tool call as text. Not in this stage: the supervisor per agent
+small findings, **fixed in `spezialisten` 0.8.1**: the lead's case data showed
+team members under their `vorgaenge` labels, which tempted the model to use
+those names -- the run now translates labels into its own names (matched by the
+agent's id), the frame names the team explicitly, and a task addressed to a label
+reaches the same specialist; and small models sometimes write a tool call as text
+-- the run now reads such a call for a tool it offers anyway (`{"name", "arguments"}`,
+also inside `<tool_call>` or a JSON fence, `name {...}`, `name({...})`) under the
+same rules as a real call. Not in this stage: the supervisor per agent
 and the context JSON from Jörg's ideas I-77/I-78.
 
 ## Non-goals
@@ -645,7 +650,7 @@ und ein prüfender Spezialist je Bereich – nie der, der die Arbeit gemacht hat
 öffnet den Vorgang wieder, und der Leiter ist wieder dran. Auf oaap-test gemessen: Die Regeln
 halten mit echtem Tor, echten Schlüsseln und unterschriebener Freigabe; der Leiter schloss einmal
 selbst ohne Änderung, SAP las den Schließtext am Tor. Das 4B-Modell schloss nicht selbst mit
-Beleg und schrieb das Urteil des Prüfers als Text – die Güte misst erst bec. Führungskraft je Agent und Kontext-JSON (I-77/I-78) sind nicht dabei.
+Beleg und schrieb das Urteil des Prüfers als Text – die Güte misst erst bec. Die zwei Befunde (Labels aus Vorgänge im Verlauf, Werkzeugaufruf als Text) sind in Spezialisten 0.8.1 behoben. Führungskraft je Agent und Kontext-JSON (I-77/I-78) sind nicht dabei.
 
 **Entschieden am 26.11. (Jörg, einzeln):** D1 neue Tür mit Referenz-ID für jeden
 Auslöser; D2 sofort die Nummer, SAP fragt nach, Lösung per MCP nach SAP; D3 der
