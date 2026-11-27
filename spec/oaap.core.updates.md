@@ -1,7 +1,7 @@
 # oaap.core.updates — Platform Updates
 
 - **ID:** `oaap.core.updates`
-- **Version:** 0.12 (**the packages that wait** -- host care counts what `apt list --upgradable` offers (waiting, of them security, Docker, other; Docker by package name), a line in `oaap status` and on the health page, the daily matter `host.updates`, a line in the weekly report, and `oaap node care upgrade --dry-run` naming the packages; nothing is installed beyond what unattended-upgrades does, §2.11; RFC-0139 stage 1, reference 0.1.392). 0.11 (**freeing disk space** -- a care measure that removes images the node no longer needs, in classes: build cache, older versions of an image it built, images without an instance after seven days; foreign images only by a person one by one; data never; nightly after the backup, on disk pressure before the mail, by hand in the portal and with `oaap node care space`; journald capped at 2 GB, 2.10; RFC-0128, reference 0.1.387). 0.10 (the node door of a cases inbox also carries a tenant's **request to the operator** -- `object: request`, `from` naming tenant and person -- and answers `op: read` with state and replies, never an internal entry, 2.7.6, `oaap.core.tenant` 1.14, RFC-0109 §13; reference vorgaenge 0.12.0). 0.9
+- **Version:** 0.13 (**installing on the administrator's word** -- `oaap node care upgrade [--docker]`: backup first, apt in its own unit `oaap-upgrade`, only upgrades and never a removal, a check that every container runs again, audit and the notification `host.upgraded`, §2.12; RFC-0139 stage 2, reference 0.1.393). 0.12 (**the packages that wait** -- host care counts what `apt list --upgradable` offers (waiting, of them security, Docker, other; Docker by package name), a line in `oaap status` and on the health page, the daily matter `host.updates`, a line in the weekly report, and `oaap node care upgrade --dry-run` naming the packages; nothing is installed beyond what unattended-upgrades does, §2.11; RFC-0139 stage 1, reference 0.1.392). 0.11 (**freeing disk space** -- a care measure that removes images the node no longer needs, in classes: build cache, older versions of an image it built, images without an instance after seven days; foreign images only by a person one by one; data never; nightly after the backup, on disk pressure before the mail, by hand in the portal and with `oaap node care space`; journald capped at 2 GB, 2.10; RFC-0128, reference 0.1.387). 0.10 (the node door of a cases inbox also carries a tenant's **request to the operator** -- `object: request`, `from` naming tenant and person -- and answers `op: read` with state and replies, never an internal entry, 2.7.6, `oaap.core.tenant` 1.14, RFC-0109 §13; reference vorgaenge 0.12.0). 0.9
 - **Maturity:** draft — accepted by Jörg 2026-08-06 (CLI trigger
   implemented and validated on real hardware); 0.1.1 (2026-08-07)
   updates the reserved portal-trigger role to `server_admin` per
@@ -721,7 +721,9 @@ Security updates are installed by the node itself (2.6.3). What else waits
   Docker's archive names its suite like the distribution's) or `other`. The
   care file carries **counts only**: `updates = {waiting, security, docker,
   other}`; `null` when apt did not answer (an absent reading, never 0, and
-  then no line).
+  then no line). **While apt or dpkg runs** (seen in `/proc`, no lock taken)
+  the last reading stands: their lists are half-written then and apt says 0
+  (measured 2026-11-27, 0.1.393).
 - **Told:** a line in `oaap status` and on the portal's health page
   ("Updates: 6 waiting, 0 security, 6 Docker -- see: …", `warn` only while a
   security update waits); the matter `host.updates` (oaap.core.notifications,
@@ -733,8 +735,35 @@ Security updates are installed by the node itself (2.6.3). What else waits
   upgrade would take -- Docker's only with `--docker`, because their update
   restarts containerd and dockerd and every app of the node is away for about
   a minute (RFC-0139 §9). Root only: the names are the operator's.
-- **Not yet:** installing (RFC-0139 stage 2: backup, own unit, check) and the
-  portal's button (stage 3). The node installs nothing beyond 2.6.3.
+- **Installing** on the administrator's word: 2.12. Not yet: the portal's
+  button (RFC-0139 stage 3). The node installs nothing by itself beyond 2.6.3.
+
+### 2.12 Installing on the administrator's word (0.13, RFC-0139 stage 2)
+
+`sudo oaap node care upgrade [--docker]` -- root only, one function for the
+CLI and (stage 3) the portal:
+
+1. **The plan**: after `apt-get update`, every waiting package -- security and
+   other always, Docker's only with `--docker` (every app restarts once,
+   about a minute). Nothing in the plan: nothing happens, no backup, no
+   notification.
+2. **Its own unit** `oaap-upgrade` (`systemd-run`): the run survives the
+   ssh session and the minute job; a second start while one runs is
+   refused, so is a start while a backup copies. The CLI follows the log
+   (`/var/lib/oaap/data/upgrade/upgrade.log`); Ctrl-C leaves the run going;
+   `--status` shows the last run.
+3. **Backup first** (`oaap backup create`); when it fails nothing is installed.
+4. **apt**: `apt-get install --only-upgrade --no-remove -y` with the named
+   packages, non-interactive, existing configuration files kept
+   (`--force-confold`). `--no-remove`: apt aborts rather than remove anything.
+5. **The check**: the containers that ran before must run again; the run
+   waits up to five minutes (Docker's own restart, measured 55 s) and names
+   those that did not come back.
+6. **Told**: an audit line `host.upgraded` in the node's log (`failed` when
+   apt failed or a container is missing), the notification `host.upgraded`
+   (once), and host care measures afresh -- `host.updates` closes when
+   nothing waits. A new kernel leaves `reboot required`; the reboot is the
+   existing planning's (2.7), never immediate.
 
 ## 3. Configuration
 
@@ -1272,3 +1301,16 @@ wartet, und als Zeile in den Wochenbericht. `sudo oaap node care upgrade
 Update nähme – Docker nur mit `--docker`, weil dabei alle Apps etwa eine Minute
 weg sind. Eingespielt wird noch nichts über die automatischen
 Sicherheitsupdates hinaus.
+
+## Deutsche Zusammenfassung (0.13 — Einspielen auf Wort des Admins, RFC-0139 Stufe 2)
+
+`sudo oaap node care upgrade [--docker]` spielt die wartenden Pakete ein:
+zuerst die Paketliste auffrischen, dann Sicherheits- und sonstige Updates,
+Docker nur mit `--docker`. Der Lauf hat eine eigene Unit `oaap-upgrade` und
+überlebt so eine abgebrochene SSH-Sitzung. Zuerst kommt eine Sicherung; schlägt
+sie fehl, wird nichts eingespielt. apt darf nur aktualisieren, nie entfernen
+(`--no-remove`), und behält die vorhandenen Konfigurationsdateien. Danach wird
+geprüft, ob alle Container wieder laufen (bis zu fünf Minuten); fehlende
+werden genannt. Ergebnis: Zeile im Audit-Protokoll, eine Meldung
+`host.upgraded`, neue Messung der Server-Pflege. Ein neuer Kernel löst keinen
+sofortigen Neustart aus — das übernimmt die vorhandene Neustartplanung.

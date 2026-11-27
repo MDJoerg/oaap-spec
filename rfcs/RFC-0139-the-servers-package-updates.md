@@ -3,6 +3,8 @@
 - **Status:** **Accepted (2026-11-27)** — D1–D9 decided by Jörg, all as
   recommended (§8). **Stage 0 measured 2026-11-27 on oaap-test (§9). Stage 1 built 2026-11-27
   (§10)**: reference 0.1.392, oaap.core.updates 0.12, oaap.core.notifications 0.15.
+  **Stage 2 built and measured 2026-11-27 (§11)**: reference 0.1.393,
+  oaap.core.updates 0.13, oaap.core.notifications 0.16.
 - **Date:** 2026-11-27
 - **Authors:** Jörg (the need: "aktiv melden, wie viele Updates es gerade für
   apt gibt … als Erinnerung für den Admin, einmal täglich"; and the question
@@ -241,6 +243,54 @@ German line „Updates: 111 warten, davon 0 Sicherheit, 6 Docker …“. **Not
 measured:** the real mail of `host.updates` and its 24-hour reminder -- on
 oaap-test nothing waits; first seen on the fleet after the rollout.
 
+## 11. Stage 2 built and measured (2026-11-27)
+
+**Built:** `oaap node care upgrade [--docker] [--status]` (§4 steps 2-6):
+`apt-get update`, the plan (Docker's only with `--docker`), its own unit
+`oaap-upgrade`, `oaap backup create` (nothing installed when it fails),
+`apt-get install --only-upgrade --no-remove -y --force-confold <names>`, the
+check that every container that ran before runs again (up to 300 s), audit
+`host.upgraded`, the event `host.upgraded`, a fresh host-care reading. The
+CLI follows the log (`data/upgrade/upgrade.log`); Ctrl-C leaves the unit
+running. `test_host_updates.py` now 63 checks.
+
+**Measured on oaap-test** (versions set back by hand to have something waiting:
+krb5-locales u2 → u1 from trixie, Docker 29.10.1 → 29.10.0, containerd
+2.4.2-4 → -3, compose 5.8.0 → 5.7.2):
+
+| Run | What | Backup | apt | Result |
+|---|---|---|---|---|
+| 1 | without `--docker` | 7 min 39 s | 2 s | krb5-locales from trixie-security; 63/63 containers; 4 of Docker left, said so; audit `ok`, mail sent |
+| 2 | `--docker` | ~7 min | ~1.5 min | Docker 29.10.1, containerd 2.4.2-4; **62 s** outage seen from the edge (chat first, then the portal); 63/63 containers back by themselves |
+| 3 | without `--docker`, after the fixes | 6 min 47 s | 2 s | clean log; afterwards "none waiting", the matter closed |
+
+**Found and fixed while measuring:**
+
+- F1: a host-care reading **during a dpkg run** said "0 waiting" while five
+  waited (lists half-written) -- it would close the matter and open it again
+  with a new mail. Now the last reading stands while apt or dpkg runs (seen
+  in `/proc`, no lock taken).
+- F2: the first version of that check took the name `unattended-upgr` alone --
+  but `unattended-upgrade-shutdown --wait-for-signal` runs all day on every
+  node under the same name; the count would never have changed again. Now
+  the command line tells the guard from a run.
+- F3: the CLI stopped following during the backup: `systemctl is-active`
+  once gave no clear answer. Now only a clear "inactive" (code 3, or 4 = no
+  such unit, after `--collect`) counts, twice in a row.
+- F4: the CLI printed the last run's log first and then a fragment at the old
+  offset -- the unit emptied the log only after the CLI began to follow. Now
+  the starter empties it before the unit starts.
+- dpkg's progress lines ("Reading database ... 5%") are left out of the log.
+
+**Observed, not changed:** while the backup copies, the notifications wait
+(oaap.data.backup 2.2.2). A matter that becomes due during the backup is
+mailed right after it -- in run 3 the matter was new (set back at 11:42),
+so "open" went out at 11:49:15 and "close" a minute later. In real use the
+matter is open long before anyone presses the button.
+
+**Not yet:** the portal's section with the button (stage 3); a run on the
+raspberrypi's vendor archives (D9).
+
 ## Deutsche Zusammenfassung
 
 **Heute:** Sicherheitsupdates spielt jeder Knoten schon selbst ein
@@ -281,3 +331,10 @@ Admins des Knotens (D2), nichts Weiteres automatisch (D3), Docker nur mit
 Haken (D4), immer Sicherung vorher (D5), sofort beim Drücken (D6), Neustart
 über die vorhandene Planung (D7), Abschnitt auf der Gesundheitsseite (D8),
 Pi ohne Sonderfall, erster Lauf dort gemessen (D9).
+
+**Stufe 2 (27.11.2026):** `sudo oaap node care upgrade [--docker]` spielt ein --
+Sicherung zuerst, eigene Unit, nur Aktualisieren (`--no-remove`), danach
+Prüfung, ob alle Container wieder laufen, Audit und Meldung `host.upgraded`.
+Auf oaap-test dreimal gemessen; Docker-Update von außen 62 s Ausfall, alle 63
+Container von selbst zurück. Beim Messen vier Fehler gefunden und behoben,
+darunter einer aus Stufe 1: eine Zählung mitten in einem dpkg-Lauf ergab 0.
