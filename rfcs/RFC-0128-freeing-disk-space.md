@@ -192,9 +192,20 @@ the job, the pressure sentence, the report line).
   `node:22-slim`): still class D, never automatic, but the list says "Grundlage
   von N gebauten Image(s) -- ein Neubau lädt es dann neu".
 
+- **F13 The nightly run died with the minute job** (0.1.387, found the first
+  night, 2026-11-27): the minute job is a oneshot unit with
+  `KillMode=control-group`, and `start_new_session` does not leave the cgroup
+  -- systemd killed the spawned run when the minute ended. raspberrypi was due
+  from 03:00 and had no run at 06:20. 0.1.388 starts it as a unit of its own
+  (`systemd-run --unit=oaap-space-nightly`, the fixed name keeps a second one
+  out). Measured on oaap-test through the real minute job: the unit started
+  06:26:13, outlived the minute, finished 06:26:45 (123 MB), `last.cause =
+  nightly`, `space.freed` in the log. The test on oaap-test (run by hand) had
+  not been the path the node takes.
+
 **Not measured:** a rehearsal on the node (none existed; the rule is the
 registry's, held by the test); the first nightly run (due after the next
-backup); a real `disk.full` with its mail (the pressure run was called
+backup; see F13); a real `disk.full` with its mail (the pressure run was called
 directly, no disk was filled).
 
 ## Deutsche Zusammenfassung
@@ -234,3 +245,9 @@ laufende Image und die vorige Version. **Befund F11:** Auf Docker 29 räumt
 Liste sagt aber, dass ein Neubau sie braucht. Portalseite „Platz“ und alle
 Köder gemessen. Offen: erster Nachtlauf, eine echte „Platte voll“-Mail, eine
 Generalprobe auf dem Knoten.
+
+**Befund F13 (27.11., 0.1.388):** Der erste Nachtlauf fand nicht statt. Der
+Minutenjob ist ein systemd-Dienst, der beim Ende alle seine Prozesse beendet –
+auch den abgespaltenen Nachtlauf. Jetzt startet er ihn als eigene Unit
+(`systemd-run`); auf oaap-test durch den echten Minutenjob gemessen (123 MB,
+Ursache „nightly“ im Protokoll).
