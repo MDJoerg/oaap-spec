@@ -1,6 +1,7 @@
 # RFC-0138: Cases in the Chat — Feedback, a Desk and Decisions on the Go
 
-- **Status:** Draft (2026-11-27) — D1–D8 open, each with a recommendation (§9).
+- **Status:** **Accepted (2026-11-27)** — D1–D8 decided by Jörg, all as
+  recommended (§9). Nothing built.
 - **Date:** 2026-11-27
 - **Authors:** Jörg (the need: cases are no longer only feedback from the
   chat; the multi-agent scenarios run on them too; the cases a person is
@@ -199,6 +200,8 @@ The MCP door gets one tool more, **`my_desk`** (read-only): the figures of
 
 ## 9. Decisions
 
+Decided 2026-11-27 by Jörg: **all as recommended**.
+
 - **D1 — Words?** Recommended: **„Vorgang" for the case, „Prozess" for its
   definition, „Feedback" for what a person reported from the chat** (§1).
   Alternative: the new area „Prozesse".
@@ -250,7 +253,7 @@ Seiten der App; der Chat hat keine eigene Logik. Später ein Werkzeug
 **Stufen:** 1 Umbenennung und Schreibtisch zum Lesen, 2 Aktionen aus der
 Karte inkl. Freigabe, 3 Werkzeug `my_desk` und Zahl am Bereich.
 
-**Offen D1–D8**, Empfehlungen wie oben: Begriffe (D1), Umbenennung (D2),
+**Angenommen am 27.11.2026, D1–D8 alle wie empfohlen:** Begriffe (D1), Umbenennung (D2),
 `#vorgaenge` wird der Schreibtisch (D3), eigene Bereiche mit Schalter „alle“
 (D4), 5 Tage ohne Bewegung (D5), Bereich nur für Bearbeitende (D6), Freigabe
 im Chat mit zweiter Bestätigung (D7), Reihenfolge der Kacheln (D8).

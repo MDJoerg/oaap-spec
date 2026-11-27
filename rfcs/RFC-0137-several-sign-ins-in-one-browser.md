@@ -1,6 +1,7 @@
 # RFC-0137: Several Sign-ins in One Browser
 
-- **Status:** Draft (2026-11-27) — D1–D7 open, each with a recommendation (§8).
+- **Status:** **Accepted (2026-11-27)** — D1–D7 decided by Jörg, all as
+  recommended (§8). Nothing built.
 - **Date:** 2026-11-27
 - **Authors:** Jörg (the need: several AI chats of different tenants on
   oaapx01, used on a phone; switching between them ends in "falscher
@@ -184,6 +185,8 @@ only makes the switch bearable until stage 1.
 
 ## 8. Decisions
 
+Decided 2026-11-27 by Jörg: **all as recommended**.
+
 - **D1 — Several sign-ins in one session at all?** Recommended: **yes**, as
   described. Alternative: one cookie per tenant (`oaap_session_<label>`) —
   the same effect, but more cookies on every request and the selection logic
@@ -223,7 +226,7 @@ Anmeldungen des Browsers; wechseln heißt einfach den anderen Chat öffnen.
 spürbar), 1 Liste in der Sitzung mit Auswahl je Mandant, 2 Liste im
 Benutzermenü.
 
-**Offen D1–D7**, Empfehlungen: ja zur Liste (D1), eine Anmeldung je Mandant
+**Angenommen am 27.11.2026, D1–D7 alle wie empfohlen:** ja zur Liste (D1), eine Anmeldung je Mandant
 (D2), für Knotenseiten die zuletzt benutzte (D3), Mitgliedskonto vor
 server_admin (D4), höchstens 8 (D5), Abmelden je Ort plus „Überall abmelden“
 (D6), Terminals bleiben bei einer Anmeldung (D7).
