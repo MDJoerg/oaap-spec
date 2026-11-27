@@ -1,7 +1,8 @@
 # RFC-0137: Several Sign-ins in One Browser
 
 - **Status:** **Accepted (2026-11-27)** — D1–D7 decided by Jörg, all as
-  recommended (§8). Nothing built.
+  recommended (§8). **Stages 0 + 1 built 2026-11-27 (§9)**: reference
+  0.1.390, oaap.core.identity 0.6.20.
 - **Date:** 2026-11-27
 - **Authors:** Jörg (the need: several AI chats of different tenants on
   oaapx01, used on a phone; switching between them ends in "falscher
@@ -203,6 +204,26 @@ Decided 2026-11-27 by Jörg: **all as recommended**.
 - **D6 — What does „Abmelden" do?** Recommended: **the sign-in of this place**;
   „Überall abmelden" as a second entry.
 - **D7 — Terminals?** Recommended: **exactly one sign-in**, no list, as today.
+
+## 9. Stages 0 + 1 built (2026-11-27)
+
+- identity: `_accounts`, `_pick`, `_add_account`, `_drop_account`; every
+  session-shaped answer goes through `_pick`; logout per place and `all=1`;
+  the old form read and rewritten; terminals untouched; the sign-in time to
+  the microsecond (two sign-ins in one second must still sort for "newest"
+  and the limit).
+- The gateway: `X-OAAP-Site-Tenant` set in an instance site's `/auth/*`
+  block and stripped at site level (it joined `NOT_PLATFORM_HEADERS`, so a
+  site written before is stale and `migrate-identity-headers` rewrites it at
+  the update). Found while building: identity pages on an instance's address
+  carried no tenant, so a sign-out there could not know which sign-in it
+  meant -- §2.2 named only `/verify` and the place.
+- Stage 0: the refusal page with „Mit anderem Konto anmelden“; the login page
+  names the persons already signed in.
+- `test_several_sign_ins.py` (38 checks); `test_foreign_bearer` adjusted: a
+  browser without a sign-in of the instance's tenant now gets the anonymous
+  answer (401 for a script) instead of the boundary's 403 -- the person still
+  never gets in.
 
 ## Deutsche Zusammenfassung
 

@@ -1,7 +1,7 @@
 # oaap.core.identity — Identity & Roles
 
 - **ID:** `oaap.core.identity`
-- **Version:** 0.6.19 (0.6.19: **coupling tickets** -- a gate access handed over as a ticket with a one-time redemption code instead of a shown key: identity keeps the ticket with the SHA-256 of code and browser link, makes the principal inactive with it and the key only at redemption; the door `/couple-door/*` behind the gateway's `/platform/couple/*` answers 200 once, then 410, an unknown code 404 and counts it for the brake; the browser link redeems only on POST; `/internal/couplings` lists what the actor may see, §2.15.1; RFC-0136 stage 1, reference 0.1.386). 0.6.18 (0.6.18: **the ping names the last delivery** -- „Zuletzt angenommen: <time>“ from the node's counts (`gate-stats.json` beside `gates.json`, read-only), JSON `last_delivery`, §2.15; RFC-0135 stage 2b, reference 0.1.385). 0.6.17 (0.6.17: **a key from a hash** -- `issue_key` takes `secret_hash`, the hash of a secret its caller made; the record stores that hash and no readable key exists here; only a werkzeug password hash (scrypt or pbkdf2) is taken, §2.15; RFC-0135 stage 2, the portal's page „Tore“, reference 0.1.384). 0.6.16 (0.6.16: **a gate's access** -- Basic with the key as password and the gate's user name, taken at a gate only; one check for ping, templates, delivery and reading, the same 401 for every failure; `sap-user` never read, §2.15; RFC-0135 stage 1, reference 0.1.383). 0.6.15 (0.6.15: **an agent's assertion** -- fixed claims on a machine principal (`oaap machine propagate`) and the door `/platform/assertion` on every instance site, answered by identity only for a key limited to that instance, §2.11.1; RFC-0134 D10 a, reference 0.1.382). 0.6.14 (0.6.14: the authorization request MAY carry **`login_hint`** (OIDC Core 3.1.2.1) -- taken from the start's own parameter or from the `login_hint` in the return target, passed only when it is a plain name (`[A-Za-z0-9][A-Za-z0-9._@+-]{0,99}`), otherwise silently dropped; it prefills the provider's name field and proves nothing; the chat's QR code for the phone carries the verified e-mail, reference 0.1.379). 0.6.13 (0.6.13: **people invited by an app** -- `/people/v1` behind the gateway's door `/platform/people`: invite, resend, lock, unlock, read; the record made before the first login, role `partner`, limits, audit; RFC-0126 stage 1, reference 0.1.366). Before: 0.6.12 (bootstrap: **machine principals do not count** as users -- an app installed before the first administrator no longer locks the first-run wizard, and the first administrator is added next to the machine principals, never written over them, §2.5; found on a laptop demo node, I-68; reference 0.1.356). 0.6.11 (the people's key door `POST /internal/keys` refuses keys for the platform's machine principals (`instance:`, `remote:`, `client:`) and any scope with a dot (a platform capability such as `oaap.twin`, `oaap.authz.admin`, `oaap.cases.submit:<x>`), for every actor, audited as `key.refused`; one exception, RFC-0120 D2: a `client:` principal of the actor's own tenant with scope exactly `oaap.twin` and role `user` only -- until then a tenant_admin could mint them and act as an app on the twin, the authorization door or the cases door; the platform mints such keys itself, RFC-0120 §1.6, reference 0.1.346). 0.6.10 (the via check of 2.13 also for `oaap.ai.client:<chat>`, RFC-0104 stage 2). 0.6.9 (a seventh header **`X-OAAP-User-Idp`**: the person's binding at the tenant's OIDC identity provider as `<issuer> <sub>`, empty without one -- on the one list, so stripped, copied and kept out of the log like the others, 2.14, reference 0.1.307, RFC-0095 D2). 0.6.8 (**every node has its assertion key**: made at installation, on every update and at every app installation, never replaced -- 2.11, reference 0.1.302). 0.6.7 (**the discovery door**: `/verify?discover=` passes a gateway's catalog requests to a source without a person, the body parsed as JSON, the app seeing the gateway's machine principal -- 2.12.1, RFC-0073 §16, reference 0.1.300). 0.6.6 (**a client-sent `X-OAAP-Groups`/`X-OAAP-Tenant` is
+- **Version:** 0.6.20 (0.6.20: **several sign-ins in one browser** -- the session holds one sign-in per tenant, every request uses exactly one, chosen by the tenant of the instance or place (the gateway's `X-OAAP-Site-Tenant` on an instance's `/auth/*`); a missing one is added at that tenant's login; sign-out per place or `all=1`; at most 8; the refusal of another tenant is a page with „Mit anderem Konto anmelden“, §2.16; RFC-0137 stages 0 + 1, reference 0.1.390). 0.6.19 (0.6.19: **coupling tickets** -- a gate access handed over as a ticket with a one-time redemption code instead of a shown key: identity keeps the ticket with the SHA-256 of code and browser link, makes the principal inactive with it and the key only at redemption; the door `/couple-door/*` behind the gateway's `/platform/couple/*` answers 200 once, then 410, an unknown code 404 and counts it for the brake; the browser link redeems only on POST; `/internal/couplings` lists what the actor may see, §2.15.1; RFC-0136 stage 1, reference 0.1.386). 0.6.18 (0.6.18: **the ping names the last delivery** -- „Zuletzt angenommen: <time>“ from the node's counts (`gate-stats.json` beside `gates.json`, read-only), JSON `last_delivery`, §2.15; RFC-0135 stage 2b, reference 0.1.385). 0.6.17 (0.6.17: **a key from a hash** -- `issue_key` takes `secret_hash`, the hash of a secret its caller made; the record stores that hash and no readable key exists here; only a werkzeug password hash (scrypt or pbkdf2) is taken, §2.15; RFC-0135 stage 2, the portal's page „Tore“, reference 0.1.384). 0.6.16 (0.6.16: **a gate's access** -- Basic with the key as password and the gate's user name, taken at a gate only; one check for ping, templates, delivery and reading, the same 401 for every failure; `sap-user` never read, §2.15; RFC-0135 stage 1, reference 0.1.383). 0.6.15 (0.6.15: **an agent's assertion** -- fixed claims on a machine principal (`oaap machine propagate`) and the door `/platform/assertion` on every instance site, answered by identity only for a key limited to that instance, §2.11.1; RFC-0134 D10 a, reference 0.1.382). 0.6.14 (0.6.14: the authorization request MAY carry **`login_hint`** (OIDC Core 3.1.2.1) -- taken from the start's own parameter or from the `login_hint` in the return target, passed only when it is a plain name (`[A-Za-z0-9][A-Za-z0-9._@+-]{0,99}`), otherwise silently dropped; it prefills the provider's name field and proves nothing; the chat's QR code for the phone carries the verified e-mail, reference 0.1.379). 0.6.13 (0.6.13: **people invited by an app** -- `/people/v1` behind the gateway's door `/platform/people`: invite, resend, lock, unlock, read; the record made before the first login, role `partner`, limits, audit; RFC-0126 stage 1, reference 0.1.366). Before: 0.6.12 (bootstrap: **machine principals do not count** as users -- an app installed before the first administrator no longer locks the first-run wizard, and the first administrator is added next to the machine principals, never written over them, §2.5; found on a laptop demo node, I-68; reference 0.1.356). 0.6.11 (the people's key door `POST /internal/keys` refuses keys for the platform's machine principals (`instance:`, `remote:`, `client:`) and any scope with a dot (a platform capability such as `oaap.twin`, `oaap.authz.admin`, `oaap.cases.submit:<x>`), for every actor, audited as `key.refused`; one exception, RFC-0120 D2: a `client:` principal of the actor's own tenant with scope exactly `oaap.twin` and role `user` only -- until then a tenant_admin could mint them and act as an app on the twin, the authorization door or the cases door; the platform mints such keys itself, RFC-0120 §1.6, reference 0.1.346). 0.6.10 (the via check of 2.13 also for `oaap.ai.client:<chat>`, RFC-0104 stage 2). 0.6.9 (a seventh header **`X-OAAP-User-Idp`**: the person's binding at the tenant's OIDC identity provider as `<issuer> <sub>`, empty without one -- on the one list, so stripped, copied and kept out of the log like the others, 2.14, reference 0.1.307, RFC-0095 D2). 0.6.8 (**every node has its assertion key**: made at installation, on every update and at every app installation, never replaced -- 2.11, reference 0.1.302). 0.6.7 (**the discovery door**: `/verify?discover=` passes a gateway's catalog requests to a source without a person, the body parsed as JSON, the app seeing the gateway's machine principal -- 2.12.1, RFC-0073 §16, reference 0.1.300). 0.6.6 (**a client-sent `X-OAAP-Groups`/`X-OAAP-Tenant` is
   stripped** on every app route, 2.6; 0.6.5: **a bearer that is not ours** goes to the app when a
   session comes with it, 2.3, I-44; 0.6.4: **a chat acts as the person**, procedure A,
   RFC-0074 stage 1: `/verify?via=`, 2.13, and procedure I takes the
@@ -950,6 +950,51 @@ never stored.
   with it the inactive principal it made if that never held a key; a freed
   name may be given again (the log tells the two apart by ticket and key id).
 
+### 2.16 Several sign-ins in one browser (0.6.20, RFC-0137 stages 0 + 1)
+
+Every tenant under the node's names shares one session cookie (the scope of
+2.3; a tenant's own domain has its own, RFC-0115). The cookie therefore MUST
+NOT hold a single person: it holds **one sign-in per tenant**.
+
+- **The record.** `accounts` = `{<tenant id>: {user, epoch, at, idp?,
+  idp_out?}}` and `last` = the tenant id of the newest sign-in. The form
+  before (`user`, `epoch` at the top level) is read as a list of one and
+  rewritten, so an update signs nobody out. A terminal (RFC-0028) keeps that
+  old form with exactly one person and no list.
+- **Choosing.** Every session-shaped answer (`/verify`, `/auth/whoami`, the
+  self-service pages, logout) uses exactly ONE sign-in, chosen by the tenant
+  the request is about, never by anything the browser sends:
+  1. `/verify`: the instance's `tenant` parameter. An identity page on an
+     instance's address: the header `X-OAAP-Site-Tenant`, which the gateway
+     sets inside that site's `/auth/*` block only (a client-sent one is
+     stripped at site level, like the names of 2.3's
+     `NOT_PLATFORM_HEADERS`; it never reaches an app). A tenant's place: its
+     host.
+  2. The sign-in of that tenant. Without one, a `server_admin`'s sign-in
+     (the member wins where the browser holds one); otherwise none -- the
+     browser is not signed in **there** and gets the answer of an anonymous
+     visitor (the login of that tenant, `tenant=` in the link; 401 for a
+     script).
+  3. No tenant in the context (the node's own name, a LAN address) or a
+     tenant the node does not have: the newest sign-in, so the boundary of
+     2.3 refuses an unknown tenant exactly as before.
+  Each chosen sign-in is checked as before (active, epoch, must change
+  password); one that fails -- signed out elsewhere, deactivated, now in
+  another tenant -- leaves the list alone, the others stay.
+- **Signing in** (password or provider) **adds** the sign-in. A second one of
+  the same tenant replaces the first. At most **8**; the oldest goes. The
+  provider's id token hint (`idp_out.hint`) is kept for the newest provider
+  sign-in only (the cookie's size limit); older ones keep `idp_out.tenant`.
+  The login page names the persons already signed in.
+- **Signing out** (`POST /auth/logout`) ends the sign-in chosen for this
+  place and revokes that person's sessions (epoch) as before; `all=1` ends
+  every sign-in of the browser. The provider sign-out goes to the provider of
+  the first ended realm sign-in.
+- **The refusal of another tenant** (2.3) stays for what still reaches it;
+  for a navigating browser it is a page with „Mit anderem Konto anmelden“,
+  which leads to the login of the instance's place and keeps the existing
+  sign-ins; a script gets the sentence as before (stage 0).
+
 - Session secret and setup token are generated at install time
   (`oaap.core.host`); the user store lives in the platform data
   directory and is included in platform backups (future
@@ -1511,3 +1556,18 @@ die Bremse. Der Browser-Link zeigt bei GET nur eine Seite mit Knopf, erst der
 Klick (POST) löst ein. Zurückziehen geht, solange das Ticket offen ist. Die
 Liste zeigt jedem Verwalter nur seinen Mandanten. Alles steht im Protokoll
 (`coupling.issue`, `.redeem`, `.refused`, `.withdraw`).
+
+## Deutsche Zusammenfassung (Nachtrag 0.6.20 — mehrere Anmeldungen in einem Browser, RFC-0137 Stufe 0 + 1)
+
+Alle Mandanten unter dem Knotennamen teilen ein Anmelde-Cookie. Bisher hielt es
+eine Person: Wer sich bei Mandant B anmeldete, war bei Mandant A abgemeldet.
+Jetzt hält die Sitzung **je Mandant eine Anmeldung** (höchstens 8). Jede Anfrage
+nimmt genau eine: die des Mandanten der aufgerufenen Instanz oder des Orts. Auf
+der Adresse einer Instanz sagt das Gateway identity mit `X-OAAP-Site-Tenant`,
+wessen Instanz es ist; eine App bekommt diese Kopfzeile nie. Fehlt die Anmeldung
+für diesen Mandanten, kommt dessen Anmeldeseite, und die neue Anmeldung wird
+dazugelegt. Ein server_admin wird nur genommen, wenn der Browser kein Mitglied
+dieses Mandanten hält. Abmelden gilt für den Ort, `all=1` für alle. Alte Cookies
+werden gelesen, niemand fliegt beim Update raus; Terminals bleiben bei einer
+Person. Die Ablehnung „anderer Mandant“ zeigt im Browser den Knopf „Mit anderem
+Konto anmelden“.
