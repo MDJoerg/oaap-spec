@@ -1,7 +1,7 @@
 # oaap.core.gateway — HTTP Gateway (outline)
 
 - **ID:** `oaap.core.gateway`
-- **Version:** 0.2.26 (**a test instance stays out of search engines**: every site of an instance on the test channel or of a rehearsal carries `X-Robots-Tag: noindex, nofollow`, deferred so it replaces the app's own; a production instance never; section „Search engines and the channel“; I-81 idea 1, reference 0.1.395). 0.2.25 (0.2.25: **gates** -- a block `/gate/*` on the tenant's place: delivery and reading pass identity's gate check and go to the target with the gate's description in headers no client can set; ping and templates to identity; gate headers stripped on every instance site, section „Gates on the tenant's place“; RFC-0135 stage 1, reference 0.1.383). 0.2.24 (0.2.24: a kernel **without** MPTCP has no switch to set, and a container runtime refuses a container that asks for one -- there the gateway starts without it, since nothing on that kernel can negotiate MPTCP, section „Plain TCP listeners“; found on WSL2, I-68; reference 0.1.356). 0.2.23 (0.2.23: **login on every route** per instance -- an operator switch on the instance record makes every route of that instance ask identity, the manifest's `public` ones included, RFC-0092; 0.2.22: 0.2.22: **secret files refused** on every instance site -- see that section, RFC-0084)
+- **Version:** 0.2.27 (**the switch „KI-Abrufer“** per instance -- `allow` (default), `training` or `all`: the gateway answers `/robots.txt` itself with one group for the shut-out tokens and refuses every other request whose User-Agent names a shut-out fetcher with 403; search engines never; section „AI fetchers“; reference 0.1.397). 0.2.26 (**a test instance stays out of search engines**: every site of an instance on the test channel or of a rehearsal carries `X-Robots-Tag: noindex, nofollow`, deferred so it replaces the app's own; a production instance never; section „Search engines and the channel“; I-81 idea 1, reference 0.1.395). 0.2.25 (0.2.25: **gates** -- a block `/gate/*` on the tenant's place: delivery and reading pass identity's gate check and go to the target with the gate's description in headers no client can set; ping and templates to identity; gate headers stripped on every instance site, section „Gates on the tenant's place“; RFC-0135 stage 1, reference 0.1.383). 0.2.24 (0.2.24: a kernel **without** MPTCP has no switch to set, and a container runtime refuses a container that asks for one -- there the gateway starts without it, since nothing on that kernel can negotiate MPTCP, section „Plain TCP listeners“; found on WSL2, I-68; reference 0.1.356). 0.2.23 (0.2.23: **login on every route** per instance -- an operator switch on the instance record makes every route of that instance ask identity, the manifest's `public` ones included, RFC-0092; 0.2.22: 0.2.22: **secret files refused** on every instance site -- see that section, RFC-0084)
 - **Maturity:** draft (outline — full specification to follow;
   an edge route covers **two** levels below its host (`*.*.host`), so a
   tenant's instances behind an edge are forwarded, 2026-11-07 after a
@@ -679,6 +679,47 @@ forgets on the day a site goes live.
   entry -- the test address in the test instance, the customer's domain
   once it is the canonical name of the live one.
 
+## AI fetchers (0.2.27)
+
+Whether a site feeds AI models is the operator's decision about the
+instance, not something every app has to build. One switch on the
+instance record, `ai_fetchers: {block, since, by, reason}`:
+
+| Level | Shut out |
+|---|---|
+| `allow` (default, no field) | nothing -- the gateway does not touch `/robots.txt`; the app's own, if any, goes out unchanged |
+| `training` | crawlers that collect for a model: GPTBot, ClaudeBot, anthropic-ai, CCBot, Bytespider, Amazonbot, meta-externalagent, Google-Extended, cohere-ai, Applebot-Extended |
+| `all` | additionally fetchers for search answers and for a person asking a chat right now: OAI-SearchBot, ChatGPT-User, Claude-SearchBot, Claude-User, PerplexityBot, Perplexity-User, MistralAI-User |
+
+- **Two levers**, because a robots.txt is a request a fetcher may ignore:
+  - the gateway answers **`/robots.txt`** itself (`text/plain`, cached an
+    hour): one group naming the shut-out tokens with `Disallow: /`, then
+    `User-agent: *` / `Allow: /`. While the switch is on this replaces an
+    app's own robots.txt.
+  - every **other** request whose User-Agent contains a shut-out fetcher's
+    name (case-insensitive) gets **403** with a short sentence -- the app,
+    `/platform/*` and `/auth/*` included. Written at site level in the
+    body every entry point shares, as a rewrite to a reserved path ahead of
+    the secret-file guard, like the guard itself.
+- **`/robots.txt` is never refused**: a 4xx there reads as "everything
+  allowed" (RFC 9309 2.3.1.3).
+- **Search engines are never touched** (Googlebot, Bingbot, Applebot, …).
+  `Google-Extended` and `Applebot-Extended` are robots.txt tokens their
+  crawlers read; no request carries them, so they appear only in the file.
+- A fetcher is what its User-Agent says. One that lies is not caught --
+  the switch is the operator's statement plus a barrier for the honest and
+  the careless, not a defence.
+- **One table** (`site_stats`): the 403, the robots.txt, the portal's list
+  and the page statistics read the same names, so they cannot disagree.
+  The page statistics count a 403 to a named fetcher as *abgewiesen*
+  (`oaap.core.portal` 2.24).
+- The switch is the operator's: an app update keeps it (like
+  `login_required`), it is independent of the channel (a test instance
+  carries `noindex` anyway), and every change goes into the tenant's log
+  (`instance.ai-fetchers`). Set by `oaap app ai-fetchers <instance>
+  allow|training|all [--reason]` or the portal (spool action
+  `ai-fetchers`, judged by the host like `login-required`).
+
 ## Dependencies
 
 `oaap.core.identity`
@@ -1068,3 +1109,19 @@ nie. Damit braucht keine Webseite mehr einen eigenen Schalter wie `WEB_NOINDEX`,
 den man beim Livegang umlegen muss. Die eigene Adresse für Canonical-Link,
 Vorschaubild und Sitemap nimmt die App aus `OAAP_INSTANCE_NAMES` (die erste ist
 die Hauptadresse) statt aus einem Schalter wie `SITE_URL`.
+
+## Deutsche Zusammenfassung (0.2.27 — Schalter „KI-Abrufer“)
+
+Je Instanz entscheidet der Betreiber, ob KI-Abrufer die Seite lesen dürfen:
+**zulassen** (Standard, die Plattform greift nicht ein), **Training sperren**
+(Crawler, die für Modelle sammeln: GPTBot, ClaudeBot, CCBot, Bytespider,
+Google-Extended, Applebot-Extended, …) oder **alle sperren** (zusätzlich
+KI-Suchen und Abrufe für eine Frage im Chat: ChatGPT-User, Claude-User,
+Perplexity, Mistral). Ist der Schalter an, beantwortet das Gateway
+`/robots.txt` selbst und weist die gesperrten Kennungen bei jeder anderen
+Anfrage mit 403 ab. Die robots.txt ist nur eine Bitte, die 403 gilt auch für
+Abrufer, die sie nicht lesen. `/robots.txt` selbst wird nie abgewiesen, denn
+ein Fehler dort hieße „alles erlaubt“. Suchmaschinen sind nie betroffen. Wer
+sich mit falscher Kennung ausgibt, kommt durch. Ein Update der App übernimmt
+den Schalter, jede Änderung steht im Mandantenlog. Die Seitenstatistik zählt
+die Abweisungen je Abrufer.
