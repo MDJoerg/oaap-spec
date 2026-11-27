@@ -7,7 +7,8 @@
   (§14, reference 0.1.333, `oaap.core.tenant` 1.18); §15 (Jörg's two wishes, portal and
   hidden instances) built and measured 2026-11-21 (reference 0.1.334, 1.19); stage 3 in part
   (§16: a `tenant_admin` asks for a domain) built and measured 2026-11-21 (reference 0.1.339, 1.22).
-  §17 (a website on the domain, two gaps) **Draft 2026-11-27**, D10–D12 open, nothing built.
+  §17 (a website on the domain, two gaps) written 2026-11-27, D10–D12 decided as recommended the same
+  day (Jörg: „Wie empfohlen“), nothing built.
 - **Date:** 2026-11-20
 - **Authors:**
   - Jörg (the need, 2026-11-20): the tenant `bec` on `oaapx01` has the
@@ -544,7 +545,7 @@ with „Die Domain … ist gebunden und aktiv.“; the domain removed again.
 
 **Not measured:** the card clicked in a browser.
 
-## 17. A website on the domain (Draft, 2026-11-27)
+## 17. A website on the domain (2026-11-27)
 
 **The question** (Jörg, 2026-11-27): an instance is the tenant's website and should answer on the
 main domain or on `www.<domain>`. Does that work? And instances that answer under the node's names
@@ -596,7 +597,7 @@ only, not under the domain, exist already?
    hidden; an own name below the domain is still allowed for it (decided in §15), now only for an
    instance of the domain's tenant (item 1).
 
-**Decisions (open).**
+**Decisions** (Jörg, 2026-11-27: „Wie empfohlen“ for D10–D12).
 
 - **D10 Foreign own names under a domain.** *Recommendation:* refused (item 1), also when the domain is
   bound later.
@@ -724,7 +725,7 @@ des Betreibers und schließt sich selbst, sobald die Domain aktiv ist. Auf oaap-
 Edge braucht der Knoten nichts Neues. Offen bleiben mit Absicht: die Prüfung im Edge-Befehl und die
 Umleitung der Knotennamen auf die Domain (D3, erst wenn ein Mandant sie will).
 
-**Webseite auf der Domain (27.11., §17, Entwurf, nichts gebaut):**
+**Webseite auf der Domain (27.11., §17, nichts gebaut):**
 - Jörgs Frage: Kann eine Instanz als Webseite auf `bec.brandeis.de` oder `www.bec.brandeis.de`
   antworten? Ja, heute schon, als eigener Name der Instanz (`oaap app address <instanz> set …`,
   `alias-add …`). Instanzen nur unter dem Knotennamen gibt es auch schon (§15, „verbergen“).
@@ -736,6 +737,7 @@ Umleitung der Knotennamen auf die Domain (D3, erst wenn ein Mandant sie will).
 - Vorschlag: Eigene Namen unter einer Mandanten-Domain nur für Instanzen dieses Mandanten (auch
   beim späteren Binden geprüft). Hält die Webseite die Domain selbst, zieht die Startseite auf
   einen Namen darunter um (Vorschlag `portal.<domain>`), und Portal, Mails und Kacheln sagen das.
-- Offen: D10 fremde Namen unter der Domain verbieten (empfohlen), D11 wohin die Startseite zieht
-  (empfohlen `portal.<domain>`), D12 erst Lücke 2 schließen, Umzug der Startseite erst bei Bedarf.
+- Entschieden am 27.11. von Jörg wie empfohlen („Wie empfohlen“): D10 fremde Namen unter der Domain
+  werden abgelehnt, D11 die Startseite zieht nach `portal.<domain>`, D12 erst Lücke 2 schließen,
+  Umzug der Startseite erst, wenn ein Mandant seine Webseite auf die Domain legt.
 - Alles aus dem Code gelesen, nichts gemessen.
