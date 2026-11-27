@@ -231,6 +231,16 @@ vuebung's chat through the edge every ~1.3 s.
   says that installing comes with stage 2.
 - `test_host_updates.py` (29 checks).
 
+**Measured (2026-11-27).** On oaap-test (staged 0.1.392): the care file
+carries `updates = {waiting: 0, …}` -- nothing waits since stage 0 took
+Docker --, `oaap status` says „Updates: none waiting“, `upgrade --dry-run`
+„No package waits“. On raspberrypi (still 0.1.390), the new module run read
+only from /tmp: **111 waiting = the raw list's 111**, 0 security, 6 Docker
+(by name), 105 other (`bluez-firmware` from the Pi's `stable` archive); the
+German line „Updates: 111 warten, davon 0 Sicherheit, 6 Docker …“. **Not
+measured:** the real mail of `host.updates` and its 24-hour reminder -- on
+oaap-test nothing waits; first seen on the fleet after the rollout.
+
 ## Deutsche Zusammenfassung
 
 **Heute:** Sicherheitsupdates spielt jeder Knoten schon selbst ein
