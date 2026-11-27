@@ -8,7 +8,7 @@
   hidden instances) built and measured 2026-11-21 (reference 0.1.334, 1.19); stage 3 in part
   (§16: a `tenant_admin` asks for a domain) built and measured 2026-11-21 (reference 0.1.339, 1.22).
   §17 (a website on the domain, two gaps) written 2026-11-27, D10–D12 decided as recommended the same
-  day (Jörg: „Wie empfohlen“), nothing built.
+  day (Jörg: „Wie empfohlen“); item 1 (D10) built 2026-11-27 (reference 0.1.389, `oaap.core.tenant` 1.30).
 - **Date:** 2026-11-20
 - **Authors:**
   - Jörg (the need, 2026-11-20): the tenant `bec` on `oaapx01` has the
@@ -623,8 +623,27 @@ a domain: no site written); the apex as an own name answers with the website, `p
 place, the login on both; mails, tiles and the health page print `place_host` (no address still points
 at the apex for the place).
 
-**Not measured:** nothing of §17. Item 1 and F3 are read from the code; whether the website on the
-apex behaves as F2 says needs a measurement on `oaap-test` with `dom0.oaap-demo.duckdns.org`.
+**Built: item 1 (D10)** (reference 0.1.389, `oaap.core.tenant` 1.30, Jörg 2026-11-27: „Ja, F3 bauen“).
+
+- `place.domain_claim(host, tenants)`: the tenant whose pending or active domain covers a host.
+- `check_instance_address` (CLI and the portal's worker) refuses a name under another tenant's domain,
+  naming that tenant.
+- `foreign_own_names` lists every own name under a domain that belongs to another tenant's instance;
+  `oaap tenant domain <label> <domain>`, `check` and the daily check refuse to bind or activate while
+  one exists (the daily check keeps the domain pending and writes the reason to the tenant's log).
+- `write_instance_address_caddy` writes no site for such a name (a comment says why), and
+  `write_external_caddy` no longer lets it displace the place on the apex.
+- Item 2 (D11, `place_host`) is not built (D12).
+
+**Tests.** `test_tenant_domain.py` 115 (18 new): a foreign instance refused for `www.<domain>`, for the
+domain itself (the sentence names the tenant) and through the portal's worker; the tenant's own instance
+accepted for `www.<domain>` and for the domain itself (then the website holds the apex, F2); a name
+outside every domain free for all; a pending domain claims its names, a switched-off one none; a foreign
+name from an older registry gets no site and leaves the place on the apex; binding refused naming the
+instance (also from the portal), the old domain unchanged; the daily check and `check` keep a pending
+domain pending while a foreign name exists, and activate it once it is gone. Fourteen neighbouring files
+in the Linux runner green except `test_auto_address` (one check on the portal's gate link, red since
+0.1.384, unrelated).
 
 ## Zusammenfassung auf Deutsch
 
