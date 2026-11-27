@@ -1,7 +1,7 @@
 # oaap.core.gateway — HTTP Gateway (outline)
 
 - **ID:** `oaap.core.gateway`
-- **Version:** 0.2.25 (0.2.25: **gates** -- a block `/gate/*` on the tenant's place: delivery and reading pass identity's gate check and go to the target with the gate's description in headers no client can set; ping and templates to identity; gate headers stripped on every instance site, section „Gates on the tenant's place“; RFC-0135 stage 1, reference 0.1.383). 0.2.24 (0.2.24: a kernel **without** MPTCP has no switch to set, and a container runtime refuses a container that asks for one -- there the gateway starts without it, since nothing on that kernel can negotiate MPTCP, section „Plain TCP listeners“; found on WSL2, I-68; reference 0.1.356). 0.2.23 (0.2.23: **login on every route** per instance -- an operator switch on the instance record makes every route of that instance ask identity, the manifest's `public` ones included, RFC-0092; 0.2.22: 0.2.22: **secret files refused** on every instance site -- see that section, RFC-0084)
+- **Version:** 0.2.26 (**a test instance stays out of search engines**: every site of an instance on the test channel or of a rehearsal carries `X-Robots-Tag: noindex, nofollow`, deferred so it replaces the app's own; a production instance never; section „Search engines and the channel“; I-81 idea 1, reference 0.1.395). 0.2.25 (0.2.25: **gates** -- a block `/gate/*` on the tenant's place: delivery and reading pass identity's gate check and go to the target with the gate's description in headers no client can set; ping and templates to identity; gate headers stripped on every instance site, section „Gates on the tenant's place“; RFC-0135 stage 1, reference 0.1.383). 0.2.24 (0.2.24: a kernel **without** MPTCP has no switch to set, and a container runtime refuses a container that asks for one -- there the gateway starts without it, since nothing on that kernel can negotiate MPTCP, section „Plain TCP listeners“; found on WSL2, I-68; reference 0.1.356). 0.2.23 (0.2.23: **login on every route** per instance -- an operator switch on the instance record makes every route of that instance ask identity, the manifest's `public` ones included, RFC-0092; 0.2.22: 0.2.22: **secret files refused** on every instance site -- see that section, RFC-0084)
 - **Maturity:** draft (outline — full specification to follow;
   an edge route covers **two** levels below its host (`*.*.host`), so a
   tenant's instances behind an edge are forwarded, 2026-11-07 after a
@@ -653,6 +653,32 @@ default tenant. Nothing else of the place changes.
 - The block is rewritten with the place sites whenever a gate, a process or
   the instances change.
 
+## Search engines and the channel (0.2.26, I-81 idea 1)
+
+Whether a site belongs in a search engine is not the app's call -- the
+platform knows which instance is a test and which is live, and a switch in
+every app (the website starter's `WEB_NOINDEX`) is the thing somebody
+forgets on the day a site goes live.
+
+- **Every site of an instance on the test channel, and of a rehearsal**
+  (RFC-0030), carries `X-Robots-Tag: noindex, nofollow` on every answer:
+  the app's pages, a login redirect, a 404, `/platform/*`. Written at site
+  level in the one body every entry point shares (LAN port, automatic
+  name, the instance's own names and aliases), and **deferred**, so it is
+  set when the response is written and replaces whatever the app said.
+- **A production instance never** carries it from the gateway, also when
+  its record names no channel. Whether a live site wants to be indexed is
+  then the app's content (its own header, `<meta name="robots">`,
+  `robots.txt`).
+- Read from the instance record, like the rehearsal: an instance that
+  changes channel (a reinstall with `--channel`) gets the rule with the
+  site that is written then. No setting, nothing to carry over on
+  promotion.
+- The address an app publishes (canonical link, `og:url`, a sitemap)
+  comes from `OAAP_INSTANCE_NAMES` (`oaap.apps.runtime` 2.8.1), the first
+  entry -- the test address in the test instance, the customer's domain
+  once it is the canonical name of the live one.
+
 ## Dependencies
 
 `oaap.core.identity`
@@ -1032,3 +1058,13 @@ abgelehnt. Eine Lieferung (`POST`) und das Lesen nach `ref` fragen identity
 `vorgaenge`-Instanz des Mandanten – mit der Beschreibung des Tors in
 Kopfzeilen, die kein Client setzen kann, ohne den Schlüssel. Ping, Vorlagen
 und alles Unbekannte unter `/gate/` beantwortet identity.
+
+## Deutsche Zusammenfassung (0.2.26 — Test-Instanzen bleiben aus Suchmaschinen heraus, I-81 Idee 1)
+
+Jede Seite einer Test-Instanz und einer Generalprobe schickt vom Gateway
+`X-Robots-Tag: noindex, nofollow` mit, auf jeder Antwort und an jedem Eingang;
+die Angabe ersetzt, was die App selbst sagt. Eine Produktivinstanz bekommt sie
+nie. Damit braucht keine Webseite mehr einen eigenen Schalter wie `WEB_NOINDEX`,
+den man beim Livegang umlegen muss. Die eigene Adresse für Canonical-Link,
+Vorschaubild und Sitemap nimmt die App aus `OAAP_INSTANCE_NAMES` (die erste ist
+die Hauptadresse) statt aus einem Schalter wie `SITE_URL`.
