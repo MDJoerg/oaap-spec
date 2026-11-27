@@ -4,7 +4,8 @@
   recommended (§10). **Stage 0 measured 2026-11-27 on oaap-test (§11)**;
   D9 (finding F1, the brake counts per worker) decided 2026-11-27 as
   recommended: fixed in stage 1. **Stage 1 built and measured 2026-11-27
-  (§12)**: reference 0.1.400, `oaap.core.gateway` 0.2.28.
+  (§12)**: reference 0.1.400, `oaap.core.gateway` 0.2.28. **Stage 2 built
+  and measured 2026-11-27 (§13)**: reference 0.1.401, gateway 0.2.29.
 - **Date:** 2026-11-27
 - **Authors:** Jörg (the need: look at `sglok-sbk.de`, a tenant's page made
   with the deploy-URL procedure, as Google, as a visitor and as an attacker
@@ -280,6 +281,38 @@ Not measured: WebSocket through `encode` (no public WebSocket on
 oaap-test) — Caddy does not encode a 101 upgrade; the chat is checked when
 the fleet is updated. Not on the fleet yet.
 
+## 13. Stage 2 built and measured (2026-11-27, reference 0.1.401)
+
+Built: `header_site_lines` inside `harden_site_lines`, so every entry
+point has it --
+`header @oaap_tls ?Strict-Transport-Security "max-age=31536000"` with
+`@oaap_tls protocol https`, the same line again with
+`@oaap_edge_tls header X-Forwarded-Proto https` (behind an edge only the
+edge's header is believed, `write_edge_trust`; two matchers instead of a
+CEL expression -- both set with `?`, the first wins),
+`header ?X-Content-Type-Options nosniff`,
+`header ?Referrer-Policy strict-origin-when-cross-origin`. Switch
+`hardening.headers` with `oaap app hardening <instance> --headers on|off`
+(one switch per call, independent of `compress`); `migrate-hardening`
+also rewrites sites from stage 1. Gateway 0.2.29. Tests:
+`test_base_hardening` 41 checks; the 34 files that generate sites green
+except `test_diagnose` (red before, `i.ai`).
+
+Measured on oaap-test after staging 0.1.401 (the update rewrote the
+sites, 100 `nosniff` lines in 50 instance files and `external.caddy`):
+
+| Probe | Result |
+|---|---|
+| all 50 instance LAN ports | `nosniff` exactly once on 50/50, `Referrer-Policy` once on 50/50, no HSTS on plain http (except `auth`, Keycloak's own) |
+| status of `/` on all 50 | identical to stage 1 |
+| an app's own values | `auth` (Keycloak) keeps `max-age=31536000; includeSubDomains` and `no-referrer` -- not overwritten, not doubled |
+| HSTS through the edge | `https://bdt.vuebung.oaap-test…/` → `Strict-Transport-Security: max-age=31536000`, `nosniff`, `Referrer-Policy`; `http://` → the edge's 301 without HSTS |
+| `/platform/app.js`, `theme.css` (from the gateway) | `text/javascript` / `text/css` with `nosniff` |
+| M4 open from stage 0: `nosniff` behind the login | every instance's own container with signed-in identity headers: 39 scripts and styles on 8 apps, **0 wrong types** (the other apps load none from their first page, or only the platform's two files; `ws375-wiki` sends to Keycloak first, not covered) |
+
+Not measured: a browser console per app behind the login (the type
+check above is what `nosniff` acts on). Not on the fleet yet.
+
 ## Deutsche Zusammenfassung
 
 Anlass: Die Vereinsseite `sglok-sbk.de` läuft gut, aber unser Gateway
@@ -324,3 +357,10 @@ selbst), TRACE/TRACK/CONNECT bekommen 405 vom Gateway, PROPFIND/OPTIONS
 gehen weiter an die App, Schalter `oaap app hardening <instanz> --compress
 off`. Die Bremse zählt in einer gemeinsamen Datei: erste 429 jetzt bei
 Anfrage 292 statt 594. Noch nicht auf der Flotte.
+
+Stufe 2 gebaut und auf oaap-test gemessen (0.1.401, gateway 0.2.29): HSTS
+(nur über https, auch hinter dem Edge), `nosniff` und `Referrer-Policy` auf
+jeder Instanzseite, nur wo die App keinen eigenen Wert setzt (Keycloak
+behält seine). Alle 50 Instanzen gleicher Status, 0 falsche Inhaltstypen
+auch bei Apps hinter dem Login (39 Dateien, 8 Apps). Schalter
+`--headers off` je Instanz. Noch nicht auf der Flotte.

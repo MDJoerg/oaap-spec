@@ -1,7 +1,7 @@
 # oaap.core.gateway — HTTP Gateway (outline)
 
 - **ID:** `oaap.core.gateway`
-- **Version:** 0.2.28 (**base hardening, stage 1** (RFC-0140): every instance site compresses (`encode zstd gzip`, switchable off per instance) and refuses `TRACE`, `TRACK` and `CONNECT` with 405 at the gateway; the public-route brake counts in one place every identity worker shares, so the limit is the limit and not the limit times the worker count; sections „Base hardening“ and „Public-route throttling“; reference 0.1.400). 0.2.27 (**the switch „KI-Abrufer“** per instance -- `allow` (default), `training` or `all`: the gateway answers `/robots.txt` itself with one group for the shut-out tokens and refuses every other request whose User-Agent names a shut-out fetcher with 403; search engines never; section „AI fetchers“; reference 0.1.397). 0.2.26 (**a test instance stays out of search engines**: every site of an instance on the test channel or of a rehearsal carries `X-Robots-Tag: noindex, nofollow`, deferred so it replaces the app's own; a production instance never; section „Search engines and the channel“; I-81 idea 1, reference 0.1.395). 0.2.25 (0.2.25: **gates** -- a block `/gate/*` on the tenant's place: delivery and reading pass identity's gate check and go to the target with the gate's description in headers no client can set; ping and templates to identity; gate headers stripped on every instance site, section „Gates on the tenant's place“; RFC-0135 stage 1, reference 0.1.383). 0.2.24 (0.2.24: a kernel **without** MPTCP has no switch to set, and a container runtime refuses a container that asks for one -- there the gateway starts without it, since nothing on that kernel can negotiate MPTCP, section „Plain TCP listeners“; found on WSL2, I-68; reference 0.1.356). 0.2.23 (0.2.23: **login on every route** per instance -- an operator switch on the instance record makes every route of that instance ask identity, the manifest's `public` ones included, RFC-0092; 0.2.22: 0.2.22: **secret files refused** on every instance site -- see that section, RFC-0084)
+- **Version:** 0.2.29 (**base hardening, stage 2** (RFC-0140): every instance site sets `Strict-Transport-Security: max-age=31536000` on an answer that went out over https (TLS at the site or at the edge), `X-Content-Type-Options: nosniff` and `Referrer-Policy: strict-origin-when-cross-origin` -- each only where the app set none, switchable off per instance; section „Base hardening“; reference 0.1.401). 0.2.28 (**base hardening, stage 1** (RFC-0140): every instance site compresses (`encode zstd gzip`, switchable off per instance) and refuses `TRACE`, `TRACK` and `CONNECT` with 405 at the gateway; the public-route brake counts in one place every identity worker shares, so the limit is the limit and not the limit times the worker count; sections „Base hardening“ and „Public-route throttling“; reference 0.1.400). 0.2.27 (**the switch „KI-Abrufer“** per instance -- `allow` (default), `training` or `all`: the gateway answers `/robots.txt` itself with one group for the shut-out tokens and refuses every other request whose User-Agent names a shut-out fetcher with 403; search engines never; section „AI fetchers“; reference 0.1.397). 0.2.26 (**a test instance stays out of search engines**: every site of an instance on the test channel or of a rehearsal carries `X-Robots-Tag: noindex, nofollow`, deferred so it replaces the app's own; a production instance never; section „Search engines and the channel“; I-81 idea 1, reference 0.1.395). 0.2.25 (0.2.25: **gates** -- a block `/gate/*` on the tenant's place: delivery and reading pass identity's gate check and go to the target with the gate's description in headers no client can set; ping and templates to identity; gate headers stripped on every instance site, section „Gates on the tenant's place“; RFC-0135 stage 1, reference 0.1.383). 0.2.24 (0.2.24: a kernel **without** MPTCP has no switch to set, and a container runtime refuses a container that asks for one -- there the gateway starts without it, since nothing on that kernel can negotiate MPTCP, section „Plain TCP listeners“; found on WSL2, I-68; reference 0.1.356). 0.2.23 (0.2.23: **login on every route** per instance -- an operator switch on the instance record makes every route of that instance ask identity, the manifest's `public` ones included, RFC-0092; 0.2.22: 0.2.22: **secret files refused** on every instance site -- see that section, RFC-0084)
 - **Maturity:** draft (outline — full specification to follow;
   an edge route covers **two** levels below its host (`*.*.host`), so a
   tenant's instances behind an edge are forwarded, 2026-11-07 after a
@@ -728,7 +728,7 @@ instance record, `ai_fetchers: {block, since, by, reason}`:
   allow|training|all [--reason]` or the portal (spool action
   `ai-fetchers`, judged by the host like `login-required`).
 
-## Base hardening (0.2.28, RFC-0140 stage 1)
+## Base hardening (0.2.28/0.2.29, RFC-0140 stages 1 and 2)
 
 What every tenant's site should have and none should have to think of is
 written once, into the body every entry point of an instance shares (LAN
@@ -757,8 +757,30 @@ listener, automatic name, canonical name, aliases).
 - **Existing sites** learn both at the update (`migrate-hardening`,
   idempotent, silent when nothing is to do); a switched-off compression
   is never switched back on by it.
-- Stage 2 adds base security headers, stage 3 an alias that redirects to
-  the canonical name (RFC-0140 §3, §4).
+- **Base headers** (0.2.29, stage 2), each with Caddy's `?` -- written
+  only when the app's answer has no such header, so an app that knows
+  better keeps its value (measured: Keycloak keeps its
+  `includeSubDomains` and `no-referrer`):
+  - `Strict-Transport-Security: max-age=31536000` -- without
+    `includeSubDomains`/`preload`, the tenant decides about its other
+    names. Only on an answer the browser got over https: the site speaks
+    TLS itself (direct mode), or the request carries
+    `X-Forwarded-Proto: https`, which behind an edge only the edge can set
+    (`trusted_proxies`). A LAN `http://` port sends none; a forged
+    `X-Forwarded-Proto` there buys nothing, a browser ignores HSTS on
+    plain http (RFC 6797 §8.1).
+  - `X-Content-Type-Options: nosniff` and
+    `Referrer-Policy: strict-origin-when-cross-origin` on every answer.
+  - Deliberately not: `Content-Security-Policy`, `X-Frame-Options` /
+    `frame-ancestors`, `Permissions-Policy` -- a wrong default breaks an
+    app without anybody seeing why (RFC-0140 §3, D4).
+  - Switch `hardening.headers` like `compress`: `oaap app hardening
+    <instance> --headers on|off` (`server_admin`), one switch per call,
+    stored only while off, kept by an update, logged as
+    `instance.hardening`. The update's `migrate-hardening` writes the
+    headers into existing sites and never back into a switched-off one.
+- Stage 3 adds an alias that redirects to the canonical name (RFC-0140
+  §4).
 
 ## Dependencies
 
@@ -1179,3 +1201,13 @@ erlaubter Methoden gibt es bewusst nicht (WebDAV). Bestehende Seiten lernt
 das Update. Die Drosselung öffentlicher Routen zählt jetzt an einer Stelle,
 die alle Identity-Prozesse teilen: die Grenze ist die Grenze, nicht mehr das
 Doppelte (gemessen: erste 429 bei Anfrage 594 statt 301).
+
+## Deutsche Zusammenfassung (0.2.29 — Grundhärtung Stufe 2, RFC-0140)
+
+Jede Instanzseite setzt jetzt drei Sicherheits-Header, aber nur, wenn die
+App selbst keinen gesetzt hat: HSTS (ein Jahr, ohne Subdomains) nur bei
+Antworten über https, auch hinter einem Edge, nie am LAN-Port;
+`nosniff` und `Referrer-Policy: strict-origin-when-cross-origin` immer.
+CSP, Einbett-Schutz und Kamera/Mikro-Regeln bewusst nicht. Abschaltbar je
+Instanz mit `oaap app hardening <instanz> --headers off`, bestehende Seiten
+lernt das Update.
