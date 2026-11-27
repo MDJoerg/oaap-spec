@@ -1,6 +1,7 @@
 # RFC-0139: The Server's Package Updates — a Daily Reminder and a Button
 
-- **Status:** Draft (2026-11-27) — D1–D9 open, each with a recommendation (§8).
+- **Status:** **Accepted (2026-11-27)** — D1–D9 decided by Jörg, all as
+  recommended (§8). Nothing built.
 - **Date:** 2026-11-27
 - **Authors:** Jörg (the need: "aktiv melden, wie viele Updates es gerade für
   apt gibt … als Erinnerung für den Admin, einmal täglich"; and the question
@@ -156,6 +157,8 @@ and then the result.
 
 ## 8. Decisions
 
+Decided 2026-11-27 by Jörg: **all as recommended**.
+
 - **D1 — How often does the reminder come?** Recommended: **once a day while
   packages wait** (a matter with `remind: 24`), as asked. Alternative: only
   when the number changes or security updates wait — fewer mails, but no
@@ -211,7 +214,7 @@ automatisch, der Rest auf Wort des Admins.
 Container von selbst zurück), 1 Zählung + Erinnerung + `--dry-run`,
 2 Einspielen per CLI, 3 Knopf im Portal.
 
-**Offen D1–D9**, Empfehlungen: täglich solange etwas wartet (D1), nur die
+**Angenommen am 27.11.2026, D1–D9 alle wie empfohlen:** täglich solange etwas wartet (D1), nur die
 Admins des Knotens (D2), nichts Weiteres automatisch (D3), Docker nur mit
 Haken (D4), immer Sicherung vorher (D5), sofort beim Drücken (D6), Neustart
 über die vorhandene Planung (D7), Abschnitt auf der Gesundheitsseite (D8),
