@@ -1,7 +1,7 @@
 # oaap.core.notifications — Recipient Lists and Notifications
 
 - **ID:** `oaap.core.notifications`
-- **Version:** 0.16 (the event **`host.upgraded`** -- a run of `oaap node care upgrade` finished, with its result; operations, node, RFC-0139 stage 2). 0.15 (the matter **`host.updates`** -- packages wait for an update on the node; operations, node, reminded every 24 h, RFC-0139 stage 1). 0.14 (the fleet's matters `node.silent`, `bridge.down`, `broker.queue`, `link.down` are **reminded daily** like critical ones -- a catalogue entry may say `remind: <hours>`; `node.silent` may now also come from an **entry** for the nodes paired through it while their hub is away, RFC-0085 A4 §18.2/§18.3; the disk forecast `disk.trend` (health, under 48 h) and `disk.soon` (critical, under 12 h), computed on the node from its own metrics, §18.7; a symbol before the subject (🔴 critical begins, 🟠 a health matter begins, 🔁 reminder, ✅ Behoben) and `Importance: high` / `X-Priority: 1` only for critical mails, §18.8; 0.13: `recipe.request`: a tenant asks the operator and the node has no request inbox, or it did not answer -- operations, node, event, RFC-0109 §13; 0.12: the report ledger keeps per tenant and day also `bytes.instances` -- the size of each instance from the history's last `du`, RFC-0108 D3; 0.11: 0.11: `idp.door` -- a broker in front of a tenant's realm is open and was not at the last reading, security, tenant and node, RFC-0091 stage 1, reference 0.1.297; 0.10: `link.down` also for an **external end** whose tunnel app says its tunnel or the target is down -- one matter per end, named `<node>/<instance>/<target>`; its subject says *Verbindung getrennt* instead of *Tunnel getrennt*, RFC-0087 §8.1, reference 0.1.288; 0.9: `Dauer` counts from when the fault began where the condition knows it -- the fleet types -- not from the matter's opening, reference 0.1.287, RFC-0087 finding b; 0.8: the fleet type `link.down` -- a broken tunnel at the hub, one matter per tunnel naming what depends on it, RFC-0087 §6, reference 0.1.285; 0.7: a lock on a name **nobody has** -- an empty one included -- is no longer mailed; it is counted and appears in the node's weekly report as *Fremde Anmeldeversuche*, 2.2.1/2.9; 0.6: the **fleet** types `node.silent`, `bridge.down`,
+- **Version:** 0.17 (the matters **`site.google`** -- Google has not fetched a watched web site for 14 days -- and **`site.notfound`** -- its people's 404 rose; operations, tenant, one per instance, only where the instance's switch *Hinweise zur Webseite* is on, 2.2.2, I-81 idea 5). 0.16 (the event **`host.upgraded`** -- a run of `oaap node care upgrade` finished, with its result; operations, node, RFC-0139 stage 2). 0.15 (the matter **`host.updates`** -- packages wait for an update on the node; operations, node, reminded every 24 h, RFC-0139 stage 1). 0.14 (the fleet's matters `node.silent`, `bridge.down`, `broker.queue`, `link.down` are **reminded daily** like critical ones -- a catalogue entry may say `remind: <hours>`; `node.silent` may now also come from an **entry** for the nodes paired through it while their hub is away, RFC-0085 A4 §18.2/§18.3; the disk forecast `disk.trend` (health, under 48 h) and `disk.soon` (critical, under 12 h), computed on the node from its own metrics, §18.7; a symbol before the subject (🔴 critical begins, 🟠 a health matter begins, 🔁 reminder, ✅ Behoben) and `Importance: high` / `X-Priority: 1` only for critical mails, §18.8; 0.13: `recipe.request`: a tenant asks the operator and the node has no request inbox, or it did not answer -- operations, node, event, RFC-0109 §13; 0.12: the report ledger keeps per tenant and day also `bytes.instances` -- the size of each instance from the history's last `du`, RFC-0108 D3; 0.11: 0.11: `idp.door` -- a broker in front of a tenant's realm is open and was not at the last reading, security, tenant and node, RFC-0091 stage 1, reference 0.1.297; 0.10: `link.down` also for an **external end** whose tunnel app says its tunnel or the target is down -- one matter per end, named `<node>/<instance>/<target>`; its subject says *Verbindung getrennt* instead of *Tunnel getrennt*, RFC-0087 §8.1, reference 0.1.288; 0.9: `Dauer` counts from when the fault began where the condition knows it -- the fleet types -- not from the matter's opening, reference 0.1.287, RFC-0087 finding b; 0.8: the fleet type `link.down` -- a broken tunnel at the hub, one matter per tunnel naming what depends on it, RFC-0087 §6, reference 0.1.285; 0.7: a lock on a name **nobody has** -- an empty one included -- is no longer mailed; it is counted and appears in the node's weekly report as *Fremde Anmeldeversuche*, 2.2.1/2.9; 0.6: the **fleet** types `node.silent`, `bridge.down`,
 `broker.queue`, `node.loss`, `hub.unreachable`, and a closing mail names how
 long the matter lasted, RFC-0085 stage 2; 0.5: `exposure.found` -- an instance hands out a secret file, critical, tenant and node, RFC-0084; 0.4: the **weekly report** -- a daily ledger, one report per scope, delivery `now`/`report` per routing line -- 2.9, RFC-0083; 0.3: `{knoten}` is the node's alias once one is set, `{ort}` its place, the body names both names -- RFC-0082 stage 1)
 - **Maturity:** draft. 0.1 was RFC-0080 stage 1: lists, the catalogue,
@@ -75,6 +75,8 @@ the instance, the reason, a link to the portal page).
 | `hub.unreachable` | critical | node | yes | on an entry: the hub's bridge into it has been away for 10 minutes — the outside watch of the hub (§6.3) |
 | `recipe.request` | operations | node | no | (0.13) a tenant's request to the operator (`oaap.core.tenant` 2.13, RFC-0109 §13) when the node names no request inbox or the inbox did not answer; `kurz` = the tenant's label, the text the request as the case would carry it (recipe, values, text, what the preview said) |
 | `link.down` | health | node | yes | on a fleet hub (0.8): a tunnel whose joined state (both halves, as the twin holds them) has been `down-inner` or `down-outer` for 5 minutes — **one matter per tunnel**, however many halves report it; the text names its two ends and what depends on it, nearest first, with tenants (RFC-0087 §6). `paused` and `half` are no fault. Without a fresh report from the fleet service (3 minutes) an open matter stays open. **0.10:** also an external end whose tunnel app reports `down-tunnel` or `down-target` (`oaap.fleet.status` 0.11) for 5 minutes, one matter per end, `kurz` = `<node>/<instance>/<target>`; `paused` and `unknown` are no fault; subject *Verbindung getrennt: {kurz}* |
+| `site.google` | operations | tenant | yes | (0.17) an instance whose switch *Hinweise zur Webseite* is on (`oaap.core.portal` 2.25), a production instance: Googlebot has not fetched for 14 days -- counted from its last visit or from when the switch was turned on, whichever is later; a visit closes it. **One matter per instance**, `kurz` = the days, no reminder (2.2.2) |
+| `site.notfound` | operations | tenant | yes | (0.17) the same instances: people's 404 (not known automata) of the last 7 full UTC days are at least 20 and at least twice the weekly mean of up to 28 days before them; stays open while at least 10 and 1.5 times the mean. One matter per instance, `kurz` = the count, the text names the five paths most asked for (2.2.2) |
 
 **Closing a matter** (0.6) mails *Behoben* with a line `Dauer:` — how long
 it lasted. From 0.9 that is how long the **fault** lasted where the
@@ -127,6 +129,30 @@ says so on its own page.
   control characters and cut to 64 characters before it stands anywhere.
   Logins at a tenant's own realm (an external IdP) are not seen here —
   that IdP has its own lockout.
+
+#### 2.2.2 The web site's matters (0.17, I-81 idea 5)
+
+The minute job reads, for every production instance (not `test`, not a
+rehearsal) whose record carries `site_watch: {on: true, since, by}`, its page
+statistics (`site.json`, `oaap.core.portal` 2.23) -- nothing new is measured.
+
+- **`site.google`.** Absent days = now minus the later of Googlebot's last
+  visit (`bot_last`) and the switch's `since`; the matter opens at 14. A new
+  site was never visited -- that is no absence on the first minute. The text
+  names the last visit, if any, and three usual reasons (new and not linked,
+  `noindex`, robots.txt) and points to Google's own Search Console. Only
+  Googlebot counts, not Bing or another engine.
+- **`site.notfound`.** The page statistics count per day `nfp`, the 404 of
+  requests that are not a known automaton (a scanner probing `/wp-login.php`
+  is no reason to mail), from `nfp_from` on. Compared are the last 7 full UTC
+  days (today does not count: a half day would make the matter flicker) with
+  the weekly mean of the up to 28 days before them that were counted; at
+  least 7 such days are needed, so the first judgment comes after two weeks.
+  Opens at >= 20 and >= 2 x mean, stays open at >= 10 and >= 1.5 x mean.
+- Turning the switch off, or removing the instance, closes its open matters
+  **without** a mail -- nobody asked to hear *Behoben* then.
+- Both link to `/instances/<name>?tab=statistik`. Both may be routed to the
+  weekly report only.
 
 ### 2.3 Routing
 
@@ -391,3 +417,14 @@ Neue einmalige Meldung `host.upgraded` (Betrieb, nur der Knoten): ein Lauf von
 `oaap node care upgrade` ist fertig — wie viele Pakete, davon Docker, wie
 lange, ob alle Container wieder laufen, ob ein Neustart wartet; oder warum
 nichts eingespielt wurde (Sicherung oder apt fehlgeschlagen).
+
+## Deutsche Zusammenfassung (0.17 — Hinweise zur Webseite)
+
+Zwei neue Lagen (Betrieb, Mandant, je Instanz, keine Erinnerung), nur für
+Produktivinstanzen, deren Schalter „Hinweise zur Webseite“ an ist:
+`site.google` — Google (Googlebot) war seit 14 Tagen nicht da, gezählt ab dem
+letzten Besuch, frühestens ab dem Einschalten; `site.notfound` — die 404 von
+Besuchern (ohne Automaten) der letzten 7 vollen Tage sind mindestens 20 und
+doppelt so viele wie im Wochenmittel davor (bis zu vier Wochen; geurteilt wird
+erst nach zwei Wochen Zählung). Ausschalten schließt offene Lagen ohne Mail.
+Beide dürfen nur in den Wochenbericht gehen (I-81 Idee 5).
