@@ -225,6 +225,32 @@ Decided 2026-11-27 by Jörg: **all as recommended**.
   answer (401 for a script) instead of the boundary's 403 -- the person still
   never gets in.
 
+### Measured on oaap-test (2026-11-27, through the edge)
+
+Two test accounts, `r137a` (vuebung) and `r137b` (rzt), one cookie jar like
+one browser, the two chats `chat.vuebung.<node>` and `chat.rzt.<node>`:
+
+| Step | Result |
+|---|---|
+| sign in to vuebung's chat, open it | 303, then 200, whoami `r137a` |
+| sign in to rzt's chat, open it | 303, then 200, whoami `r137b` |
+| back to vuebung's chat | **200, whoami `r137a`** (until 0.1.389: 403 "another tenant") |
+| a client-sent `X-OAAP-Site-Tenant` of rzt at vuebung's chat | whoami still `r137a` (the gateway overwrites it) |
+| the login page names the sign-ins | „Angemeldet als r137b, r137a“ |
+| cookie with two sign-ins | 242 characters |
+| sign out at rzt's chat | rzt's chat 303 to the login, vuebung's chat 200, `r137a` |
+| `all=1` at vuebung's chat | vuebung's chat 303 |
+
+The update rewrote 50 instance sites and `external.caddy`
+(`migrate-identity-headers`); every one of the 50 instance bodies carries the
+strip and the set line. Test accounts deleted afterwards. **F1 (older, not
+from this RFC):** `external.caddy` stays "stale" for
+`_site_identity_stale` after the update -- it carries the strips
+`X-OAAP-Client` and `X-OAAP-Couple-Tenant` and the gate's `copy_headers`
+(RFC-0135/0136), which the check does not know, so every update rewrites the
+file and reloads the gateway once more. Harmless, to be fixed in the check.
+Not measured: a provider (realm) sign-in beside a local one; a phone.
+
 ## Deutsche Zusammenfassung
 
 **Problem:** Alle Mandanten unter dem Knotennamen (auf oaapx01 also pxx, csa,
