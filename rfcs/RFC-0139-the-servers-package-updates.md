@@ -1,7 +1,8 @@
 # RFC-0139: The Server's Package Updates — a Daily Reminder and a Button
 
 - **Status:** **Accepted (2026-11-27)** — D1–D9 decided by Jörg, all as
-  recommended (§8). **Stage 0 measured 2026-11-27 on oaap-test (§9).**
+  recommended (§8). **Stage 0 measured 2026-11-27 on oaap-test (§9). Stage 1 built 2026-11-27
+  (§10)**: reference 0.1.392, oaap.core.updates 0.12, oaap.core.notifications 0.15.
 - **Date:** 2026-11-27
 - **Authors:** Jörg (the need: "aktiv melden, wie viele Updates es gerade für
   apt gibt … als Erinnerung für den Admin, einmal täglich"; and the question
@@ -216,6 +217,19 @@ vuebung's chat through the edge every ~1.3 s.
   has stood exited for two days (`Exited (0)`); `oaap status` says 10/11.
 - Not measured: the Raspberry Pi's vendor archives (stage 2, D9); a node with
   sleeping (standby) instances that the restart must not wake.
+
+## 10. Stage 1 built (2026-11-27)
+
+- host care: `upgradable()` parses `apt list --upgradable` (C locale);
+  `updates_facts()` gives the counts into the care file; `updates_line()` for
+  `oaap status` and the health page -- shown only when apt answered.
+- notifications: `host.updates` (operations, node, `remind: 24`); the text
+  names the counts, the reboot, the minute of Docker and the dry run.
+- weekly report: the ledger's care part carries the counts; the node's
+  report has „Updates für den Server: n warten (s Sicherheit, d Docker)“.
+- CLI: `oaap node care upgrade --dry-run [--docker]`; without `--dry-run` it
+  says that installing comes with stage 2.
+- `test_host_updates.py` (29 checks).
 
 ## Deutsche Zusammenfassung
 

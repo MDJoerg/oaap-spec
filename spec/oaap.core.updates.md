@@ -1,7 +1,7 @@
 # oaap.core.updates — Platform Updates
 
 - **ID:** `oaap.core.updates`
-- **Version:** 0.11 (**freeing disk space** -- a care measure that removes images the node no longer needs, in classes: build cache, older versions of an image it built, images without an instance after seven days; foreign images only by a person one by one; data never; nightly after the backup, on disk pressure before the mail, by hand in the portal and with `oaap node care space`; journald capped at 2 GB, 2.10; RFC-0128, reference 0.1.387). 0.10 (the node door of a cases inbox also carries a tenant's **request to the operator** -- `object: request`, `from` naming tenant and person -- and answers `op: read` with state and replies, never an internal entry, 2.7.6, `oaap.core.tenant` 1.14, RFC-0109 §13; reference vorgaenge 0.12.0). 0.9
+- **Version:** 0.12 (**the packages that wait** -- host care counts what `apt list --upgradable` offers (waiting, of them security, Docker, other; Docker by package name), a line in `oaap status` and on the health page, the daily matter `host.updates`, a line in the weekly report, and `oaap node care upgrade --dry-run` naming the packages; nothing is installed beyond what unattended-upgrades does, §2.11; RFC-0139 stage 1, reference 0.1.392). 0.11 (**freeing disk space** -- a care measure that removes images the node no longer needs, in classes: build cache, older versions of an image it built, images without an instance after seven days; foreign images only by a person one by one; data never; nightly after the backup, on disk pressure before the mail, by hand in the portal and with `oaap node care space`; journald capped at 2 GB, 2.10; RFC-0128, reference 0.1.387). 0.10 (the node door of a cases inbox also carries a tenant's **request to the operator** -- `object: request`, `from` naming tenant and person -- and answers `op: read` with state and replies, never an internal entry, 2.7.6, `oaap.core.tenant` 1.14, RFC-0109 §13; reference vorgaenge 0.12.0). 0.9
 - **Maturity:** draft — accepted by Jörg 2026-08-06 (CLI trigger
   implemented and validated on real hardware); 0.1.1 (2026-08-07)
   updates the reserved portal-trigger role to `server_admin` per
@@ -709,6 +709,33 @@ sum an upper bound, the disk before and after is the measured truth.
 of our own, so an operator's `journald.conf` stays theirs -- and restart
 journald only when the file changed.
 
+### 2.11 The packages that wait (0.12, RFC-0139 stage 1)
+
+Security updates are installed by the node itself (2.6.3). What else waits
+-- on the reference fleet almost only Docker's packages -- is counted:
+
+- **The measurement** (with 2.6.1, every ten minutes): `apt list
+  --upgradable` in the C locale, after apt's own daily list refresh. Each
+  package is `security` (its archive ends in `-security`), `docker` (by
+  name: `containerd.io`, `docker-ce*`, `docker-*-plugin`, any `docker-` --
+  Docker's archive names its suite like the distribution's) or `other`. The
+  care file carries **counts only**: `updates = {waiting, security, docker,
+  other}`; `null` when apt did not answer (an absent reading, never 0, and
+  then no line).
+- **Told:** a line in `oaap status` and on the portal's health page
+  ("Updates: 6 waiting, 0 security, 6 Docker -- see: …", `warn` only while a
+  security update waits); the matter `host.updates` (oaap.core.notifications,
+  operations, node, reminded every 24 h while anything waits); a line in the
+  node's weekly report with the counts of the week's last day and a waiting
+  reboot.
+- **Shown:** `sudo oaap node care upgrade --dry-run [--docker]` names every
+  package with installed and new version, grouped, and says how many an
+  upgrade would take -- Docker's only with `--docker`, because their update
+  restarts containerd and dockerd and every app of the node is away for about
+  a minute (RFC-0139 §9). Root only: the names are the operator's.
+- **Not yet:** installing (RFC-0139 stage 2: backup, own unit, check) and the
+  portal's button (stage 3). The node installs nothing beyond 2.6.3.
+
 ## 3. Configuration
 
 - Recorded source: repository URL, branch/ref, working-copy path
@@ -1232,3 +1259,16 @@ Wochenbericht bekommt eine Zeile „Platz freigegeben“. **journald** ist auf
 
 Wichtig gemessen: Auf Docker 29 räumt `docker builder prune -a --filter
 until=…` gar nichts; `docker builder prune -f` gab auf oaap-test 66 GB frei.
+
+## Deutsche Zusammenfassung (0.12 — die wartenden Pakete, RFC-0139 Stufe 1)
+
+Die Server-Pflege zählt jetzt, was `apt list --upgradable` anbietet: wie
+viele Pakete warten, davon Sicherheitsupdates, davon Docker (an den
+Paketnamen erkannt), der Rest. In der Pflegedatei stehen nur Zahlen. Das
+steht als Zeile in `oaap status` und auf der Gesundheitsseite, kommt als
+tägliche Erinnerung `host.updates` an die Admins des Knotens, solange etwas
+wartet, und als Zeile in den Wochenbericht. `sudo oaap node care upgrade
+--dry-run` zeigt die Namen mit alter und neuer Version und sagt, wie viele ein
+Update nähme – Docker nur mit `--docker`, weil dabei alle Apps etwa eine Minute
+weg sind. Eingespielt wird noch nichts über die automatischen
+Sicherheitsupdates hinaus.
