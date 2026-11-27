@@ -1,7 +1,7 @@
 # oaap.core.gateway — HTTP Gateway (outline)
 
 - **ID:** `oaap.core.gateway`
-- **Version:** 0.2.27 (**the switch „KI-Abrufer“** per instance -- `allow` (default), `training` or `all`: the gateway answers `/robots.txt` itself with one group for the shut-out tokens and refuses every other request whose User-Agent names a shut-out fetcher with 403; search engines never; section „AI fetchers“; reference 0.1.397). 0.2.26 (**a test instance stays out of search engines**: every site of an instance on the test channel or of a rehearsal carries `X-Robots-Tag: noindex, nofollow`, deferred so it replaces the app's own; a production instance never; section „Search engines and the channel“; I-81 idea 1, reference 0.1.395). 0.2.25 (0.2.25: **gates** -- a block `/gate/*` on the tenant's place: delivery and reading pass identity's gate check and go to the target with the gate's description in headers no client can set; ping and templates to identity; gate headers stripped on every instance site, section „Gates on the tenant's place“; RFC-0135 stage 1, reference 0.1.383). 0.2.24 (0.2.24: a kernel **without** MPTCP has no switch to set, and a container runtime refuses a container that asks for one -- there the gateway starts without it, since nothing on that kernel can negotiate MPTCP, section „Plain TCP listeners“; found on WSL2, I-68; reference 0.1.356). 0.2.23 (0.2.23: **login on every route** per instance -- an operator switch on the instance record makes every route of that instance ask identity, the manifest's `public` ones included, RFC-0092; 0.2.22: 0.2.22: **secret files refused** on every instance site -- see that section, RFC-0084)
+- **Version:** 0.2.28 (**base hardening, stage 1** (RFC-0140): every instance site compresses (`encode zstd gzip`, switchable off per instance) and refuses `TRACE`, `TRACK` and `CONNECT` with 405 at the gateway; the public-route brake counts in one place every identity worker shares, so the limit is the limit and not the limit times the worker count; sections „Base hardening“ and „Public-route throttling“; reference 0.1.400). 0.2.27 (**the switch „KI-Abrufer“** per instance -- `allow` (default), `training` or `all`: the gateway answers `/robots.txt` itself with one group for the shut-out tokens and refuses every other request whose User-Agent names a shut-out fetcher with 403; search engines never; section „AI fetchers“; reference 0.1.397). 0.2.26 (**a test instance stays out of search engines**: every site of an instance on the test channel or of a rehearsal carries `X-Robots-Tag: noindex, nofollow`, deferred so it replaces the app's own; a production instance never; section „Search engines and the channel“; I-81 idea 1, reference 0.1.395). 0.2.25 (0.2.25: **gates** -- a block `/gate/*` on the tenant's place: delivery and reading pass identity's gate check and go to the target with the gate's description in headers no client can set; ping and templates to identity; gate headers stripped on every instance site, section „Gates on the tenant's place“; RFC-0135 stage 1, reference 0.1.383). 0.2.24 (0.2.24: a kernel **without** MPTCP has no switch to set, and a container runtime refuses a container that asks for one -- there the gateway starts without it, since nothing on that kernel can negotiate MPTCP, section „Plain TCP listeners“; found on WSL2, I-68; reference 0.1.356). 0.2.23 (0.2.23: **login on every route** per instance -- an operator switch on the instance record makes every route of that instance ask identity, the manifest's `public` ones included, RFC-0092; 0.2.22: 0.2.22: **secret files refused** on every instance site -- see that section, RFC-0084)
 - **Maturity:** draft (outline — full specification to follow;
   an edge route covers **two** levels below its host (`*.*.host`), so a
   tenant's instances behind an edge are forwarded, 2026-11-07 after a
@@ -322,6 +322,14 @@ reached.
   client-supplied `X-Forwarded-For` is never used, and the edge
   overwrites that header with the peer it sees, so the chain cannot be
   seeded by the client.
+- **One count per bucket** (0.2.28, RFC-0140 F1): every worker of the
+  service that answers the check shares the buckets (the reference keeps
+  them in one SQLite file in identity's `/dev/shm`). Before, each gunicorn
+  worker counted on its own, and the effective ceiling was the limit
+  times the worker count -- measured on oaap-test: the first `429` of a
+  300-per-minute route came at request 594. Should the shared count fail,
+  a worker falls back to counting on its own for that request rather than
+  failing it; a restart still forgets the counts.
 - Checked **once per request**, so streaming responses and WebSocket
   connections pay it at setup only (guarantee 7 unaffected).
 - Exceeding it yields `429` with `Retry-After`; the app is not reached.
@@ -719,6 +727,38 @@ instance record, `ai_fetchers: {block, since, by, reason}`:
   (`instance.ai-fetchers`). Set by `oaap app ai-fetchers <instance>
   allow|training|all [--reason]` or the portal (spool action
   `ai-fetchers`, judged by the host like `login-required`).
+
+## Base hardening (0.2.28, RFC-0140 stage 1)
+
+What every tenant's site should have and none should have to think of is
+written once, into the body every entry point of an instance shares (LAN
+listener, automatic name, canonical name, aliases).
+
+- **Compression.** `encode zstd gzip` at site level. An answer that already
+  carries `Content-Encoding` (an app that compresses itself) is left alone;
+  images, video and answers under 512 bytes are not compressed (Caddy's
+  defaults). Streams keep coming in pieces: the encoder is flushed with
+  every flush of the upstream (measured in RFC-0140 stage 0: server-sent
+  events one second apart arrived one second apart). A protocol upgrade
+  (WebSocket) is not touched. Measured gain on a public site of oaap-test:
+  5.4 MB → 1.6 MB for a first visit.
+- **Switch** on the instance record, `hardening: {compress: false, since,
+  by}` -- present only while compression is off; an app update keeps it;
+  every change goes into the tenant's log (`instance.hardening`). Set by
+  `oaap app hardening <instance> --compress on|off` (`server_admin`);
+  without an option it shows the state.
+- **Methods no app needs.** `TRACE`, `TRACK` and `CONNECT` are refused
+  with `405` on every instance site, always, as a rewrite to a reserved
+  path ahead of every other rewrite (AI fetchers, secret files) and every
+  handle block. Before, the answer depended on the app (a 500 from one,
+  a 502 for `CONNECT` from the gateway itself). There is deliberately no
+  list of *allowed* methods: WebDAV apps need `PROPFIND`, `MKCOL` and
+  others.
+- **Existing sites** learn both at the update (`migrate-hardening`,
+  idempotent, silent when nothing is to do); a switched-off compression
+  is never switched back on by it.
+- Stage 2 adds base security headers, stage 3 an alias that redirects to
+  the canonical name (RFC-0140 §3, §4).
 
 ## Dependencies
 
@@ -1125,3 +1165,17 @@ ein Fehler dort hieße „alles erlaubt“. Suchmaschinen sind nie betroffen. We
 sich mit falscher Kennung ausgibt, kommt durch. Ein Update der App übernimmt
 den Schalter, jede Änderung steht im Mandantenlog. Die Seitenstatistik zählt
 die Abweisungen je Abrufer.
+
+## Deutsche Zusammenfassung (0.2.28 — Grundhärtung Stufe 1, RFC-0140)
+
+Jede Instanzseite komprimiert jetzt am Gateway (`encode zstd gzip`). Apps,
+die selbst packen, bleiben unberührt, Streams laufen weiter stückweise, eine
+öffentliche Testseite schrumpft beim ersten Besuch von 5,4 MB auf 1,6 MB. Der
+Betreiber kann die Kompression je Instanz abschalten (`oaap app hardening
+<instanz> --compress off`); ein Update der App behält das, jede Änderung
+steht im Mandantenlog. `TRACE`, `TRACK` und `CONNECT` weist das Gateway auf
+jeder Instanzseite mit 405 ab, bevor irgendetwas anderes greift; eine Liste
+erlaubter Methoden gibt es bewusst nicht (WebDAV). Bestehende Seiten lernt
+das Update. Die Drosselung öffentlicher Routen zählt jetzt an einer Stelle,
+die alle Identity-Prozesse teilen: die Grenze ist die Grenze, nicht mehr das
+Doppelte (gemessen: erste 429 bei Anfrage 594 statt 301).

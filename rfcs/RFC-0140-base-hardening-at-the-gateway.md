@@ -3,7 +3,8 @@
 - **Status:** **Accepted (2026-11-27)** — D1–D8 decided by Jörg, all as
   recommended (§10). **Stage 0 measured 2026-11-27 on oaap-test (§11)**;
   D9 (finding F1, the brake counts per worker) decided 2026-11-27 as
-  recommended: fixed in stage 1. Nothing built yet.
+  recommended: fixed in stage 1. **Stage 1 built and measured 2026-11-27
+  (§12)**: reference 0.1.400, `oaap.core.gateway` 0.2.28.
 - **Date:** 2026-11-27
 - **Authors:** Jörg (the need: look at `sglok-sbk.de`, a tenant's page made
   with the deploy-URL procedure, as Google, as a visitor and as an attacker
@@ -244,6 +245,41 @@ SSE test container removed, the AI switch set back to `allow`.
 about 730 requests“ — the same effect. Not part of §2–§5, but found here
 and cheap to fix: D9.
 
+## 12. Stage 1 built and measured (2026-11-27, reference 0.1.400)
+
+Built: `harden_site_lines` in the body every entry point shares —
+`encode zstd gzip` unless the instance's `hardening.compress` is `false`,
+and `TRACE TRACK CONNECT` rewritten to `/.oaap-method-refused` → 405, first
+of all rewrites; `oaap app hardening <instance> [--compress on|off]`;
+`migrate-hardening` in the update; the switch survives a redeploy. identity:
+the brake's buckets in one SQLite file in `/dev/shm` (named after
+identity's data directory) shared by both gunicorn workers, one
+`BEGIN IMMEDIATE` transaction per hit, a fallback to the worker's own
+memory if the file fails. `oaap.core.gateway` 0.2.28 (sections „Base
+hardening“, „Public-route throttling“). Tests: `test_base_hardening` new
+(26 checks, both workers on one file included); `test_rehearsal_shape`
+exempts the 405 block like the guard's; the 45 files that generate sites
+or touch the brake green except `test_diagnose` and `test_instance_page`,
+red already before this change (portal template expects `i.ai` since
+0.1.397).
+
+Measured on oaap-test after staging 0.1.400 (the update's migration
+rewrote `vuebung-bdt.caddy` and `external.caddy`, 50 `encode` lines):
+
+| Probe | Before (stage 0) | After |
+|---|---|---|
+| `vuebung-bdt`, 50 files, first visit | 5 407 267 bytes | 1 616 548 (gzip) / 1 514 069 (zstd) |
+| `forgejo` assets, the app compresses itself | `gzip` | `gzip`, unchanged |
+| `TRACE` / `TRACK` / `CONNECT` | 405 (app) / 400 / 502 | 405 / 405 / 405, empty body from the gateway |
+| `PROPFIND`, `OPTIONS` | reach the app | still reach the app (its 18-byte answer) |
+| brake, 700 requests in 61 s on one route | first 429 at 594 | **first 429 at 292** (≈ 9 requests to the same route a minute before) |
+| status of `/` on all 50 instances | — | identical to before |
+| identity log „shared brake unavailable“ | — | 0; the file in `/dev/shm` 4 MB (WAL) of 64 MB |
+
+Not measured: WebSocket through `encode` (no public WebSocket on
+oaap-test) — Caddy does not encode a 101 upgrade; the chat is checked when
+the fleet is updated. Not on the fleet yet.
+
 ## Deutsche Zusammenfassung
 
 Anlass: Die Vereinsseite `sglok-sbk.de` läuft gut, aber unser Gateway
@@ -281,3 +317,10 @@ KI-Abrufer-Schalter und Schutz der Identitäts-Header wirken lückenlos.
 Anfrage 594 statt 301), weil die zwei Identity-Prozesse getrennt zählen.
 D9 entschieden (27.11., wie empfohlen): F1 wird in Stufe 1 mit einem
 gemeinsamen Zähler behoben.
+
+Stufe 1 gebaut und auf oaap-test gemessen (0.1.400, gateway 0.2.28): jede
+Instanzseite komprimiert (vuebung-bdt 5,4 → 1,6 MB, Forgejo packt weiter
+selbst), TRACE/TRACK/CONNECT bekommen 405 vom Gateway, PROPFIND/OPTIONS
+gehen weiter an die App, Schalter `oaap app hardening <instanz> --compress
+off`. Die Bremse zählt in einer gemeinsamen Datei: erste 429 jetzt bei
+Anfrage 292 statt 594. Noch nicht auf der Flotte.
