@@ -1,7 +1,7 @@
 # oaap.core.updates — Platform Updates
 
 - **ID:** `oaap.core.updates`
-- **Version:** 0.13 (**installing on the administrator's word** -- `oaap node care upgrade [--docker]`: backup first, apt in its own unit `oaap-upgrade`, only upgrades and never a removal, a check that every container runs again, audit and the notification `host.upgraded`, §2.12; RFC-0139 stage 2, reference 0.1.393). 0.12 (**the packages that wait** -- host care counts what `apt list --upgradable` offers (waiting, of them security, Docker, other; Docker by package name), a line in `oaap status` and on the health page, the daily matter `host.updates`, a line in the weekly report, and `oaap node care upgrade --dry-run` naming the packages; nothing is installed beyond what unattended-upgrades does, §2.11; RFC-0139 stage 1, reference 0.1.392). 0.11 (**freeing disk space** -- a care measure that removes images the node no longer needs, in classes: build cache, older versions of an image it built, images without an instance after seven days; foreign images only by a person one by one; data never; nightly after the backup, on disk pressure before the mail, by hand in the portal and with `oaap node care space`; journald capped at 2 GB, 2.10; RFC-0128, reference 0.1.387). 0.10 (the node door of a cases inbox also carries a tenant's **request to the operator** -- `object: request`, `from` naming tenant and person -- and answers `op: read` with state and replies, never an internal entry, 2.7.6, `oaap.core.tenant` 1.14, RFC-0109 §13; reference vorgaenge 0.12.0). 0.9
+- **Version:** 0.14 (**the portal's section „Updates“** on the health page -- server_admin at the node's own address only: the waiting packages by kind, a tick for Docker, „Jetzt einspielen“ as a spool order `upgrade` that starts the very run of 2.12, the running unit's log and the last result, §2.13; RFC-0139 stage 3, reference 0.1.394). 0.13 (**installing on the administrator's word** -- `oaap node care upgrade [--docker]`: backup first, apt in its own unit `oaap-upgrade`, only upgrades and never a removal, a check that every container runs again, audit and the notification `host.upgraded`, §2.12; RFC-0139 stage 2, reference 0.1.393). 0.12 (**the packages that wait** -- host care counts what `apt list --upgradable` offers (waiting, of them security, Docker, other; Docker by package name), a line in `oaap status` and on the health page, the daily matter `host.updates`, a line in the weekly report, and `oaap node care upgrade --dry-run` naming the packages; nothing is installed beyond what unattended-upgrades does, §2.11; RFC-0139 stage 1, reference 0.1.392). 0.11 (**freeing disk space** -- a care measure that removes images the node no longer needs, in classes: build cache, older versions of an image it built, images without an instance after seven days; foreign images only by a person one by one; data never; nightly after the backup, on disk pressure before the mail, by hand in the portal and with `oaap node care space`; journald capped at 2 GB, 2.10; RFC-0128, reference 0.1.387). 0.10 (the node door of a cases inbox also carries a tenant's **request to the operator** -- `object: request`, `from` naming tenant and person -- and answers `op: read` with state and replies, never an internal entry, 2.7.6, `oaap.core.tenant` 1.14, RFC-0109 §13; reference vorgaenge 0.12.0). 0.9
 - **Maturity:** draft — accepted by Jörg 2026-08-06 (CLI trigger
   implemented and validated on real hardware); 0.1.1 (2026-08-07)
   updates the reserved portal-trigger role to `server_admin` per
@@ -735,8 +735,8 @@ Security updates are installed by the node itself (2.6.3). What else waits
   upgrade would take -- Docker's only with `--docker`, because their update
   restarts containerd and dockerd and every app of the node is away for about
   a minute (RFC-0139 §9). Root only: the names are the operator's.
-- **Installing** on the administrator's word: 2.12. Not yet: the portal's
-  button (RFC-0139 stage 3). The node installs nothing by itself beyond 2.6.3.
+- **Installing** on the administrator's word: 2.12 (CLI) and 2.13 (portal).
+  The node installs nothing by itself beyond 2.6.3.
 
 ### 2.12 Installing on the administrator's word (0.13, RFC-0139 stage 2)
 
@@ -764,6 +764,33 @@ CLI and (stage 3) the portal:
    (once), and host care measures afresh -- `host.updates` closes when
    nothing waits. A new kernel leaves `reboot required`; the reboot is the
    existing planning's (2.7), never immediate.
+
+### 2.13 The portal's section „Updates“ (0.14, RFC-0139 stage 3)
+
+On the health page, **only for the server_admin at the node's own address**
+(D8; a tenant_admin, a member, and a server_admin at a tenant's place see no
+section, and its doors answer 403 / 404):
+
+- **The view** `apps/upgrade.json` (written by the host, readable by the
+  portal): the waiting packages of the last reading (name, installed, new,
+  archive, kind), the run (state, started, finished, who, Docker, result
+  text) and, while a run is on, the last 30 lines of its log. The names go
+  only here, never into the care file. A reading while apt runs, or without
+  an answer from apt, leaves the list as it was.
+- **Shown:** the packages grouped Sicherheit / Docker / Sonstige; a tick
+  „Docker mit aktualisieren — alle Apps starten dabei einmal neu“ (unticked,
+  only when Docker's packages wait); „Jetzt einspielen“ with a confirmation
+  that names the backup and, ticked, the restart of every app including the
+  portal; „Neu zählen“; the last run's result.
+- **The order** goes through the spool (`action: upgrade`, op `run` with
+  `docker: true|false`, or op `measure`). The worker takes role and person
+  from the actor's own record -- the request carries none it trusts; only a
+  server_admin is served, a refusal is audited (`host.upgrade.<op>`,
+  `denied`). `run` calls the start of 2.12 -- the same unit, the same
+  refusals (one running, a backup copying), the same end (audit and
+  `host.upgraded`).
+- **While it runs** the section shows the log's end and reloads every five
+  seconds; with Docker the portal itself is away for about a minute.
 
 ## 3. Configuration
 
@@ -1314,3 +1341,15 @@ geprüft, ob alle Container wieder laufen (bis zu fünf Minuten); fehlende
 werden genannt. Ergebnis: Zeile im Audit-Protokoll, eine Meldung
 `host.upgraded`, neue Messung der Server-Pflege. Ein neuer Kernel löst keinen
 sofortigen Neustart aus — das übernimmt die vorhandene Neustartplanung.
+
+## Deutsche Zusammenfassung (0.14 — Abschnitt „Updates“ im Portal, RFC-0139 Stufe 3)
+
+Auf der Gesundheitsseite gibt es für den Server-Admin an der Adresse des
+Knotens den Abschnitt „Updates“: die wartenden Pakete nach Art gruppiert, einen
+Haken „Docker mit aktualisieren“ (nur wenn Docker-Pakete warten) und „Jetzt
+einspielen“ mit Rückfrage. Der Knopf schickt einen Auftrag über den Spool;
+der Knoten prüft Rolle und Person aus dem eigenen Benutzerverzeichnis und
+startet denselben Lauf wie `sudo oaap node care upgrade` — Sicherung, eigene
+Unit, Prüfung, Meldung. Während des Laufs zeigt der Abschnitt das Ende des
+Protokolls und lädt sich neu. Mandanten sehen den Abschnitt nie; die
+Paketnamen stehen nur in `apps/upgrade.json`, nicht in der Pflegedatei.

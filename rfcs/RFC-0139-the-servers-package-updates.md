@@ -4,7 +4,9 @@
   recommended (§8). **Stage 0 measured 2026-11-27 on oaap-test (§9). Stage 1 built 2026-11-27
   (§10)**: reference 0.1.392, oaap.core.updates 0.12, oaap.core.notifications 0.15.
   **Stage 2 built and measured 2026-11-27 (§11)**: reference 0.1.393,
-  oaap.core.updates 0.13, oaap.core.notifications 0.16.
+  oaap.core.updates 0.13, oaap.core.notifications 0.16. **Stage 3 built and
+  measured 2026-11-27 (§12)**: reference 0.1.394, oaap.core.updates 0.14 --
+  all stages of §5 done.
 - **Date:** 2026-11-27
 - **Authors:** Jörg (the need: "aktiv melden, wie viele Updates es gerade für
   apt gibt … als Erinnerung für den Admin, einmal täglich"; and the question
@@ -291,6 +293,40 @@ matter is open long before anyone presses the button.
 **Not yet:** the portal's section with the button (stage 3); a run on the
 raspberrypi's vendor archives (D9).
 
+## 12. Stage 3 built and measured (2026-11-27)
+
+**Built:** the section „Updates“ on the health page (oaap.core.updates 2.13):
+server_admin at the node's own address only; the packages grouped
+Sicherheit / Docker / Sonstige with versions; the tick for Docker (only when
+Docker's packages wait); „Jetzt einspielen“ with a confirmation; „Neu
+zählen“; the last result; while a run is on, the log's end with a reload
+every five seconds. The host writes `apps/upgrade.json` (names only there,
+counts stay in the care file); the order is the spool action `upgrade`
+(`run` with `docker: true|false`, `measure`), judged by the worker from the
+actor's own record, and `run` is the start of stage 2 (cause `portal` in
+audit and state). `test_host_updates.py` 84 checks, 20 neighbouring files
+green.
+
+**Measured on oaap-test** (krb5-locales set back once more; requests sent
+inside the portal container with the identity headers the gateway sets --
+no password typed):
+
+- The section as rendered by the live portal: last run, „1 Paket(e) warten“,
+  krb5-locales u1 → u2 (stable-security), no Docker tick (none waiting).
+- A request naming a user who does not exist: the worker refused it
+  („must be requested by a signed-in, active user“), nothing started -- the
+  page shows no banner for it, since the job is not the viewer's.
+- „Jetzt einspielen“ as the node's admin: spool → worker → unit
+  `oaap-upgrade`; the section showed „Update gestartet …“, the running state
+  and the log's end; 425 s later „1 Paket(e) eingespielt … Alle 63 Container
+  laufen wieder“, „Keine Pakete warten“, audit `host.upgraded ok`.
+- Found: the audit said `hand` for a portal run -- now `portal`.
+
+**Not measured:** the Docker tick through the portal (the same start with
+`docker: true`; the Docker run itself is stage 2's run 2), and a click in a
+real browser session. **Still open:** a run on the raspberrypi's vendor
+archives (D9).
+
 ## Deutsche Zusammenfassung
 
 **Heute:** Sicherheitsupdates spielt jeder Knoten schon selbst ein
@@ -338,3 +374,10 @@ Prüfung, ob alle Container wieder laufen, Audit und Meldung `host.upgraded`.
 Auf oaap-test dreimal gemessen; Docker-Update von außen 62 s Ausfall, alle 63
 Container von selbst zurück. Beim Messen vier Fehler gefunden und behoben,
 darunter einer aus Stufe 1: eine Zählung mitten in einem dpkg-Lauf ergab 0.
+
+**Stufe 3 (27.11.2026):** Auf der Gesundheitsseite gibt es für den Server-Admin am
+Knoten den Abschnitt „Updates“ mit Paketliste, Docker-Haken und „Jetzt
+einspielen“; der Auftrag geht über den Spool in denselben Lauf wie die
+Kommandozeile. Auf oaap-test über den echten Spool gemessen: gestartet,
+Fortschritt sichtbar, nach 425 s fertig, alle Container zurück. Damit sind alle
+Stufen gebaut; offen bleibt ein erster Lauf auf dem raspberrypi.
