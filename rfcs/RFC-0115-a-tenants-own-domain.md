@@ -7,6 +7,7 @@
   (§14, reference 0.1.333, `oaap.core.tenant` 1.18); §15 (Jörg's two wishes, portal and
   hidden instances) built and measured 2026-11-21 (reference 0.1.334, 1.19); stage 3 in part
   (§16: a `tenant_admin` asks for a domain) built and measured 2026-11-21 (reference 0.1.339, 1.22).
+  §17 (a website on the domain, two gaps) **Draft 2026-11-27**, D10–D12 open, nothing built.
 - **Date:** 2026-11-20
 - **Authors:**
   - Jörg (the need, 2026-11-20): the tenant `bec` on `oaapx01` has the
@@ -543,6 +544,87 @@ with „Die Domain … ist gebunden und aktiv.“; the domain removed again.
 
 **Not measured:** the card clicked in a browser.
 
+## 17. A website on the domain (Draft, 2026-11-27)
+
+**The question** (Jörg, 2026-11-27): an instance is the tenant's website and should answer on the
+main domain or on `www.<domain>`. Does that work? And instances that answer under the node's names
+only, not under the domain, exist already?
+
+**Facts** (read in reference 0.1.388, not measured):
+
+| Place | Today |
+|---|---|
+| **Own names** | `oaap app address <instance> set|alias-add <host>` (RFC-0009/0018) accepts any valid hostname that is not the node's own name, not below it, not under an edge route and not held by another instance (`check_instance_address`). It does **not** look at tenant domains. |
+| **The domain's apex** | `write_external_caddy` writes the tenant's place on `<domain>`, **unless** an instance holds `<domain>` as its own name: then the instance keeps it and the place gets no site. The only trace is a comment in `external.caddy` (`held as an instance's own name; no place site`). This was built in 0.1.332 for `chat.bec.brandeis.de`, a name below the domain; the apex itself was never measured. |
+| **`www.<domain>`** | an instance named `www` of the tenant gets it automatically (`<instance>.<domain>`); any instance can take it as an own name. |
+| **Cookie** | `place.cookie_scope` widens the session cookie to the domain for **every** host at or below it (D4). An instance site passes `Cookie` on to its app; only sandbox sites remove it. |
+| **Hidden instances** | §15: `domain_hidden` keeps an instance under the node's names only. It exists and answers the second question. |
+
+**Findings.**
+
+- **F1 The website works.** `www.<domain>` as an own name of the website instance, `<domain>` as its
+  alias (or the other way round), DNS as today (`<domain>` and `*.<domain>` already point to the node).
+  A name outside the domain (`www.brandeis.de`) works as any own name does.
+- **F2 The place disappears without a word.** If the website holds the apex, the tenant's start page
+  is no longer on the domain. Nobody is told: not the CLI that set the name, not the portal's
+  *Mandanten → Domain*, not the health page. Mails and tiles that print the domain (§5) keep pointing at
+  `https://<domain>/`, which is now the website. The login itself still works there, because `/auth/*`
+  is reserved on every instance site and `host_place(<domain>)` names the tenant.
+- **F3 An instance of another tenant can take a name under the domain.** `check_instance_address`
+  lets the server_admin give an instance of tenant B the name `www.<domain-of-A>`. That breaks §7.2
+  ("the domain names exactly one tenant"), and because of the cookie scope the browser of every person
+  logged in at A sends A's session cookie to B's app. Only a server_admin can set an own name, so this
+  is an operator mistake waiting to happen, not a door for a tenant. It is still a gap, and §7.6's bait
+  tests did not cover own names.
+
+**Proposal.**
+
+1. **Own names follow the domain's tenant** (closes F3). A host at or below an active or pending tenant
+   domain becomes an own name only of an instance of that tenant: `check_instance_address` refuses it
+   otherwise, naming the tenant the domain belongs to. The same rule runs where a domain is bound or
+   activated: `domain set` / `check` / the portal refuse a domain while an instance of another tenant
+   holds a name under it, and name that instance. The gateway writer leaves out a foreign own name under
+   a domain (and says so in the log), so a registry written before the rule cannot serve it.
+2. **The website on the apex is a stated choice** (closes F2). Setting the domain itself as an own name
+   says what happens: "the tenant's place moves to `<place host>`". The tenant's domain record gains
+   `place_host`: `<domain>` by default, else a name below it. While an instance holds the apex the
+   place is served on `place_host`, and every printed address (§5) uses it. The portal's
+   *Mandanten → Domain* and the health page show where the place is and which instance holds the apex.
+3. **`www` is nothing special.** No automatic `www` → apex redirect: whoever wants both names gives the
+   website both, as an own name and an alias.
+4. **Hiding (§15) stays as it is.** An instance that should answer under the node's names only is
+   hidden; an own name below the domain is still allowed for it (decided in §15), now only for an
+   instance of the domain's tenant (item 1).
+
+**Decisions (open).**
+
+- **D10 Foreign own names under a domain.** *Recommendation:* refused (item 1), also when the domain is
+  bound later.
+  - Alternative: allowed, with a warning. Keeps every operator choice open, but the cookie of tenant A
+    then reaches tenant B's app; the cookie would have to be stripped for that site, a special case in
+    the gateway.
+- **D11 Where the place goes when the website holds the apex.** *Recommendation:* to `place_host`, a
+  name below the domain the operator chooses, proposed as `portal.<domain>`; refused while an instance
+  of the tenant is named `portal`.
+  - Alternative A: the place stays only on `<label>.<node>` (today's accidental behaviour, now said
+    out loud). Nothing to build, but a login on the domain then always runs through the website's
+    host, and the start page carries the node's name.
+  - Alternative B: the apex is never an own name; the website gets `www.<domain>` only and the apex
+    redirects there. Simplest rule, but customers who print `bec.brandeis.de` on their letters land on
+    the login instead of the website.
+- **D12 Order.** *Recommendation:* item 1 first (a gap, small), item 2 when a tenant really puts its
+  website on the apex.
+
+**Tests** (when built, bait in brackets): an own name `www.<domain>` for an instance of the tenant
+accepted (for an instance of another tenant: refused, also through the portal's job; binding a domain
+under which a foreign instance has a name: refused, naming it; a registry with a foreign own name under
+a domain: no site written); the apex as an own name answers with the website, `place_host` with the
+place, the login on both; mails, tiles and the health page print `place_host` (no address still points
+at the apex for the place).
+
+**Not measured:** nothing of §17. Item 1 and F3 are read from the code; whether the website on the
+apex behaves as F2 says needs a measurement on `oaap-test` with `dom0.oaap-demo.duckdns.org`.
+
 ## Zusammenfassung auf Deutsch
 
 **Worum es geht:** Heute baut der Knoten jeden öffentlichen Namen aus
@@ -641,3 +723,19 @@ beim Betreiber an. Geprüft wird wie beim Binden, das DNS gleich mit. Die Anfrag
 des Betreibers und schließt sich selbst, sobald die Domain aktiv ist. Auf oaap-test 9/9. Hinter einem
 Edge braucht der Knoten nichts Neues. Offen bleiben mit Absicht: die Prüfung im Edge-Befehl und die
 Umleitung der Knotennamen auf die Domain (D3, erst wenn ein Mandant sie will).
+
+**Webseite auf der Domain (27.11., §17, Entwurf, nichts gebaut):**
+- Jörgs Frage: Kann eine Instanz als Webseite auf `bec.brandeis.de` oder `www.bec.brandeis.de`
+  antworten? Ja, heute schon, als eigener Name der Instanz (`oaap app address <instanz> set …`,
+  `alias-add …`). Instanzen nur unter dem Knotennamen gibt es auch schon (§15, „verbergen“).
+- Lücke 1: Nimmt die Webseite die Domain selbst, verschwindet die Startseite des Mandanten dort,
+  ohne dass es jemand erfährt; Mails und Kacheln zeigen weiter auf die Domain.
+- Lücke 2: Eine Instanz eines **anderen** Mandanten kann einen Namen unter der Domain bekommen.
+  Dann schickt der Browser ihr das Anmelde-Cookie des Mandanten. Setzen kann das nur der
+  Server-Admin, es ist also ein Bedienfehler, der möglich ist, kein Weg für Mandanten.
+- Vorschlag: Eigene Namen unter einer Mandanten-Domain nur für Instanzen dieses Mandanten (auch
+  beim späteren Binden geprüft). Hält die Webseite die Domain selbst, zieht die Startseite auf
+  einen Namen darunter um (Vorschlag `portal.<domain>`), und Portal, Mails und Kacheln sagen das.
+- Offen: D10 fremde Namen unter der Domain verbieten (empfohlen), D11 wohin die Startseite zieht
+  (empfohlen `portal.<domain>`), D12 erst Lücke 2 schließen, Umzug der Startseite erst bei Bedarf.
+- Alles aus dem Code gelesen, nichts gemessen.
