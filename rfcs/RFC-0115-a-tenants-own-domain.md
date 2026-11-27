@@ -645,6 +645,14 @@ domain pending while a foreign name exists, and activate it once it is gone. Fou
 in the Linux runner green except `test_auto_address` (one check on the portal's gate link, red since
 0.1.384, unrelated).
 
+**Measured on `oaap-test`** (0.1.389 staged, behind the edge, tenant `vuebung`, domain
+`dom0.oaap-demo.duckdns.org`, the default tenant's `wegweiser` as the foreign instance): with the domain
+active, `www.<domain>` and the domain itself refused for `wegweiser` with the sentence naming `vuebung`;
+`www.<domain>` accepted for `vuebung-vuebung-wiki` and written as a site; with the domain removed,
+`shop.<domain>` and the domain itself accepted for `wegweiser`, and binding the domain then refused naming
+it, the domain staying unbound; after removing the name, bound and active again. Cleaned up: domain
+removed, `wegweiser` without an own name, no unhealthy container.
+
 ## Zusammenfassung auf Deutsch
 
 **Worum es geht:** Heute baut der Knoten jeden öffentlichen Namen aus
