@@ -2,7 +2,8 @@
 
 - **Status:** **Accepted (2026-11-27)** — D1–D8 decided by Jörg, all as
   recommended (§10). **Stage 0 measured 2026-11-27 on oaap-test (§11)**;
-  D9 (finding F1, the brake counts per worker) open. Nothing built yet.
+  D9 (finding F1, the brake counts per worker) decided 2026-11-27 as
+  recommended: fixed in stage 1. Nothing built yet.
 - **Date:** 2026-11-27
 - **Authors:** Jörg (the need: look at `sglok-sbk.de`, a tenant's page made
   with the deploy-URL procedure, as Google, as a visitor and as an attacker
@@ -209,8 +210,8 @@ Decided 2026-11-27 by Jörg: **all as recommended**.
   attackers find the framework from the page anyway; the Seiten-Check
   wants to read it.
 
-- **D9 — Fix F1 (brake counts per worker)?** *(Added after stage 0,
-  open.)* Recommended: **yes, in
+- **D9 — Fix F1 (brake counts per worker)?** *(Added after stage 0;
+  decided 2026-11-27 by Jörg as recommended.)* Recommended: **yes, in
   stage 1** — the buckets in one place all workers share (a small SQLite
   file in identity's data volume, or `/dev/shm`), measured again with the
   700-request probe (first 429 at 301). Alternative: divide the limit by
@@ -278,4 +279,5 @@ Inhaltstypen auf öffentlichen Seiten (angemeldete Apps prüft Stufe 2),
 KI-Abrufer-Schalter und Schutz der Identitäts-Header wirken lückenlos.
 **Befund F1:** Die Drosselung lässt doppelt so viel durch (erste 429 bei
 Anfrage 594 statt 301), weil die zwei Identity-Prozesse getrennt zählen.
-Offen: D9 — F1 in Stufe 1 mitbeheben (empfohlen).
+D9 entschieden (27.11., wie empfohlen): F1 wird in Stufe 1 mit einem
+gemeinsamen Zähler behoben.
