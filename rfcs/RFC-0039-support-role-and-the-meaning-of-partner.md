@@ -220,6 +220,10 @@ every update — and falls silent the moment none does. A nag that clears
 itself when the work is done. (`appctl.py support-cleanup-note`, called
 from `migrate.sh`.)
 
+**Removed in 0.1.391 (2026-11-27, Jörg):** the note named one account on every
+node for two months; the operators know the two roles apart, so `oaap update`
+no longer prints it. Accounts holding both stay as they are (safe, §3.6).
+
 ## 4. Implementation inventory
 
 The role list is written out in **nine** places. All nine must move
