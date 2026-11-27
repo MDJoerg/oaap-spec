@@ -1,7 +1,7 @@
 # RFC-0139: The Server's Package Updates — a Daily Reminder and a Button
 
 - **Status:** **Accepted (2026-11-27)** — D1–D9 decided by Jörg, all as
-  recommended (§8). Nothing built.
+  recommended (§8). **Stage 0 measured 2026-11-27 on oaap-test (§9).**
 - **Date:** 2026-11-27
 - **Authors:** Jörg (the need: "aktiv melden, wie viele Updates es gerade für
   apt gibt … als Erinnerung für den Admin, einmal täglich"; and the question
@@ -181,6 +181,42 @@ Decided 2026-11-27 by Jörg: **all as recommended**.
   offered like everything else**, no special case; the first run there is
   measured (stage 2) before anyone relies on it.
 
+## 9. Stage 0 measured (2026-11-27, oaap-test)
+
+The six Docker packages, by hand along the steps of §4: backup, then
+`systemd-run --unit=oaap-upgrade-probe --wait` with `DEBIAN_FRONTEND=
+noninteractive apt-get install --only-upgrade -y -o
+Dpkg::Options::=--force-confold <the six>`. A probe asked the portal and
+vuebung's chat through the edge every ~1.3 s.
+
+| | |
+|---|---|
+| Versions | docker-ce 29.7.1 → **29.10.1**, containerd.io 2.2.6 → **2.4.2**, compose plugin 5.4.0 → 5.8.0, buildx 0.36.1 → 0.39.1 |
+| apt in its unit | 1 min 24 s, success, 6 upgraded, 0 removed, no question asked |
+| containerd restarted | 08:38:15 UTC |
+| dockerd up again | 08:39:11 UTC |
+| **Outage seen from outside** | **55 s** (08:38:16–08:39:11): the edge answered 502 for portal and chat |
+| Containers | 63 running before, **63 after, the same names**, all `unless-stopped`, none started by hand; vaultwarden briefly `health: starting` |
+| Platform afterwards | 53/53 apps running; `oaap node care space --dry-run` works; `docker compose version` v5.8.0 |
+
+**Findings.**
+- **F1** The outage is about one minute for **every** app of the node, and it
+  begins with **containerd**, not with docker-ce: containerd's package restarts
+  its service first, dockerd follows at the end of the run. The portal's
+  sentence for the tick must therefore say „alle Apps sind etwa eine Minute
+  nicht erreichbar“.
+- **F2** Nothing had to be restarted by hand; the restart policy
+  `unless-stopped` that every platform and app container carries brings them
+  back. The check of §4 step 4 is still needed — it found nothing here, but a
+  container without that policy would stay down.
+- **F3** `--force-confold` with `noninteractive` asked nothing; Docker's
+  packages have no configuration file of ours (`/etc/docker/daemon.json` is the
+  platform's and stayed).
+- **F4** (older, not from the update) the core service `fleet` on oaap-test
+  has stood exited for two days (`Exited (0)`); `oaap status` says 10/11.
+- Not measured: the Raspberry Pi's vendor archives (stage 2, D9); a node with
+  sleeping (standby) instances that the restart must not wake.
+
 ## Deutsche Zusammenfassung
 
 **Heute:** Sicherheitsupdates spielt jeder Knoten schon selbst ein
@@ -209,6 +245,8 @@ automatisch, der Rest auf Wort des Admins.
    eine Paketentfernung, Docker nur mit Haken („alle Apps starten einmal
    neu“), danach Prüfung, ob alle Apps wieder laufen. Ein Kernel-Neustart
    läuft über die vorhandene Neustartplanung, nie sofort.
+
+**Stufe 0 gemessen (27.11., oaap-test):** Docker 29.7.1 → 29.10.1, containerd 2.2 → 2.4, Compose 5.4 → 5.8 in einer eigenen Unit (1:24 min, nichts entfernt, keine Rückfrage). **Von außen 55 Sekunden alles weg** (Edge 502), beginnend mit dem Neustart von containerd; danach **alle 63 Container von selbst zurück**, 53/53 Apps laufen. Der Satz am Haken muss also sagen: „alle Apps sind etwa eine Minute nicht erreichbar“. Älter und nicht vom Update: der Dienst `fleet` auf oaap-test steht seit zwei Tagen.
 
 **Stufen:** 0 Docker-Update auf oaap-test messen (wie lange weg, kommen alle
 Container von selbst zurück), 1 Zählung + Erinnerung + `--dry-run`,
