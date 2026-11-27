@@ -1,7 +1,8 @@
 # RFC-0140: Base Hardening at the Gateway — Compression, Headers, One Address
 
 - **Status:** **Accepted (2026-11-27)** — D1–D8 decided by Jörg, all as
-  recommended (§10). Nothing built yet; stage 0 next.
+  recommended (§10). **Stage 0 measured 2026-11-27 on oaap-test (§11)**;
+  D9 (finding F1, the brake counts per worker) open. Nothing built yet.
 - **Date:** 2026-11-27
 - **Authors:** Jörg (the need: look at `sglok-sbk.de`, a tenant's page made
   with the deploy-URL procedure, as Google, as a visitor and as an attacker
@@ -208,6 +209,40 @@ Decided 2026-11-27 by Jörg: **all as recommended**.
   attackers find the framework from the page anyway; the Seiten-Check
   wants to read it.
 
+- **D9 — Fix F1 (brake counts per worker)?** *(Added after stage 0,
+  open.)* Recommended: **yes, in
+  stage 1** — the buckets in one place all workers share (a small SQLite
+  file in identity's data volume, or `/dev/shm`), measured again with the
+  700-request probe (first 429 at 301). Alternative: divide the limit by
+  the worker count — quick, but wrong the day the count changes.
+
+## 11. Stage 0 measured (2026-11-27, oaap-test, 0.1.399)
+
+From the LAN through the gateway's instance ports (the same `site_body` as
+every external name), so every answer passed the real rules. Temporary
+changes were made by hand on oaap-test only and taken back the same hour:
+`vuebung-bdt.caddy` restored from its copy and the gateway reloaded, the
+SSE test container removed, the AI switch set back to `allow`.
+
+| # | Question | Measured | Result |
+|---|---|---|---|
+| M1 | Compression gain | `vuebung-bdt` (public, 50 files): 5 407 267 bytes without; with `encode zstd gzip` in its site 1 616 503 (gzip) / 1 514 069 (zstd) | **−70 %**; HTML 99 KB → 23 KB |
+| M2 | Streams with `encode` | a test SSE responder behind the same site, 5 events 1 s apart, 600 bytes each | gzip: events at 0.00 / 0.99 / 2.02 / 3.03 / 4.01 s — same as uncompressed; **no exclusion of `text/event-stream` needed** |
+| M3 | App compresses itself | `forgejo`, `ws375-git`: 8 assets already `gzip` | untouched by design (Caddy skips an encoded answer); see stage 1 test |
+| M4 | `nosniff` and wrong types | every public page of the 51 instances and its scripts/styles: 20 assets on 3 public instances | **0 wrong types**; 3 instances already send `nosniff` themselves. Login-protected apps (48) not covered — stage 2 checks them in a signed-in browser (console shows a `nosniff` refusal) |
+| M5 | Methods | `TRACE` 405 (this app), `TRACK` 400, `CONNECT` **502** (gateway hands it to the app), `PROPFIND` 405 | §5 needed: today the answer depends on the app (sglok: 500) |
+| M6 | AI fetchers (0.2.27) | `oaap app ai-fetchers vuebung-bdt all` | GPTBot, ClaudeBot, CCBot 403; Googlebot, Firefox 200; robots.txt from the platform; back to `allow` → GPTBot 200 again. **Works** |
+| M7 | Forged identity headers | static: all 56 generated site files, every `handle` that proxies to an app or the portal (1 045) either passes `forward_auth … /verify` with `copy_headers` or strips `X-OAAP-User/Roles/User-Id/Email`; live: `X-OAAP-User`, `-Groups`, `-Roles` on a public route change nothing (same 99 216 bytes), on a protected one → 303 to the login | **Works**, no gap |
+| M8 | Brake (RFC-0010), default 300 per 60 s | 700 requests in 58 s on one route of `vuebung-bdt` from one address | **first 429 at request 594** — see F1 |
+| M9 | WebSocket with `encode` | not measured (no public WebSocket on oaap-test); Caddy does not encode a 101 upgrade | stage 1 test with the chat |
+
+**F1 — the brake lets twice the limit through.** identity runs
+`gunicorn --workers 2` and keeps the buckets in a per-process dict
+(`_RATE`); each worker counts only the requests it got, so a client reaches
+≈ 2 × limit before the first 429. RFC-0084's scanner was stopped „after
+about 730 requests“ — the same effect. Not part of §2–§5, but found here
+and cheap to fix: D9.
+
 ## Deutsche Zusammenfassung
 
 Anlass: Die Vereinsseite `sglok-sbk.de` läuft gut, aber unser Gateway
@@ -236,3 +271,11 @@ Drosselung, KI-Abrufer, gefälschten Headern), 1 Kompression + Methoden,
 Entschieden 27.11.2026 von Jörg: D1–D8 alle wie empfohlen, u. a. Kompression und Header für alle,
 Alias-Weiterleitung nur für neue Aliase als Vorgabe (bestehende Seiten
 ändern sich beim Update nicht).
+
+Stufe 0 gemessen (27.11., oaap-test): Kompression spart 70 % (5,4 MB →
+1,6 MB), Streams (SSE) kommen weiter im Sekundentakt, keine falschen
+Inhaltstypen auf öffentlichen Seiten (angemeldete Apps prüft Stufe 2),
+KI-Abrufer-Schalter und Schutz der Identitäts-Header wirken lückenlos.
+**Befund F1:** Die Drosselung lässt doppelt so viel durch (erste 429 bei
+Anfrage 594 statt 301), weil die zwei Identity-Prozesse getrennt zählen.
+Offen: D9 — F1 in Stufe 1 mitbeheben (empfohlen).
