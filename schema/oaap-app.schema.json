@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://oaap.org/schema/oaap-app-0.2.json",
-  "title": "OAAP app manifest (oaap-app.yaml), manifest versions 0.1 to 0.23",
+  "title": "OAAP app manifest (oaap-app.yaml), manifest versions 0.1 to 0.24",
   "$comment": "This schema is an AUTHORING tool: it rejects unknown fields so a typo is caught where it is made. A node in the field reads more tolerantly (RFC-0012 §8.2) — it accepts a higher minor version and ignores what it does not know, because otherwise every extension of the format would be a flag day for the whole fleet. Strict schema, tolerant runtime. The newest schema always validates every manifest version still readable. Until 2026-09-12 it skipped 0.3 (data_model/contributes/consumes, RFC-0031 Schritt 2): appctl.py accepted such manifests while this schema refused them, so every twin-aware app failed its own authoring check. The id keeps its historic '0.2' so existing references do not break. Check changes with 'python schema/validate.py'.",
   "type": "object",
   "required": [
@@ -731,6 +731,88 @@
       }
     },
     {
+      "$comment": "Same rule for the 0.24 field: 'shortlinks' only in a manifest declaring at least 0.24 (RFC-0144 stage 1).",
+      "if": {
+        "properties": {
+          "oaap_manifest": {
+            "enum": [
+              "0.1",
+              "0.2",
+              "0.3",
+              "0.4",
+              "0.5",
+              "0.6",
+              "0.7",
+              "0.8",
+              "0.9",
+              "0.10",
+              "0.11",
+              "0.12",
+              "0.13",
+              "0.14",
+              "0.15",
+              "0.16",
+              "0.17",
+              "0.18",
+              "0.19",
+              "0.20",
+              "0.21",
+              "0.22",
+              "0.23"
+            ]
+          }
+        }
+      },
+      "then": {
+        "not": {
+          "required": [
+            "shortlinks"
+          ]
+        }
+      }
+    },
+    {
+      "$comment": "Same rule for the 0.24 field: 'provides' only in a manifest declaring at least 0.24 (RFC-0144 stage 1).",
+      "if": {
+        "properties": {
+          "oaap_manifest": {
+            "enum": [
+              "0.1",
+              "0.2",
+              "0.3",
+              "0.4",
+              "0.5",
+              "0.6",
+              "0.7",
+              "0.8",
+              "0.9",
+              "0.10",
+              "0.11",
+              "0.12",
+              "0.13",
+              "0.14",
+              "0.15",
+              "0.16",
+              "0.17",
+              "0.18",
+              "0.19",
+              "0.20",
+              "0.21",
+              "0.22",
+              "0.23"
+            ]
+          }
+        }
+      },
+      "then": {
+        "not": {
+          "required": [
+            "provides"
+          ]
+        }
+      }
+    },
+    {
       "$comment": "The node refuses 'assistant_templates', 'mcp_content' and 'mcp_store' in a manifest without an MCP door (mcp.path): a template builds a view of the app's tools, the other two describe that door.",
       "if": {
         "anyOf": [
@@ -783,9 +865,10 @@
         "0.20",
         "0.21",
         "0.22",
-        "0.23"
+        "0.23",
+        "0.24"
       ],
-      "$comment": "MAJOR.MINOR. A new MINOR only adds; a new MAJOR is the only thing a node may refuse (RFC-0012 §8.2). Deliberately not the semver 0.x reading, where the minor would carry breaking changes. 0.2 adds app.class. 0.3 adds data_model/contributes/consumes (oaap.data.model 0.1 §2.2, RFC-0031 §5) and the data_models artefact shape (§2.8). 0.4 adds the 'launchpad' section (RFC-0036). 0.5 adds the 'destinations' section (oaap.net.destinations 0.1, RFC-0033 stage 1). 0.6 adds the 'authorization' section (oaap.core.authorization 0.1, RFC-0045 stages 1-2). 0.7 adds services.<name>.shm (oaap.apps.runtime 2.20). 0.8 adds services.<name>.tun (oaap.apps.runtime 2.23, RFC-0060). 0.9 adds the 'cases' section (cases.submit: an app's backend opens a case in its tenant, oaap.apps.runtime 2.24, RFC-0061 §3.2). 0.10 adds the 'care' section (care.rebuild: self | release -- the author's promise that a rebuild on a fresh base changes nothing but the base, oaap.apps.runtime 2.31, RFC-0071 §15). 0.11 adds 'mcp' (one MCP door, a local path under one of the app's routes) and 'mcp_sources' (a gateway app reads the MCP sources of its tenant), oaap.apps.runtime 2.32, RFC-0073; 'openapi' stays reserved and is refused (I-39). 0.12 adds 'mcp_client' (use: true -- a chat app acts at its tenant's MCP gateways as the person speaking to it, procedure A), oaap.apps.runtime 2.32.3, RFC-0074. 0.13 adds 'ui_sandbox' (path: a page the app serves for the views of MCP Apps; the platform gives it a second, cookie-less origin <instance>--ui.<tenant>.<node>), oaap.apps.runtime 2.32.4, RFC-0075. 0.14 adds 'link_state' (path: where the node asks a tunnel app how its tunnel and its targets are -- names and ok/down, never an address), oaap.apps.runtime 2.33, RFC-0087 §8.1. 0.15 adds 'assets' (path: where the node asks an app for its assets -- model names, sources, the destination a source goes through; names and ok/down/idle only), oaap.apps.runtime 2.34, RFC-0087 §8.2. 0.16 adds 'identity' (identity.oidc_client: redirect_paths, groups_claim -- the app asks for its own confidential client in its tenant's realm, made by a connector on an operator's request), oaap.apps.runtime 2.35, oaap.core.tenant 2.9.2, RFC-0091 stage 3. 0.17 adds 'docs' (help products the app brings: folder, title, language, audience, readers, folder -> document type, media) and 'docs_sources' (help reads its tenant's), oaap.apps.runtime 2.36, RFC-0094. 0.18 adds 'setup' (path: the app's setup door for a tenant build), 'ai_client' (use: true -- a chat reaches its tenant's model gateways) and 'ai_gateway' (serve: true -- be one of them), oaap.apps.runtime 2.39, RFC-0104 stage 2. 0.19 adds 'mcp_content' (untrusted: true -- the MCP door delivers foreign content), oaap.apps.runtime 2.32.6, RFC-0116 stage 2. 0.20 adds 'assistant_templates' (path: a folder of assistant templates in the package; only with an MCP door), oaap.apps.runtime 2.41, RFC-0119 stage 1. 0.21 adds 'events' (publishes/subscribes/endpoint -- the app publishes through /platform/events and receives what the tenant admin granted it), oaap.apps.runtime 2.42, oaap.events.bus, RFC-0127. 0.22 adds 'people' (invite: true -- the app invites people without platform authority), oaap.apps.runtime 2.43, RFC-0126 stage 1. 0.23 adds 'mcp_store' (kind: the MCP door is a store connector of that kind; the portal offers 'Für den Chat freigeben'), oaap.apps.runtime 2.32.7, RFC-0121."
+      "$comment": "MAJOR.MINOR. A new MINOR only adds; a new MAJOR is the only thing a node may refuse (RFC-0012 §8.2). Deliberately not the semver 0.x reading, where the minor would carry breaking changes. 0.2 adds app.class. 0.3 adds data_model/contributes/consumes (oaap.data.model 0.1 §2.2, RFC-0031 §5) and the data_models artefact shape (§2.8). 0.4 adds the 'launchpad' section (RFC-0036). 0.5 adds the 'destinations' section (oaap.net.destinations 0.1, RFC-0033 stage 1). 0.6 adds the 'authorization' section (oaap.core.authorization 0.1, RFC-0045 stages 1-2). 0.7 adds services.<name>.shm (oaap.apps.runtime 2.20). 0.8 adds services.<name>.tun (oaap.apps.runtime 2.23, RFC-0060). 0.9 adds the 'cases' section (cases.submit: an app's backend opens a case in its tenant, oaap.apps.runtime 2.24, RFC-0061 §3.2). 0.10 adds the 'care' section (care.rebuild: self | release -- the author's promise that a rebuild on a fresh base changes nothing but the base, oaap.apps.runtime 2.31, RFC-0071 §15). 0.11 adds 'mcp' (one MCP door, a local path under one of the app's routes) and 'mcp_sources' (a gateway app reads the MCP sources of its tenant), oaap.apps.runtime 2.32, RFC-0073; 'openapi' stays reserved and is refused (I-39). 0.12 adds 'mcp_client' (use: true -- a chat app acts at its tenant's MCP gateways as the person speaking to it, procedure A), oaap.apps.runtime 2.32.3, RFC-0074. 0.13 adds 'ui_sandbox' (path: a page the app serves for the views of MCP Apps; the platform gives it a second, cookie-less origin <instance>--ui.<tenant>.<node>), oaap.apps.runtime 2.32.4, RFC-0075. 0.14 adds 'link_state' (path: where the node asks a tunnel app how its tunnel and its targets are -- names and ok/down, never an address), oaap.apps.runtime 2.33, RFC-0087 §8.1. 0.15 adds 'assets' (path: where the node asks an app for its assets -- model names, sources, the destination a source goes through; names and ok/down/idle only), oaap.apps.runtime 2.34, RFC-0087 §8.2. 0.16 adds 'identity' (identity.oidc_client: redirect_paths, groups_claim -- the app asks for its own confidential client in its tenant's realm, made by a connector on an operator's request), oaap.apps.runtime 2.35, oaap.core.tenant 2.9.2, RFC-0091 stage 3. 0.17 adds 'docs' (help products the app brings: folder, title, language, audience, readers, folder -> document type, media) and 'docs_sources' (help reads its tenant's), oaap.apps.runtime 2.36, RFC-0094. 0.18 adds 'setup' (path: the app's setup door for a tenant build), 'ai_client' (use: true -- a chat reaches its tenant's model gateways) and 'ai_gateway' (serve: true -- be one of them), oaap.apps.runtime 2.39, RFC-0104 stage 2. 0.19 adds 'mcp_content' (untrusted: true -- the MCP door delivers foreign content), oaap.apps.runtime 2.32.6, RFC-0116 stage 2. 0.20 adds 'assistant_templates' (path: a folder of assistant templates in the package; only with an MCP door), oaap.apps.runtime 2.41, RFC-0119 stage 1. 0.21 adds 'events' (publishes/subscribes/endpoint -- the app publishes through /platform/events and receives what the tenant admin granted it), oaap.apps.runtime 2.42, oaap.events.bus, RFC-0127. 0.22 adds 'people' (invite: true -- the app invites people without platform authority), oaap.apps.runtime 2.43, RFC-0126 stage 1. 0.23 adds 'mcp_store' (kind: the MCP door is a store connector of that kind; the portal offers 'Für den Chat freigeben'), oaap.apps.runtime 2.32.7, RFC-0121. 0.24 adds 'shortlinks' (create: true -- the app asks for short links at /platform/shortlinks) and 'provides' (a list of services the app offers its tenant: shortlinks), oaap.apps.runtime 2.44, RFC-0144 stage 1."
     },
     "must_understand": {
       "type": "array",
@@ -2037,6 +2120,25 @@
           "type": "boolean"
         }
       }
+    },
+    "shortlinks": {
+      "type": "object",
+      "description": "Manifest 0.24, oaap.apps.runtime 2.44 (RFC-0144 stage 1): 'create: true' -- the app asks for short links at its own door /platform/shortlinks; it gets OAAP_SHORTLINKS_URL and OAAP_SHORTLINKS_KEY. The gateway speaks to the tenant's short-link service and names the app as each link's owner. Without a service the door answers 404.",
+      "additionalProperties": false,
+      "properties": {
+        "create": {
+          "type": "boolean"
+        }
+      }
+    },
+    "provides": {
+      "type": "array",
+      "description": "Manifest 0.24, oaap.apps.runtime 2.44 (RFC-0144 §1): services this app offers its tenant. Today 'shortlinks' (the contract oaap.work.shortlinks). An offer does not make an instance the service; the tenant names one. Names a node does not know are ignored.",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9-]{1,39}$"
+      },
+      "uniqueItems": true
     },
     "mcp_store": {
       "type": "object",

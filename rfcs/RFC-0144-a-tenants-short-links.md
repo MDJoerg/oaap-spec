@@ -8,6 +8,9 @@
   provider, shared through the twin (Jörg's addition); campaigns built
   in the Wegweiser 0.7.0 and measured on oaap-test; D9–D12 decided as
   recommended the same day.
+  **Stage 1, platform half, built and measured 2026-11-28 (§12)** —
+  reference 0.1.410, Wegweiser 0.8.0: the tenant's service, the door, the
+  contract; W1–W4 answered. The portal's tab *Kurzlinks* is still open.
 - **Date:** 2026-11-28
 - **Authors:** Jörg (the need: „apps shortlinks erzeugen können und wir
   dadurch eine messbarkeit und den Erfolg von kampagnen … messen, informiert
@@ -307,6 +310,101 @@ assigned (§10, built).
   master per tenant setting when a planning app arrives (stage 5); never
   both.**
 
+## 12. Stage 1, the platform's half (2026-11-28, reference 0.1.410, Wegweiser 0.8.0)
+
+**Built.**
+
+- **Manifest 0.24** (`oaap.apps.runtime` 2.44): the need
+  `shortlinks: {create: true}` and the offer `provides: [shortlinks]`. The
+  registry keeps both (`shortlinks_create`, `provides`).
+- **The tenant's service** (`oaap.core.tenant` 1.31):
+  `oaap tenant shortlinks <tenant> <instance>|off|show`, record
+  `shortlinks: {instance, since, by}`, log `tenant.shortlinks`. Accepted
+  only for a production instance of the tenant that offers `shortlinks` and
+  answers `GET about` with the contract.
+- **W4 — the instance's credential.** The construction of the case and
+  people keys: `OAAP_SHORTLINKS_KEY`, scope `oaap.shortlinks:<name>`, opens
+  exactly the door `/platform/shortlinks` on the instance's own site.
+- **The door — a change against §2 and §3.** Behind it the **gateway**
+  speaks to the provider directly, as the machine principal
+  `platform:shortlinks`, and names the asking instance in the source
+  headers. So:
+  - the platform holds **no key at the provider** (§3 spoke of a service
+    credential);
+  - the **owner** is set by the gateway, never by the app's body, and lives
+    in the provider (`links.owner`), not in a platform file
+    `apps/shortlinks/<tenant>.json` (§2). One place for one fact; the
+    portal reads it through the listing;
+  - the provider shows an instance **only its own links**; another
+    instance's link answers 404, also for pause, retarget and delete.
+- **The contract in the Wegweiser 0.8.0** (`oaap.work.shortlinks` 0.1):
+  - `GET about` (contract, version, hosts, channels); the platform's first
+    call creates **its area** — `k` (short, it is printed on flyers), else
+    `oaap-k` — redirects only, open to nobody else;
+  - **W2:** a new log level **`anonymous`** for that area: referrer host,
+    device class, browser, OS — no address, no User-Agent, no language.
+    Distinct visitors per day are estimated through a salt that holds for
+    one day and is replaced the next; the mark never leaves the app, not
+    even as CSV;
+  - **W3:** `GET stats?day=` — one call per day for all links of the area,
+    with calls, visitors, referrer hosts, device classes, campaign key,
+    channel and owner;
+  - `GET links?updated_since=`; `owner` and `updated_at` on links; a create
+    by the platform returns the address **and** `qr_svg` in one answer;
+  - the platform principal is never `admin` or `keyuser`, whatever its key
+    carries; only it may set `owner`.
+- **W1** needed no change: since reference 0.1.399 `OAAP_INSTANCE_NAMES`
+  says `https`, and the Wegweiser hands out what it is told. Stage 0's
+  `http://` came from an instance started before that.
+
+**Tests.**
+
+- `test_shortlinks.py`, 39 checks: the manifest, key and door, which
+  provider a site reaches (same tenant, still offering, never for a
+  rehearsal), the marker, and every refusal of the setting. Two mutations
+  bite (the platform's name at the provider, the `provides` check).
+- `test_instance_keys.py` knows the new key.
+- The Wegweiser: 285 checks (39 new). Mutations bite: the platform with
+  `admin` in its key reaches foreign areas; an address stored on level
+  `anonymous`.
+- Green: 28 reference files that touch the manifest, the keys or the
+  gateway lines.
+
+**Measured on oaap-test** (backed up first, 0.1.410 staged; the Wegweiser's
+data archived before the update to 0.8.0). A probe app `slprobe` declares
+the need.
+
+| Step | Result |
+|---|---|
+| install `slprobe` | key and address in its environment |
+| the door before a service is named | 404 |
+| name `slprobe` (no `provides`) | refused, with the reason |
+| `oaap tenant shortlinks default wegweiser` | 3.8 s, area `k` created, links under `https://wegweiser.oaap-test…` |
+| `about` through the door | 200 in 0.14 s |
+| without a key / with a made-up key | 303 to the login / 401 |
+| create (with `owner: wegweiser` in the body) | 201 in 0.14 s, owner **`slprobe`**, https address, `qr_svg` |
+| list, QR as SVG | 200, 0.12–0.14 s, only its own link |
+| pause, resume with a new target | 200, 200 |
+| a foreign area, the instance's hosts | 403, 403 |
+| three clicks (2 × iPhone, 1 × Windows, referrer Instagram) | 302 in 7–11 ms |
+| `stats` through the door | 3 calls, 2 visitors, `www.instagram.com` 3, mobile 2 / desktop 1, owner and channel |
+| the database of area `k` | 3 rows: address, User-Agent, language all empty |
+| the existing links | 8 before (4 live), 9 after (5 live) — only the probe's added |
+| the key at the Wegweiser's API / at `slprobe`'s own pages | 403 / 403 |
+| `off`, then the door | 404; named again: 200 |
+| the tenant's log | `tenant.shortlinks` for each change |
+
+My mistake while measuring: the probe followed the redirect of a call
+without a key and reported the login page's 200 as the door's answer. curl
+showed the 303.
+
+**Left on oaap-test for the portal step:** the Wegweiser 0.8.0, `slprobe`
+with its one link, the setting on.
+
+**Still open in stage 1:** the portal — the instance's tab *Kurzlinks* (its
+links with owner, create, pause, retarget) and the card in the tenant
+settings.
+
 ## Deutsche Zusammenfassung
 
 **Worum es geht:** Die Seitenstatistik zeigt, *dass* Besucher kommen, ein
@@ -378,3 +476,33 @@ nie zwei Herren zugleich. **Entschieden (Jörg, 28.11., „Wie empfohlen“):** 
 Kurzname (D9); `utm_campaign` = Kurzname der eigenen Kampagne (D10);
 Zwilling ab Stufe 2 als Spiegel (D11); erst der Wegweiser, später auf Wunsch
 der Zwilling als Herr (D12).
+
+**Stufe 1, Plattformhälfte (28.11., Referenz 0.1.410, Wegweiser 0.8.0):**
+
+- Eine App erklärt `shortlinks: {create: true}` und bekommt einen Schlüssel
+  für ihre eigene Tür `/platform/shortlinks` (W4).
+- Hinter der Tür spricht das **Gateway** selbst mit dem Wegweiser, als
+  `platform:shortlinks`, und nennt die App als Quelle. Die Plattform braucht
+  deshalb keinen eigenen Schlüssel beim Wegweiser.
+- Den **Besitzer** setzt das Gateway, nicht die App. Er steht im Wegweiser,
+  nicht in einer Plattformdatei. Jede App sieht und ändert nur ihre eigenen
+  Links.
+- Der Mandant benennt seinen Dienst mit `oaap tenant shortlinks`. Vorher
+  prüft die Plattform: eigener Mandant, Produktivkanal,
+  `provides: [shortlinks]`, und `about` antwortet mit dem Vertrag.
+- Der **Wegweiser 0.8.0** legt beim ersten Ruf der Plattform deren Area `k`
+  an. Sie speichert auf der neuen Stufe „anonymous“: Herkunft und Gerät,
+  aber keine Adresse (W2). Besucher je Tag werden über einen Tages-Salz
+  geschätzt. `stats?day=` liefert alle Links eines Tages in einem Ruf (W3).
+- W1 war schon erledigt: Seit 0.1.399 bekommen Apps ihre Namen mit https.
+
+Auf oaap-test gemessen mit der Sonde `slprobe`:
+
+- Die Sonde legte einen Link an (0,14 s). Er gehörte `slprobe`, obwohl sie
+  „wegweiser“ als Besitzer mitschickte. QR-Code, Pause und Umleiten gingen.
+- Drei Klicks ergaben 3 Aufrufe und 2 Besucher, Instagram als Herkunft. In
+  der Datenbank steht keine Adresse.
+- Ohne Dienst antwortet die Tür 404, ein fremder Bereich gibt 403.
+
+**Noch offen in Stufe 1:** der Reiter „Kurzlinks“ im Portal und die Karte
+in den Mandanten-Einstellungen.
