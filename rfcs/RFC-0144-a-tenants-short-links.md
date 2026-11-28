@@ -17,6 +17,8 @@
   **Stage 2, first part, 2026-11-28 (§14)** — reference 0.1.412: the daily
   pull, series per link and campaign, the tab, the tenant page, the weekly
   report; measured on oaap-test; W5 found.
+  **W5 closed, 2026-11-28 (§15)** — Wegweiser 0.8.2: automated fetchers are
+  no calls; measured on oaap-test.
 - **Date:** 2026-11-28
 - **Authors:** Jörg (the need: „apps shortlinks erzeugen können und wir
   dadurch eine messbarkeit und den Erfolg von kampagnen … messen, informiert
@@ -98,7 +100,7 @@ platform, scoped to one area of the provider reserved for it):
 | `POST links` | create in the platform's area, with campaign (key)/channel/owner as fields |
 | `PATCH links/<id>` | pause, resume, new target |
 | `GET links?updated_since=` | the area's links |
-| `GET stats?day=` | per link and day, with the link's campaign key: clicks, unique-per-day estimate, referrer host, device class — **counts only** |
+| `GET stats?day=` | per link and day, with the link's campaign key: clicks, unique-per-day estimate, referrer host, device class — **counts only**; clicks and visitors without automated fetchers, which count apart as `bots` (W5, §15) |
 
 The Wegweiser 0.7 adds the fields, the platform's area and `stats`; its own
 UI, areas and roles stay as they are.
@@ -573,6 +575,36 @@ days.
 **Next:** W5 in the Wegweiser; then the rest of stage 2 (follow-through, the
 twin) or stage 3 (`link.surge`, `link.dead`).
 
+## 15. W5 closed: automated fetchers are no calls (2026-11-28, Wegweiser 0.8.2)
+
+A call is a person. The Wegweiser classifies every access by its user agent
+(`desktop`, `mobile`, `bot`, `unknown`; `bot` includes link previews such as
+WhatsApp's, crawlers, `curl`, `wget`, `python-requests`). Since 0.8.2:
+
+- `GET stats?day=` counts `calls` and `visitors` **without** the class
+  `bot`; a successful access by an automated fetcher counts in a new field
+  `bots`. `by_class` still shows every class, `all` every access.
+- The campaign numbers (`/campaigns`, `/campaigns/{id}/stats`: *calls* in
+  the window, per channel, per link) leave `bot` out the same way. The
+  link's *hits in total* (`hit_count`) stays the count of every access.
+- The platform needs no change: its daily pull, the tab's numbers for today
+  and the weekly report all read `calls`/`visitors` from `stats?day=`; the
+  new field is not stored (§4, the listed fields only).
+
+**Tests.** `test_wegweiser.py` 292 checks, 4 new: two automated fetchers
+after three people leave calls 3 and visitors 2, `bots` 2, `by_class` still
+shows them, the campaign's calls unchanged (per campaign and per link and
+channel). Mutation (count `bot` as a call again) fails 2 of them.
+
+**Measured on oaap-test** (data backed up to
+`~/wegweiser-data-vor-0.8.2.tgz`, 0.8.2 installed):
+
+| Step | Result |
+|---|---|
+| the finding's link (`RXCBKr`, stage 1's probes) today | calls **2** (before 4), `bots` 2, visitors 1; a third fetcher hit the link while paused and never counted |
+| the other probe link, a WhatsApp preview and an iPhone click | 302, 302; calls 6 → 7, `bots` 0 → 1, visitors 4 → 4 (the same phone had clicked today already) |
+| the store | no stored day had calls yet (all probe clicks were today), so nothing to pull again; tomorrow's pull fetches today with the new counting |
+
 ## Deutsche Zusammenfassung
 
 **Worum es geht:** Die Seitenstatistik zeigt, *dass* Besucher kommen, ein
@@ -707,5 +739,11 @@ Auf oaap-test gemessen mit der Sonde `slprobe`:
 - Offen in Stufe 2: der Rücklauf über `utm_`, der Spiegel im Zwilling und
   das Lagebild (es wartet auf RFC-0142 Stufe 1).
 
-**Als Nächstes:** W5 im Wegweiser, dann der Rest von Stufe 2 (Rücklauf,
-Zwilling) oder Stufe 3 (`link.surge`, `link.dead`).
+**W5 behoben (Wegweiser 0.8.2, §15):** Ein Aufruf ist ein Mensch. Automaten
+und Link-Vorschauen (WhatsApp & Co.) zählen nicht mehr als Aufrufe oder
+Besucher, weder je Tag noch bei den Kampagnen; sie stehen als eigene Zahl
+`bots` daneben. Die Plattform braucht keine Änderung. Auf oaap-test gemessen:
+Der Link aus dem Befund zeigt 2 statt 4 Aufrufe.
+
+**Als Nächstes:** der Rest von Stufe 2 (Rücklauf, Zwilling) oder Stufe 3
+(`link.surge`, `link.dead`).
