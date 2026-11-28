@@ -14,6 +14,9 @@
   **Stage 1 complete 2026-11-28 (§13)** — reference 0.1.411, Wegweiser
   0.8.1: the instance's tab *Kurzlinks* and the tenant settings' page
   *Kurzlinks*, measured on oaap-test.
+  **Stage 2, first part, 2026-11-28 (§14)** — reference 0.1.412: the daily
+  pull, series per link and campaign, the tab, the tenant page, the weekly
+  report; measured on oaap-test; W5 found.
 - **Date:** 2026-11-28
 - **Authors:** Jörg (the need: „apps shortlinks erzeugen können und wir
   dadurch eine messbarkeit und den Erfolg von kampagnen … messen, informiert
@@ -492,6 +495,84 @@ the setting on.
 **Next:** stage 2 — the daily pull into the picture of the situation and
 the weekly report (§4), the notifications `link.surge`/`link.dead` (§5).
 
+## 14. Stage 2, first part: the counts over time (2026-11-28, reference 0.1.412)
+
+Stage 2 (§6) has five pieces. This part builds three — the daily pull with
+its series (rolled up the tree), the tab and the tenant page, the weekly
+report. Still open in stage 2: **the follow-through** with the two `utm_`
+keys (the Wegweiser appends them, the page statistics count them), **the
+twin's mirror** (§11), and **the picture of the situation** — RFC-0142's
+picture is not built yet (its stage 1); the counts wait for it in the store.
+
+**What was built** (`oaap.core.portal` 0.3.74 §2.28, `oaap.core.notifications`
+0.19 §2.9):
+
+- **The daily pull.** Once a UTC day (the provider counts by UTC day), after
+  00:20 UTC, the minute job asks each tenant's service for the days it does
+  not have: `GET stats?day=` per day (W3), the campaign tree, the links'
+  titles. The first pull reaches **14 days** back, so stage 3's 14-day mean
+  has its baseline at once; a failed day ends the run and is tried again
+  after 30 minutes, never more often. `oaap tenant shortlinks <tenant> pull`
+  does it now.
+- **The store** `apps/shortlinks/<tenant>.json` (0600, directory 0700): per
+  day and link calls, the visitor estimate, campaign key, channel, owner, at
+  most 8 referrer hosts and device classes — the fields are listed, nothing
+  else the provider might send is kept (§4, counts only). **D4:** 90 days per
+  day, then per week (links and campaigns rolled up) for a year.
+- **The series** (`services/shortlinks_stats.py`, pure functions): per link
+  and campaign the first day, the best day, the last 7 against the 7 before,
+  90 days in all, 30 for the chart. A campaign counts every level below it
+  (§10); **per owner instance** the same from its own links only — an
+  instance's tab never shows another instance's numbers.
+- **The portal:** columns *7 Tage* (*Vorwoche*) and *Verlauf* (inline SVG,
+  no script), *Kampagnen dieser Instanz*; on the tenant page all campaigns
+  with best day. Both name the day the numbers reach.
+- **The weekly report:** a section *Kampagnen* (calls against the week
+  before, top 5 links, campaigns by channel, *ruhig geworden*) and a line in
+  the summary. Read from the store when the report is written — not from
+  the ledger, whose local midnight comes before the provider's UTC midnight.
+
+**Tests.** `test_shortlinks_stats.py`, 57 checks: which days are missing,
+counts only (a provider's address field is not kept), the roll-up (three
+levels, an unknown key, a loop), the series, days into weeks, the week's part
+(quiet, archived is not quiet), the report's section, the pull (backfill,
+nothing twice, a failing day resumed, no service, 0600), the minute's timing
+and retry, the view, the tenant's report, the portal (chart, columns,
+campaigns of an instance from its own links only, tenant page). Mutations
+bite: no roll-up; an address kept. Green in the Linux runner with
+`test_shortlinks_portal.py`, `test_shortlinks.py`, `test_weekly_report.py`,
+`test_link_reports_portal.py`, `test_care_portal.py`.
+
+**Measured on oaap-test** (backed up first, 0.1.412 staged):
+
+| Step | Result |
+|---|---|
+| the minute job after staging | pulled 14 days (11-14 … 11-27) by itself, a minute later; no error in the journal |
+| store | 0600 in a 0700 directory; only the listed fields |
+| a tree at the Wegweiser (`sonde-fest` → `sonde-druck`), the probe's two links assigned through the platform with `slprobe` as source | 201, 201; 200, 200 |
+| 5 clicks (3 + 2, iPhone and Windows, referrers Instagram, example.org, Facebook) | 302 each |
+| a pull with tomorrow as now (today as yesterday) | 1 day in **0.08 s**; the links 6 and 4 calls (with the clicks of §13), referrer hosts and device classes |
+| roll-up | `sonde-fest` 10 = its own 4 + `sonde-druck` 6; per owner `slprobe` the same |
+| the view | 0.08 s; both links with history |
+| the tab / the tenant page (GET through the gateway) | 7 days, the week before, chart (120 bars), the instance's campaigns indented, „bis 28.11.“ / card *Kampagnen* |
+| the weekly report into a temporary directory | *Kampagnen*: top links, the tree by channel (Druck 6, Soziale Medien 4), the summary line „Kurzlinks: 10 Aufrufe (Vorwoche 0)“ |
+| afterwards | today taken out of the store again (the real pull tomorrow fetches the whole day) |
+
+**W5 — the provider counts automated fetchers as calls.** The probe's link
+showed 3 of its 4 calls from the device class `bot` (the stage-1 probes
+used Python and wget). A messenger's link preview is such a fetcher: a
+social link would count its previews as people. The page statistics keep
+people and automats apart (I-81); the contract's `stats` should too —
+calls and visitors without `bot`, the automats as their own number. That is
+a change in the Wegweiser (0.8.2), not in the platform.
+
+**Left on oaap-test:** 0.1.412, the Wegweiser 0.8.1 with the campaigns
+`sonde-fest`/`sonde-druck`, `slprobe`'s two links assigned, the store of 14
+days.
+
+**Next:** W5 in the Wegweiser; then the rest of stage 2 (follow-through, the
+twin) or stage 3 (`link.surge`, `link.dead`).
+
 ## Deutsche Zusammenfassung
 
 **Worum es geht:** Die Seitenstatistik zeigt, *dass* Besucher kommen, ein
@@ -611,5 +692,20 @@ Auf oaap-test gemessen mit der Sonde `slprobe`:
   „Neu lesen“. Mein Messfehler: busybox-wget schickt nach einem 303 noch
   einmal POST, daher acht Protokollzeilen auf oaap-test.
 
-**Als Nächstes:** Stufe 2, die Zahlen ins Lagebild und in den Wochenbericht
-sowie die Benachrichtigungen.
+**Stufe 2, erster Teil (0.1.412, §14):**
+- Der Knoten holt die Zahlen einmal am Tag ab (nach 00:20 UTC, beim ersten
+  Mal 14 Tage zurück) und hält sie je Mandant: 90 Tage je Tag, dann ein Jahr
+  je Woche, nur Zahlen.
+- Der Reiter zeigt je Link 7 Tage gegen die Vorwoche und einen Verlauf über
+  30 Tage, dazu die Kampagnen der Instanz, nur aus ihren eigenen Links. Die
+  Mandantenseite zeigt alle Kampagnen.
+- Der Wochenbericht bekommt einen Abschnitt „Kampagnen“ mit den stärksten
+  Links, den Kanälen und „ruhig geworden“.
+- Auf oaap-test gemessen: ein Abruf 0,08 s.
+- Befund W5: Der Wegweiser zählt Automaten als Aufrufe, auch die
+  Link-Vorschau eines Messengers.
+- Offen in Stufe 2: der Rücklauf über `utm_`, der Spiegel im Zwilling und
+  das Lagebild (es wartet auf RFC-0142 Stufe 1).
+
+**Als Nächstes:** W5 im Wegweiser, dann der Rest von Stufe 2 (Rücklauf,
+Zwilling) oder Stufe 3 (`link.surge`, `link.dead`).
