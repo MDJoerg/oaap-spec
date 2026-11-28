@@ -10,7 +10,10 @@
   recommended the same day.
   **Stage 1, platform half, built and measured 2026-11-28 (§12)** —
   reference 0.1.410, Wegweiser 0.8.0: the tenant's service, the door, the
-  contract; W1–W4 answered. The portal's tab *Kurzlinks* is still open.
+  contract; W1–W4 answered.
+  **Stage 1 complete 2026-11-28 (§13)** — reference 0.1.411, Wegweiser
+  0.8.1: the instance's tab *Kurzlinks* and the tenant settings' page
+  *Kurzlinks*, measured on oaap-test.
 - **Date:** 2026-11-28
 - **Authors:** Jörg (the need: „apps shortlinks erzeugen können und wir
   dadurch eine messbarkeit und den Erfolg von kampagnen … messen, informiert
@@ -403,7 +406,91 @@ with its one link, the setting on.
 
 **Still open in stage 1:** the portal — the instance's tab *Kurzlinks* (its
 links with owner, create, pause, retarget) and the card in the tenant
-settings.
+settings. Built in §13.
+
+## 13. Stage 1, the portal's half (2026-11-28, reference 0.1.411, Wegweiser 0.8.1)
+
+**What was built** (`oaap.core.portal` 0.3.73 §2.28, `oaap.core.tenant`
+1.32):
+
+- **The node reads, the portal shows.** The portal sits on no app network
+  and never reaches a provider. The node writes `shortlinks-view.json` (0600,
+  per tenant that named a service: whether it is usable, the provider, its
+  area and hosts, and the links of the platform's area with owner, channel,
+  title, campaign and today's calls and visitors) every minute and after
+  every change. Only listed fields: no PIN, no creator id. A node where no
+  tenant named a service writes nothing.
+- **The node calls the provider from the host,** straight to its container
+  on its app network (like the self-check, RFC-0084), every method. A write
+  names the instance whose tab it came from in the source headers, exactly
+  as the gateway does behind the app's own door: the provider sets the
+  owner and refuses another instance's link with 404. So one rule decides
+  ownership, whether the app or a person makes the link.
+- **The instance's tab *Kurzlinks*** (both instance pages, after
+  *Seitenstatistik*): the instance's links with target, channel, today's
+  counts, a QR code as SVG for print (made by the portal from the view's
+  address, only for an own link), *Pausieren*/*Fortsetzen*, *Neues Ziel*,
+  *Kurzlink anlegen* (the target preset to the instance's address) and
+  *Neu lesen*. Without a service it names the way to the tenant settings; a
+  rehearsal makes no links. No delete: a printed link is paused, not taken
+  away.
+- **Who (D8):** administrators; of the bound people a *Verantwortliche*
+  writes (`shortlinks`), every bound person reads again
+  (`shortlinks:read`). One spool action `shortlinks`, judged like every
+  instance action (`bindings.py`, `may()`); each change in the tenant's log
+  as `instance.shortlinks` with person and role.
+- **The tenant settings' page *Kurzlinks*** (`/tenant/shortlinks`, the
+  tenant_admin for the own tenant, the server_admin for any): the service
+  with since/by and whether it is usable, a choice of the tenant's
+  production instances that offer `shortlinks` or none, the apps that ask,
+  and all links over the platform with their instance. A spool action
+  `tenant-shortlinks` runs the same function as `oaap tenant shortlinks`,
+  the role and tenant taken from the actor's record.
+- **Wegweiser 0.8.1:** a `PATCH` without `title` or `note` left both empty
+  — pausing from the portal took a link's title away (found while
+  measuring: the probe's link of §12 had lost its title through its
+  retarget). Now only fields that are sent change; the form still empties a
+  field that is sent empty.
+
+**Tests.** `test_shortlinks_portal.py`, 65 checks: who may, the node's
+call (source, body, every refusal, no delete, the log), the view (fields,
+counts, an unusable service, 0600), the worker's two actions, the portal
+(tab on both pages, forms per role, QR only for an own link, the requests
+it queues, the tenant page). Mutations bite (create without the source; a
+Betreuer allowed to write). The Wegweiser: 288 checks (3 new, they fail on
+0.8.0). Green: 29 reference files that render the instance pages or touch
+the spool, bindings and tenants.
+
+**Measured on oaap-test** (backed up first; the Wegweiser's data archived
+before 0.8.1):
+
+| Step | Result |
+|---|---|
+| the view | written by the minute job; 0.09 s per write |
+| the tab, as server_admin | the probe's link with target, channel *Druck*, 3 calls / 2 visitors today, all forms |
+| create (form with `owner=wegweiser`) | owner **`slprobe`**, title and channel kept |
+| pause, call the link | 404; resume: 302 to the target |
+| pause: the title | stays (it did not on 0.8.0) |
+| an `http://` target | refused with the reason |
+| the probe's link from the page of `wegweiser` | refused: no such link of this instance; QR there 404 |
+| a request through the portal | 1–2 s (the spool's polling) |
+| a person without a right | 403, tab and tenant page |
+| a Betreuer / a Verantwortliche (bound for the test, then unbound) | tab with both links; *Neu lesen* only / also create, pause, new target |
+| the tenant page | service, choice, the asking app, both links with instance |
+| *keiner*, then `wegweiser` | the door 404, then 200; `slprobe` as service refused (no `provides`) |
+| the tenant's log | `instance.shortlinks` per change, `tenant.shortlinks` per setting |
+
+**My mistake while measuring:** busybox `wget` POSTs again after a 303.
+The first run therefore showed 405 for every button (the action had
+happened, the view said so) and looped on the tenant page — eight
+`tenant.shortlinks` lines on oaap-test for one setting. Measured again
+with a client that does not follow redirects.
+
+**Left on oaap-test:** the Wegweiser 0.8.1, `slprobe` with its two links,
+the setting on.
+
+**Next:** stage 2 — the daily pull into the picture of the situation and
+the weekly report (§4), the notifications `link.surge`/`link.dead` (§5).
 
 ## Deutsche Zusammenfassung
 
@@ -504,5 +591,25 @@ Auf oaap-test gemessen mit der Sonde `slprobe`:
   der Datenbank steht keine Adresse.
 - Ohne Dienst antwortet die Tür 404, ein fremder Bereich gibt 403.
 
-**Noch offen in Stufe 1:** der Reiter „Kurzlinks“ im Portal und die Karte
-in den Mandanten-Einstellungen.
+**Stufe 1, Portalhälfte (28.11., Referenz 0.1.411, Wegweiser 0.8.1):**
+
+- Jede Instanz hat einen Reiter **„Kurzlinks“**: ihre Links mit Ziel, Kanal
+  und den Zahlen von heute, QR-Code zum Drucken, Pausieren, neues Ziel,
+  neuer Link. Schreiben dürfen die Verwaltung und Verantwortliche, lesen
+  alle Gebundenen. Löschen gibt es nicht; ein gedruckter Link wird pausiert.
+- In den Mandanten-Einstellungen gibt es die Seite **„Kurzlinks“**: welcher
+  Dienst es ist, die Auswahl, die Apps, die Links anfordern, und alle Links
+  mit ihrer Instanz.
+- Das Portal erreicht den Dienst nie selbst. Der Knoten liest jede Minute
+  und nach jeder Änderung und schreibt eine Sicht. Ändern geht über den
+  Spool. Dabei nennt der Knoten die Instanz als Quelle wie das Gateway, und
+  der Dienst setzt den Besitzer.
+- Beim Messen gefunden: Der Wegweiser hat bei einem PATCH ohne Titel den
+  Titel gelöscht. Das ist in 0.8.1 behoben.
+- Auf oaap-test gemessen: Pausiert antwortet der Link mit 404, danach
+  wieder mit 302. Ein fremder Link wird abgelehnt, ein Betreuer sieht nur
+  „Neu lesen“. Mein Messfehler: busybox-wget schickt nach einem 303 noch
+  einmal POST, daher acht Protokollzeilen auf oaap-test.
+
+**Als Nächstes:** Stufe 2, die Zahlen ins Lagebild und in den Wochenbericht
+sowie die Benachrichtigungen.
