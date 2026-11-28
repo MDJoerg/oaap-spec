@@ -5,6 +5,8 @@
   **Stage 0 measured 2026-11-28 (§9)** — F1: the worker did not judge the
   role of 30 instance requests; fixed in reference 0.1.405.
   **Stage 1 built and measured 2026-11-28 (§10), reference 0.1.406.**
+  **Stage 2 built and measured 2026-11-28 (§11), reference 0.1.407** —
+  without the reduced instance page (still open).
 - **Date:** 2026-11-28
 - **Authors:** Jörg (the need: „Personen aus dem tenant benennen, die z.b.
   für eine Webseite + testinstanz zuständig sind und produktiv setzen,
@@ -250,6 +252,106 @@ real path unit, one active `user` of the probe instance's tenant bound as
 The portal served the card with its form (`/instances/sc-probe?tab=zugang`).
 Cleaned up: maintenance off, binding removed, no `people` field left.
 
+## 11. Stage 2 built and measured (2026-11-28, reference 0.1.407)
+
+**Built.**
+
+- **One file for the rule.** `services/bindings.py` holds the roles, what
+  each may do, which matters each hears, and the functions `judge`,
+  `binding_of`, `production_of`, `hears`, `listeners`, `mine`. The host
+  (`may()`, the delivery) and the portal (which buttons, the page) import
+  the same file; the portal image copies it. `appctl`'s stage-1 names are
+  thin handles on it.
+- **The recipient *Zuständige der Instanz*** (§5, D4). `notify_deliver`
+  has a third target beside the tenant's lists and the node: for
+  `instance.down`, `site.google`, `site.notfound`, `site.check` about an
+  instance, every bound person who hears that type gets **one mail of
+  their own** (their address is nobody else's business) — Betreuer and
+  Verantwortliche by default, Beobachter only if they switched it on;
+  through the production instance for its test instance (D2). Only
+  active accounts of the instance's tenant with an address. The mail says
+  why it came and where to switch it off, before the footer. Its own
+  hourly limit per tenant (`people:<tenant>`, 20). Who already got it
+  does not get it again on the retry (`people_sent`). The tenant's lists
+  get what they got before; the log names the recipient.
+- **The person's own switch** per type, kept on the binding (`notify:
+  {type: bool}`). It is kept when an admin changes the role. A bound
+  person may switch it for **themselves only**: the spool request
+  `instance-people` with `op: notify` and their own name is
+  `people:self`, which every role may do. For another person, or any
+  other `op`, it stays an administrators' door (D3). For a test
+  instance bound through production, the switch lands on the production
+  instance's binding. CLI: `oaap app people <instance> notify <person>
+  <type> on|off`; the list shows what each person hears.
+- **Portal: the page „Meine Instanzen“** (`/meine-instanzen`, menu entry
+  only for people with a binding). Per instance it shows:
+  - the role, and the production instance it comes through;
+  - the state light, maintenance, and today's page views and visits;
+  - the last site check (red/yellow);
+  - the role's buttons: Betreuer get *Wartung an/aus*, *Neu starten* and
+    *Jetzt prüfen*; Verantwortliche also *Seiten-Check an/aus*;
+  - the person's own mail switches per type.
+
+  The buttons use the administrators' existing doors
+  (`/instances/<name>/maintenance`, `…/restart`, `…/site-check`). Those
+  doors now ask `require_instance_may` — an administrator, or a binding
+  that allows the action, by the same `bindings.judge` — and lead back to
+  the page. The administrators' instance page stays closed to a bound
+  person.
+
+**Not yet:** the reduced instance page with the tabs Übersicht /
+Seitenstatistik / Diagnose (§5); promote and rollback for a
+Verantwortliche in the portal (the host allows them, the portal offers
+no button yet); push to the phone (stage 3).
+
+**Tests.** `test_people_mine.py`, 47 checks:
+
+- who hears what, and delivery: site.check reaches Betreuer and
+  Verantwortliche without a list, one mail each, the list unchanged, the
+  observer not;
+- through the production instance;
+- no mail for an unbound instance or for a type that is not an instance
+  matter;
+- the retry without doubles;
+- the own switch through the real worker: off, an observer on, for
+  someone else refused, raising oneself refused, a switch through
+  production, kept on a role change, audited;
+- the CLI;
+- the portal page, the buttons per role, the doors with a binding, the
+  admin page still closed, the switch's spool request.
+
+It bites without the recipient in the delivery, without the role default
+and without the way through production. Green as well:
+
+- `test_people.py` (its mutation now patches `bindings.production_of`);
+- 19 files around it: notify, nav, portal image modules, CLI reference,
+  instance page, spool role, site watch, site check, tenant boundary and
+  others;
+- the 29 further tests that drive the worker.
+
+**Measured on oaap-test** (backed up first, 0.1.407 staged). One active
+`user` of the probe instance's tenant was bound as *Betreuer* to
+`sc-probe`. The delivery ran in-process with the real registry, identity
+store and code: the SMTP send was only recorded, and the person was given
+a probe address in memory, because no account on oaap-test has an
+address. Nothing was put into the real outbox, which the minute timer
+would have sent to the real lists.
+
+| What | Result |
+|---|---|
+| own switch `site.google` off, through the real worker | carried out (1.0 s), audit `bound:caretaker`, `site.google on -> off` |
+| the same person switches for someone else | refused |
+| delivery `site.check` about `sc-probe` | one mail to the person, log recipient *Zuständige der Instanz*, the reason before the footer |
+| delivery `site.google` (switched off) / `backup.failed` | none |
+| portal `GET /meine-instanzen` as that person | 200, the card with *Wartung an* and *Jetzt prüfen*, no *Seiten-Check* switch |
+| the same page as an unbound person | 200, „an keine Instanz gebunden“ |
+| the administrators' instance page as that person | 403 |
+| portal *Wartung an* / *aus* | carried out (6.2 s / 6.2 s), back to the page |
+| portal *Seiten-Check aus* (Betreuer) | 403, the check stays on |
+| portal own switch `site.google` on | carried out, on the binding |
+
+Cleaned up: maintenance off, binding removed, no `people` field left.
+
 ## Deutsche Zusammenfassung
 
 **Worum es geht:** Zwischen dem Mandanten-Admin, der alles darf, und den
@@ -307,3 +409,26 @@ schaltete die Wartung ein und aus und löste „Jetzt prüfen“ aus; Seiten-Che
 schalten, Promotion, Löschen, andere binden und eine nicht gebundene Instanz
 wurden abgewiesen. Noch offen: Knöpfe für Gebundene im Portal („Meine
 Instanzen“, Stufe 2).
+
+**Stufe 2 gebaut und gemessen (28.11., Referenz 0.1.407):**
+
+- **Eine Regel-Datei:** `services/bindings.py` lesen Knoten und Portal
+  gemeinsam.
+- **Neuer Empfänger „Zuständige der Instanz“:** Betreuer und Verantwortliche
+  bekommen die Meldungen ihrer Instanz (Ausfall, Google, „nicht gefunden“,
+  Seiten-Check) per eigener Mail, ohne auf einer Liste zu stehen. Beobachter
+  nur, wenn sie es einschalten. Jede Person schaltet für sich selbst ab, im
+  Portal oder per CLI.
+- **Seite „Meine Instanzen“:** Zustand, Tageszahlen, letzter Seiten-Check,
+  die Knöpfe der Rolle und die eigenen Mail-Schalter.
+
+Auf oaap-test: Ein gebundener Betreuer bekam die Seiten-Check-Meldung als
+eigene Mail (Versand nur aufgezeichnet, weil kein Konto dort eine Adresse
+hat). Er schaltete über das Portal die Wartung ein und aus. „Seiten-Check
+aus“ und die Instanzseite der Verwaltung blieben ihm verschlossen.
+
+**Noch offen:**
+
+- die reduzierte Instanzseite mit den Reitern;
+- Promotion und Rücksprung im Portal für Verantwortliche;
+- das Handy (Stufe 3).
