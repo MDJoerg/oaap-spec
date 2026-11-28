@@ -4,6 +4,8 @@
   same day, D1–D8 all as recommended („Ja, wie empfohlen“).
   **Stage 0, server half, measured 2026-11-28 (§11)**; the phone half
   needs Jörg's devices.
+  **Amended 2026-11-28 (§4a):** several identities on one phone
+  (Jörg's addition); D9–D12 decided as recommended the same day.
 - **Date:** 2026-11-28
 - **Authors:** Jörg (the need: „eine mobile Oberfläche … als icon auf dem
   home screen … gemäß seiner Rolle … Auffälligkeiten sehen und darauf
@@ -129,6 +131,72 @@ unusual.
 - A person leaving the tenant (account disabled) loses every device at
   once.
 
+## 4a. Several identities on one phone (amendment 2026-11-28)
+
+Jörg: „Ich muss auf einem Smartphone mit verschiedenen Identitäten arbeiten
+können.“ The cases:
+
+| Case | Example | What it needs |
+|---|---|---|
+| one account, several roles | `server_admin` who is also a tenant's `tenant_admin` | nothing — the picture already shows what the roles allow |
+| several accounts on one node | a personal administrator account and an account in a tenant's realm | several pairings on **one origin** |
+| one person on several nodes | oaap-test, oaapx01, oaapx02 | pairings with **other origins** |
+| a tenant's own place (D8) | a club's domain | its own installed app, or a pairing with that origin |
+
+**A pairing is one identity.** The app keeps a list of pairings — node,
+origin, account, tenant, role scope, device key, a label and a colour
+chosen at pairing („Privat“, „bec“, „oaapx01“). „Handy koppeln“ from a
+second account **adds** a pairing, never replaces one.
+
+- **Device sessions are bearer tokens, not cookies.** A browser keeps one
+  cookie per origin, so one origin could hold one session only. Each
+  pairing's session token lives in the app's own storage under the pairing
+  and is sent by the app in `Authorization`; `/m/api` ignores the
+  gateway's login cookie. Several identities on one origin are then just
+  several tokens.
+- **One passkey per pairing.** WebAuthn allows several credentials for the
+  same site with different user handles; the app asks for exactly the
+  pairing's credential (`allowCredentials`), so the phone never offers a
+  chooser of accounts and a fingerprint never confirms for the wrong one.
+- **Switching.** The top bar shows the active identity — label, colour
+  band, role. One tap switches. A view **„Alle“** merges the *Lage* of all
+  pairings, each entry marked with its identity, red before yellow;
+  instances, detail and actions always belong to one identity.
+- **An action names its identity.** The confirmation reads „Als *joerg* ·
+  *oaapx01* · server_admin: Wartung an für *shop*?“; the audit records the
+  account as today, with `via: mobile` and the device.
+- **Other nodes in the same app.** The app on its home origin calls
+  `https://<other node>/m/api` with that pairing's token; the other node
+  answers CORS only for the origins it has paired (the pairing records the
+  home origin). A passkey is bound to its domain (RP ID): a page on one
+  node cannot use a passkey of another node's domain. So a foreign
+  pairing's device key is a **non-extractable WebCrypto key** (ECDSA
+  P-256) made in the app and registered with the foreign node; renewals
+  are signed with it, and the second confirmation of an action is the home
+  origin's passkey, checked on the phone, before the request is signed.
+  WebAuthn's *related origins* (one passkey for several domains through a
+  `/.well-known/webauthn` list) would be simpler but is not relied upon —
+  to measure.
+- **Push from several identities.** A Web Push subscription belongs to one
+  origin and one VAPID key. On the same origin one subscription serves all
+  its pairings; the node maps it to them and the message names the
+  identity: „[oaapx01 · bec] Instanz ausgefallen: shop“. A foreign node
+  cannot send to a subscription made for another node's key: first **no
+  push from foreign pairings** — their picture is fetched when the app
+  opens, mail stays the reliable channel; later a relay through the home
+  node's coupling (RFC-0136).
+- **Separating.** Each pairing is listed under *Geräte* of its own node and
+  separated there. On the phone, „Abmelden“ per identity removes its token
+  and key and tells the node. A lost phone means one tap per node; the
+  home node's *Geräte* lists the phone's foreign pairings as a reminder.
+- **Identity lock** (optional, per pairing): opening that identity asks
+  for the fingerprint or face each time — for a phone that is handed
+  around.
+- **A tenant's own place** installs as its own app with its own icon (on
+  iOS every origin is its own installed app with its own storage) — what a
+  club's people do. Someone who looks after several places may pair the
+  tenant's origin into their home app instead.
+
 ## 5. Push
 
 - A new delivery channel **push** beside mail (`oaap.core.notifications`):
@@ -189,9 +257,10 @@ with the question prefilled, when the tenant has one.
 
 | Stage | Content | Done when |
 |---|---|---|
-| 0 | Measure: install `/m` (a test manifest + service worker) on Android and iOS behind the gateway's login; whether the installed app keeps its own storage on iOS; WebAuthn in the installed app; a Web Push from oaap-test through Apple and Google; the rollback door; the size and time of computing the picture on oaapx01 | a table in this RFC |
+| 0 | Measure: install `/m` (a test manifest + service worker) on Android and iOS behind the gateway's login; whether the installed app keeps its own storage on iOS; WebAuthn in the installed app; **two passkeys of one site in the installed app, one chosen by `allowCredentials`; a CORS call from the installed app to another node** (§4a); a Web Push from oaap-test through Apple and Google; the rollback door; the size and time of computing the picture on oaapx01 | a table in this RFC |
 | 1 | The picture (§2) for node and tenants; the PWA read-only (§3, Lage + Instanzen + Woche) for `server_admin` and `tenant_admin`, signed in with the normal login | Jörg sees oaap-test and oaapx01 on his phone; the picture's deviations are plausible for a week |
-| 2 | Pairing and device sessions (§4), *Geräte* in the portal; push (§5) | a phone paired, separated, a matter arrives as push |
+| 2 | Pairing and device sessions (§4), *Geräte* in the portal; push (§5); **several identities on one origin** (§4a: tokens, one passkey per pairing, switcher, „Alle“) | a phone paired, separated, a matter arrives as push; two accounts of oaap-test on one phone, each action under the right one |
+| 2b | **Other nodes in the same app** (§4a: WebCrypto device key, CORS for the paired origin, no push from them) | oaap-test and oaapx01 in one app, „Alle“ shows both |
 | 3 | Actions (§6) with the second confirmation, „Lage gesehen“; bound persons (RFC-0143) see their instances | maintenance on and off from the phone on oaap-test, the audit says `via: mobile` |
 | 4 | Campaigns in the PWA (RFC-0144); the chat's reading tools (§7) | „Was war heute los?“ answered from the picture |
 
@@ -240,6 +309,21 @@ with the question prefilled, when the tenant has one.
 - **D8 — The PWA also at a tenant's own domain?** Recommended: **yes**
   (`/m` at the tenant's place), so a club's people install „their“ app,
   not the node's.
+
+*Amendment 2026-11-28 — several identities on one phone (§4a). Decided by
+Jörg 2026-11-28 („Wie empfohlen“) — D9–D12 all as recommended:*
+
+- **D9 — One app with several identities, or one app per identity?**
+  Recommended: **one app with a switcher and „Alle“**; a tenant's own place
+  may still be its own app.
+- **D10 — Other nodes in the same app?** Recommended: **yes, as foreign
+  pairings** (WebCrypto device key, CORS only for the paired origin), as
+  stage 2b after several identities on one origin are measured.
+  Alternative: one installed app per node.
+- **D11 — Push from other nodes?** Recommended: **none at first** (fetched
+  on opening, mail stays); a relay through the coupling later.
+- **D12 — Identity lock.** Recommended: **optional per pairing, off by
+  default** — actions are confirmed with the fingerprint anyway.
 
 ## 11. Stage 0, the server's half (2026-11-28, reference 0.1.405)
 
@@ -322,3 +406,23 @@ die vor Stufe 3 zu schließen ist. Der Worker prüft die Rolle jetzt selbst
 (RFC-0143 F1). **Offen, braucht ein Handy:** PWA auf iOS/Android hinter der
 Anmeldung, eigener Speicher der installierten App auf iOS, Passkey, Push
 über Apple und Google.
+
+**Ergänzung (28.11.): mehrere Identitäten auf einem Handy** (Jörg: „Ich muss
+auf einem Smartphone mit verschiedenen Identitäten arbeiten können“). Eine
+**Kopplung ist eine Identität**; die App hält mehrere davon mit Bezeichnung
+und Farbe. Ein zweites Konto koppeln fügt hinzu, ersetzt nichts. Damit
+mehrere Konten auf demselben Knoten gehen, sind die Sitzungen der App
+**Tokens statt Cookies**, und **jede Kopplung hat ihren eigenen Passkey**:
+Der Fingerabdruck bestätigt immer für das gewählte Konto. Oben steht die
+aktive Identität, ein Tipp wechselt; die Ansicht **„Alle“** zeigt die Lage
+aller Identitäten zusammen, jeder Eintrag mit seiner Identität. Jede Aktion
+nennt, als wer sie ausgelöst wird. **Andere Knoten in derselben App** gehen
+als fremde Kopplung: ein Passkey gilt nur für seine Domain, darum bekommt
+eine fremde Kopplung einen eigenen Geräteschlüssel; der Knoten erlaubt den
+Zugriff nur von der gekoppelten App. Push zunächst nur vom eigenen Knoten,
+die anderen werden beim Öffnen geholt, die Mail bleibt. Trennen je Identität
+am Handy oder unter „Geräte“ des Knotens; optional fragt eine Identität bei
+jedem Öffnen nach dem Fingerabdruck. Stufe 2 bekommt mehrere Identitäten auf
+einem Knoten, Stufe 2b andere Knoten. **Entschieden (Jörg, 28.11., „Wie empfohlen“):** eine App mit
+Wechsler und „Alle“ (D9); andere Knoten als fremde Kopplung (D10); Push von
+ihnen erst später (D11); Identitäts-Sperre optional, Vorgabe aus (D12).

@@ -4,6 +4,10 @@
   same day, D1–D8 all as recommended („Ja, wie empfohlen“).
   **Stage 0 measured 2026-11-28 (§9)** — create, click, statistics through
   a platform key; W1–W4 for stage 1.
+  **Amended 2026-11-28 (§10, §11):** hierarchical campaigns in the
+  provider, shared through the twin (Jörg's addition); campaigns built
+  in the Wegweiser 0.7.0 and measured on oaap-test; D9–D12 decided as
+  recommended the same day.
 - **Date:** 2026-11-28
 - **Authors:** Jörg (the need: „apps shortlinks erzeugen können und wir
   dadurch eine messbarkeit und den Erfolg von kampagnen … messen, informiert
@@ -18,7 +22,8 @@
   service), `oaap.apps.runtime` (a manifest need `shortlinks` and an offer
   `provides: shortlinks`), a contract `oaap.work.shortlinks`,
   `oaap.core.notifications` (two types), `oaap.core.portal`, the Wegweiser
-  app (campaign fields, the platform's door)
+  app (campaigns, the platform's door), `oaap.data.twin` (platform types
+  `Campaign`, `ShortLink`, §11)
 
 ## Summary
 
@@ -79,10 +84,12 @@ platform, scoped to one area of the provider reserved for it):
 | Call | Purpose |
 |---|---|
 | `GET about` | name, version, the hosts links are made under (RFC-0043) |
-| `POST links` | create in the platform's area, with campaign/channel/owner as fields |
+| `GET campaigns` | the campaign tree: key, parent key, title, period, archived (§10) |
+| `POST campaigns`, `PATCH campaigns/<key>` | create a campaign (under a parent), change, archive |
+| `POST links` | create in the platform's area, with campaign (key)/channel/owner as fields |
 | `PATCH links/<id>` | pause, resume, new target |
 | `GET links?updated_since=` | the area's links |
-| `GET stats?day=` | per link and day: clicks, unique-per-day estimate, referrer host, device class — **counts only** |
+| `GET stats?day=` | per link and day, with the link's campaign key: clicks, unique-per-day estimate, referrer host, device class — **counts only** |
 
 The Wegweiser 0.7 adds the fields, the platform's area and `stats`; its own
 UI, areas and roles stay as they are.
@@ -96,7 +103,8 @@ UI, areas and roles stay as they are.
 - **Over time:** per link and per campaign the daily series for 90 days
   (D4), the first day, the best day, the last 7 days against the 7 before.
 - **Follow-through** (D5): when the target is one of the tenant's
-  instances, the Wegweiser appends `utm_campaign=<campaign>` and
+  instances, the Wegweiser appends `utm_campaign=<campaign key>` (the
+  link's own campaign, the platform rolls arrivals up the tree, §10) and
   `utm_source=<channel>`; the page statistics of that instance count those
   two keys — and only those, the rest of a query string is still dropped —
   as arrivals per campaign. „120 Klicks auf den Flyer-Link, 95 kamen auf der
@@ -130,10 +138,11 @@ A campaign that goes quiet is a line in the weekly report, not a mail.
 | Stage | Content | Done when |
 |---|---|---|
 | 0 | Measure: create, list and read statistics in the Wegweiser with a platform key; the credential an app instance has toward the platform; whether a redirect keeps a referrer; the cost of a daily `stats` pull on oaapx01 | a table in this RFC |
-| 1 | `shortlinks` on the tenant, `provides`/need in the manifest, the contract, Wegweiser 0.7, the platform's door (create, list, pause, retarget), the tab *Kurzlinks* | an app instance on oaap-test creates a link with a QR code, the portal shows it with its owner |
-| 2 | Statistics into the platform: series per link and campaign, follow-through with the two `utm_` keys, weekly report, picture of the situation | a link clicked on oaap-test shows its clicks and its arrivals |
+| 1 | `shortlinks` on the tenant, `provides`/need in the manifest, the contract (with campaigns, §10), Wegweiser 0.7 (**campaigns built 2026-11-28**), the platform's door (create, list, pause, retarget), the tab *Kurzlinks* | an app instance on oaap-test creates a link with a QR code, the portal shows it with its owner |
+| 2 | Statistics into the platform: series per link and campaign (rolled up the tree), follow-through with the two `utm_` keys, weekly report, picture of the situation; **the campaign tree and its daily counts mirrored into the tenant's twin** (§11) | a link clicked on oaap-test shows its clicks and its arrivals |
 | 3 | `link.surge`, `link.dead` | a link to a removed page opens `link.dead` and closes after retargeting |
 | 4 | Phone and chat (RFC-0142 stage 4) | — |
+| 5 | **The twin as the campaigns' master** for a tenant that plans campaigns in another app (§11, D12) | a campaign created through the twin appears in the Wegweiser's choice; a link assigned there counts in the twin |
 
 ## 7. Non-goals
 
@@ -207,6 +216,97 @@ revoked not only its own key but eight older keys of the probe principal
 September, one of them for all instances). Harmless — a probe principal on
 oaap-test — but not intended; the loop now revokes only the key it issued.
 
+## 10. Campaigns (amendment 2026-11-28)
+
+Jörg: „Wir sollten das Kampagnenthema auch im Wegweiser verankern, damit wir
+gruppieren und besser auswerten können. Kampagnen könnten hierarchisch
+aufgebaut sein. … Minimal sollte eine Kampagne im Wegweiser erstellt werden
+können, damit wir dann die Links zuordnen können.“
+
+A campaign so far was a free text on a link. It becomes an object of the
+provider:
+
+- **A tree**, at most four levels („Sommerfest 2027“ → „Plakate“ →
+  „Innenstadt“). A campaign has a **key** — lower case, digits, hyphen,
+  unique in the instance, made from the title, **fixed after creation**:
+  the key is how the platform, the twin and the page statistics
+  (`utm_campaign`) find it again. Further: title, optional period
+  (`starts_on`, `ends_on`), description, archived.
+- **A link belongs to at most one campaign** and carries a **channel**
+  (`web`, `social`, `print`, `mail`, `chat`, `other`).
+- **Counting rolls up**: a campaign's numbers include every level below —
+  calls per day, per channel, per sub-campaign, per link. A call is a use
+  that did what the link is for (redirected, pixel loaded, downloaded).
+- **Who:** everyone in the instance sees all campaigns and may assign their
+  own links; the creator and `admin` change, archive and delete. Delete
+  only an empty campaign — otherwise archive (it leaves the choice for new
+  links, its numbers stay). Other people's links count in a campaign, but
+  their titles and targets stay theirs.
+
+**Built — Wegweiser 0.7.0 (2026-11-28):** table `campaigns`, the columns
+`campaign_id`/`channel` added to an existing database on start; REST
+`/api/v1/campaigns` (list as a tree with sums over the subtree, create,
+read, change, delete, `…/stats`), links take `campaign` (id or key) and
+`channel`; the tab *Kampagnen* (tree, form, a campaign's page with calls
+per day, channel, sub-campaign and link, „Neuer Link in dieser
+Kampagne“); the MCP tool `wegweiser_campaigns` (read only, counts only); 40
+new checks, 246 in all, bite on removing the roll-up or the edit rule.
+**Measured on oaap-test** through the gateway with a 1-day platform key
+(revoked by its id afterwards): a tree of two levels, two links (print in
+the sub-campaign, social in the top one), 3 + 1 calls from an iPhone →
+the top campaign counts 2 links, 4 calls, `{print: 3, social: 1}`, its
+sub-campaign 3; each call 0.15–0.17 s; deleting the non-empty top
+campaign refused (409); everything removed again. The instance's eight
+existing links kept, the two columns added.
+
+## 11. Sharing campaigns through the twin (amendment 2026-11-28)
+
+Jörg: „Vielleicht sollten wir hier auch unseren Zwilling nutzen, um diese
+Daten zu teilen und mit anderen Apps (z. B. Kampagnen) zu teilen?“
+
+Yes — campaigns are data other apps want: an app that plans campaigns
+(dates, budget, material), the weekly report, the chat, an outside
+marketing tool. The tenant's twin (`oaap.data.twin`, RFC-0120: REST
+`/twin/v1`, upsert by key, relations, values with a period, series, MCP) is
+where a tenant's data meet.
+
+- **What goes in:** an object of a platform type **`Campaign`** per campaign
+  (key `campaign:<key>`; title, period, archived) with the relation
+  **`part_of`** to its parent; an object **`ShortLink`** per link of the
+  platform's area (owner instance, channel) with **`belongs_to`** its
+  campaign and **`points_to`** the instance when the target is one of the
+  tenant's; the **daily counts** (calls, arrivals) as series on the link
+  and the campaign. Counts only — no address, no client, as §4.
+- **Who writes:** the platform, in its daily pull (stage 2), as the
+  client principal of the short-link service, upsert by key — a renamed
+  campaign stays the same object because its key is fixed.
+- **Who reads:** any app or person of the tenant through the twin's REST
+  and MCP doors, with their rights there (RFC-0120). A planning app joins
+  its budget to the calls without asking the Wegweiser.
+- **The master (D12).** In stage 2 the provider is the master and the twin
+  a mirror (one direction). A tenant that plans campaigns in another app
+  switches `campaigns.master` to `twin` (stage 5): then campaigns are
+  created in the twin, the Wegweiser reads its tree from there (by key)
+  and offers it for assignment; creating campaigns in the Wegweiser is
+  then off. **Never two masters at once.**
+
+*Amendment 2026-11-28 — decided by Jörg:* campaigns are anchored in the
+provider, hierarchical, and can minimally be created there so links can be
+assigned (§10, built).
+
+*Decided by Jörg 2026-11-28 („Wie empfohlen“) — D9–D12 all as recommended:*
+
+- **D9 — Depth and the key.** Recommended: **at most four levels; the key
+  fixed after creation** (it is the name the twin and `utm_campaign` use).
+- **D10 — `utm_campaign`.** Recommended: **the key of the link's own
+  campaign**; the platform rolls arrivals up the tree it knows.
+- **D11 — Into the twin?** Recommended: **yes, from stage 2, as a mirror**:
+  `Campaign` with `part_of`, `ShortLink` with `belongs_to`/`points_to`,
+  daily counts as series.
+- **D12 — The master.** Recommended: **the provider first; the twin as the
+  master per tenant setting when a planning app arrives (stage 5); never
+  both.**
+
 ## Deutsche Zusammenfassung
 
 **Worum es geht:** Die Seitenstatistik zeigt, *dass* Besucher kommen, ein
@@ -256,3 +356,25 @@ mit welchem Ausweis eine App die Plattform ruft, klärt Stufe 1. Mein
 Versehen: Beim ersten Versuch widerrief die Aufräumschleife auch acht alte
 Schlüssel des Probe-Kontos `wegweiser-probe` (zuletzt im September benutzt)
 — harmlos, aber nicht gewollt.
+
+**Ergänzung (28.11.): Kampagnen im Wegweiser, geteilt über den Zwilling**
+(Jörg: Kampagnen im Wegweiser verankern, hierarchisch, minimal dort
+anlegbar; Daten über den Zwilling mit anderen Apps teilen). **Kampagnen**
+bilden einen Baum mit höchstens vier Ebenen. Der Kurzname entsteht aus dem
+Titel und bleibt danach fest, denn unter ihm finden Plattform, Zwilling und
+Seitenstatistik die Kampagne wieder. Ein Link gehört zu höchstens einer
+Kampagne und trägt einen Kanal (Webseite, Soziale Medien, Druck, E-Mail,
+Messenger, Sonstiges). Gezählt wird über alle Ebenen darunter: je Tag, je
+Kanal, je Unterkampagne. Alle sehen alle Kampagnen und ordnen ihre Links zu;
+ändern dürfen Ersteller und admin. Löschen geht nur leer, sonst archivieren.
+**Gebaut: Wegweiser 0.7.0**, auf oaap-test gemessen (zwei Ebenen, zwei Links,
+4 Aufrufe richtig nach Kanal und Unterkampagne gezählt, danach aufgeräumt).
+**Zwilling:** Ab Stufe 2 spiegelt die Plattform den Baum (`Campaign` mit
+`part_of`), die Links (`ShortLink` mit `belongs_to`/`points_to`) und die
+Tageszahlen in den Zwilling des Mandanten. Andere Apps lesen dort mit ihren
+Rechten. Plant ein Mandant seine Kampagnen in einer eigenen App, wird der
+Zwilling der Herr der Kampagnen (Stufe 5) und der Wegweiser liest von dort;
+nie zwei Herren zugleich. **Entschieden (Jörg, 28.11., „Wie empfohlen“):** vier Ebenen und fester
+Kurzname (D9); `utm_campaign` = Kurzname der eigenen Kampagne (D10);
+Zwilling ab Stufe 2 als Spiegel (D11); erst der Wegweiser, später auf Wunsch
+der Zwilling als Herr (D12).
