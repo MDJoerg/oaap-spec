@@ -3,6 +3,8 @@
 - **Status:** **Accepted (2026-11-28)** — D1–D7 decided by Jörg, all as
   recommended (§10, „Wie empfohlen“). **Stage 0 measured 2026-11-28
   (§11)** — five findings change stage 1's design, none a decision.
+  **Stage 1 built 2026-11-28 (reference 0.1.403, §12)** — measured on
+  oaap-test and, read-only, on two of our own sites on oaapx01.
 - **Date:** 2026-11-28
 - **Authors:** Jörg (the need: „Ok i-83“, after the look at `sglok-sbk.de`
   that started RFC-0140), Claude (design)
@@ -329,6 +331,63 @@ All rules gave plausible answers otherwise: certificates 50–89 days,
 TLS 1.3, HSTS/`nosniff`/Referrer present everywhere (RFC-0140),
 Tempo green on BDT (1.3 MB gzip), `og:image` relative on Forgejo found.
 
+## 12. Stage 1 built (2026-11-28, reference 0.1.403)
+
+**What was built.**
+
+- `services/site_check.py` (stdlib, shared by host and portal): `collect`
+  reads the site within §2's limits (same-host redirects only — a
+  redirect to another name is reported, never followed; a sitemap on
+  another name is never read), `evaluate` applies §3.1–3.3, `result_of`
+  adds lights and grey, `record`/`view` keep the last 12 runs in
+  `<instance metrics dir>/site_check.json`. IPv4 only unless the node
+  itself owns the name's IPv4 address (`direct_here`: binding that
+  address succeeds only on its owner) — on oaapx01 IPv6 is judged, behind
+  a router „IPv6 von hier nicht prüfbar“ (M2). TLS 1.0/1.1: a server
+  alert is „refused“, a client-side error „unknown“ → a note, never green
+  (F4).
+- Switch `site_check` {on, since, by} on the instance record, production
+  only; switching on starts a first run at once. Kept by an update. Audit
+  `instance.site-check`. CLI `oaap app site-check <instance>
+  [on|off|run|show]` and `--due`; spool action `site-check` (on, off,
+  `op: run` at most once an hour); a run started through the spool runs
+  in a unit of its own (`systemd-run`), so the minute job is not held.
+- Daily timer `oaap-site-check.timer` (05:10 plus up to 20 min,
+  `Persistent`): runs the instances whose weekday it is (derived from the
+  name), not again within six days, on any day after eight (a node that
+  slept through its day).
+- Portal: the card „Seiten-Check“ on the tab „Seitenstatistik“ under
+  „Hinweise zur Webseite“: switch, weekday, last run, three lights plus
+  „Recht: folgt“; red points alone, three or more yellow points of one
+  area and fixer folded (F1); each point *gefunden — warum — was tun*; a
+  „Plattform“ point links to its tab; „Jetzt prüfen“.
+- `site_stats.BOTS`: „Seiten-Check (OAAP)“, kind `other` (F3).
+- An error page is not judged as the start page (its missing title says
+  nothing), but its headers are.
+
+**Measured on oaap-test** (staged, three production instances switched
+on by the CLI): `vuebung-bdt` 34 requests, 8.9 s, 1.3 MB — Sicherheit
+yellow (no CSP, no frame protection), Auffindbarkeit yellow (seven
+points, folded on the card), Tempo green; `market-test` 8 requests,
+1.9 s — `Server: marketplace/0.5.2 …` (F5) and the same seven;
+`wegweiser` 4 requests — start page 404, no robots.txt or sitemap,
+version announced. The page statistics count the runs as „Seiten-Check
+(OAAP)“ (33, 7 and 3 requests), no page views. The card renders in the
+real portal container with the real results; `--due` ran and found
+nothing due. **Found while measuring:** the detached run called
+`appctl.py app site-check …` — `app` is the wrapper's word, not
+appctl's („invalid choice“); fixed, with a test.
+
+**Measured on oaapx01, read only, without an update** (the module alone
+in a home directory, removed afterwards): `market.oaap-web.oaap.joomp.de`
+and `go.joomp.de` — `direct_here` true, no AAAA, TLS 1.0/1.1 refused by
+the server, certificates 73 and 85 days, the same points as on oaap-test.
+
+**Not measured:** the button and the switch clicked in a real browser; a
+weekly run by the timer itself (the timer is written by `install.sh`,
+which a staged node does not run — it comes with the fleet update); grey
+on a router without loop-back (none in the fleet).
+
 ## Deutsche Zusammenfassung
 
 Anlass: Die Prüfung von `sglok-sbk.de` fand Lücken, die der Mieter selbst
@@ -382,3 +441,17 @@ Kompression, Behebung „Seite“; (F3) die Seitenstatistik zählt den Check
 heute als Besucher -- wird in die Automatenliste aufgenommen; (F4)
 TLS 1.0/1.1 ist mit Python messbar, Fehler auf Client-Seite = grau;
 (F5) unsere eigenen Apps nennen ihre Versionen im `Server`-Header.
+
+Stufe 1 gebaut (28.11., Referenz 0.1.403): Prüfkern `site_check.py`
+(Lesen in den Grenzen von §2, Regeln Sicherheit/Auffindbarkeit/Tempo,
+die letzten 12 Ergebnisse je Instanz), Schalter `site_check` nur für
+Produktivinstanzen (Einschalten startet sofort einen ersten Lauf), CLI
+`oaap app site-check`, Knopf „Jetzt prüfen“ höchstens stündlich,
+täglicher Timer, der nur die Instanzen mit ihrem Wochentag prüft, Karte
+im Reiter „Seitenstatistik“ mit Ampeln und gefalteten gelben Punkten. Die
+Seitenstatistik zählt den Check als Automat. Gemessen auf oaap-test (BDT,
+Marketplace, Wegweiser) und nur lesend gegen `market.oaap-web…` und
+`go.joomp.de` von oaapx01 aus -- plausible Punkte wie in Stufe 0. Beim
+Messen gefunden und behoben: der losgelöste Lauf rief `appctl.py app …`
+auf. Nicht gemessen: Klick im echten Browser, ein Wochenlauf durch den
+Timer selbst (kommt mit dem Flotten-Update).
