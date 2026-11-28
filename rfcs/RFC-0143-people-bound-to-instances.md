@@ -5,8 +5,9 @@
   **Stage 0 measured 2026-11-28 (§9)** — F1: the worker did not judge the
   role of 30 instance requests; fixed in reference 0.1.405.
   **Stage 1 built and measured 2026-11-28 (§10), reference 0.1.406.**
-  **Stage 2 built and measured 2026-11-28 (§11), reference 0.1.407** —
-  without the reduced instance page (still open).
+  **Stage 2 built and measured 2026-11-28 (§11), reference 0.1.407;**
+  **the reduced instance page 0.1.408 (§12); promote and rollback for**
+  **the Verantwortliche 0.1.409 (§13).**
 - **Date:** 2026-11-28
 - **Authors:** Jörg (the need: „Personen aus dem tenant benennen, die z.b.
   für eine Webseite + testinstanz zuständig sind und produktiv setzen,
@@ -352,6 +353,167 @@ would have sent to the real lists.
 
 Cleaned up: maintenance off, binding removed, no `people` field left.
 
+## 12. The reduced instance page (2026-11-28, reference 0.1.408)
+
+**Built.**
+
+- **Who gets it.** `/instances/<name>` asks as before whether the caller
+  administers the instance. If not, and the caller is a person whose
+  binding works (active account of the instance's tenant, bound directly
+  or through the production instance), the same address answers with the
+  reduced page. The binding is judged by `bindings.judge`, the rule every
+  door uses. Anybody else gets the same answer as before (403 or 404).
+- **Three tabs.** The page has *Überblick*, *Seitenstatistik* and
+  *Diagnose*. It has no *Zugang*, *Netz & Adressen*, *Deployment*,
+  *Konfiguration*, *Fernzugang* or *Verwaltung*. (The tab is called
+  *Überblick*, as on the administrators' page; §5 said *Übersicht*.)
+  - The head shows the address, the state, the last start, maintenance,
+    the role, and the production instance it comes through.
+  - *Überblick* offers what the role allows: waking from standby,
+    maintenance on/off with the visitors' text, login on all routes, and
+    restart. An observer reads one sentence and sees no form.
+  - *Seitenstatistik* is the administrators' tab itself, with the site
+    check and the AI fetchers.
+  - *Diagnose* shows the load history, the state of the containers and
+    the restarts. It has no diagnosis window (logs, gateway view) and no
+    standby.
+- **One template part, not two.** The *Seitenstatistik* panel
+  (`SITE_PANEL`) and the cards *Zustand* and *Neustarts* (`DIAG_FACTS`)
+  are now template constants that both pages use.
+  - Their forms are offered by `may`: the role's spool actions
+    (`bindings.ACTIONS`) on the bound page, everything on the
+    administrators' page.
+  - A "Zum Reiter" link appears only for a tab the page has.
+  - The numbers both pages read (restarts, load history, page statistics,
+    site check) come from one helper, `_instance_numbers`.
+- **Forms.** Every form goes to the door it already used and comes back
+  to the same tab. The door asks `require_instance_may`, and the host
+  judges again with `may()`.
+- **„Meine Instanzen“.** Each card's title links to the instance page.
+
+**Still open:** promote and rollback for a Verantwortliche in the portal;
+push to the phone (stage 3).
+
+**Tests.** `test_people_mine.py` now has 59 checks. The new ones cover:
+
+- the bound person's page with exactly three tabs;
+- the buttons of a Betreuer, a Verantwortliche and an observer;
+- a test instance reached through production;
+- an unbound instance staying closed;
+- restart coming back to the tab;
+- the administrators' page unchanged, with every form.
+
+A mutation gives the observer an owner's actions: the buttons then appear,
+so the page follows the role and not a fixed list. The five tests that
+render the *Seitenstatistik* panel themselves (`test_site_check`,
+`test_site_watch`, `test_site_stats`, `test_site_visits`,
+`test_ai_fetchers`) pass the administrators' `may`. `test_care_portal`
+knows the two new parts. Green: the 21 files that read the instance
+template from the source, and the other files from §11.
+
+**Measured on oaap-test** (backed up first, 0.1.408 staged). One active
+`user` of `sc-probe`'s tenant was bound to `sc-probe`, through the real
+portal in its container and the real spool worker:
+
+| What | Result |
+|---|---|
+| Betreuer: `GET /instances/sc-probe` | 200 (0.3 s), role shown, the three tabs, no administrators' tab |
+| Betreuer: forms on the page | maintenance, restart, AI fetchers, *Jetzt prüfen*; no site-check switch, no *Hinweise* switch; statistics and restarts present |
+| an unbound person of the same tenant | 403 |
+| Betreuer: maintenance on / off from the page | carried out (6.2 s / 6.2 s), back to the page, the page then offers *beenden* |
+| Betreuer: site check off | 403, the check stays on |
+| Beobachter: the page | 200, the sentence, no form |
+| Beobachter: maintenance on | 403, unchanged |
+| administrator: the page | 200, all tabs, site-check and *Hinweise* switches, no observer text |
+
+Cleaned up: maintenance off, binding removed, no `people` field left.
+
+## 13. Promote and rollback for the Verantwortliche (2026-11-28, reference 0.1.409)
+
+**Built.** A card *Version* on the *Überblick* of the reduced page, only
+for a role whose `ACTIONS` contain `promote` or `rollback` (today:
+Verantwortlich).
+
+- **Promote — one way only.**
+  - The card offers exactly one promotion: from the test instance a
+    production instance was promoted from (`source.promoted_from`) into
+    that production instance. It shows both versions, and the commit for
+    a Git install.
+  - It appears on both pages: the production instance's, and the test
+    instance's, which is reached through the production instance (D2).
+  - It is offered only when the test instance runs bytes that can be
+    promoted (a retained package or a recorded commit, the same test the
+    administrators' card uses, now one function `_promotable_commit`).
+    It is also offered only when `bindings.judge` allows `promote` on the
+    **production** instance, where the host judges it.
+  - The door `/instances/<test>/promote` lets a bound person through only
+    with that target. A new name, another production instance, or both
+    fields are refused in the portal and nothing is queued. The host's
+    rule from stage 1 stands as well (*a bound owner promotes only the
+    test instance this one was promoted from*).
+- **A widening stays the administrators'.**
+  - If the new version may do more than the running one, the promotion
+    stops and names every reason (RFC-0037).
+  - The bound page has no tick to confirm it. The portal sends
+    `confirmed: false` for a bound person, and the **host** ignores
+    `confirmed` whenever the role is `bound:*`.
+  - Confirming a widening is a decision about what the production
+    instance may do, which is configuration in the sense of §1, so it
+    stays with the tenant_admin.
+- **Rollback.**
+  - The card lists the instance's retained packages. Every one except
+    the running package has *Hierauf zurück*.
+  - The door `/instances/<name>/rollback` now asks
+    `require_instance_may(name, "rollback")`.
+  - Download and delete of packages stay on the administrators' page.
+- Both forms come back to *Überblick*. A promotion lands on the
+  production instance's page.
+
+**Tests.**
+
+- `test_people_mine.py` now has 74 checks. The new ones cover:
+  - the card for the Verantwortliche on both pages, with both versions,
+    no confirm field, and *Hierauf zurück* only for the older package;
+  - a promotion queued to the production instance with
+    `confirmed: false`, although the tick was sent;
+  - three wrong targets refused without a request;
+  - rollback through the door;
+  - a Betreuer seeing neither button and refused at both doors;
+  - an administrator's tick still counting.
+
+  A mutation gives the Betreuer an owner's actions: both buttons appear.
+- `test_people.py`: the worker passes `confirmed=False` for a bound owner
+  and `True` for the tenant_admin.
+- Green: 26 files, among them the template readers of §12,
+  `test_artifact_card`, `test_artifact_deploy`, `test_promote_git` and
+  `test_build_rollback_accounts`.
+
+**Measured on oaap-test** (backed up first, 0.1.409 staged). oaap-test
+had no promoted pair, so the probe built one from the website starter:
+
+- `vprobe-test`, a test instance from package 0.1.1;
+- `vprobe`, promoted from it by root;
+- then package 0.1.2 into `vprobe-test`.
+
+One active `user` of the tenant was bound to `vprobe` as Verantwortlich:
+
+| What | Result |
+|---|---|
+| `GET /instances/vprobe` | 200 (0.3 s), *Nach vprobe übernehmen* with 0.1.2 and 0.1.1, no confirm field, no *Hierauf zurück* (only the running package) |
+| `GET /instances/vprobe-test` | 200, the same offer |
+| promote into a new name | refused in the portal, no instance created |
+| promote `vprobe-test` → `vprobe` (tick sent) | carried out (9.2 s), `vprobe` runs 0.1.2, back on its page |
+| the page afterwards | *Hierauf zurück* for the 0.1.1 package |
+| rollback to 0.1.1 | carried out (17.2 s), `vprobe` runs 0.1.1 |
+| the tenant's log | `instance.promote` and `instance.rollback`, role `bound:owner` |
+| as Betreuer: the page / promote / rollback | no buttons; 403 / 403, version unchanged |
+
+Cleaned up: binding removed, both instances removed with their data,
+their images deleted.
+
+**Still open:** push to the phone (stage 3); a real mail to a real
+address.
+
 ## Deutsche Zusammenfassung
 
 **Worum es geht:** Zwischen dem Mandanten-Admin, der alles darf, und den
@@ -432,3 +594,42 @@ aus“ und die Instanzseite der Verwaltung blieben ihm verschlossen.
 - die reduzierte Instanzseite mit den Reitern;
 - Promotion und Rücksprung im Portal für Verantwortliche;
 - das Handy (Stufe 3).
+
+**Verkleinerte Instanzseite (28.11., Referenz 0.1.408):**
+
+- Wer an eine Instanz gebunden ist, bekommt unter derselben Adresse
+  `/instances/<name>` eine eigene, kleinere Seite. Sie hat drei Reiter:
+  Überblick, Seitenstatistik und Diagnose. Konfiguration, Adressen,
+  Zugriff und Verwaltung fehlen.
+- Die Knöpfe richten sich nach der Rolle. Beobachter sehen nur.
+- Seitenstatistik und Diagnose-Karten sind dieselben Vorlagenteile wie auf
+  der Admin-Seite. Es gibt keine zweite Kopie, die irgendwann abweicht.
+
+Auf oaap-test gemessen:
+
+- Ein Betreuer sah die drei Reiter mit seinen Knöpfen. Er schaltete die
+  Wartung an und aus. „Seiten-Check aus“ wurde mit 403 abgewiesen.
+- Als Beobachter sah er keine Knöpfe, und die Wartung blieb zu (403).
+- Die Admin-Seite ist unverändert.
+
+**Noch offen:** das Handy (Stufe 3).
+
+**Promotion und Rücksprung für Verantwortliche (28.11., Referenz 0.1.409):**
+
+- Auf der kleinen Instanzseite gibt es für Verantwortliche eine Karte
+  „Version“.
+- **Übernehmen** geht nur auf einem Weg: aus der eigenen Test-Instanz in
+  die Produktivinstanz, aus der sie stammt. Ein neuer Name oder ein
+  anderes Ziel wird abgewiesen.
+- Darf die neue Version mehr als die laufende, bricht die Übernahme ab.
+  Bestätigen kann das nur die Mandantenverwaltung, auch der Knoten nimmt
+  das Häkchen einer gebundenen Person nicht an.
+- **Hierauf zurück** steht bei jedem früheren Paket.
+
+Auf oaap-test mit einem eigens gebauten Paar `vprobe-test` → `vprobe`
+gemessen:
+
+- Die Verantwortliche übernahm 0.1.2 (9 s) und sprang auf 0.1.1 zurück
+  (17 s). Im Protokoll steht beides als `bound:owner`.
+- Als Betreuer sah dieselbe Person keine Knöpfe und bekam 403.
+- Danach wurde alles entfernt.
