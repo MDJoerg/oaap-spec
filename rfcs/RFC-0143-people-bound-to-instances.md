@@ -4,6 +4,7 @@
   same day, D1–D7 all as recommended („Ja, wie empfohlen“).
   **Stage 0 measured 2026-11-28 (§9)** — F1: the worker did not judge the
   role of 30 instance requests; fixed in reference 0.1.405.
+  **Stage 1 built and measured 2026-11-28 (§10), reference 0.1.406.**
 - **Date:** 2026-11-28
 - **Authors:** Jörg (the need: „Personen aus dem tenant benennen, die z.b.
   für eine Webseite + testinstanz zuständig sind und produktiv setzen,
@@ -91,8 +92,8 @@ addresses and domains, the app's own administration.
   `site-watch`, `promote`, `rollback` and the short-link requests of
   RFC-0144 — asks it. The portal shows a button only where the function
   says yes, and never decides itself (the host judges again).
-- The audit names the actor and why they were allowed: `role:
-  tenant_admin` or `bound: betreuer`.
+- The audit names the actor and why they were allowed: the role
+  `tenant_admin`, or `bound:caretaker` (the record's English name, D7).
 
 ## 5. What a bound person sees
 
@@ -195,6 +196,60 @@ production instance carries its own bindings.
 `rebuild.failed`, `confirm.pending`, `advisory.image` (the field
 `instanz`) — the candidates for the recipient *Zuständige der Instanz*.
 
+## 10. Stage 1 built and measured (2026-11-28, reference 0.1.406)
+
+**Built.** The record: `people: [{person, role, since, by}]` on the instance,
+kept by an update, a rebuild and a promotion (`_install_from_dir`, beside
+`site_watch`); the tenant's log says `instance.people` with `old -> new`.
+`may(actor, instance, action)` in `appctl`: platform role first, then the
+strongest binding — the instance's own, or the production instance's it
+belongs to (`rehearsal.of`, else `source.promoted_from`, same tenant
+only). Judged live from identity's store: a disabled person, or one moved
+to another tenant, is refused at once whatever the record lists (§2's
+"loses every binding" — the record itself is cleaned when an admin ends
+the binding; the card marks it *wirkt nicht*). `BINDING_ACTIONS` lists what
+each role may: caretaker `maintenance`, `login-required`, `restart`,
+`wake`, `ai-fetchers`, „Jetzt prüfen“ (`site-check` with `op: run`); owner
+also `promote`, `rollback`, `site-check` on/off, `site-watch`. A bound
+owner promotes only the test instance the production instance was
+promoted from, and never creates one. The worker asks `may()` exactly
+where 0.1.405 refused; an allowed request carries the role
+`bound:<role>` into every audit entry. The spool request
+`instance-people` is an administrators' door (D3). CLI `oaap app people
+<instance> [add|set <person> <role> | remove <person>]` (German role
+names accepted). Portal: the card **Zuständige** at the top of the tab
+*Zugang* — person, role, since, by; change, end; bind an active person of
+the tenant; the bindings that reach a test instance through its
+production instance. Not yet: „Lage gesehen“ (RFC-0142 stage 3), the
+portal's buttons for bound people (stage 2, the reduced instance page).
+
+**Tests.** `test_people.py` (52 checks, real worker, no Docker): bind,
+refusals (twice, other tenant, inactive, unknown role), caretaker
+switches maintenance and restarts, „Jetzt prüfen“ yes and switching no,
+promote/rollback/remove/rename/config/visibility/site-watch/binding no,
+observer nothing, an unbound instance no, D2 both ways (production covers
+test; a test-only binding does not reach production), owner promotes the
+paired test instance and no other, disabled and moved accounts lose it,
+the card's view; it bites without `maintenance` for the caretaker and
+without the way through the production instance. Green as well: the 32
+tests that drive the worker, the instance page.
+
+**Measured on oaap-test** (backed up before; staged 0.1.406) through the
+real path unit, one active `user` of the probe instance's tenant bound as
+*Betreuer* to `sc-probe`:
+
+| Request in that person's name | Verdict |
+|---|---|
+| maintenance on / off | carried out (6.0 s / 6.5 s), audit role `bound:caretaker` |
+| site check „Jetzt prüfen“ | carried out (1.5 s) |
+| site check off | refused: *a binding as Betreuer does not allow 'site-check'* |
+| promote, remove | refused, same sentence |
+| bind someone (`instance-people`) | refused (D3) |
+| maintenance on an unbound instance of the tenant | refused, no binding named |
+
+The portal served the card with its form (`/instances/sc-probe?tab=zugang`).
+Cleaned up: maintenance off, binding removed, no `people` field left.
+
 ## Deutsche Zusammenfassung
 
 **Worum es geht:** Zwischen dem Mandanten-Admin, der alles darf, und den
@@ -242,3 +297,13 @@ server_admin oder den tenant_admin der Instanz und protokolliert die
 Absage; genau hier setzt später `may()` mit der Bindung an. Paare Test →
 Produktion: über `source.promoted_from` (oaapx01: 5 Paare). Acht
 Meldungsarten nennen eine Instanz.
+
+**Stufe 1 gebaut und gemessen (28.11., Referenz 0.1.406):** Bindungen
+`people` am Instanz-Datensatz (bleiben bei Update, Neubau, Promotion), eine
+Prüffunktion `may()` im Spool-Worker (erst Rolle, dann Bindung, auch über die
+Produktivinstanz), Protokoll-Rolle `bound:caretaker`, CLI `oaap app people`,
+Karte „Zuständige“ im Reiter Zugang. Auf oaap-test: ein gebundener Betreuer
+schaltete die Wartung ein und aus und löste „Jetzt prüfen“ aus; Seiten-Check
+schalten, Promotion, Löschen, andere binden und eine nicht gebundene Instanz
+wurden abgewiesen. Noch offen: Knöpfe für Gebundene im Portal („Meine
+Instanzen“, Stufe 2).
