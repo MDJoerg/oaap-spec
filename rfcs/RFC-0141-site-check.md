@@ -1,7 +1,8 @@
 # RFC-0141: Site Check — A Weekly Look at a Tenant's Web Site, From Outside
 
 - **Status:** **Accepted (2026-11-28)** — D1–D7 decided by Jörg, all as
-  recommended (§10, „Wie empfohlen“). Nothing built yet; stage 0 next.
+  recommended (§10, „Wie empfohlen“). **Stage 0 measured 2026-11-28
+  (§11)** — five findings change stage 1's design, none a decision.
 - **Date:** 2026-11-28
 - **Authors:** Jörg (the need: „Ok i-83“, after the look at `sglok-sbk.de`
   that started RFC-0140), Claude (design)
@@ -247,6 +248,87 @@ sees a router that blocks the world.
 - **D7 — Only the start page in stage 1?** Recommended: **yes**; the
   sitemap's pages in stage 3.
 
+## 11. Stage 0 measured (2026-11-28, reference 0.1.402)
+
+A script of the check (stdlib Python, the rules of §3.1–3.4, the limits
+of §2) ran from the nodes against oaap-test's instances and our own
+production sites only — no foreign tenant's site.
+
+**M1 — Does a node reach its own public names?**
+
+| Node | Way in | IPv4 | IPv6 |
+|---|---|---|---|
+| oaapx01 | direct | 303/200 in ≈ 23 ms | no AAAA record |
+| oaap-test (.96) | behind edge .75 | 303 in 0.09 s (router loops back) | hits the router itself, see M2 |
+| oaap-demo (.75) | edge | 303 in 0.08 s | same |
+| oaap-bernd (.95) | own port forwarding | 303 in 0.15 s | same |
+| raspberrypi | no external name | — | — |
+
+The loop back works on every node with web sites — D1 holds; „grey“
+stays for a router that does not loop back.
+
+**M2 — IPv6 points at the router (finding outside this RFC).** The
+`duckdns` names and `projects.joomp.de` carry an AAAA record
+`2003:fd:f7ff:5a0:…:e2f0` — the FRITZ!Box's own WAN address. From inside
+the LAN it answers 443 with its own remote-access certificate
+(`fritz.box`, `myfritz.net` …), so curl, which tries IPv6 first, failed
+with „self-signed certificate“ before the cause was found. From outside
+(oaapx01 over IPv6) the connection is **refused** within 35–190 ms, so a
+browser falls back to IPv4 and a visitor sees a short delay at most.
+Consequences for the check: probe **A and AAAA separately**; behind an
+edge the node judges IPv4 only and says „IPv6 von hier nicht prüfbar“;
+an AAAA that refuses from outside is a real yellow point („IPv6-Eintrag
+zeigt ins Leere“), visible only from another node (§5, later). The record
+itself is the router's DynDNS — Jörg's to decide.
+
+**M3 — Cost of one run.**
+
+| Site | Requests | Seconds | Transferred |
+|---|---|---|---|
+| `bdt.vuebung…` (oaap-test, 50 own assets, 30 fetched) | 34 | 9.5 | 1.3 MB |
+| `projects.joomp.de` (Forgejo) | 11 | 2.8 | 0.5 MB |
+| `market-test…` / `market.oaap-web…` | 8 / 6 | 2.1 / 1.4 | 10 / 7 KB |
+| `go.joomp.de` | 4 | 0.9 | 1 KB |
+
+Within §2's limits; a weekly run is no load.
+
+**Findings that change stage 1 (no decision needed):**
+
+- **F1 — Most production instances are apps, not web sites.** BDT,
+  the marketplace and the short-link service get seven yellow
+  „Auffindbarkeit“ points each (no robots.txt, sitemap, canonical,
+  description, og:image, og:url, structured data), and `go.joomp.de`
+  gets a red `noindex` it sends on purpose. The switch already means
+  „this is a web site“ (D4: off by default), but the card must not drown
+  the few points that matter: points of one area and one fixer are
+  **grouped** into one line with the details folded („Für Suchmaschinen
+  kaum vorbereitet: 7 Punkte“), red always unfolded.
+- **F2 — `no-transform` is the app's choice.** `projects.joomp.de`
+  sends its HTML uncompressed although the site has `encode`: Forgejo
+  answers `Cache-Control: … no-transform` and Caddy obeys. The check
+  reads the header and says „die App verbietet Umformung“, fixer
+  **Seite**, never „Plattform“.
+- **F3 — The check counts as a visitor today.** `site_stats.bot_of`
+  knows no needle in `OAAP-Seiten-Check/…`, so the stage-0 runs were
+  counted as page views (63 requests on five sites). Stage 1 adds the
+  check to `BOTS` as kind `other`, with a test.
+- **F4 — „TLS 1.0/1.1 accepted“ is measurable, but only one way.**
+  Python's `ssl` with `SECLEVEL=0` offers TLS 1.0/1.1 (OpenSSL 3.5.9 on
+  oaapx01) and gets the **server's** alert `protocol version` — a real
+  „not accepted“. `openssl s_client -tls1_1` with the system's default
+  configuration fails on the client („no protocols available“) and
+  proves nothing. The check keeps the probe and tells the two apart: a
+  server alert = green, a client-side error = grey („von hier nicht
+  prüfbar“), never green.
+- **F5 — Our own apps announce their versions.** `server:
+  marketplace/0.5.2 Python/3.13.18`, `oaap-wegweiser/0.6.2 …` — a yellow
+  point under D8 (informative); worth a line in those apps, not in the
+  platform.
+
+All rules gave plausible answers otherwise: certificates 50–89 days,
+TLS 1.3, HSTS/`nosniff`/Referrer present everywhere (RFC-0140),
+Tempo green on BDT (1.3 MB gzip), `og:image` relative on Forgejo found.
+
 ## Deutsche Zusammenfassung
 
 Anlass: Die Prüfung von `sglok-sbk.de` fand Lücken, die der Mieter selbst
@@ -285,3 +367,18 @@ Entschieden 28.11.2026 von Jörg: D1–D7 alle wie empfohlen -- auf dem Knoten s
 Schalter, Mail über „Hinweise“; Mandanten-Admin und Server-Admin dürfen;
 Vorgabe aus; Recht als Hinweis ja; wöchentlich plus Knopf; erst nur die
 Startseite.
+
+Stufe 0 gemessen (28.11.): Die Rückschleife über den Router klappt auf
+allen Knoten mit Webseiten (oaapx01 direkt, oaap-test/oaap-demo/oaap-bernd
+über IPv4). Ein Lauf kostet 4–34 Anfragen, 1–10 s, höchstens 1,3 MB.
+**Nebenbefund:** Die duckdns-Namen und `projects.joomp.de` haben einen
+IPv6-Eintrag auf die Fritzbox selbst -- von innen antwortet ihr
+Fernzugang mit eigenem Zertifikat, von außen wird abgelehnt und der
+Browser weicht auf IPv4 aus. Das ist Sache der Fritzbox/DynDNS (Jörg).
+Befunde für Stufe 1: (F1) die meisten Produktivinstanzen sind Apps, keine
+Webseiten -- gleichartige Punkte werden zusammengefasst, Rot bleibt
+offen; (F2) `no-transform` der App (Forgejo) erklärt fehlende
+Kompression, Behebung „Seite“; (F3) die Seitenstatistik zählt den Check
+heute als Besucher -- wird in die Automatenliste aufgenommen; (F4)
+TLS 1.0/1.1 ist mit Python messbar, Fehler auf Client-Seite = grau;
+(F5) unsere eigenen Apps nennen ihre Versionen im `Server`-Header.
