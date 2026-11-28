@@ -1,7 +1,7 @@
 # oaap.core.updates — Platform Updates
 
 - **ID:** `oaap.core.updates`
-- **Version:** 0.14 (**the portal's section „Updates“** on the health page -- server_admin at the node's own address only: the waiting packages by kind, a tick for Docker, „Jetzt einspielen“ as a spool order `upgrade` that starts the very run of 2.12, the running unit's log and the last result, §2.13; RFC-0139 stage 3, reference 0.1.394). 0.13 (**installing on the administrator's word** -- `oaap node care upgrade [--docker]`: backup first, apt in its own unit `oaap-upgrade`, only upgrades and never a removal, a check that every container runs again, audit and the notification `host.upgraded`, §2.12; RFC-0139 stage 2, reference 0.1.393). 0.12 (**the packages that wait** -- host care counts what `apt list --upgradable` offers (waiting, of them security, Docker, other; Docker by package name), a line in `oaap status` and on the health page, the daily matter `host.updates`, a line in the weekly report, and `oaap node care upgrade --dry-run` naming the packages; nothing is installed beyond what unattended-upgrades does, §2.11; RFC-0139 stage 1, reference 0.1.392). 0.11 (**freeing disk space** -- a care measure that removes images the node no longer needs, in classes: build cache, older versions of an image it built, images without an instance after seven days; foreign images only by a person one by one; data never; nightly after the backup, on disk pressure before the mail, by hand in the portal and with `oaap node care space`; journald capped at 2 GB, 2.10; RFC-0128, reference 0.1.387). 0.10 (the node door of a cases inbox also carries a tenant's **request to the operator** -- `object: request`, `from` naming tenant and person -- and answers `op: read` with state and replies, never an internal entry, 2.7.6, `oaap.core.tenant` 1.14, RFC-0109 §13; reference vorgaenge 0.12.0). 0.9
+- **Version:** 0.15 (**the images that wait for the grace** -- the plan and `oaap node care space` say how many images without an instance are still inside the 7 days, how large, and from which day the first is class C; before, they were invisible and class C read 0, 2.10; reference 0.1.404). 0.14 (**the portal's section „Updates“** on the health page -- server_admin at the node's own address only: the waiting packages by kind, a tick for Docker, „Jetzt einspielen“ as a spool order `upgrade` that starts the very run of 2.12, the running unit's log and the last result, §2.13; RFC-0139 stage 3, reference 0.1.394). 0.13 (**installing on the administrator's word** -- `oaap node care upgrade [--docker]`: backup first, apt in its own unit `oaap-upgrade`, only upgrades and never a removal, a check that every container runs again, audit and the notification `host.upgraded`, §2.12; RFC-0139 stage 2, reference 0.1.393). 0.12 (**the packages that wait** -- host care counts what `apt list --upgradable` offers (waiting, of them security, Docker, other; Docker by package name), a line in `oaap status` and on the health page, the daily matter `host.updates`, a line in the weekly report, and `oaap node care upgrade --dry-run` naming the packages; nothing is installed beyond what unattended-upgrades does, §2.11; RFC-0139 stage 1, reference 0.1.392). 0.11 (**freeing disk space** -- a care measure that removes images the node no longer needs, in classes: build cache, older versions of an image it built, images without an instance after seven days; foreign images only by a person one by one; data never; nightly after the backup, on disk pressure before the mail, by hand in the portal and with `oaap node care space`; journald capped at 2 GB, 2.10; RFC-0128, reference 0.1.387). 0.10 (the node door of a cases inbox also carries a tenant's **request to the operator** -- `object: request`, `from` naming tenant and person -- and answers `op: read` with state and replies, never an internal entry, 2.7.6, `oaap.core.tenant` 1.14, RFC-0109 §13; reference vorgaenge 0.12.0). 0.9
 - **Maturity:** draft — accepted by Jörg 2026-08-06 (CLI trigger
   implemented and validated on real hardware); 0.1.1 (2026-08-07)
   updates the reserved portal-trigger role to `server_admin` per
@@ -703,6 +703,17 @@ foreign image stays an event. The plan of the last measurement is
 sightings of class C and the last run `apps/space-state.json` (0600). Sizes
 are those `docker image ls` shows (unpacked); shared layers make a class's
 sum an upper bound, the disk before and after is the measured truth.
+
+**Waiting** (0.15). The plan carries `waiting: {count, bytes, from}` -- the
+images without an instance still inside the grace, kept now, class C once it
+ends; `from` is the day the first of them turns C. `oaap node care space`
+prints it as one line under the classes, the page „Platz“ as one sentence
+(`oaap.core.portal` 2.22). Measured on oaap-test 2026-11-28: 118 images
+(old store versions of mcp-gateway, vorgaenge, probes) first seen on
+2026-11-26 read „C 0“; they were not missed, they waited -- and nothing said
+so. The old versions of an app whose instances run an image of their own
+(`oaap-inst/<instance>`) are class C, not B: B is an older tag of the
+repository an instance runs.
 
 **journald** (D4): install and `oaap update` (migrate.sh) write
 `/etc/systemd/journald.conf.d/oaap.conf` with `SystemMaxUse=2G` -- a drop-in

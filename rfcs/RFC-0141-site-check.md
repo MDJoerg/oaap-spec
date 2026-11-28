@@ -5,6 +5,9 @@
   (§11)** — five findings change stage 1's design, none a decision.
   **Stage 1 built 2026-11-28 (reference 0.1.403, §12)** — measured on
   oaap-test and, read-only, on two of our own sites on oaapx01.
+  **Stages 2 and 3 built 2026-11-28 (reference 0.1.404, §13)** — both
+  „done when“ measured on oaap-test: a red point opened and closed a
+  matter, a planted broken link was found. All stages built.
 - **Date:** 2026-11-28
 - **Authors:** Jörg (the need: „Ok i-83“, after the look at `sglok-sbk.de`
   that started RFC-0140), Claude (design)
@@ -388,6 +391,76 @@ weekly run by the timer itself (the timer is written by `install.sh`,
 which a staged node does not run — it comes with the fleet update); grey
 on a router without loop-back (none in the fleet).
 
+## 13. Stages 2 and 3 built (2026-11-28, reference 0.1.404)
+
+**What was built.**
+
+- **Recht (§3.4)** in `site_check.py`: a link to the imprint and to the
+  privacy statement, found by its text (nested text and `title`/`aria-label`
+  count) or its path (`impressum`, `imprint`, `legal-notice`, `datenschutz`,
+  `privacy` …); third-party hosts the start page loads (scripts, styles,
+  icons, images, iframes) whose last two labels differ from the canonical
+  name's -- a subdomain of the site is its own -- and Google Fonts also when
+  named only in an inline `@import`; cookies of the first answer, a point
+  only for names that do not look technical (`_ga`, `_fbp`), the technical
+  ones (session, CSRF, language, consent) a note. All yellow, fixer „Seite“,
+  the card says „Hinweise, keine Rechtsberatung“. A start page that is no
+  page (an error) gives Recht **grey** with a note, never green (wegweiser
+  on oaap-test answers `/` with 404).
+- **„neu / behoben“ (§6):** `diff` of the last run against the one before
+  (a point that is new or rose to red is „neu“; a point gone is „behoben“);
+  a grey run on either side compares nothing.
+- **Notification `site.check`** (`oaap.core.notifications` 0.18): only where
+  both `site_check` and `site_watch` are on; opens when the last judged run
+  has a red point that was not red in the judged run before, stays open
+  while red, closes with the first run without red; grey runs are skipped.
+  Switching either off closes without a mail.
+- **Weekly report:** the day line of the measured day carries the last run
+  of every checked instance; the report has a section „Seiten-Check“ (four
+  lights, red/yellow counts) and, for a red point, a line in „Auf einen
+  Blick“.
+- **Stage 3:** up to `MAX_PAGES` = 10 more pages on the canonical name --
+  the sitemap's first, then the start page's own links (no fragments, no
+  `mailto:`/`tel:`, no foreign name, each once, the start page not again);
+  a redirect is an answer, not followed. Points: „Verweise ins Leere“
+  (404 yellow, 5xx red, with path and where it came from), „Unterseiten ohne
+  Titel“, „Die Sitemap nennt Seiten, die noindex sagen“. A note says how many
+  were read and how many not.
+- **History:** the card shows the kept runs (up to 12) as bars, red below,
+  yellow above, a grey run short and grey.
+- The portal card (`oaap.core.portal` 2.27): four lights (a stage-1 run
+  shows Recht „beim nächsten Lauf“), the chart, „neu“ tags, „Seit dem
+  letzten Lauf behoben“, the new mail sentence.
+
+**Measured on oaap-test (staged 0.1.404).** A probe site `sc-probe` (the
+`website-starter` of oaap-examples with a planted dead link
+`/termine-alt.html` on the start page, a sitemap naming the missing
+`/kaputt.html`, an imprint page without a title, no privacy link, Google
+Fonts) as a production instance: the check found **both dead links**
+(„/kaputt.html (404, Sitemap), /termine-alt.html (404, Link der
+Startseite)“), the untitled imprint, the missing privacy link and
+`fonts.googleapis.com` -- 9 requests, 2.1 s. `vuebung-bdt` (44 requests,
+11.9 s; 10 more pages read, 76 not), `market-test` (15 requests, 7 more
+pages) and `wegweiser` gave plausible Recht points (no imprint, no privacy
+link on the two apps).
+
+**Found while measuring -- F6: the first request to a new name is slow.**
+The first run, started by switching on right after the install, measured
+the first byte after **8.2 s** -- red Tempo; the next run 0.03 s. The
+gateway answers a new name's very first request only after it has its
+certificate. With „Hinweise zur Webseite“ on, this false red **opened the
+matter** `site.check` (mail 08:44:14 UTC to the list Serverbesitzer of
+oaap-test) and the green run closed it (08:45:15) -- so stage 2's „done
+when“ is measured, by a false alarm. Fixed: a start page slower than 1 s is
+asked once more (`HEAD`) and the better time counts; `ttfb_first` keeps the
+first; a fast page costs no extra request. Tested with a fake first answer of
+8.2 s.
+
+**Not measured:** the button in a real browser; the weekly timer itself
+(comes with the fleet update); a report actually written with the section
+(the ledger line is written for the measured day only -- the next Monday
+report on a node that runs 0.1.404).
+
 ## Deutsche Zusammenfassung
 
 Anlass: Die Prüfung von `sglok-sbk.de` fand Lücken, die der Mieter selbst
@@ -455,3 +528,20 @@ Marketplace, Wegweiser) und nur lesend gegen `market.oaap-web…` und
 Messen gefunden und behoben: der losgelöste Lauf rief `appctl.py app …`
 auf. Nicht gemessen: Klick im echten Browser, ein Wochenlauf durch den
 Timer selbst (kommt mit dem Flotten-Update).
+
+Stufen 2 und 3 gebaut (28.11., Referenz 0.1.404): **Recht** als Hinweis
+(Impressum- und Datenschutz-Link nach Text oder Pfad, fremde Server samt
+Google Fonts im `@import`, Cookies der ersten Antwort -- nur nicht-technische
+sind ein Punkt); liefert die Startseite keine Seite, ist Recht grau, nie
+grün. **„neu“ und „behoben“** gegenüber dem Lauf davor. Die Meldung
+**`site.check`** nur mit beiden Schaltern; sie öffnet bei neuem Rot und
+schließt mit dem ersten Lauf ohne Rot. **Wochenbericht** mit Abschnitt
+„Seiten-Check“. **Stufe 3:** bis zu zehn Unterseiten aus Sitemap und Links
+der Startseite -- tote Verweise, Seiten ohne Titel, noindex in der Sitemap;
+**Verlauf** der letzten 12 Läufe als Balken auf der Karte. Gemessen auf
+oaap-test mit einer Probe-Seite: beide gepflanzten toten Links gefunden.
+**Befund F6:** Der allererste Aufruf eines neuen Namens dauerte 8,2 s
+(Zertifikat), der Lauf direkt nach dem Einschalten meldete deshalb rot --
+die Lage öffnete (Mail 08:44) und schloss eine Minute später. Behoben: Eine
+langsame Startseite wird einmal nachgemessen, der bessere Wert zählt.
+Damit sind alle Stufen gebaut.
