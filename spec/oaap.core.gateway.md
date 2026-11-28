@@ -1,7 +1,7 @@
 # oaap.core.gateway — HTTP Gateway (outline)
 
 - **ID:** `oaap.core.gateway`
-- **Version:** 0.2.29 (**base hardening, stage 2** (RFC-0140): every instance site sets `Strict-Transport-Security: max-age=31536000` on an answer that went out over https (TLS at the site or at the edge), `X-Content-Type-Options: nosniff` and `Referrer-Policy: strict-origin-when-cross-origin` -- each only where the app set none, switchable off per instance; section „Base hardening“; reference 0.1.401). 0.2.28 (**base hardening, stage 1** (RFC-0140): every instance site compresses (`encode zstd gzip`, switchable off per instance) and refuses `TRACE`, `TRACK` and `CONNECT` with 405 at the gateway; the public-route brake counts in one place every identity worker shares, so the limit is the limit and not the limit times the worker count; sections „Base hardening“ and „Public-route throttling“; reference 0.1.400). 0.2.27 (**the switch „KI-Abrufer“** per instance -- `allow` (default), `training` or `all`: the gateway answers `/robots.txt` itself with one group for the shut-out tokens and refuses every other request whose User-Agent names a shut-out fetcher with 403; search engines never; section „AI fetchers“; reference 0.1.397). 0.2.26 (**a test instance stays out of search engines**: every site of an instance on the test channel or of a rehearsal carries `X-Robots-Tag: noindex, nofollow`, deferred so it replaces the app's own; a production instance never; section „Search engines and the channel“; I-81 idea 1, reference 0.1.395). 0.2.25 (0.2.25: **gates** -- a block `/gate/*` on the tenant's place: delivery and reading pass identity's gate check and go to the target with the gate's description in headers no client can set; ping and templates to identity; gate headers stripped on every instance site, section „Gates on the tenant's place“; RFC-0135 stage 1, reference 0.1.383). 0.2.24 (0.2.24: a kernel **without** MPTCP has no switch to set, and a container runtime refuses a container that asks for one -- there the gateway starts without it, since nothing on that kernel can negotiate MPTCP, section „Plain TCP listeners“; found on WSL2, I-68; reference 0.1.356). 0.2.23 (0.2.23: **login on every route** per instance -- an operator switch on the instance record makes every route of that instance ask identity, the manifest's `public` ones included, RFC-0092; 0.2.22: 0.2.22: **secret files refused** on every instance site -- see that section, RFC-0084)
+- **Version:** 0.2.30 (**base hardening, stage 3** (RFC-0140): an instance's aliases may redirect (301) to its canonical name instead of serving -- switch `alias_mode` per instance, `serve` for aliases that existed before, `redirect` for an instance's first alias from now on; section „Base hardening“; reference 0.1.402). 0.2.29 (**base hardening, stage 2** (RFC-0140): every instance site sets `Strict-Transport-Security: max-age=31536000` on an answer that went out over https (TLS at the site or at the edge), `X-Content-Type-Options: nosniff` and `Referrer-Policy: strict-origin-when-cross-origin` -- each only where the app set none, switchable off per instance; section „Base hardening“; reference 0.1.401). 0.2.28 (**base hardening, stage 1** (RFC-0140): every instance site compresses (`encode zstd gzip`, switchable off per instance) and refuses `TRACE`, `TRACK` and `CONNECT` with 405 at the gateway; the public-route brake counts in one place every identity worker shares, so the limit is the limit and not the limit times the worker count; sections „Base hardening“ and „Public-route throttling“; reference 0.1.400). 0.2.27 (**the switch „KI-Abrufer“** per instance -- `allow` (default), `training` or `all`: the gateway answers `/robots.txt` itself with one group for the shut-out tokens and refuses every other request whose User-Agent names a shut-out fetcher with 403; search engines never; section „AI fetchers“; reference 0.1.397). 0.2.26 (**a test instance stays out of search engines**: every site of an instance on the test channel or of a rehearsal carries `X-Robots-Tag: noindex, nofollow`, deferred so it replaces the app's own; a production instance never; section „Search engines and the channel“; I-81 idea 1, reference 0.1.395). 0.2.25 (0.2.25: **gates** -- a block `/gate/*` on the tenant's place: delivery and reading pass identity's gate check and go to the target with the gate's description in headers no client can set; ping and templates to identity; gate headers stripped on every instance site, section „Gates on the tenant's place“; RFC-0135 stage 1, reference 0.1.383). 0.2.24 (0.2.24: a kernel **without** MPTCP has no switch to set, and a container runtime refuses a container that asks for one -- there the gateway starts without it, since nothing on that kernel can negotiate MPTCP, section „Plain TCP listeners“; found on WSL2, I-68; reference 0.1.356). 0.2.23 (0.2.23: **login on every route** per instance -- an operator switch on the instance record makes every route of that instance ask identity, the manifest's `public` ones included, RFC-0092; 0.2.22: 0.2.22: **secret files refused** on every instance site -- see that section, RFC-0084)
 - **Maturity:** draft (outline — full specification to follow;
   an edge route covers **two** levels below its host (`*.*.host`), so a
   tenant's instances behind an edge are forwarded, 2026-11-07 after a
@@ -728,7 +728,7 @@ instance record, `ai_fetchers: {block, since, by, reason}`:
   allow|training|all [--reason]` or the portal (spool action
   `ai-fetchers`, judged by the host like `login-required`).
 
-## Base hardening (0.2.28/0.2.29, RFC-0140 stages 1 and 2)
+## Base hardening (0.2.28–0.2.30, RFC-0140 stages 1 to 3)
 
 What every tenant's site should have and none should have to think of is
 written once, into the body every entry point of an instance shares (LAN
@@ -779,8 +779,26 @@ listener, automatic name, canonical name, aliases).
     stored only while off, kept by an update, logged as
     `instance.hardening`. The update's `migrate-hardening` writes the
     headers into existing sites and never back into a switched-off one.
-- Stage 3 adds an alias that redirects to the canonical name (RFC-0140
-  §4).
+- **An alias that redirects** (0.2.30, stage 3). The instance record's
+  `alias_mode` is `"serve"` (RFC-0018: every alias a front door) or
+  `"redirect"`: then each alias site holds nothing but
+  `redir https://<canonical>{uri} permanent` -- its own site and
+  certificate, the edge guard behind an edge, the access log (the site
+  statistics see a 301 and count no page view), and in direct mode the
+  `http://` form goes to the canonical https name in one hop. The
+  canonical site is unchanged byte for byte; the automatic node names
+  keep serving; `OAAP_INSTANCE_NAMES` still lists the aliases.
+  - Absent means `serve`, so no existing site changes on an update (D3).
+    An instance that gets its **first** alias from this version on is
+    stored as `redirect`; an instance that already serves aliases keeps
+    serving when it gets another. An explicit `serve` is stored and
+    survives removing and re-adding aliases. (The RFC's working name
+    `aliases: serve|redirect` collides with the alias list on the record,
+    hence `alias_mode`.)
+  - `oaap app address aliases <instance> serve|redirect`, and in the
+    portal the button in the „Aliasse“ card (the instance admin who may
+    add aliases, D6); one door `alias_mode_set`, logged as
+    `instance.aliases`, kept by an update like the aliases themselves.
 
 ## Dependencies
 
@@ -1211,3 +1229,12 @@ Antworten über https, auch hinter einem Edge, nie am LAN-Port;
 CSP, Einbett-Schutz und Kamera/Mikro-Regeln bewusst nicht. Abschaltbar je
 Instanz mit `oaap app hardening <instanz> --headers off`, bestehende Seiten
 lernt das Update.
+
+## Deutsche Zusammenfassung (0.2.30 — Grundhärtung Stufe 3, RFC-0140)
+
+Aliasse einer Instanz können jetzt mit 301 auf den Hauptnamen umleiten,
+statt dieselbe Seite selbst auszuliefern — eine Suchmaschine sieht dann
+eine Adresse statt zwei. Schalter `alias_mode` je Instanz: bestehende
+Aliasse liefern weiter aus, der erste Alias einer Instanz ab jetzt leitet
+um. Umschalten mit `oaap app address aliases <instanz> serve|redirect`
+oder im Portal in der Karte „Aliasse“; das Update behält die Wahl.

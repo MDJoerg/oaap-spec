@@ -6,6 +6,9 @@
   recommended: fixed in stage 1. **Stage 1 built and measured 2026-11-27
   (§12)**: reference 0.1.400, `oaap.core.gateway` 0.2.28. **Stage 2 built
   and measured 2026-11-27 (§13)**: reference 0.1.401, gateway 0.2.29.
+  **Stages 1 and 2 on the fleet 2026-11-28** (all nodes but oaapx02).
+  **Stage 3 built and measured 2026-11-28 (§14)**: reference 0.1.402,
+  gateway 0.2.30.
 - **Date:** 2026-11-27
 - **Authors:** Jörg (the need: look at `sglok-sbk.de`, a tenant's page made
   with the deploy-URL procedure, as Google, as a visitor and as an attacker
@@ -311,7 +314,61 @@ sites, 100 `nosniff` lines in 50 instance files and `external.caddy`):
 | M4 open from stage 0: `nosniff` behind the login | every instance's own container with signed-in identity headers: 39 scripts and styles on 8 apps, **0 wrong types** (the other apps load none from their first page, or only the platform's two files; `ws375-wiki` sends to Keycloak first, not covered) |
 
 Not measured: a browser console per app behind the login (the type
-check above is what `nosniff` acts on). Not on the fleet yet.
+check above is what `nosniff` acts on).
+
+## 14. Fleet for stages 1 and 2, stage 3 built and measured (2026-11-28)
+
+**Fleet (0.1.401):** oaap-test, raspberrypi, oaap-bernd, oaap-demo and
+oaapx01, each backed up first, then `oaap update` from Git. oaapx02 is
+not touched by us; `sglok-sbk.de`, the site that started this RFC, lives
+there, so its own measurement waits for that node. Before/after over
+every public name of oaap-demo (17) and oaapx01 (83): no status changed
+(studio on oaap-demo answers again, it timed out before). Reading only,
+from outside: `market.oaap-web…`, `app.bdt…`, `team.bdt…` and
+`projects.joomp.de` send HSTS, `nosniff` and `Referrer-Policy`, the
+first three `Content-Encoding: zstd`.
+
+**M9, WebSocket through `encode` (open since stage 0):** a temporary
+site on oaap-test's gateway with exactly `harden_site_lines` in front of
+Uptime Kuma's socket.io, removed afterwards: with and without
+`Accept-Encoding: zstd, gzip` the upgrade answers `101 Switching
+Protocols` without `Content-Encoding`, and the first frame is a plain text
+frame (`0{"sid":…`) after 3–8 ms. `encode` leaves upgrades alone.
+
+**Stage 3 built:** the record's switch is `alias_mode` -- the RFC's
+working name `aliases` is already the alias list. `alias_redirect_site`
+writes the alias's own site with the edge guard (behind an edge), the
+access log and `redir https://<canonical>{uri} permanent` inside a
+`handle`; in direct mode `http://<alias>` goes to the canonical https
+name in one hop. Absent = `serve`; an instance's first alias from 0.1.402
+on stores `redirect` (D3); an explicit `serve` is stored and kept.
+`oaap app address aliases <instance> serve|redirect`, the portal's
+button in the „Aliasse“ card (spool op `alias-mode`), audit
+`instance.aliases`, kept by an update. Tests: `test_base_hardening`
+57 checks, `test_gates` knows the gate line.
+
+Measured on oaap-test (behind edge 10.10.10.75), with temporary names on
+`vuebung-bdt`, removed afterwards:
+
+| Probe | Result |
+|---|---|
+| first alias added | stored `redirect`, CLI says so; `show` prints „Aliases: redirect (301)“; `OAAP_INSTANCE_NAMES` still lists the alias |
+| alias from the edge, `/foo?x=1` | `301`, `Location: https://s3probe.example/foo?x=1` |
+| alias not from the edge | first build: **301** -- Caddy orders a bare `redir` before `handle`, so the guard's 403 came too late (no secret leaks, but the edge rule must hold); fixed by the `handle` above, then **403** |
+| canonical name from the edge | `200` with HSTS and `nosniff`; the automatic node name `200` from outside |
+| switch to `serve` | no redirect line left, alias `200` |
+| access log | the alias's 301 and 403 are logged (the site statistics count neither as a page view) |
+| audit | two `instance.aliases` lines with tenant and subject |
+
+**Found on the way (not RFC-0140):** the update said „external.caddy
+rewritten … identity headers“ on every run since 0.1.383 -- the
+staleness check of RFC-0040's migration did not know the gate block's
+`copy_headers` line (RFC-0135) nor the coupling door's own strips
+(RFC-0136), so it rewrote the file and reloaded the gateway every time.
+Fixed in 0.1.402 (`_COPY_GATE`, `COUPLE_HEADERS` excluded); two stagings
+in a row on oaap-test: silent.
+
+Not measured: the portal button clicked in a real browser.
 
 ## Deutsche Zusammenfassung
 
@@ -364,3 +421,14 @@ jeder Instanzseite, nur wo die App keinen eigenen Wert setzt (Keycloak
 behält seine). Alle 50 Instanzen gleicher Status, 0 falsche Inhaltstypen
 auch bei Apps hinter dem Login (39 Dateien, 8 Apps). Schalter
 `--headers off` je Instanz. Noch nicht auf der Flotte.
+
+28.11.: Stufen 1 und 2 auf der Flotte (alle Knoten außer oaapx02, dort
+liegt sglok-sbk.de); keine öffentliche Adresse hat ihren Status
+geändert, Header und Kompression von außen bestätigt. WebSocket durch
+`encode` gemessen: unverändert. Stufe 3 gebaut und gemessen (0.1.402,
+gateway 0.2.30): Aliasse können mit 301 auf den Hauptnamen umleiten,
+Schalter `alias_mode` (bestehende liefern weiter aus, der erste Alias ab
+jetzt leitet um), CLI `oaap app address aliases`, Knopf im Portal. Dabei
+gefunden und behoben: der Edge-Wächter griff bei der Umleitung zu spät,
+und eine Migration schrieb seit 0.1.383 bei jedem Update `external.caddy`
+neu.
